@@ -13,7 +13,7 @@ endif()
 
 find_package(Git QUIET)
 # ${CMAKE_SOURCE_DIR}/.git may be a directory or a regular file
-if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
     # Make sure LC_ALL is set to something desirable
     set(SAVED_LC_ALL "$ENV{LC_ALL}")
     set(ENV{LC_ALL} C)
@@ -22,13 +22,13 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
     set(REV_MODIFIED 0)
 
     # Refresh the index to make sure file stat info is in sync, then look for modifications
-    execute_process(COMMAND ${GIT_EXECUTABLE} update-index --refresh
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_SOURCE_DIR}" update-index --refresh
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_QUIET
     )
 
     # See if git tree is modified
-    execute_process(COMMAND ${GIT_EXECUTABLE} diff-index HEAD
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_SOURCE_DIR}" diff-index HEAD
                     OUTPUT_VARIABLE IS_MODIFIED
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -38,7 +38,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
     endif()
 
     # Get last commit hash
-    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --verify HEAD
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_SOURCE_DIR}" rev-parse --verify HEAD
                     OUTPUT_VARIABLE FULLHASH
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -50,7 +50,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
 
     # Get the last commit date
     set(ENV{TZ} "UTC0")
-    execute_process(COMMAND ${GIT_EXECUTABLE} show -s --date=iso-local --pretty=format:%cd HEAD
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_SOURCE_DIR}" show -s --date=iso-local --pretty=format:%cd HEAD
                     OUTPUT_VARIABLE COMMITDATE
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -59,7 +59,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
     set(REV_ISODATE "${COMMITDATE}")
 
     # Get the branch
-    execute_process(COMMAND ${GIT_EXECUTABLE} symbolic-ref -q HEAD
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_SOURCE_DIR}" symbolic-ref -q HEAD
                     OUTPUT_VARIABLE BRANCH
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -68,7 +68,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
     string(REGEX REPLACE ".*/" "" BRANCH "${BRANCH}")
 
     # Get the tag
-    execute_process(COMMAND ${GIT_EXECUTABLE} name-rev --name-only --tags --no-undefined HEAD
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_SOURCE_DIR}" describe --tags --abbrev=9 --dirty=-m
                     OUTPUT_VARIABLE TAG
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -77,11 +77,11 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
     string(REGEX REPLACE "\^0$" "" TAG "${TAG}")
 
     if(REV_MODIFIED EQUAL 0)
-        set(HASHPREFIX "-g")
+        set(HASHSUFFIX "")
     elseif(REV_MODIFIED EQUAL 2)
-        set(HASHPREFIX "-m")
+        set(HASHSUFFIX "-m")
     else()
-        set(HASHPREFIX "-u")
+        set(HASHSUFFIX "-u")
     endif()
 
     # Set the version string
@@ -96,13 +96,58 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
             set(REV_ISSTABLETAG 0)
         endif()
     else()
-        set(REV_VERSION "${REV_ISODATE}-${BRANCH}${HASHPREFIX}${SHORTHASH}")
+        set(REV_VERSION "${REV_ISODATE}-${BRANCH}-g${SHORTHASH}${HASHSUFFIX}")
         set(REV_ISTAG 0)
         set(REV_ISSTABLETAG 0)
     endif()
 
+    if(EXISTS "${CMAKE_SOURCE_DIR}/.ottdrev-vc")
+        file(READ "${CMAKE_SOURCE_DIR}/.ottdrev-vc" OTTDREVVC)
+        string(REPLACE "\n" ";" OTTDREVVC "${OTTDREVVC}")
+        list(GET OTTDREVVC 0 OTTDREV)
+        string(REPLACE "\t" ";" OTTDREV "${OTTDREV}")
+        list(GET OTTDREV 0 REV_RELEASE)
+    else()
+        set(REV_RELEASE "jgrpp-0.0")
+    endif()
+
     # Restore LC_ALL
     set(ENV{LC_ALL} "${SAVED_LC_ALL}")
+elseif(EXISTS "${CMAKE_SOURCE_DIR}/.ottdrev-vc")
+    file(READ "${CMAKE_SOURCE_DIR}/.ottdrev-vc" OTTDREVVC)
+    string(REPLACE "\n" ";" OTTDREVVC "${OTTDREVVC}")
+    list(GET OTTDREVVC 0 OTTDREV)
+    list(GET OTTDREVVC 1 SRCHASH)
+    string(REPLACE "\t" ";" OTTDREV "${OTTDREV}")
+    list(GET OTTDREV 0 REV_VERSION)
+    list(GET OTTDREV 0 REV_RELEASE)
+    list(GET OTTDREV 1 REV_ISODATE)
+    list(GET OTTDREV 2 REV_MODIFIED)
+    list(GET OTTDREV 3 REV_HASH)
+    list(GET OTTDREV 4 REV_ISTAG)
+    list(GET OTTDREV 5 REV_ISSTABLETAG)
+    if(REV_MODIFIED EQUAL 2)
+        string(REGEX REPLACE "M$" "" REV_VERSION "${REV_VERSION}")
+    endif()
+    execute_process(COMMAND ./version_utils.sh -o
+                    RESULT_VARIABLE CAN_CHECK_MODIFIED
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    if(CAN_CHECK_MODIFIED EQUAL 0)
+        execute_process(COMMAND ./version_utils.sh -s
+                        OUTPUT_VARIABLE CURRENT_HASH
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        )
+        if(NOT CURRENT_HASH STREQUAL SRCHASH)
+            set(REV_MODIFIED 2)
+            string(SUBSTRING "${CURRENT_HASH}" 0 8 SHORT_CURRENT_HASH)
+            set(REV_VERSION "${REV_VERSION}-H${SHORT_CURRENT_HASH}")
+            set(REV_MODIFIED 2)
+        endif()
+    else()
+        set(REV_MODIFIED 1)
+    endif()
 elseif(EXISTS "${CMAKE_SOURCE_DIR}/.ottdrev")
     file(READ "${CMAKE_SOURCE_DIR}/.ottdrev" OTTDREV)
     string(REPLACE "\n" "" OTTDREV "${OTTDREV}")
@@ -113,9 +158,11 @@ elseif(EXISTS "${CMAKE_SOURCE_DIR}/.ottdrev")
     list(GET OTTDREV 3 REV_HASH)
     list(GET OTTDREV 4 REV_ISTAG)
     list(GET OTTDREV 5 REV_ISSTABLETAG)
+    set(REV_RELEASE "jgrpp-0.0")
 else()
     message(WARNING "No version detected; this build will NOT be network compatible")
     set(REV_VERSION "norev0000")
+    set(REV_RELEASE "jgrpp-0.0")
     set(REV_ISODATE "19700101")
     set(REV_MODIFIED 1)
     set(REV_HASH "unknown")
@@ -123,26 +170,26 @@ else()
     set(REV_ISSTABLETAG 0)
 endif()
 
+string(REGEX MATCH "^jgrpp-[0-9]+(\.[0-9]+)?(\.[0-9]+)?" REV_RELEASE "${REV_RELEASE}")
+string(REPLACE "jgrpp-" "" REV_RELEASE "${REV_RELEASE}")
+
 # Extract REV_YEAR and REV_DATE from REV_ISODATE
 string(SUBSTRING "${REV_ISODATE}" 0 4 REV_YEAR)
 string(SUBSTRING "${REV_ISODATE}" 4 4 REV_DATE)
 # Drop leading 0 in REV_DATE if any
 string(REGEX REPLACE "^0?([0-9]+)" "\\1" REV_DATE "${REV_DATE}")
 
-message(STATUS "Version string: ${REV_VERSION}")
+message(STATUS "Version string: ${REV_VERSION}, Release: ${REV_RELEASE}")
 
 if(GENERATE_OTTDREV)
-    message(STATUS "Generating .ottdrev")
-    file(WRITE ${CMAKE_SOURCE_DIR}/.ottdrev "${REV_VERSION}\t${REV_ISODATE}\t${REV_MODIFIED}\t${REV_HASH}\t${REV_ISTAG}\t${REV_ISSTABLETAG}\n")
-else()
-    if(REV_ISSTABLETAG AND NOT (REV_VERSION STREQUAL "${REV_MAJOR}.${REV_MINOR}"))
-        message(FATAL_ERROR "Tag (${REV_VERSION}) doesn't match internal version (${REV_MAJOR}.${REV_MINOR})")
-    endif()
+    message(STATUS "Generating ${GENERATE_OTTDREV}")
+    file(WRITE ${CMAKE_SOURCE_DIR}/${GENERATE_OTTDREV} "${REV_VERSION}\t${REV_ISODATE}\t${REV_MODIFIED}\t${REV_HASH}\t${REV_ISTAG}\t${REV_ISSTABLETAG}\n")
+elseif(NOT "${FIND_VERSION_BINARY_DIR}" STREQUAL "")
     message(STATUS "Generating rev.cpp")
     configure_file("${CMAKE_SOURCE_DIR}/src/rev.cpp.in"
             "${FIND_VERSION_BINARY_DIR}/rev.cpp")
 
-    if(WINDOWS)
+    if(WIN32)
         message(STATUS "Generating ottdres.rc")
         configure_file("${CMAKE_SOURCE_DIR}/src/os/windows/ottdres.rc.in"
                 "${FIND_VERSION_BINARY_DIR}/ottdres.rc")

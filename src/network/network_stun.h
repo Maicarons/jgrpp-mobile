@@ -15,9 +15,9 @@
 /** Class for handling the client side of the STUN connection. */
 class ClientNetworkStunSocketHandler : public NetworkStunSocketHandler {
 private:
-	std::string token;        ///< Token of this STUN handler.
+	std::string token;          ///< Token of this STUN handler.
 	uint8_t family = AF_UNSPEC; ///< Family of this STUN handler.
-	bool sent_result = false; ///< Did we sent the result of the STUN connection?
+	bool sent_result = false;   ///< Did we sent the result of the STUN connection?
 
 public:
 	std::shared_ptr<TCPConnecter> connecter{}; ///< Connecter instance.

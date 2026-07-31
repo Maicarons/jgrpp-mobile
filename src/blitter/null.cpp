@@ -25,6 +25,8 @@ Sprite *Blitter_Null::Encode(SpriteType, const SpriteLoader::SpriteCollection &s
 	dest_sprite->width = root_sprite.width;
 	dest_sprite->x_offs = root_sprite.x_offs;
 	dest_sprite->y_offs = root_sprite.y_offs;
+	dest_sprite->next = nullptr;
+	dest_sprite->missing_zoom_levels = {};
 
 	return dest_sprite;
 }

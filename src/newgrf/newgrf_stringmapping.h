@@ -12,8 +12,31 @@
 
 #include "../strings_type.h"
 #include "../newgrf_text_type.h"
+#include "../core/bit_cast.hpp"
 
-void AddStringForMapping(GRFStringID source, std::function<void(StringID)> &&func);
+/**
+ * Information for mapping static StringIDs.
+ */
+using StringIDMappingHandler = void(*)(StringID, uintptr_t);
+
+/**
+ * Record a static StringID for getting translated later.
+ * @param source Source grf-local GRFStringID.
+ * @param data Arbitrary data (e.g pointer), must fit into a uintptr_t.
+ * @param func Function to call to set the mapping result.
+ */
+template <typename T, typename F>
+static void AddStringForMapping(GRFStringID source, T data, F func)
+{
+	static_assert(sizeof(T) <= sizeof(uintptr_t));
+
+	extern void AddStringForMappingGeneric(GRFStringID source, uintptr_t data, StringIDMappingHandler func);
+	AddStringForMappingGeneric(source, bit_cast_to_storage<uintptr_t>(data), [](StringID str, uintptr_t func_data) {
+		F handler;
+		handler(str, bit_cast_from_storage<T>(func_data));
+	});
+}
+
 void AddStringForMapping(GRFStringID source, StringID *target);
 void FinaliseStringMapping();
 

@@ -46,6 +46,18 @@ void Blitter_32bppSimple::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Zoo
 					}
 					break;
 
+				case BlitterMode::ColourRemapWithBrightness:
+					/* In case the m-channel is zero, do not remap this pixel in any way */
+					if (src->m == 0) {
+						if (src->a != 0) {
+							Colour c = AdjustBrightness(Colour(src->r, src->g, src->b, src->a), DEFAULT_BRIGHTNESS + bp->brightness_adjust);
+							*dst = ComposeColourRGBA(c.r, c.g, c.b, c.a, *dst);
+						}
+					} else {
+						if (bp->remap[src->m] != 0) *dst = ComposeColourPA(AdjustBrightness(this->LookupColourInPalette(bp->remap[src->m]), Clamp(src->v + bp->brightness_adjust, 0, 255)), src->a, *dst);
+					}
+					break;
+
 				case BlitterMode::CrashRemap:
 					if (src->m == 0) {
 						if (src->a != 0) {
@@ -74,6 +86,13 @@ void Blitter_32bppSimple::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Zoo
 					/* Apply custom transparency remap. */
 					if (src->a != 0) {
 						*dst = this->LookupColourInPalette(bp->remap[GetNearestColourIndex(*dst)]);
+					}
+					break;
+
+				case BlitterMode::NormalWithBrightness:
+					if (src->a != 0) {
+						Colour c = AdjustBrightness(Colour(src->r, src->g, src->b, src->a), DEFAULT_BRIGHTNESS + bp->brightness_adjust);
+						*dst = ComposeColourRGBA(c.r, c.g, c.b, c.a, *dst);
 					}
 					break;
 
@@ -122,12 +141,14 @@ Sprite *Blitter_32bppSimple::Encode(SpriteType, const SpriteLoader::SpriteCollec
 	Sprite *dest_sprite = allocator.Allocate<Sprite>(sizeof(*dest_sprite) + static_cast<size_t>(root_sprite.height) * static_cast<size_t>(root_sprite.width) * sizeof(*dst));
 
 	dest_sprite->height = root_sprite.height;
-	dest_sprite->width = root_sprite.width;
+	dest_sprite->width  = root_sprite.width;
 	dest_sprite->x_offs = root_sprite.x_offs;
 	dest_sprite->y_offs = root_sprite.y_offs;
+	dest_sprite->next = nullptr;
+	dest_sprite->missing_zoom_levels = {};
 
-	dst = reinterpret_cast<Blitter_32bppSimple::Pixel *>(dest_sprite->data);
-	SpriteLoader::CommonPixel *src = reinterpret_cast<SpriteLoader::CommonPixel *>(root_sprite.data);
+	dst = (Blitter_32bppSimple::Pixel *)dest_sprite->data;
+	SpriteLoader::CommonPixel *src = (SpriteLoader::CommonPixel *)root_sprite.data;
 
 	for (int i = 0; i < root_sprite.height * root_sprite.width; i++) {
 		if (src->m == 0) {

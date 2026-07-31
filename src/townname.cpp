@@ -11,10 +11,12 @@
 #include "string_func.h"
 #include "townname_type.h"
 #include "town.h"
+#include "scope.h"
 #include "strings_func.h"
 #include "core/random_func.hpp"
 #include "genworld.h"
 #include "gfx_layout.h"
+#include "core/string_builder.hpp"
 #include "strings_internal.h"
 
 #include "table/townname.h"
@@ -45,7 +47,7 @@ TownNameParams::TownNameParams(const Town *t) :
  * @param par           Town name parameters.
  * @param townnameparts 'Encoded' town name.
  */
-static void GetTownName(StringBuilder &builder, const TownNameParams *par, uint32_t townnameparts)
+static void GetTownName(StringBuilder builder, const TownNameParams *par, uint32_t townnameparts)
 {
 	if (par->grfid == 0) {
 		auto tmp_params = MakeParameters(townnameparts);
@@ -64,10 +66,10 @@ static void GetTownName(StringBuilder &builder, const TownNameParams *par, uint3
  */
 std::string GetTownName(const TownNameParams *par, uint32_t townnameparts)
 {
-	std::string result;
+	format_buffer result;
 	StringBuilder builder(result);
 	GetTownName(builder, par, townnameparts);
-	return result;
+	return result.to_string();
 }
 
 /**
@@ -75,7 +77,7 @@ std::string GetTownName(const TownNameParams *par, uint32_t townnameparts)
  * @param builder String builder.
  * @param t       The town to get the name from.
  */
-void GetTownName(StringBuilder &builder, const Town *t)
+void GetTownName(StringBuilder builder, const Town *t)
 {
 	TownNameParams par(t);
 	GetTownName(builder, &par, t->townnameparts);
@@ -102,23 +104,21 @@ std::string GetTownName(const Town *t)
  */
 bool VerifyTownName(uint32_t r, const TownNameParams *par, TownNames *town_names)
 {
-	std::string name = GetTownName(par, r);
+	format_buffer name;
+	GetTownName(StringBuilder(name), par, r);
 
 	/* Check size and width */
-	if (Utf8StringLength(name) >= MAX_LENGTH_TOWN_NAME_CHARS) return false;
+	if (Utf8StringLength(name.c_str()) >= MAX_LENGTH_TOWN_NAME_CHARS) return false;
 
 	if (town_names != nullptr) {
-		if (town_names->find(name) != town_names->end()) return false;
-		town_names->insert(std::move(name));
+		std::string str = name.to_string();
+		if (town_names->find(str) != town_names->end()) return false;
+		town_names->insert(std::move(str));
 	} else {
 		for (const Town *t : Town::Iterate()) {
 			/* We can't just compare the numbers since
 			 * several numbers may map to a single name. */
-			if (t->name.empty()) {
-				if (name == GetTownName(t)) return false;
-			} else {
-				if (name == t->name) return false;
-			}
+			if ((std::string_view)name == t->GetCachedName()) return false;
 		}
 	}
 
@@ -209,34 +209,34 @@ static inline int32_t SeedChanceBias(uint8_t shift_by, size_t max, uint32_t seed
  * @param org     string to replace
  * @param rep     string to be replaced with
  * @param str     string of the town name
- * @param start   the start index within the string for the town name
  */
-static void ReplaceWords(std::string_view org, std::string_view rep, std::string &str, size_t start)
+static void ReplaceWords(std::string_view org, std::string_view rep, std::span<char> str)
 {
-	if (str.compare(start, org.size(), org) == 0) str.replace(start, org.size(), rep);
+	assert(org.size() == rep.size());
+	if (org.size() > str.size()) return;
+	if (std::equal(str.begin(), str.begin() + org.size(), org.begin(), org.end())) std::copy(rep.begin(), rep.end(), str.begin());
 }
 
 
 /**
  * Replaces english curses and ugly letter combinations by nicer ones.
  * @param str      The string with the town name
- * @param start    The start index into the string for the first town name
  * @param original English (Original) generator was used
  */
-static void ReplaceEnglishWords(std::string &str, size_t start, bool original)
+static void ReplaceEnglishWords(std::span<char> str, bool original)
 {
-	if (original) ReplaceWords("Ce", "Ke", str, start);
-	if (original) ReplaceWords("Ci", "Ki", str, start);
-	ReplaceWords("Cunt", "East", str, start);
-	ReplaceWords("Slag", "Pits", str, start);
-	ReplaceWords("Slut", "Edin", str, start);
-	if (!original) ReplaceWords("Fart", "Boot", str, start); // never happens with 'English (Original)'
-	ReplaceWords("Drar", "Quar", str, start);
-	ReplaceWords("Dreh", "Bash", str, start);
-	ReplaceWords("Frar", "Shor", str, start);
-	ReplaceWords("Grar", "Aber", str, start);
-	ReplaceWords("Brar", "Over", str, start);
-	ReplaceWords("Wrar", original ? "Inve" : "Stan", str, start);
+	if (original) ReplaceWords("Ce", "Ke", str);
+	if (original) ReplaceWords("Ci", "Ki", str);
+	ReplaceWords("Cunt", "East", str);
+	ReplaceWords("Slag", "Pits", str);
+	ReplaceWords("Slut", "Edin", str);
+	if (!original) ReplaceWords("Fart", "Boot", str); // never happens with 'English (Original)'
+	ReplaceWords("Drar", "Quar", str);
+	ReplaceWords("Dreh", "Bash", str);
+	ReplaceWords("Frar", "Shor", str);
+	ReplaceWords("Grar", "Aber", str);
+	ReplaceWords("Brar", "Over", str);
+	ReplaceWords("Wrar", original ? "Inve" : "Stan", str);
 }
 
 /**
@@ -244,9 +244,13 @@ static void ReplaceEnglishWords(std::string &str, size_t start, bool original)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeEnglishOriginalTownName(StringBuilder &builder, uint32_t seed)
+static void MakeEnglishOriginalTownName(StringBuilder output_builder, uint32_t seed)
 {
-	size_t start = builder.GetBytesWritten();
+	format_buffer str;
+	StringBuilder builder(str);
+	auto guard = scope_guard([&]() {
+		output_builder.Put(str);
+	});
 
 	/* optional first segment */
 	int i = SeedChanceBias(0, std::size(_name_original_english_1), seed, 50);
@@ -262,7 +266,7 @@ static void MakeEnglishOriginalTownName(StringBuilder &builder, uint32_t seed)
 	i = SeedChanceBias(15, std::size(_name_original_english_6), seed, 60);
 	if (i >= 0) builder += _name_original_english_6[i];
 
-	ReplaceEnglishWords(builder.GetString(), start, true);
+	ReplaceEnglishWords({str.data(), str.size()}, true);
 }
 
 
@@ -271,9 +275,13 @@ static void MakeEnglishOriginalTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeEnglishAdditionalTownName(StringBuilder &builder, uint32_t seed)
+static void MakeEnglishAdditionalTownName(StringBuilder output_builder, uint32_t seed)
 {
-	size_t start = builder.GetString().size();
+	format_buffer str;
+	StringBuilder builder(str);
+	auto guard = scope_guard([&]() {
+		output_builder.Put(str);
+	});
 
 	/* optional first segment */
 	int i = SeedChanceBias(0, std::size(_name_additional_english_prefix), seed, 50);
@@ -297,7 +305,7 @@ static void MakeEnglishAdditionalTownName(StringBuilder &builder, uint32_t seed)
 	i = SeedChanceBias(15, std::size(_name_additional_english_3), seed, 60);
 	if (i >= 0) builder += _name_additional_english_3[i];
 
-	ReplaceEnglishWords(builder.GetString(), start, false);
+	ReplaceEnglishWords({str.data(), str.size()}, false);
 }
 
 
@@ -306,7 +314,7 @@ static void MakeEnglishAdditionalTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeAustrianTownName(StringBuilder &builder, uint32_t seed)
+static void MakeAustrianTownName(StringBuilder builder, uint32_t seed)
 {
 	/* Bad, Maria, Gross, ... */
 	int i = SeedChanceBias(0, std::size(_name_austrian_a1), seed, 15);
@@ -347,7 +355,7 @@ static void MakeAustrianTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeGermanTownName(StringBuilder &builder, uint32_t seed)
+static void MakeGermanTownName(StringBuilder builder, uint32_t seed)
 {
 	uint seed_derivative = SeedChance(7, 28, seed);
 
@@ -387,7 +395,7 @@ static void MakeGermanTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeSpanishTownName(StringBuilder &builder, uint32_t seed)
+static void MakeSpanishTownName(StringBuilder builder, uint32_t seed)
 {
 	builder += _name_spanish_real[SeedChance(0, std::size(_name_spanish_real), seed)];
 }
@@ -398,7 +406,7 @@ static void MakeSpanishTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeFrenchTownName(StringBuilder &builder, uint32_t seed)
+static void MakeFrenchTownName(StringBuilder builder, uint32_t seed)
 {
 	builder += _name_french_real[SeedChance(0, std::size(_name_french_real), seed)];
 }
@@ -409,7 +417,7 @@ static void MakeFrenchTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeSillyTownName(StringBuilder &builder, uint32_t seed)
+static void MakeSillyTownName(StringBuilder builder, uint32_t seed)
 {
 	builder += _name_silly_1[SeedChance( 0, std::size(_name_silly_1), seed)];
 	builder += _name_silly_2[SeedChance(16, std::size(_name_silly_2), seed)];
@@ -421,7 +429,7 @@ static void MakeSillyTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeSwedishTownName(StringBuilder &builder, uint32_t seed)
+static void MakeSwedishTownName(StringBuilder builder, uint32_t seed)
 {
 	/* optional first segment */
 	int i = SeedChanceBias(0, std::size(_name_swedish_1), seed, 50);
@@ -445,7 +453,7 @@ static void MakeSwedishTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeDutchTownName(StringBuilder &builder, uint32_t seed)
+static void MakeDutchTownName(StringBuilder builder, uint32_t seed)
 {
 	/* optional first segment */
 	int i = SeedChanceBias(0, std::size(_name_dutch_1), seed, 50);
@@ -468,9 +476,13 @@ static void MakeDutchTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeFinnishTownName(StringBuilder &builder, uint32_t seed)
+static void MakeFinnishTownName(StringBuilder output_builder, uint32_t seed)
 {
-	size_t start = builder.GetString().size();
+	format_buffer str;
+	StringBuilder builder(str);
+	auto guard = scope_guard([&]() {
+		output_builder.Put(str);
+	});
 
 	/* Select randomly if town name should consists of one or two parts. */
 	if (SeedChance(0, 15, seed) >= 10) {
@@ -485,10 +497,10 @@ static void MakeFinnishTownName(StringBuilder &builder, uint32_t seed)
 		uint sel = SeedChance( 0, std::size(_name_finnish_1), seed);
 		builder += _name_finnish_1[sel];
 
-		std::string &str = builder.GetString();
-		if (str.back() == 'i') str.back() = 'e';
+		if (!str.empty() && str.back() == 'i') str.back() = 'e';
 
-		if (str.find_first_of("aouAOU", start) != std::string_view::npos) {
+		std::string_view view = str;
+		if (view.find_first_of("aouAOU") != std::string_view::npos) {
 			builder += "la";
 		} else {
 			builder += "l\u00e4";
@@ -514,7 +526,7 @@ static void MakeFinnishTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakePolishTownName(StringBuilder &builder, uint32_t seed)
+static void MakePolishTownName(StringBuilder builder, uint32_t seed)
 {
 	/* optional first segment */
 	uint i = SeedChance(0,
@@ -576,8 +588,14 @@ static void MakePolishTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeCzechTownName(StringBuilder &builder, uint32_t seed)
+static void MakeCzechTownName(StringBuilder output_builder, uint32_t seed)
 {
+	format_buffer str;
+	StringBuilder builder(str);
+	auto guard = scope_guard([&]() {
+		output_builder.Put(str);
+	});
+
 	/* 1:3 chance to use a real name. */
 	if (SeedModChance(0, 4, seed) == 0) {
 		builder += _name_czech_real[SeedModChance(4, std::size(_name_czech_real), seed)];
@@ -692,7 +710,7 @@ static void MakeCzechTownName(StringBuilder &builder, uint32_t seed)
 
 		builder += _name_czech_adj[prefix].name;
 		builder += _name_czech_patmod[gender][pattern];
-		builder.PutChar(' ');
+		builder += ' ';
 	}
 
 	if (dynamic_subst) {
@@ -723,7 +741,7 @@ static void MakeCzechTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeRomanianTownName(StringBuilder &builder, uint32_t seed)
+static void MakeRomanianTownName(StringBuilder builder, uint32_t seed)
 {
 	builder += _name_romanian_real[SeedChance(0, std::size(_name_romanian_real), seed)];
 }
@@ -734,7 +752,7 @@ static void MakeRomanianTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeSlovakTownName(StringBuilder &builder, uint32_t seed)
+static void MakeSlovakTownName(StringBuilder builder, uint32_t seed)
 {
 	builder += _name_slovak_real[SeedChance(0, std::size(_name_slovak_real), seed)];
 }
@@ -745,7 +763,7 @@ static void MakeSlovakTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeNorwegianTownName(StringBuilder &builder, uint32_t seed)
+static void MakeNorwegianTownName(StringBuilder builder, uint32_t seed)
 {
 	/* Use first 4 bit from seed to decide whether or not this town should
 	 * have a real name 3/16 chance.  Bit 0-3 */
@@ -767,7 +785,7 @@ static void MakeNorwegianTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeHungarianTownName(StringBuilder &builder, uint32_t seed)
+static void MakeHungarianTownName(StringBuilder builder, uint32_t seed)
 {
 	if (SeedChance(12, 15, seed) < 3) {
 		builder += _name_hungarian_real[SeedChance(0, std::size(_name_hungarian_real), seed)];
@@ -795,7 +813,7 @@ static void MakeHungarianTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeSwissTownName(StringBuilder &builder, uint32_t seed)
+static void MakeSwissTownName(StringBuilder builder, uint32_t seed)
 {
 	builder += _name_swiss_real[SeedChance(0, std::size(_name_swiss_real), seed)];
 }
@@ -806,7 +824,7 @@ static void MakeSwissTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeDanishTownName(StringBuilder &builder, uint32_t seed)
+static void MakeDanishTownName(StringBuilder builder, uint32_t seed)
 {
 	/* optional first segment */
 	int i = SeedChanceBias(0, std::size(_name_danish_1), seed, 50);
@@ -823,7 +841,7 @@ static void MakeDanishTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeTurkishTownName(StringBuilder &builder, uint32_t seed)
+static void MakeTurkishTownName(StringBuilder builder, uint32_t seed)
 {
 	uint i = SeedModChance(0, 5, seed);
 
@@ -857,7 +875,7 @@ static void MakeTurkishTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeItalianTownName(StringBuilder &builder, uint32_t seed)
+static void MakeItalianTownName(StringBuilder builder, uint32_t seed)
 {
 	if (SeedModChance(0, 6, seed) == 0) { // real city names
 		builder += _name_italian_real[SeedModChance(4, std::size(_name_italian_real), seed)];
@@ -903,7 +921,7 @@ static void MakeItalianTownName(StringBuilder &builder, uint32_t seed)
  * @param builder string builder
  * @param seed town name seed
  */
-static void MakeCatalanTownName(StringBuilder &builder, uint32_t seed)
+static void MakeCatalanTownName(StringBuilder builder, uint32_t seed)
 {
 	if (SeedModChance(0, 3, seed) == 0) { // real city names
 		builder += _name_catalan_real[SeedModChance(4, std::size(_name_catalan_real), seed)];
@@ -938,7 +956,7 @@ static void MakeCatalanTownName(StringBuilder &builder, uint32_t seed)
  * @param builder The builder to write the name to.
  * @param seed The seed of the town name.
  */
-typedef void TownNameGenerator(StringBuilder &builder, uint32_t seed);
+typedef void TownNameGenerator(StringBuilder builder, uint32_t seed);
 
 /** Town name generators */
 static TownNameGenerator *const _town_name_generators[] = {
@@ -972,7 +990,7 @@ static TownNameGenerator *const _town_name_generators[] = {
  * @param lang    town name language
  * @param seed    generation seed
  */
-void GenerateTownNameString(StringBuilder &builder, size_t lang, uint32_t seed)
+void GenerateTownNameString(StringBuilder builder, size_t lang, uint32_t seed)
 {
 	assert(lang < std::size(_town_name_generators));
 	return _town_name_generators[lang](builder, seed);

@@ -11,21 +11,19 @@
 #define TRAIN_CMD_H
 
 #include "command_type.h"
-#include "engine_type.h"
-#include "network/network_type.h"
 #include "vehicle_type.h"
 
-CommandCost CmdBuildRailVehicle(DoCommandFlags flags, TileIndex tile, const Engine *e, Vehicle **ret);
-CommandCost CmdSellRailWagon(DoCommandFlags flags, Vehicle *t, bool sell_chain, bool backup_order, ClientID user);
+enum class MoveRailVehicleFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	MoveChain             = (1U << 0), ///< Move all vehicles following the source vehicle
+	Virtual               = (1U << 1), ///< This is a virtual vehicle (for creating TemplateVehicles)
+	NewHead               = (1U << 2), ///< When moving a head vehicle, always reset the head state
+};
+DECLARE_ENUM_AS_BIT_SET(MoveRailVehicleFlags)
 
-CommandCost CmdMoveRailVehicle(DoCommandFlags flags, VehicleID src_veh, VehicleID dest_veh, bool move_chain);
-CommandCost CmdForceTrainProceed(DoCommandFlags flags, VehicleID veh_id);
-CommandCost CmdReverseTrainDirection(DoCommandFlags flags, VehicleID veh_id, bool reverse_single_veh);
-
-DEF_CMD_TRAIT(CMD_MOVE_RAIL_VEHICLE,       CmdMoveRailVehicle,       CommandFlag::Location, CommandType::VehicleConstruction)
-DEF_CMD_TRAIT(CMD_FORCE_TRAIN_PROCEED,     CmdForceTrainProceed,     CommandFlag::Location, CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_REVERSE_TRAIN_DIRECTION, CmdReverseTrainDirection, CommandFlag::Location, CommandType::VehicleManagement)
-
-void CcBuildWagon(Commands cmd, const CommandCost &result, VehicleID new_veh_id, uint, uint16_t, CargoArray, TileIndex tile, EngineID, bool, CargoType, ClientID);
+DEF_CMD_TUPLE_LT (Commands::MoveRailVehicle,          CmdMoveRailVehicle,           {}, CommandType::VehicleConstruction, CmdDataT<VehicleID, VehicleID, MoveRailVehicleFlags>)
+DEF_CMD_TUPLE_LT (Commands::ForceTrainProceed,        CmdForceTrainProceed,         {}, CommandType::VehicleManagement,   CmdDataT<VehicleID>)
+DEF_CMD_TUPLE_LT (Commands::ReverseTrainDirection,    CmdReverseTrainDirection,     {}, CommandType::VehicleManagement,   CmdDataT<VehicleID, bool>)
+DEF_CMD_TUPLE_LT (Commands::SetTrainSpeedRestriction, CmdSetTrainSpeedRestriction,  {}, CommandType::VehicleManagement,   CmdDataT<VehicleID, uint16_t>)
 
 #endif /* TRAIN_CMD_H */

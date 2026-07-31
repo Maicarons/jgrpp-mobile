@@ -17,8 +17,11 @@ enum ScreenshotWindowWidgets : WidgetID {
 	WID_SC_TAKE_ZOOMIN,      ///< Button for taking a zoomed in screenshot
 	WID_SC_TAKE_DEFAULTZOOM, ///< Button for taking a screenshot at normal zoom
 	WID_SC_TAKE_WORLD,       ///< Button for taking a screenshot of the whole world
+	WID_SC_TAKE_WORLD_ZOOM,  ///< Button for taking a screenshot of the whole world at the current zoom level
 	WID_SC_TAKE_HEIGHTMAP,   ///< Button for taking a heightmap "screenshot"
 	WID_SC_TAKE_MINIMAP,     ///< Button for taking a minimap screenshot
+	WID_SC_TAKE_TOPOGRAPHY,  ///< Button for taking a topography screenshot
+	WID_SC_TAKE_INDUSTRY,    ///< Button for taking a industry screenshot
 };
 
 

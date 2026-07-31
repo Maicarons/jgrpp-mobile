@@ -12,15 +12,10 @@
 
 #include "command_type.h"
 #include "signs_type.h"
+#include "gfx_type.h"
 
-std::tuple<CommandCost, SignID> CmdPlaceSign(DoCommandFlags flags, TileIndex tile, const std::string &text);
-CommandCost CmdRenameSign(DoCommandFlags flags, SignID sign_id, const std::string &text);
-CommandCost CmdMoveSign(DoCommandFlags flags, SignID sign_id, TileIndex tile);
-
-DEF_CMD_TRAIT(CMD_PLACE_SIGN,  CmdPlaceSign,  CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_RENAME_SIGN, CmdRenameSign, CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_MOVE_SIGN, CmdMoveSign, CommandFlag::Deity, CommandType::OtherManagement)
-
-void CcPlaceSign(Commands cmd, const CommandCost &result, SignID new_sign);
+DEF_CMD_TUPLE   (Commands::PlaceSign,  CmdPlaceSign,  CMD_LOG_AUX | CMD_DEITY, CommandType::OtherManagement, CmdDataT<std::string>)
+DEF_CMD_TUPLE_NT(Commands::RenameSign, CmdRenameSign, CMD_LOG_AUX | CMD_DEITY, CommandType::OtherManagement, CmdDataT<SignID, std::string, Colours>)
+DEF_CMD_TUPLE_NT(Commands::MoveSign,   CmdMoveSign,   CMD_LOG_AUX | CMD_DEITY, CommandType::OtherManagement, CmdDataT<SignID, TileIndex>)
 
 #endif /* SIGNS_CMD_H */

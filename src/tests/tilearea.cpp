@@ -11,14 +11,13 @@
 
 #include "../3rdparty/catch2/catch.hpp"
 
+#include "../core/geometry_type.hpp"
 #include "../tilearea_type.h"
 #include "../map_func.h"
 
 #include "../safeguards.h"
 
-struct TileCoord {
-	uint x, y;
-};
+using TileCoord = Coord2D<uint>;
 
 static void TestSpiralTileSequence(TileCoord center, uint diameter, std::span<TileCoord> expected)
 {
@@ -52,7 +51,7 @@ static void TestSpiralTileSequence(TileCoord start_north, uint radius, uint w, u
 
 TEST_CASE("SpiralTileSequence - minimum")
 {
-	Map::Allocate(64, 64);
+	AllocateMap(64, 64);
 
 	TileCoord expected[] = {{63, 63}};
 	TestSpiralTileSequence({63, 63}, 1, expected);
@@ -63,7 +62,7 @@ TEST_CASE("SpiralTileSequence - minimum")
 
 TEST_CASE("SpiralTileSequence - odd")
 {
-	Map::Allocate(64, 64);
+	AllocateMap(64, 64);
 
 	TileCoord expected[] = {
 		{1, 1},
@@ -75,7 +74,7 @@ TEST_CASE("SpiralTileSequence - odd")
 
 TEST_CASE("SpiralTileSequence - even")
 {
-	Map::Allocate(64, 64);
+	AllocateMap(64, 64);
 
 	TileCoord expected[] = {
 		{2, 1}, {1, 1}, {1, 2}, {2, 2},
@@ -88,7 +87,7 @@ TEST_CASE("SpiralTileSequence - even")
 
 TEST_CASE("SpiralTileSequence - zero hole")
 {
-	Map::Allocate(64, 64);
+	AllocateMap(64, 64);
 
 	TileCoord expected[] = {
 		{5, 2}, {4, 2}, {3, 2}, {2, 2}, {2, 3}, {3, 3}, {4, 3}, {5, 3},
@@ -99,7 +98,7 @@ TEST_CASE("SpiralTileSequence - zero hole")
 
 TEST_CASE("SpiralTileSequence - normal hole")
 {
-	Map::Allocate(64, 64);
+	AllocateMap(64, 64);
 
 	TileCoord expected[] = {
 		{4, 2}, {3, 2}, {2, 2}, {2, 3}, {2, 4}, {2, 5}, {3, 5}, {4, 5}, {4, 4}, {4, 3},

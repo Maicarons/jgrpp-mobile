@@ -14,51 +14,28 @@
 #include "engine_type.h"
 #include "vehicle_type.h"
 #include "vehiclelist.h"
-#include "vehiclelist_cmd.h"
-#include "cargo_type.h"
 
-std::tuple<CommandCost, VehicleID, uint, uint16_t, CargoArray> CmdBuildVehicle(DoCommandFlags flags, TileIndex tile, EngineID eid, bool use_free_vehicles, CargoType cargo, ClientID client_id);
-CommandCost CmdSellVehicle(DoCommandFlags flags, VehicleID v_id, bool sell_chain, bool backup_order, ClientID client_id);
-std::tuple<CommandCost, uint, uint16_t, CargoArray> CmdRefitVehicle(DoCommandFlags flags, VehicleID veh_id, CargoType new_cargo_type, uint8_t new_subtype, bool auto_refit, bool only_this, uint8_t num_vehicles);
-CommandCost CmdSendVehicleToDepot(DoCommandFlags flags, VehicleID veh_id, DepotCommandFlags depot_cmd, const VehicleListIdentifier &vli);
-CommandCost CmdChangeServiceInt(DoCommandFlags flags, VehicleID veh_id, uint16_t serv_int, bool is_custom, bool is_percent);
-CommandCost CmdRenameVehicle(DoCommandFlags flags, VehicleID veh_id, const std::string &text);
-std::tuple<CommandCost, VehicleID> CmdCloneVehicle(DoCommandFlags flags, TileIndex tile, VehicleID veh_id, bool share_orders);
-CommandCost CmdStartStopVehicle(DoCommandFlags flags, VehicleID veh_id, bool evaluate_startstop_cb);
-CommandCost CmdMassStartStopVehicle(DoCommandFlags flags, TileIndex tile, bool do_start, bool vehicle_list_window, const VehicleListIdentifier &vli);
-CommandCost CmdDepotSellAllVehicles(DoCommandFlags flags, TileIndex tile, VehicleType vehicle_type);
-CommandCost CmdDepotMassAutoReplace(DoCommandFlags flags, TileIndex tile, VehicleType vehicle_type);
+enum class SellVehicleFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	SellChain             = (1U << 0), ///< Sell the vehicle and all vehicles following it in the chain.
+	BackupOrder           = (1U << 1), ///< Make a backup of the vehicle's order (if an engine).
+	VirtualOnly           = (1U << 2), ///< Only allow command to be run on virtual trains
+};
+DECLARE_ENUM_AS_BIT_SET(SellVehicleFlags)
 
-DEF_CMD_TRAIT(CMD_BUILD_VEHICLE,           CmdBuildVehicle,         CommandFlag::ClientID,                CommandType::VehicleConstruction)
-DEF_CMD_TRAIT(CMD_SELL_VEHICLE,            CmdSellVehicle,          CommandFlags({CommandFlag::ClientID, CommandFlag::Location}), CommandType::VehicleConstruction)
-DEF_CMD_TRAIT(CMD_REFIT_VEHICLE,           CmdRefitVehicle,         CommandFlag::Location,                 CommandType::VehicleConstruction)
-DEF_CMD_TRAIT(CMD_SEND_VEHICLE_TO_DEPOT,   CmdSendVehicleToDepot,   {},                            CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_CHANGE_SERVICE_INT,      CmdChangeServiceInt,     {},                            CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_RENAME_VEHICLE,          CmdRenameVehicle,        {},                            CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_CLONE_VEHICLE,           CmdCloneVehicle,         CommandFlag::NoTest,                  CommandType::VehicleConstruction) // NewGRF callbacks influence building and refitting making it impossible to correctly estimate the cost
-DEF_CMD_TRAIT(CMD_START_STOP_VEHICLE,      CmdStartStopVehicle,     CommandFlag::Location,                 CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_MASS_START_STOP,         CmdMassStartStopVehicle, {},                            CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_DEPOT_SELL_ALL_VEHICLES, CmdDepotSellAllVehicles, {},                            CommandType::VehicleConstruction)
-DEF_CMD_TRAIT(CMD_DEPOT_MASS_AUTOREPLACE,  CmdDepotMassAutoReplace, {},                            CommandType::VehicleConstruction)
+DEF_CMD_TUPLE    (Commands::BuildVehicle,             CmdBuildVehicle,              CMD_CLIENT_ID, CommandType::VehicleConstruction, CmdDataT<EngineID, bool, CargoType, ClientID>)
+DEF_CMD_TUPLE    (Commands::SellVehicle,              CmdSellVehicle,               CMD_CLIENT_ID, CommandType::VehicleConstruction, CmdDataT<VehicleID, SellVehicleFlags, ClientID>)
+DEF_CMD_TUPLE_LT (Commands::RefitVehicle,             CmdRefitVehicle,                         {}, CommandType::VehicleConstruction, CmdDataT<VehicleID, CargoType, uint8_t, bool, bool, uint8_t>)
+DEF_CMD_TUPLE_NT (Commands::SendVehicleToDepot,       CmdSendVehicleToDepot,                   {}, CommandType::VehicleManagement,   CmdDataT<VehicleID, DepotCommandFlags, TileIndex>)
+DEF_CMD_TUPLE_NT (Commands::MassSendVehicleToDepot,   CmdMassSendVehicleToDepot,               {}, CommandType::VehicleManagement,   CmdDataT<DepotCommandFlags, VehicleListIdentifier, CargoType>)
+DEF_CMD_TUPLE_NT (Commands::ChangeServiceInterval,    CmdChangeServiceInt,                     {}, CommandType::VehicleManagement,   CmdDataT<VehicleID, uint16_t, bool, bool>)
+DEF_CMD_TUPLE_NT (Commands::RenameVehicle,            CmdRenameVehicle,                        {}, CommandType::OtherManagement,     CmdDataT<VehicleID, std::string>)
+DEF_CMD_TUPLE    (Commands::CloneVehicle,             CmdCloneVehicle,                CMD_NO_TEST, CommandType::VehicleConstruction, CmdDataT<VehicleID, bool>) // NewGRF callbacks influence building and refitting making it impossible to correctly estimate the cost
+DEF_CMD_TUPLE_LT (Commands::StartStopVehicle,         CmdStartStopVehicle,                     {}, CommandType::VehicleManagement,   CmdDataT<VehicleID, bool>)
+DEF_CMD_TUPLE    (Commands::MassStartStop,            CmdMassStartStopVehicle,                 {}, CommandType::VehicleManagement,   CmdDataT<bool, bool, VehicleListIdentifier, CargoType>)
+DEF_CMD_TUPLE    (Commands::DepotMassSell,            CmdDepotSellAllVehicles,                 {}, CommandType::VehicleManagement,   CmdDataT<VehicleType>)
+DEF_CMD_TUPLE    (Commands::DepotMassAutoreplace,     CmdDepotMassAutoReplace,        CMD_NO_TEST, CommandType::VehicleConstruction, CmdDataT<VehicleType>)
 
-void CcBuildPrimaryVehicle(Commands cmd, const CommandCost &result, VehicleID new_veh_id, uint, uint16_t, CargoArray);
-void CcStartStopVehicle(Commands cmd, const CommandCost &result, VehicleID veh_id, bool);
-
-template <typename Tcont, typename Titer>
-inline EndianBufferWriter<Tcont, Titer> &operator <<(EndianBufferWriter<Tcont, Titer> &buffer, const CargoArray &cargo_array)
-{
-	for (const uint &amt : cargo_array) {
-		buffer << amt;
-	}
-	return buffer;
-}
-
-inline EndianBufferReader &operator >>(EndianBufferReader &buffer, CargoArray &cargo_array)
-{
-	for (uint &amt : cargo_array) {
-		buffer >> amt;
-	}
-	return buffer;
-}
+DEF_CMD_TUPLE_LT (Commands::TurnRoadVehicle,               CmdTurnRoadVeh,                          {}, CommandType::VehicleManagement,   CmdDataT<VehicleID>)
 
 #endif /* VEHICLE_CMD_H */

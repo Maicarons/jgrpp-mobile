@@ -13,6 +13,8 @@
 #include "script_types.hpp"
 #include "../../string_func.h"
 #include "../../company_type.h"
+#include "../../string_func.h"
+#include <map>
 
 /**
  * The Controller, the class each Script should extend. It creates the Script,
@@ -119,6 +121,11 @@ public:
 	 *   be allowed to run.
 	 */
 	static int GetOpsTillSuspend();
+
+	/**
+	 * Decrease the number of operations the script can execute before being suspended.
+	 */
+	static void DecreaseOps(int amount);
 
 	/**
 	 * Get the value of one of your settings you set via info.nut.

@@ -12,6 +12,7 @@
 
 #include "core/geometry_type.hpp"
 #include "tile_cmd.h"
+#include <vector>
 
 static const uint SNOW_LINE_MONTHS = 12; ///< Number of months in the snow line table.
 static const uint SNOW_LINE_DAYS   = 32; ///< Number of days in each month in the snow line table.
@@ -27,16 +28,44 @@ struct SnowLine {
 };
 
 bool IsSnowLineSet();
-void SetSnowLine(std::unique_ptr<SnowLine> &&snow_line);
-uint8_t GetSnowLine();
-uint8_t HighestSnowLine();
-uint8_t LowestSnowLine();
+void SetSnowLine(std::unique_ptr<SnowLine> snow_line);
+uint8_t GetSnowLineUncached();
+void UpdateCachedSnowLine();
+void UpdateCachedSnowLineBounds();
 void ClearSnowLine();
 
-bool IsMapSurroundedByWater();
+inline uint8_t GetSnowLine()
+{
+	extern uint8_t _cached_snowline;
+	return _cached_snowline;
+}
+
+inline uint8_t HighestSnowLine()
+{
+	extern uint8_t _cached_highest_snowline;
+	return _cached_highest_snowline;
+}
+
+inline uint8_t LowestSnowLine()
+{
+	extern uint8_t _cached_lowest_snowline;
+	return _cached_lowest_snowline;
+}
+
+inline uint8_t HighestTreePlacementSnowLine()
+{
+	extern uint8_t _cached_tree_placement_highest_snowline;
+	return _cached_tree_placement_highest_snowline;
+}
+
+inline uint8_t LowestTreePlacementSnowLine()
+{
+	return LowestSnowLine();
+}
 
 int GetSlopeZInCorner(Slope tileh, Corner corner);
-std::tuple<Slope, int> GetFoundationSlope(TileIndex tile);
+Slope UpdateFoundationSlopeFromTileSlope(TileIndex tile, Slope tileh, int &tilez);
+std::pair<Slope, int> GetFoundationSlope(TileIndex tile);
 
 uint GetPartialPixelZ(int x, int y, Slope corners);
 int GetSlopePixelZ(int x, int y, bool ground_vehicle = false);
@@ -64,7 +93,7 @@ inline int GetSlopePixelZInCorner(Slope tileh, Corner corner)
  * @param tile The tile of interest.
  * @return The slope on top of the foundation and the z of the foundation.
  */
-inline std::tuple<Slope, int> GetFoundationPixelSlope(TileIndex tile)
+inline std::pair<Slope, int> GetFoundationPixelSlope(TileIndex tile)
 {
 	auto [s, z] = GetFoundationSlope(tile);
 	return {s, z * TILE_HEIGHT};
@@ -135,7 +164,9 @@ bool HasFoundationNW(TileIndex tile, Slope slope_here, uint z_here);
 bool HasFoundationNE(TileIndex tile, Slope slope_here, uint z_here);
 
 void DoClearSquare(TileIndex tile);
-void RunTileLoop();
+void SetupTileLoopCounts();
+void RunTileLoop(bool apply_day_length = false);
+void RunAuxiliaryTileLoop();
 
 void InitializeLandscape();
 bool GenerateLandscape(uint8_t mode);

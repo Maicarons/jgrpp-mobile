@@ -11,6 +11,8 @@
 #define STRING_TYPE_H
 
 #include "core/enum_type.hpp"
+#include <vector>
+#include <string>
 
 /** A non-breaking space. */
 #define NBSP "\u00a0"
@@ -24,8 +26,10 @@
 enum CharSetFilter : uint8_t {
 	CS_ALPHANUMERAL,      ///< Both numeric and alphabetic and spaces and stuff
 	CS_NUMERAL,           ///< Only numeric ones
+	CS_NUMERAL_SIGNED,    ///< Only numeric ones, and minus/negative
+	CS_NUMERAL_DECIMAL,   ///< Only numeric, decimal separators
+	CS_NUMERAL_DECIMAL_SIGNED, ///< Only numeric, decimal separators, and minus/negative
 	CS_NUMERAL_SPACE,     ///< Only numbers and spaces
-	CS_NUMERAL_SIGNED,    ///< Only numbers and '-' for negative values
 	CS_ALPHA,             ///< Only alphabetic values
 	CS_HEXADECIMAL,       ///< Only hexadecimal characters
 };
@@ -59,13 +63,17 @@ using StringValidationSettings = EnumBitSet<StringValidationSetting, uint8_t>;
 /** Type for a list of strings. */
 typedef std::vector<std::string> StringList;
 
-/** Helper to provide transparent hashing for string types in e.g. std::unordered_map. */
-struct StringHash {
-	using hash_type = std::hash<std::string_view>;
-	using is_transparent = void;
+#if defined(WITH_ICU_I18N) || (defined(_WIN32) && !defined(STRGEN) && !defined(SETTINGSGEN))
+#define WITH_LOCALE_STRING
 
-	std::size_t operator()(std::string_view str) const { return hash_type{}(str); }
-	std::size_t operator()(const std::string &str) const { return hash_type{}(str); }
+struct LocaleStringList {
+	std::vector<struct LocaleString> items;
+
+	LocaleStringList();
+	LocaleStringList(LocaleStringList &&);
+	~LocaleStringList();
+	LocaleStringList& operator = (LocaleStringList&&);
 };
+#endif /* defined(WITH_ICU_I18N) || (defined(_WIN32) && !defined(STRGEN) && !defined(SETTINGSGEN)) */
 
 #endif /* STRING_TYPE_H */

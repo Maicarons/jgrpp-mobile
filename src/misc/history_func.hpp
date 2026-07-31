@@ -12,8 +12,11 @@
 
 #include "../core/bitmath_func.hpp"
 #include "../core/math_func.hpp"
-#include "../timer/timer_game_economy.h"
+#include "../date_type.h"
 #include "history_type.hpp"
+
+#include <algorithm>
+#include <iterator>
 
 void UpdateValidHistory(ValidHistoryMask &valid_history, const HistoryRange &hr, uint cur_month);
 bool IsValidHistory(ValidHistoryMask valid_history, const HistoryRange &hr, uint age);
@@ -61,9 +64,9 @@ void RotateHistory(HistoryData<T> &history, ValidHistoryMask valid_history, cons
  * @return Average value for the month.
  */
 template <typename T, typename Taccrued>
-T GetAndResetAccumulatedAverage(Taccrued &total)
+T GetAndResetAccumulatedAverage(Taccrued &total, uint8_t days)
 {
-	T result = ClampTo<T>(total / std::max(1U, TimerGameEconomy::days_since_last_month));
+	T result = ClampTo<T>(total / std::max<uint8_t>(1U, days));
 	total = 0;
 	return result;
 }
@@ -75,7 +78,6 @@ T GetAndResetAccumulatedAverage(Taccrued &total)
  * @param valid_history Mask of valid history records.
  * @param hr History range to get.
  * @param age Age of data to get.
- * @param cur_month Current economy month.
  * @param[out] result Extracted historical data.
  * @return True iff the data for this history range and age is valid.
  */
@@ -92,7 +94,7 @@ bool GetHistory(const HistoryData<T> &history, ValidHistoryMask valid_history, c
 		if (age * hr.division < static_cast<uint>(hr.hr->periods - hr.division)) {
 			bool is_valid = false;
 			std::array<T, HISTORY_MAX_DIVISION> tmp_result; // No need to clear as we fill every element we use.
-			uint start = age * hr.division + ((TimerGameEconomy::month / hr.hr->division) % hr.division);
+			uint start = age * hr.division + ((EconTime::CurMonth() / hr.hr->division) % hr.division);
 			for (auto i = start; i != start + hr.division; ++i) {
 				is_valid |= GetHistory(history, valid_history, *hr.hr, i, tmp_result[i - start]);
 			}

@@ -15,17 +15,17 @@
 /** Implementation of the null sound driver. */
 class SoundDriver_Null : public SoundDriver {
 public:
-	std::optional<std::string_view> Start(const StringList &) override { return std::nullopt; }
+	const char *Start(const StringList &) override { return nullptr; }
 
 	void Stop() override { }
-	std::string_view GetName() const override { return "null"; }
+	const char *GetName() const override { return "null"; }
 	bool HasOutput() const override { return false; }
 };
 
 /** Factory for the null sound driver. */
 class FSoundDriver_Null : public DriverFactoryBase {
 public:
-	FSoundDriver_Null() : DriverFactoryBase(Driver::DT_SOUND, 1, "null", "Null Sound Driver") {}
+	FSoundDriver_Null() : DriverFactoryBase(Driver::Type::Sound, 1, "null", "Null Sound Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<SoundDriver_Null>(); }
 };
 

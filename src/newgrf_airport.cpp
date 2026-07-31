@@ -9,7 +9,7 @@
 
 #include "stdafx.h"
 #include "debug.h"
-#include "timer/timer_game_calendar.h"
+#include "date_func.h"
 #include "newgrf_badge.h"
 #include "newgrf_spritegroup.h"
 #include "newgrf_text.h"
@@ -43,7 +43,7 @@ bool AirportClass::IsUIAvailable(uint) const
 }
 
 /* Instantiate AirportClass. */
-template class NewGRFClass<AirportSpec, AirportClassID, APC_MAX>;
+template class NewGRFClass<AirportSpec, AirportClassID>;
 
 
 AirportOverrideManager _airport_mngr(NEW_AIRPORT_OFFSET, NUM_AIRPORTS, AT_INVALID);
@@ -82,13 +82,16 @@ AirportSpec AirportSpec::specs[NUM_AIRPORTS]; ///< Airport specifications.
 	return &AirportSpec::specs[type];
 }
 
-/** Check whether this airport is available to build. */
+/**
+ * Check whether this airport is available to build.
+ * @return \c true iff the airport is available.
+ */
 bool AirportSpec::IsAvailable() const
 {
 	if (!this->enabled) return false;
-	if (TimerGameCalendar::year < this->min_year) return false;
+	if (CalTime::CurYear() < this->min_year) return false;
 	if (_settings_game.station.never_expire_airports) return true;
-	return TimerGameCalendar::year <= this->max_year;
+	return CalTime::CurYear() <= this->max_year;
 }
 
 /**
@@ -103,7 +106,7 @@ bool AirportSpec::IsWithinMapBounds(uint8_t table, TileIndex tile) const
 
 	uint8_t w = this->size_x;
 	uint8_t h = this->size_y;
-	if (this->layouts[table].rotation == DIR_E || this->layouts[table].rotation == DIR_W) std::swap(w, h);
+	if (this->layouts[table].rotation == Direction::E || this->layouts[table].rotation == Direction::W) std::swap(w, h);
 
 	return TileX(tile) + w < Map::SizeX() &&
 		TileY(tile) + h < Map::SizeY();
@@ -158,7 +161,7 @@ void AirportOverrideManager::SetEntitySpec(AirportSpec &&as)
 	}
 }
 
-/* virtual */ uint32_t AirportScopeResolver::GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const
+/* virtual */ uint32_t AirportScopeResolver::GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const
 {
 	switch (variable) {
 		case 0x40: return this->layout;
@@ -167,7 +170,7 @@ void AirportOverrideManager::SetEntitySpec(AirportSpec &&as)
 	}
 
 	if (this->st == nullptr) {
-		available = false;
+		extra.available = false;
 		return UINT_MAX;
 	}
 
@@ -176,15 +179,15 @@ void AirportOverrideManager::SetEntitySpec(AirportSpec &&as)
 		case 0x7C: return (this->st->airport.psa != nullptr) ? this->st->airport.psa->GetValue(parameter) : 0;
 
 		case 0xF0: return this->st->facilities.base();
-		case 0xFA: return ClampTo<uint16_t>(this->st->build_date - CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR);
+		case 0xFA: return ClampTo<uint16_t>((this->st->build_date - CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR).base());
 	}
 
-	return this->st->GetNewGRFVariable(this->ro, variable, parameter, available);
+	return this->st->GetNewGRFVariable(this->ro, variable, parameter, extra.available);
 }
 
 GrfSpecFeature AirportResolverObject::GetFeature() const
 {
-	return GSF_AIRPORTS;
+	return GrfSpecFeature::Airports;
 }
 
 uint32_t AirportResolverObject::GetDebugID() const
@@ -213,7 +216,7 @@ uint32_t AirportResolverObject::GetDebugID() const
 		/* Create storage on first modification. */
 		uint32_t grfid = (this->ro.grffile != nullptr) ? this->ro.grffile->grfid : 0;
 		assert(PersistentStorage::CanAllocateItem());
-		this->st->airport.psa = new PersistentStorage(grfid, GSF_AIRPORTS, this->st->airport.tile);
+		this->st->airport.psa = PersistentStorage::Create(grfid, GrfSpecFeature::Airports, this->st->airport.tile);
 	}
 	this->st->airport.psa->StoreValue(pos, value);
 }
@@ -258,16 +261,16 @@ AirportResolverObject::AirportResolverObject(TileIndex tile, Station *st, const 
 SpriteID GetCustomAirportSprite(const AirportSpec *as, uint8_t layout)
 {
 	AirportResolverObject object(INVALID_TILE, nullptr, as, layout);
-	const auto *group = object.Resolve<ResultSpriteGroup>();
+	const ResultSpriteGroup *group = object.Resolve<ResultSpriteGroup>();
 	if (group == nullptr || group->num_sprites == 0) return as->preview_sprite;
 
 	return group->sprite;
 }
 
-uint16_t GetAirportCallback(CallbackID callback, uint32_t param1, uint32_t param2, Station *st, TileIndex tile, std::span<int32_t> regs100)
+uint16_t GetAirportCallback(CallbackID callback, uint32_t param1, uint32_t param2, Station *st, TileIndex tile)
 {
 	AirportResolverObject object(tile, st, AirportSpec::Get(st->airport.type), st->airport.layout, callback, param1, param2);
-	return object.ResolveCallback(regs100);
+	return object.ResolveCallback();
 }
 
 /**
@@ -280,16 +283,15 @@ uint16_t GetAirportCallback(CallbackID callback, uint32_t param1, uint32_t param
 StringID GetAirportTextCallback(const AirportSpec *as, uint8_t layout, uint16_t callback)
 {
 	AirportResolverObject object(INVALID_TILE, nullptr, as, layout, (CallbackID)callback);
-	std::array<int32_t, 1> regs100;
-	uint16_t cb_res = object.ResolveCallback(regs100);
+	uint16_t cb_res = object.ResolveCallback();
 	if (cb_res == CALLBACK_FAILED || cb_res == 0x400) return STR_UNDEFINED;
 	if (cb_res == 0x40F) {
-		return GetGRFStringID(as->grf_prop.grfid, static_cast<GRFStringID>(regs100[0]));
+		return GetGRFStringID(as->grf_prop.grffile, static_cast<GRFStringID>(GetRegister(0x100)));
 	}
 	if (cb_res > 0x400) {
 		ErrorUnknownCallbackResult(as->grf_prop.grfid, callback, cb_res);
 		return STR_UNDEFINED;
 	}
 
-	return GetGRFStringID(as->grf_prop.grfid, GRFSTR_MISC_GRF_TEXT + cb_res);
+	return GetGRFStringID(as->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + cb_res);
 }

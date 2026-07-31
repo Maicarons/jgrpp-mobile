@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file script_admin_json.cpp Tests for the Squirrel -> JSON conversion in ScriptAdmin. */
+/** @file test_script_admin.cpp Tests for the Squirrel -> JSON conversion in ScriptAdmin. */
 
 #include "../stdafx.h"
 
@@ -16,8 +16,8 @@
 #include "../script/api/script_event_types.hpp"
 #include "../script/script_instance.hpp"
 #include "../script/squirrel.hpp"
+#include "../core/format.hpp"
 
-#include "../3rdparty/fmt/format.h"
 #include "../3rdparty/nlohmann/json.hpp"
 
 #include <squirrel.h>

@@ -20,6 +20,7 @@ enum TerraformToolbarWidgets : WidgetID {
 	WID_TT_DEMOLISH,                          ///< Demolish aka dynamite button.
 	WID_TT_BUY_LAND,                          ///< Buy land button.
 	WID_TT_PLANT_TREES,                       ///< Plant trees button (note: opens separate window, no place-push-button).
+	WID_TT_MEASUREMENT_TOOL,                  ///< Ruler tool button
 	WID_TT_PLACE_SIGN,                        ///< Place sign button.
 	WID_TT_PLACE_OBJECT,                      ///< Place object button.
 };
@@ -42,6 +43,12 @@ enum EditorTerraformToolbarWidgets : WidgetID {
 	WID_ETT_DECREASE_SIZE,                       ///< Downwards arrow button to decrease terraforming size.
 	WID_ETT_NEW_SCENARIO,                        ///< Button for generating a new scenario.
 	WID_ETT_RESET_LANDSCAPE,                     ///< Button for removing all company-owned property.
+};
+
+enum EditorPublicRoadsWindowWidgets : WidgetID {
+	WID_PR_PUBLIC_ROADS_TYPE_LABEL,    ///< Label for public road type selection dropdown.
+	WID_PR_PUBLIC_ROADS_TYPE_DROPDOWN, ///< Dropdown for public road type selection.
+	WID_PR_PUBLIC_ROADS,               ///< Button for creating public roads.
 };
 
 #endif /* WIDGETS_TERRAFORM_WIDGET_H */

@@ -20,22 +20,23 @@
  * @param first Local ID of the first sound.
  * @param last Local ID of the last sound.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult SoundEffectChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult SoundEffectChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 	if (first == last) return ret;
 
 	if (_cur_gps.grffile->sound_offset == 0) {
 		GrfMsg(1, "SoundEffectChangeInfo: No effects defined, skipping");
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	if (last - ORIGINAL_SAMPLE_COUNT > _cur_gps.grffile->num_sounds) {
 		GrfMsg(1, "SoundEffectChangeInfo: Attempting to change undefined sound effect ({}), max ({}). Ignoring.", last, ORIGINAL_SAMPLE_COUNT + _cur_gps.grffile->num_sounds);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	for (uint id = first; id < last; ++id) {
@@ -65,7 +66,7 @@ static ChangeInfoResult SoundEffectChangeInfo(uint first, uint last, int prop, B
 			}
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -73,5 +74,5 @@ static ChangeInfoResult SoundEffectChangeInfo(uint first, uint last, int prop, B
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_SOUNDFX>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_SOUNDFX>::Activation(uint first, uint last, int prop, ByteReader &buf) { return SoundEffectChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::SoundEffects>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::SoundEffects>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return SoundEffectChangeInfo(first, last, prop, mapping_entry, buf); }

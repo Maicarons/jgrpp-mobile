@@ -5,9 +5,11 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
+/** @file game_controller.sq.hpp Controller of Squirrel instances for game script. */
+
 #include "../script_controller.hpp"
 
-template <> SQInteger PushClassName<ScriptController, ScriptType::GS>(HSQUIRRELVM vm) { sq_pushstring(vm, "GSController"); return 1; }
+template <> const char *GetClassName<ScriptController, ScriptType::GS>() { return "GSController"; }
 
 void SQGSController_Register(Squirrel &engine)
 {

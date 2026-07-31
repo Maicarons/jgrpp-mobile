@@ -3,7 +3,7 @@
  */
 
 #include "../../../stdafx.h"
-#include "../../fmt/format.h"
+#include "../../../core/format.hpp"
 
 #include "../../../core/string_consumer.hpp"
 #include "sqpcheader.h"
@@ -554,7 +554,7 @@ bool _hsort_sift_down(HSQUIRRELVM v,SQArray *arr, SQInteger root, SQInteger bott
 		if (ret < 0) {
 			if (root == maxChild) {
 				v->Raise_Error("inconsistent compare function");
-				return false; // We'd be swapping ourselve. The compare function is incorrect
+				return false; // We'd be swapping ourself. The compare function is incorrect
 			}
 			_Swap(arr->_values[root],arr->_values[maxChild]);
 			root = maxChild;
@@ -818,6 +818,7 @@ static SQInteger thread_call(HSQUIRRELVM v)
 	SQObjectPtr o = stack_get(v,1);
 	if(type(o) == OT_THREAD) {
 		SQInteger nparams = sq_gettop(v);
+		sq_reservestack(_thread(o), nparams + 3);
 		_thread(o)->Push(_thread(o)->_roottable);
 		for(SQInteger i = 2; i<(nparams+1); i++)
 			sq_move(_thread(o),v,i);

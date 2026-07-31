@@ -12,10 +12,14 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _map_desc. */
 const SaveLoadCompat _map_sl_compat[] = {
 	SLC_VAR("dim_x"),
 	SLC_VAR("dim_y"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_MAP_H */

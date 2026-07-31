@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file core/address.cpp Implementation of the address. */
+/** @file address.cpp Implementation of the address. */
 
 #include "../../stdafx.h"
 
@@ -21,7 +21,7 @@
  * IPv4 dotted representation is given.
  * @return the hostname
  */
-const std::string &NetworkAddress::GetHostname()
+const char *NetworkAddress::GetHostname()
 {
 	if (this->hostname.empty() && this->address.ss_family != AF_UNSPEC) {
 		assert(this->address_length != 0);
@@ -29,7 +29,7 @@ const std::string &NetworkAddress::GetHostname()
 		getnameinfo((struct sockaddr *)&this->address, this->address_length, buffer, sizeof(buffer), nullptr, 0, NI_NUMERICHOST);
 		this->hostname = buffer;
 	}
-	return this->hostname;
+	return this->hostname.c_str();
 }
 
 /**
@@ -73,28 +73,44 @@ void NetworkAddress::SetPort(uint16_t port)
 }
 
 /**
- * Helper to get the formatting string of an address for a given family.
- * @param family The family to get the address format for.
- * @param with_family Whether to add the familty to the address (e.g. IPv4).
- * @return The format string for the address.
+ * Get the address as a string, e.g. 127.0.0.1:12345.
+ * @param buffer the buffer to write to
+ * @param with_family whether to add the family (e.g. IPvX).
  */
-static std::string_view GetAddressFormatString(uint16_t family, bool with_family)
+void NetworkAddress::GetAddressAsString(format_target &buffer, bool with_family)
 {
-	switch (family) {
-		case AF_INET: return with_family ? "{}:{} (IPv4)" : "{}:{}";
-		case AF_INET6: return with_family ? "[{}]:{} (IPv6)" : "[{}]:{}";
-		default: return with_family ? "{}:{} (IPv?)" : "{}:{}";
+	const auto ss_family = this->GetAddress()->ss_family;
+	if (ss_family == AF_INET6) buffer.push_back('[');
+	buffer.append(this->GetHostname());
+	if (ss_family == AF_INET6) buffer.push_back(']');
+	buffer.format(":{:d}", this->GetPort());
+
+	if (with_family) {
+		char family;
+		switch (this->address.ss_family) {
+			case AF_INET:  family = '4'; break;
+			case AF_INET6: family = '6'; break;
+			default:       family = '?'; break;
+		}
+		buffer.format(" (IPv{})", family);
 	}
 }
 
-/**
- * Get the address as a string, e.g. 127.0.0.1:12345.
- * @param with_family whether to add the family (e.g. IPvX).
- * @return the address
- */
+ /**
+  * Get the address as a string, e.g. 127.0.0.1:12345.
+  * @param with_family whether to add the family (e.g. IPvX).
+  * @return the address
+  */
 std::string NetworkAddress::GetAddressAsString(bool with_family)
 {
-	return fmt::format(fmt::runtime(GetAddressFormatString(this->GetAddress()->ss_family, with_family)), this->GetHostname(), this->GetPort());
+	format_buffer_sized<100> buf;
+	this->GetAddressAsString(buf, with_family);
+	return buf.to_string();
+}
+
+void FormatNetworkAddress::fmt_format_value(format_target &buffer) const
+{
+	this->addr->GetAddressAsString(buffer, this->with_family);
 }
 
 /**
@@ -438,7 +454,7 @@ void NetworkAddress::Listen(int socktype, SocketList *sockets)
  *
  * @param connection_string The string to parse.
  * @param default_port The default port to set port to if not in connection_string.
- * @param company Pointer to the company variable to set iff indicated.
+ * @param company_id Pointer to the company variable to set iff indicated.
  * @return A valid ServerAddress of the parsed information.
  */
 /* static */ ServerAddress ServerAddress::Parse(std::string_view connection_string, uint16_t default_port, CompanyID *company_id)

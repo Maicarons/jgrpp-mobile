@@ -32,7 +32,8 @@ static void NewSpriteSet(ByteReader &buf)
 	 *                         In that case, use num-dirs=4.
 	 */
 
-	GrfSpecFeature feature{buf.ReadByte()};
+	GrfSpecFeatureRef feature_ref = ReadFeature(buf.ReadByte());
+	GrfSpecFeature feature = feature_ref.id;
 	uint16_t num_sets  = buf.ReadByte();
 	uint16_t first_set = 0;
 
@@ -44,16 +45,16 @@ static void NewSpriteSet(ByteReader &buf)
 	}
 	uint16_t num_ents = buf.ReadExtendedByte();
 
-	if (feature >= GSF_END) {
+	if (feature >= GrfSpecFeature::End) {
 		_cur_gps.skip_sprites = num_sets * num_ents;
-		GrfMsg(1, "NewSpriteSet: Unsupported feature 0x{:02X}, skipping {} sprites", feature, _cur_gps.skip_sprites);
+		GrfMsg(1, "NewSpriteSet: Unsupported feature {}, skipping {} sprites", GetFeatureString(feature_ref), _cur_gps.skip_sprites);
 		return;
 	}
 
 	_cur_gps.AddSpriteSets(feature, _cur_gps.spriteid, first_set, num_sets, num_ents);
 
-	GrfMsg(7, "New sprite set at {} of feature 0x{:02X}, consisting of {} sets with {} views each (total {})",
-		_cur_gps.spriteid, feature, num_sets, num_ents, num_sets * num_ents
+	GrfMsg(7, "New sprite set at {} of feature {}, consisting of {} sets with {} views each (total {})",
+		_cur_gps.spriteid, GetFeatureString(feature), num_sets, num_ents, num_sets * num_ents
 	);
 
 	for (int i = 0; i < num_sets * num_ents; i++) {
@@ -81,9 +82,15 @@ static void SkipAct1(ByteReader &buf)
 	GrfMsg(3, "SkipAct1: Skipping {} sprites", _cur_gps.skip_sprites);
 }
 
+/** @copydoc GrfActionHandler::FileScan */
 template <> void GrfActionHandler<0x01>::FileScan(ByteReader &buf) { SkipAct1(buf); }
+/** @copydoc GrfActionHandler::SafetyScan */
 template <> void GrfActionHandler<0x01>::SafetyScan(ByteReader &buf) { SkipAct1(buf); }
+/** @copydoc GrfActionHandler::LabelScan */
 template <> void GrfActionHandler<0x01>::LabelScan(ByteReader &buf) { SkipAct1(buf); }
+/** @copydoc GrfActionHandler::Init */
 template <> void GrfActionHandler<0x01>::Init(ByteReader &buf) { SkipAct1(buf); }
+/** @copydoc GrfActionHandler::Reserve */
 template <> void GrfActionHandler<0x01>::Reserve(ByteReader &buf) { SkipAct1(buf); }
+/** @copydoc GrfActionHandler::Activation */
 template <> void GrfActionHandler<0x01>::Activation(ByteReader &buf) { NewSpriteSet(buf); }

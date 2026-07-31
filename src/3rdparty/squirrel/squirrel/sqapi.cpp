@@ -3,7 +3,8 @@
  */
 
 #include "../../../stdafx.h"
-#include "../../fmt/format.h"
+#include "../../../core/format.hpp"
+#include "../../../core/string_consumer.hpp"
 
 #include <squirrel.h>
 #include "sqpcheader.h"
@@ -17,9 +18,6 @@
 #include "sqcompiler.h"
 #include "sqfuncstate.h"
 #include "sqclass.h"
-
-#include "../../../core/string_consumer.hpp"
-#include "../../../string_func.h"
 
 #include "../../../safeguards.h"
 
@@ -49,7 +47,9 @@ SQInteger sq_aux_throwobject(HSQUIRRELVM v,SQObjectPtr &e)
 
 SQInteger sq_aux_invalidtype(HSQUIRRELVM v,SQObjectType type)
 {
-	return sq_throwerror(v, fmt::format("unexpected type {}", IdType2Name(type)));
+	format_buffer_sized<128> buf;
+	buf.format("unexpected type {}", IdType2Name(type));
+	return sq_throwerror(v, buf);
 }
 
 HSQUIRRELVM sq_open(SQInteger initialstacksize)
@@ -57,13 +57,12 @@ HSQUIRRELVM sq_open(SQInteger initialstacksize)
 	SQSharedState *ss;
 	SQVM *v;
 	sq_new(ss, SQSharedState);
-	v = (SQVM *)SQ_MALLOC(sizeof(SQVM));
-	new (v, sizeof(SQVM)) SQVM(ss);
+	v = new (SQAllocationTag{}) SQVM(ss);
 	ss->_root_vm = v;
 	if(v->Init(nullptr, initialstacksize)) {
 		return v;
 	} else {
-		sq_delete(v, SQVM);
+		sq_delete_refcounted(v, SQVM);
 		return nullptr;
 	}
 	return v;
@@ -75,14 +74,13 @@ HSQUIRRELVM sq_newthread(HSQUIRRELVM friendvm, SQInteger initialstacksize)
 	SQVM *v;
 	ss=_ss(friendvm);
 
-	v= (SQVM *)SQ_MALLOC(sizeof(SQVM));
-	new (v, sizeof(SQVM)) SQVM(ss);
+	v = new (SQAllocationTag{}) SQVM(ss);
 
 	if(v->Init(friendvm, initialstacksize)) {
 		friendvm->Push(v);
 		return v;
 	} else {
-		sq_delete(v, SQVM);
+		sq_delete_refcounted(v, SQVM);
 		return nullptr;
 	}
 }
@@ -472,7 +470,7 @@ SQRESULT sq_setroottable(HSQUIRRELVM v)
 		v->Pop();
 		return SQ_OK;
 	}
-	return sq_throwerror(v, "ivalid type");
+	return sq_throwerror(v, "invalid type");
 }
 
 SQRESULT sq_setconsttable(HSQUIRRELVM v)
@@ -483,7 +481,7 @@ SQRESULT sq_setconsttable(HSQUIRRELVM v)
 		v->Pop();
 		return SQ_OK;
 	}
-	return sq_throwerror(v, "ivalid type, expected table");
+	return sq_throwerror(v, "invalid type, expected table");
 }
 
 void sq_setforeignptr(HSQUIRRELVM v,SQUserPointer p)
@@ -796,7 +794,7 @@ SQRESULT sq_setdelegate(HSQUIRRELVM v,SQInteger idx)
 	switch(type) {
 	case OT_TABLE:
 		if(type(mt) == OT_TABLE) {
-			if(!_table(self)->SetDelegate(_table(mt))) return sq_throwerror(v, "delagate cycle");
+			if(!_table(self)->SetDelegate(_table(mt))) return sq_throwerror(v, "delegate cycle");
 			v->Pop();}
 		else if(type(mt)==OT_NULL) {
 			_table(self)->SetDelegate(nullptr); v->Pop(); }

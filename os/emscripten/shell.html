@@ -3,10 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>OpenTTD</title>
-    <link rel="manifest" href="openttd.webapp">
-    <link rel="icon" href="openttd.256.png">
     <style>
       body {
         font-family: Tahoma, Arial, Helvetica, sans-serif;
@@ -25,8 +22,33 @@
         z-index: 1;
       }
 
+      div.overlay {
+        height: 40px;
+        margin: 0 auto;
+        opacity: 0;
+        pointer-events: none;
+        position: absolute;
+        text-align: center;
+        transition: opacity 0.3s;
+        width: 100%;
+        z-index: 3;
+      }
+      div.overlay > div {
+        pointer-events: none;
+      }
+
       div.background > div, div.overlay > div {
         margin: auto;
+      }
+
+      #filesystem {
+        background-color: #e00000;
+        border: 1px solid #fc6458;
+        color: #fcf880;
+        display: none;
+        outline: #a00000;
+        padding: 0 4px;
+        width: 600px;
       }
 
       #title, #message {
@@ -56,22 +78,6 @@
         padding: 4px 4px;
       }
 
-      div.textinput {
-        position: absolute;
-        width: 100%;
-        z-index: 4;
-        display: "none";
-      }
-
-      #textinputbox {
-        width: 100%;
-        font-size: xx-large;
-      }
-
-      #textinputbutton {
-        width: 100%;
-      }
-
       canvas.emscripten {
         border: 0px none;
         height: 100%;
@@ -85,9 +91,6 @@
   </head>
   <body>
     <div class="background">
-      <a href="https://hits.seeyoufarm.com">
-        <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fpelya.github.io%2Fopenttd-touch-webapp&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false"/>
-      </a>
       <div id="box">
         <div id="title">
           Loading ...
@@ -96,12 +99,11 @@
         </div>
       </div>
     </div>
-    <div class="textinput" id="textinput">
-      <input type="textinput" id="textinputbox" value="" onfocusout="Module.finishTextInput();" tabindex=1></input>
-      <br/>
-      <input type="submit" id="textinputbutton" value="OK" onclick="Module.finishTextInput();" ></input>
+    <div class="overlay" id="overlay">
+      <div id="filesystem">
+        Warning: savegames are stored in the Indexed DB of your browser.<br/>Your browser can delete savegames without notice!
+      </div>
     </div>
-    <input type="file" id="loadfile" style="display:none"></input>
     <div>
       <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
     </div>
@@ -196,8 +198,6 @@
 
           document.getElementById("title").innerHTML = "Thank you for playing!";
           document.getElementById("message").innerHTML = "We hope you enjoyed OpenTTD!<br/><br/>Reload your browser to restart the game.";
-
-          FS.syncfs(false, function (err) { window.close('','_parent',''); });
         },
 
         onAbort: function() {
@@ -208,51 +208,17 @@
           document.getElementById("message").innerHTML = "The game crashed!<br/><br/>Please reload your browser to restart the game.";
         },
 
-        textInputValue: null,
-
-        startTextInput: function(text) {
-          if (document.getElementById("textinput").style.display != "none") {
-            //Module.print("Text input already started");
-            return;
-          }
-          //Module.print("Start text input!");
-          Module.textInputValue = null;
-          document.getElementById("textinput").style.display = "block";
-          document.getElementById("textinputbox").value = text;
-          document.getElementById("textinputbox").focus();
-          document.getElementById("textinputbox").onkeyup = function(evt) {
-            if (evt.key === "Enter") {
-              Module.finishTextInput();
-            }
-          };
-        },
-
-        getTextInput: function() {
-          if (Module.textInputValue !== null) {
-            var value = Module.textInputValue;
-            Module.textInputValue = null;
-            return value;
-          }
-          return null;
-        },
-
-        finishTextInput: function() {
-          if (document.getElementById("textinput").style.display == "none") {
-            //Module.print("Text input not started");
-            return;
-          }
-          //Module.print("Text input finished!");
-          Module.textInputValue = document.getElementById("textinputbox").value;
-          Module.print(Module.textInputValue);
-          document.getElementById("textinput").style.display = "none";
-          document.getElementById("canvas").focus();
-        },
-
+        onWarningFs: function() {
+          document.getElementById("filesystem").style.display = "inline-block";
+          document.getElementById("overlay").style.opacity = 1;
+          setTimeout(function() {
+            document.getElementById("overlay").style.opacity = 0;
+            setTimeout(function() {
+              document.getElementById("filesystem").style.display = "none";
+            }, 300);
+          }, 10000);
+        }
       };
-
-      document.getElementById("textinput").style.display = "none"; // It's not hiding with CSS
-      //document.getElementById("loadfile").style.display = "none";
-      document.getElementById("canvas").focus();
 
       window.onerror = function() {
         Module.onAbort();

@@ -38,6 +38,7 @@ void Blitter_8bppSimple::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Zoom
 			switch (mode) {
 				case BlitterMode::ColourRemap:
 				case BlitterMode::CrashRemap:
+				case BlitterMode::ColourRemapWithBrightness:
 					colour = bp->remap[*src];
 					break;
 
@@ -64,18 +65,18 @@ void Blitter_8bppSimple::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Zoom
 Sprite *Blitter_8bppSimple::Encode(SpriteType, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator)
 {
 	const auto &root_sprite = sprite.Root();
-	Sprite *dest_sprite;
-	dest_sprite = allocator.Allocate<Sprite>(sizeof(*dest_sprite) + static_cast<size_t>(root_sprite.height) * static_cast<size_t>(root_sprite.width));
+	Sprite *dest_sprite = allocator.Allocate<Sprite>(sizeof(*dest_sprite) + static_cast<size_t>(sprite[ZoomLevel::Min].height) * static_cast<size_t>(sprite[ZoomLevel::Min].width));
 
 	dest_sprite->height = root_sprite.height;
-	dest_sprite->width = root_sprite.width;
+	dest_sprite->width  = root_sprite.width;
 	dest_sprite->x_offs = root_sprite.x_offs;
 	dest_sprite->y_offs = root_sprite.y_offs;
+	dest_sprite->next = nullptr;
+	dest_sprite->missing_zoom_levels = {};
 
 	/* Copy over only the 'remap' channel, as that is what we care about in 8bpp */
-	uint8_t *dst = reinterpret_cast<uint8_t *>(dest_sprite->data);
 	for (int i = 0; i < root_sprite.height * root_sprite.width; i++) {
-		dst[i] = root_sprite.data[i].m;
+		dest_sprite->data[i] = root_sprite.data[i].m;
 	}
 
 	return dest_sprite;

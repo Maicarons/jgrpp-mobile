@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file timer_game_tick.h Definition of the tick-based game-timer */
+/** @file timer_game_tick.h Definition of the tick-based game-timer. */
 
 #ifndef TIMER_GAME_TICK_H
 #define TIMER_GAME_TICK_H
@@ -21,15 +21,14 @@
  */
 class TimerGameTick {
 public:
-	using Ticks = int32_t; ///< The type to store ticks in
-	using TickCounter = uint64_t; ///< The type that the tick counter is stored in
-
-	enum Priority : uint8_t {
-		NONE, ///< These timers can be executed in any order; the order is not relevant.
+	/** Different levels of priority to run the timers in. */
+	enum class Priority : uint8_t {
+		None, ///< These timers can be executed in any order; the order is not relevant.
 
 		/* For all other priorities, the order is important.
 		 * For safety, you can only setup a single timer on a single priority. */
-		COMPETITOR_TIMEOUT,
+
+		CompetitorTimeout, ///< Considering starting a new competitor/AI.
 	};
 
 	struct TPeriod {
@@ -56,32 +55,6 @@ public:
 	struct TStorage {
 		uint elapsed;
 	};
-
-	static TickCounter counter; ///< Monotonic counter, in ticks, since start of game.
-};
-
-/**
- * Storage class for Ticks constants.
- */
-class Ticks {
-public:
-	static constexpr TimerGameTick::Ticks INVALID_TICKS = -1; ///< Representation of an invalid number of ticks.
-
-	/**
-	 * 1 day is 74 ticks; TimerGameCalendar::date_fract used to be uint16_t and incremented by 885. On an overflow the new day begun and 65535 / 885 = 74.
-	 * 1 tick is approximately 27 ms.
-	 * 1 day is thus about 2 seconds (74 * 27 = 1998) on a machine that can run OpenTTD normally
-	 */
-	static constexpr TimerGameTick::Ticks DAY_TICKS = 74; ///< ticks per day
-	static constexpr TimerGameTick::Ticks TICKS_PER_SECOND = 1000 / MILLISECONDS_PER_TICK; ///< Estimation of how many ticks fit in a single second.
-
-	static constexpr TimerGameTick::Ticks STATION_RATING_TICKS = 185; ///< Cycle duration for updating station rating.
-	static constexpr TimerGameTick::Ticks STATION_ACCEPTANCE_TICKS = 250; ///< Cycle duration for updating station acceptance.
-	static constexpr TimerGameTick::Ticks STATION_LINKGRAPH_TICKS = 504; ///< Cycle duration for cleaning dead links.
-	static constexpr TimerGameTick::Ticks CARGO_AGING_TICKS = 185; ///< Cycle duration for aging cargo.
-	static constexpr TimerGameTick::Ticks INDUSTRY_PRODUCE_TICKS = 256; ///< Cycle duration for industry production.
-	static constexpr TimerGameTick::Ticks TOWN_GROWTH_TICKS = 70;  ///< Cycle duration for towns trying to grow (this originates from the size of the town array in TTD).
-	static constexpr TimerGameTick::Ticks INDUSTRY_CUT_TREE_TICKS = INDUSTRY_PRODUCE_TICKS * 2; ///< Cycle duration for lumber mill's extra action.
 };
 
 #endif /* TIMER_GAME_TICK_H */

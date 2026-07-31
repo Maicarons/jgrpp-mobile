@@ -11,6 +11,7 @@
 #define PATHFINDER_TYPE_H
 
 #include "../tile_type.h"
+#include "aystar.h"
 
 /** Length (penalty) of one tile with YAPF */
 static const int YAPF_TILE_LENGTH = 100;
@@ -25,9 +26,6 @@ static const int YAPF_TILE_CORNER_LENGTH = 71;
  * total path cost might overflow.
  */
 static const int YAPF_INFINITE_PENALTY = 1000 * YAPF_TILE_LENGTH;
-
-/** Maximum segments of road vehicle path cache */
-static const int YAPF_ROADVEH_PATH_CACHE_SEGMENTS = 8;
 
 /** Distance from destination road stops to not cache any further */
 static const int YAPF_ROADVEH_PATH_CACHE_DESTINATION_LIMIT = 8;

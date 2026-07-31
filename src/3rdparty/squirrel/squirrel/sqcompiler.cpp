@@ -3,7 +3,7 @@
  */
 
 #include "../../../stdafx.h"
-#include "../../fmt/format.h"
+#include "../../../core/format.hpp"
 
 #include <squirrel.h>
 #include "sqpcheader.h"
@@ -15,6 +15,8 @@
 #include "sqlexer.h"
 #include "sqvm.h"
 #include "sqtable.h"
+
+#include "../../../core/bit_cast.hpp"
 
 #include "../../../string_func.h"
 

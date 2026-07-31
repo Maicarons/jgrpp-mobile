@@ -24,7 +24,7 @@ enum class SettingEntryFlag : uint8_t {
 	LastField, ///< This entry is the last one in a (sub-)page
 	Filtered, ///< Entry is hidden by the string filter
 };
-using SettingEntryFlags = EnumBitSet<SettingEntryFlag, uint8_t>;
+using SettingEntryFlags = EnumBitSet<SettingEntryFlag, uint8_t>; ///< Bitset of the SettingEntryFlag elements.
 
 static constexpr SettingEntryFlags SEF_BUTTONS_MASK = {SettingEntryFlag::LeftDepressed, SettingEntryFlag::RightDepressed}; ///< Mask for button flags
 
@@ -35,6 +35,7 @@ enum RestrictionMode : uint8_t {
 	RM_ALL,                              ///< List all settings regardless of the default/newgame/... values.
 	RM_CHANGED_AGAINST_DEFAULT,          ///< Show only settings which are different compared to default values.
 	RM_CHANGED_AGAINST_NEW,              ///< Show only settings which are different compared to the user's new game setting values.
+	RM_PATCH,                            ///< Show only "patch" settings which are not in vanilla.
 	RM_END,                              ///< End for iteration.
 };
 DECLARE_INCREMENT_DECREMENT_OPERATORS(RestrictionMode)
@@ -57,8 +58,11 @@ struct BaseSettingEntry {
 	virtual ~BaseSettingEntry() = default;
 
 	virtual void Init(uint8_t level = 0);
+	/** Recursively close all folds of sub-pages */
 	virtual void FoldAll() {}
+	/** Recursively open all folds of sub-pages */
 	virtual void UnFoldAll() {}
+	/** Resets all settings to their default values */
 	virtual void ResetAll() = 0;
 
 	/**
@@ -67,10 +71,24 @@ struct BaseSettingEntry {
 	 */
 	void SetLastField(bool last_field) { this->flags.Set(SettingEntryFlag::LastField, last_field); }
 
+	/**
+	 * Get the number of rows needed to show this entry.
+	 * @return Number of rows.
+	 */
 	virtual uint Length() const = 0;
+	/**
+	 * Recursively accumulate the folding state of the tree.
+	 * @param[in,out] all_folded Set to false, if one entry is not folded.
+	 * @param[in,out] all_unfolded Set to false, if one entry is folded.
+	 */
 	virtual void GetFoldingState([[maybe_unused]] bool &all_folded, [[maybe_unused]] bool &all_unfolded) const {}
 	virtual bool IsVisible(const BaseSettingEntry *item) const;
 	virtual BaseSettingEntry *FindEntry(uint row, uint *cur_row);
+	/**
+	 * Get the biggest height of the help text(s), if the width is at least \a maxw. Help text gets wrapped if needed.
+	 * @param maxw Maximal width of a line help text.
+	 * @return Biggest height needed to display any help text of this node (and its descendants).
+	 */
 	virtual uint GetMaxHelpHeight([[maybe_unused]] int maxw) { return 0; }
 
 	/**
@@ -79,6 +97,12 @@ struct BaseSettingEntry {
 	 */
 	bool IsFiltered() const { return this->flags.Test(SettingEntryFlag::Filtered); }
 
+	/**
+	 * Update the filter state.
+	 * @param filter Filter
+	 * @param force_visible Whether to force all items visible, no matter what
+	 * @return true if item remains visible
+	 */
 	virtual bool UpdateFilterState(SettingFilter &filter, bool force_visible) = 0;
 
 	virtual uint Draw(GameSettings *settings_ptr, int left, int right, int y, uint first_row, uint max_row, BaseSettingEntry *selected, uint cur_row = 0, uint parent_last = 0) const;
@@ -87,15 +111,27 @@ struct BaseSettingEntry {
 	static inline int line_height; ///< Height of a single setting.
 
 protected:
+	/**
+	 * Function to draw setting value (button + text + current value)
+	 * @param settings_ptr Pointer to current values of all settings.
+	 * @param left Left-most position in window/panel to start drawing.
+	 * @param right Right-most position in window/panel to draw.
+	 * @param y Upper-most position in window/panel to start drawing.
+	 * @param highlight Whether to highlight the entry.
+	 */
 	virtual void DrawSetting(GameSettings *settings_ptr, int left, int right, int y, bool highlight) const = 0;
 };
 
 /** Standard setting */
 struct SettingEntry : BaseSettingEntry {
-	const std::string_view name; ///< Name of the setting
+	const char *name = nullptr; ///< Name of the setting
 	const IntSettingDesc *setting = nullptr; ///< Setting description of the setting
 
-	SettingEntry(std::string_view name) : name(name) {}
+	/**
+	 * Create the entry. The view is stored in the static #GetSettingsTree(), so must never be deallocated.
+	 * @param name The name of the setting.
+	 */
+	SettingEntry(const char *name) : name(name) {}
 
 	void Init(uint8_t level = 0) override;
 	void ResetAll() override;
@@ -104,19 +140,49 @@ struct SettingEntry : BaseSettingEntry {
 	bool UpdateFilterState(SettingFilter &filter, bool force_visible) override;
 
 	void SetButtons(SettingEntryFlags new_val);
+	bool IsGUIEditable() const;
 
 protected:
-	void DrawSetting(GameSettings *settings_ptr, int left, int right, int y, bool highlight) const override;
+	SettingEntry(const IntSettingDesc *setting) : setting(setting) {}
+	virtual void DrawSetting(GameSettings *settings_ptr, int left, int right, int y, bool highlight) const override;
+	virtual void DrawSettingString(uint left, uint right, int y, bool highlight, int32_t value) const;
 
 private:
 	bool IsVisibleByRestrictionMode(RestrictionMode mode) const;
 };
 
+/** Cargodist per-cargo setting */
+struct CargoDestPerCargoSettingEntry : SettingEntry {
+	CargoType cargo;
+
+	CargoDestPerCargoSettingEntry(CargoType cargo, const IntSettingDesc *setting);
+	void Init(uint8_t level = 0) override;
+	bool UpdateFilterState(SettingFilter &filter, bool force_visible) override;
+
+protected:
+	void DrawSettingString(uint left, uint right, int y, bool highlight, int32_t value) const override;
+};
+
+/** Conditionally hidden standard setting */
+struct ConditionallyHiddenSettingEntry : SettingEntry {
+	std::function<bool()> hide_callback;
+
+	ConditionallyHiddenSettingEntry(const char *name, std::function<bool()> hide_callback)
+		: SettingEntry(name), hide_callback(hide_callback) {}
+
+	bool UpdateFilterState(SettingFilter &filter, bool force_visible) override;
+};
+
 /** Containers for BaseSettingEntry */
 struct SettingsContainer {
-	typedef std::vector<BaseSettingEntry*> EntryVector;
+	using EntryVector = std::vector<BaseSettingEntry*>; ///< Vector of pointers.
 	EntryVector entries; ///< Settings on this page
 
+	/**
+	 * Add an item to the container.
+	 * @param item The item to add.
+	 * @return The just added item (same pointer).
+	 */
 	template <typename T>
 	T *Add(T *item)
 	{
@@ -144,6 +210,7 @@ struct SettingsContainer {
 struct SettingsPage : BaseSettingEntry, SettingsContainer {
 	StringID title;     ///< Title of the sub-page
 	bool folded;        ///< Sub-page is folded (not visible except for its title)
+	std::function<bool()> hide_callback; ///< optional callback, returns true if this should be hidden
 
 	SettingsPage(StringID title);
 

@@ -15,16 +15,28 @@
 #include "company_type.h"
 
 /* Functions */
+void StartRemoveOrderFromAllVehiclesBatch();
+void StopRemoveOrderFromAllVehiclesBatch();
 void RemoveOrderFromAllVehicles(OrderType type, DestinationID destination, bool hangar = false);
 void InvalidateVehicleOrder(const Vehicle *v, int data);
+void InvalidateVehicleOrderOnMove(const Vehicle *v, VehicleOrderID from, VehicleOrderID to, uint16_t count);
 void CheckOrders(const Vehicle*);
 void DeleteVehicleOrders(Vehicle *v, bool keep_orderlist = false, bool reset_order_indices = true);
 bool ProcessOrders(Vehicle *v);
 bool UpdateOrderDest(Vehicle *v, const Order *order, int conditional_depth = 0, bool pbs_look_ahead = false);
-VehicleOrderID ProcessConditionalOrder(const Order *order, const Vehicle *v);
-uint GetOrderDistance(VehicleOrderID prev, VehicleOrderID cur, const Vehicle *v, int conditional_depth = 0);
 
-void DrawOrderString(const Vehicle *v, const Order *order, VehicleOrderID order_index, int y, bool selected, bool timetable, int left, int middle, int right);
+enum ProcessConditionalOrderMode {
+	PCO_EXEC,
+	PCO_DRY_RUN,
+	PCO_DEFERRED,
+};
+
+VehicleOrderID ProcessConditionalOrder(const Order *order, const Vehicle *v, ProcessConditionalOrderMode mode = PCO_EXEC);
+VehicleOrderID AdvanceOrderIndexDeferred(const Vehicle *v, VehicleOrderID index);
+void FlushAdvanceOrderIndexDeferred(const Vehicle *v, bool apply);
+uint GetOrderDistance(const Order *prev, const Order *cur, const Vehicle *v, int conditional_depth = 0);
+
+void DrawOrderString(const Vehicle *v, const Order *order, int order_index, int y, bool selected, bool timetable, int left, int middle, int right);
 
 static const uint DEF_SERVINT_DAYS_TRAINS   = 150;
 static const uint DEF_SERVINT_DAYS_ROADVEH  = 150;
@@ -45,5 +57,9 @@ static const uint MIN_SERVINT_PERCENT = 5;
 static const uint MAX_SERVINT_PERCENT = 90;
 
 uint16_t GetServiceIntervalClamped(int interval, bool ispercent);
+bool OrderConditionCompare(OrderConditionComparator occ, int variable, int value);
+bool EvaluateTimetableStateConditionalOrder(const Order *order, int lateness);
+
+const char *GetOrderTypeName(OrderType order_type);
 
 #endif /* ORDER_FUNC_H */

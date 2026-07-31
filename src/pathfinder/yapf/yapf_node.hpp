@@ -11,10 +11,11 @@
 #define YAPF_NODE_HPP
 
 #include "../../track_func.h"
-#include "../../misc/dbg_helpers.h"
 
 /** Yapf Node Key that evaluates hash from (and compares) tile & exit dir. */
 struct CYapfNodeKeyExitDir {
+	using HashKey = uint32_t;
+
 	TileIndex tile;
 	Trackdir td;
 	DiagDirection exitdir;
@@ -23,12 +24,12 @@ struct CYapfNodeKeyExitDir {
 	{
 		this->tile = tile;
 		this->td = td;
-		this->exitdir = (this->td == INVALID_TRACKDIR) ? INVALID_DIAGDIR : TrackdirToExitdir(this->td);
+		this->exitdir = (this->td == INVALID_TRACKDIR) ? DiagDirection::Invalid : TrackdirToExitdir(this->td);
 	}
 
-	inline int CalcHash() const
+	inline HashKey GetHashKey() const
 	{
-		return this->exitdir | (this->tile.base() << 2);
+		return to_underlying(this->exitdir) | (this->tile.base() << 2);
 	}
 
 	inline bool operator==(const CYapfNodeKeyExitDir &other) const
@@ -36,7 +37,7 @@ struct CYapfNodeKeyExitDir {
 		return this->tile == other.tile && this->exitdir == other.exitdir;
 	}
 
-	void Dump(DumpTarget &dmp) const
+	template <class D> void Dump(D &dmp) const
 	{
 		dmp.WriteTile("tile", this->tile);
 		dmp.WriteEnumT("td", this->td);
@@ -45,7 +46,9 @@ struct CYapfNodeKeyExitDir {
 };
 
 struct CYapfNodeKeyTrackDir : public CYapfNodeKeyExitDir {
-	inline int CalcHash() const
+	using HashKey = uint32_t;
+
+	inline HashKey GetHashKey() const
 	{
 		return this->td | (this->tile.base() << 4);
 	}
@@ -63,7 +66,6 @@ struct CYapfNodeT {
 	typedef Tnode Node;
 
 	Tkey_ key;
-	Node *hash_next;
 	Node *parent;
 	int cost;
 	int estimate;
@@ -72,21 +74,10 @@ struct CYapfNodeT {
 	inline void Set(Node *parent, TileIndex tile, Trackdir td, bool is_choice)
 	{
 		this->key.Set(tile, td);
-		this->hash_next = nullptr;
 		this->parent = parent;
 		this->cost = 0;
 		this->estimate = 0;
 		this->is_choice = is_choice;
-	}
-
-	inline Node *GetHashNext()
-	{
-		return this->hash_next;
-	}
-
-	inline void SetHashNext(Node *pNext)
-	{
-		this->hash_next = pNext;
 	}
 
 	inline TileIndex GetTile() const
@@ -124,7 +115,7 @@ struct CYapfNodeT {
 		return this->estimate < other.estimate;
 	}
 
-	void Dump(DumpTarget &dmp) const
+	template <class D> void Dump(D &dmp) const
 	{
 		dmp.WriteStructT("key", &this->key);
 		dmp.WriteStructT("parent", this->parent);

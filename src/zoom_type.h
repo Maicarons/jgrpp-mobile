@@ -12,49 +12,60 @@
 
 #include "core/enum_type.hpp"
 
-/**
- * All zoom levels we know.
- *
- * The underlying type is signed so subtract-and-Clamp works without need for casting.
- */
-enum class ZoomLevel : int8_t {
+/** All zoom levels we know. */
+enum class ZoomLevel : uint8_t {
 	/* Our possible zoom-levels */
-	Begin = 0, ///< Begin for iteration.
-	Min = Begin, ///< Minimum zoom level.
-	In4x = Begin, ///< Zoomed 4 times in.
-	In2x, ///< Zoomed 2 times in.
-	Normal, ///< The normal zoom level.
-	Out2x, ///< Zoomed 2 times out.
-	Out4x, ///< Zoomed 4 times out.
-	Out8x, ///< Zoomed 8 times out.
-	Max = Out8x, ///< Maximum zoom level.
-	End, ///< End for iteration.
+	Begin = 0,                ///< Begin for iteration.
+	Min = Begin,              ///< Minimum zoom level.
+	In4x = Begin,             ///< Zoomed 4 times in.
+	In2x,                     ///< Zoomed 2 times in.
+	Normal,                   ///< The normal zoom level.
+	Out2x,                    ///< Zoomed 2 times out.
+	Out4x,                    ///< Zoomed 4 times out.
+	Out8x,                    ///< Zoomed 8 times out.
+	Out16x,                   ///< Zoomed 16 times out.
+	Out32x,                   ///< Zoomed 32 times out.
+	Out64x,                   ///< Zoomed 64 times out.
+	Out128x,                  ///< Zoomed 128 times out.
+	Max = Out128x,            ///< Maximum zoom level.
+	End,                      ///< End for iteration.
 
 	/* Here we define in which zoom viewports are */
-	Viewport = Normal, ///< Default zoom level for viewports.
-	News = Normal, ///< Default zoom level for the news messages.
-	Industry = Out2x, ///< Default zoom level for the industry view.
-	Town = Normal, ///< Default zoom level for the town view.
-	Aircraft = Normal, ///< Default zoom level for the aircraft view.
-	Ship = Normal, ///< Default zoom level for the ship view.
-	Train = Normal, ///< Default zoom level for the train view.
-	RoadVehicle = Normal, ///< Default zoom level for the road vehicle view.
+	Viewport = Normal,        ///< Default zoom level for viewports.
+	News = Normal,            ///< Default zoom level for the news messages.
+	Industry = Out2x,         ///< Default zoom level for the industry view.
+	Town = Normal,            ///< Default zoom level for the town view.
+	Aircraft = Normal,        ///< Default zoom level for the aircraft view.
+	Ship = Normal,            ///< Default zoom level for the ship view.
+	Train = Normal,           ///< Default zoom level for the train view.
+	RoadVehicle = Normal,     ///< Default zoom level for the road vehicle view.
 	WorldScreenshot = Normal, ///< Default zoom level for the world screen shot.
 
-	Detail = Out2x, ///< All zoom levels below or equal to this will result in details on the screen, like road-work, ...
-	TextEffect = Out2x, ///< All zoom levels above this will not show text effects.
+	Detail = Out2x,           ///< All zoom levels below or equal to this will result in details on the screen, like road-work, ...
+	TextEffect = Out2x,       ///< All zoom levels above this will not show text effects.
+
+	SpriteMax = Out8x,        ///< All zoomlevels below or equal to this are rendered with sprites. Maximum zoom level for sprite rendering.
+	DrawMap = Out16x,         ///< All zoomlevels above or equal to this are rendered with map style
+	SpriteEnd = DrawMap,      ///< End for iteration of zoom levels to draw with sprites.
 };
 DECLARE_INCREMENT_DECREMENT_OPERATORS(ZoomLevel)
 DECLARE_ENUM_AS_SEQUENTIAL(ZoomLevel)
-using ZoomLevels = EnumBitSet<ZoomLevel, uint8_t>;
+using ZoomLevels = EnumBitSet<ZoomLevel, uint16_t>;
+using LowZoomLevels = EnumBitSet<ZoomLevel, uint8_t>;
+
+static constexpr inline LowZoomLevels LowZoomMask(ZoomLevel level)
+{
+	return static_cast<LowZoomLevels>(1 << to_underlying(level));
+}
+
+static constexpr LowZoomLevels ZOOM_SPRITE_RENDER_MASK{(1 << to_underlying(ZoomLevel::SpriteEnd)) - 1};
+static constexpr LowZoomLevels LOW_ZOOM_ALL_BITS{0xFF};
 
 static const uint ZOOM_BASE_SHIFT = to_underlying(ZoomLevel::Normal);
-static uint const ZOOM_BASE = 1U << ZOOM_BASE_SHIFT;
+static int const ZOOM_BASE = 1 << ZOOM_BASE_SHIFT;
 
 extern int _gui_scale;
 extern int _gui_scale_cfg;
-extern int _button_ratio;
-extern int _button_ratio_cfg;
 
 extern ZoomLevel _gui_zoom;
 extern ZoomLevel _font_zoom;

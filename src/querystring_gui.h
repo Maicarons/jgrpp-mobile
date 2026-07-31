@@ -14,6 +14,8 @@
 #include "textbuf_gui.h"
 #include "window_gui.h"
 
+#include <optional>
+
 /**
  * Data stored about a string that can be modified in the GUI
  */
@@ -23,8 +25,8 @@ struct QueryString {
 	static const int ACTION_DESELECT = -2; ///< Deselect editbox.
 	static const int ACTION_CLEAR    = -3; ///< Clear editbox.
 
-	StringID caption{};
-	int ok_button = ACTION_NOTHING; ///< Widget button of parent window to simulate when pressing OK in OSK.
+	StringID caption{};                  ///< Description of this string. Shown in OskWindow's title bar
+	int ok_button = ACTION_NOTHING;      ///< Widget button of parent window to simulate when pressing OK in OSK.
 	int cancel_button = ACTION_DESELECT; ///< Widget button of parent window to simulate when pressing CANCEL in OSK.
 	Textbuf text;
 	std::optional<std::string> orig{};

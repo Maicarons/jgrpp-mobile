@@ -9,7 +9,8 @@
 
 #include "../../stdafx.h"
 #include "script_date.hpp"
-#include "../../timer/timer_game_economy.h"
+#include "../../date_func.h"
+#include "../../settings_type.h"
 
 #include <time.h>
 
@@ -22,14 +23,19 @@
 
 /* static */ ScriptDate::Date ScriptDate::GetCurrentDate()
 {
-	return (ScriptDate::Date)TimerGameEconomy::date.base();
+	return (ScriptDate::Date)EconTime::CurDate().base();
+}
+
+/* static */ SQInteger ScriptDate::GetDayLengthFactor()
+{
+	return DayLengthFactor();
 }
 
 /* static */ SQInteger ScriptDate::GetYear(ScriptDate::Date date)
 {
 	if (date < 0) return DATE_INVALID;
 
-	::TimerGameEconomy::YearMonthDay ymd = ::TimerGameEconomy::ConvertDateToYMD(::TimerGameEconomy::Date{date});
+	::EconTime::YearMonthDay ymd = ::EconTime::ConvertDateToYMD(EconTime::Date{date});
 	return ymd.year.base();
 }
 
@@ -37,7 +43,7 @@
 {
 	if (date < 0) return DATE_INVALID;
 
-	::TimerGameEconomy::YearMonthDay ymd = ::TimerGameEconomy::ConvertDateToYMD(::TimerGameEconomy::Date{date});
+	::EconTime::YearMonthDay ymd = ::EconTime::ConvertDateToYMD(EconTime::Date{date});
 	return ymd.month + 1;
 }
 
@@ -45,7 +51,7 @@
 {
 	if (date < 0) return DATE_INVALID;
 
-	::TimerGameEconomy::YearMonthDay ymd = ::TimerGameEconomy::ConvertDateToYMD(::TimerGameEconomy::Date{date});
+	::EconTime::YearMonthDay ymd = ::EconTime::ConvertDateToYMD(EconTime::Date{date});
 	return ymd.day;
 }
 
@@ -53,11 +59,9 @@
 {
 	if (month < 1 || month > 12) return DATE_INVALID;
 	if (day_of_month < 1 || day_of_month > 31) return DATE_INVALID;
+	if (year < 0 || year > EconTime::MAX_YEAR.base()) return DATE_INVALID;
 
-	::TimerGameEconomy::Year timer_year{ClampTo<int32_t>(year)};
-	if (timer_year < EconomyTime::MIN_YEAR || timer_year > EconomyTime::MAX_YEAR) return DATE_INVALID;
-
-	return static_cast<ScriptDate::Date>(::TimerGameEconomy::ConvertYMDToDate(timer_year, month - 1, day_of_month).base());
+	return (ScriptDate::Date)::EconTime::ConvertYMDToDate(EconTime::Year{static_cast<int>(year)}, month - 1, day_of_month).base();
 }
 
 /* static */ SQInteger ScriptDate::GetSystemTime()
@@ -65,4 +69,31 @@
 	time_t t;
 	time(&t);
 	return t;
+}
+
+/* static */ bool ScriptDate::IsTimeShownInMinutes()
+{
+	return _settings_game.game_time.time_in_minutes;
+}
+
+/* static */ SQInteger ScriptDate::GetTicksPerMinute()
+{
+	return _settings_game.game_time.ticks_per_minute;
+}
+
+/* static */ SQInteger ScriptDate::GetCurrentScaledDateTicks()
+{
+	return _state_ticks.base();
+}
+
+/* static */ SQInteger ScriptDate::GetHour(SQInteger ticks)
+{
+	TickMinutes minutes = _settings_game.game_time.ToTickMinutes(StateTicks(ticks));
+	return minutes.ClockHour();
+}
+
+/* static */ SQInteger ScriptDate::GetMinute(SQInteger ticks)
+{
+	TickMinutes minutes = _settings_game.game_time.ToTickMinutes(StateTicks(ticks));
+	return minutes.ClockMinute();
 }

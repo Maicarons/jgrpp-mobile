@@ -6,19 +6,19 @@
  */
 
 /**
- * @file sprites.h
- * This file contains all sprite-related enums and defines. These consist mainly of
- * the sprite numbers and a bunch of masks and macros to handle sprites and to get
- * rid of all the magic numbers in the code.
+ * @file sprites.h This file contains all sprite-related enums and defines.
+ *
+ * These consist mainly of the sprite numbers and a bunch of masks and macros
+ * to handle sprites and to get rid of all the magic numbers in the code.
  *
  * @note
- * ALL SPRITE NUMBERS BELOW 5126 are in the main files
+ * ALL SPRITE NUMBERS BELOW 5126 are in the main files.
  *
  * All elements which consist of two elements should
- * have the same name and then suffixes
+ * have the same name and then suffixes:
  *   _GROUND and _BUILD for building-type sprites
  *   _REAR and _FRONT for transport-type sprites (tiles where vehicles are on)
- * These sprites are split because of the Z order of the elements
+ * These sprites are split because of the Z order of the elements.
  *  (like some parts of a bridge are behind the vehicle, while others are before)
  *
  *
@@ -32,7 +32,7 @@
  * get a proper editor. If your Operating Systems don't have any decent editors,
  * get a proper Operating System.
  *
- * @todo Split the "Sprites" enum into smaller chunks and document them
+ * @todo Split the "Sprites" enum into smaller chunks and document them.
  */
 
 #ifndef SPRITES_H
@@ -329,8 +329,53 @@ static const SpriteID SPR_BRIDGE_DECKS_MONO = SPR_BRIDGE_DECKS_BASE + 6;
 static const SpriteID SPR_BRIDGE_DECKS_MGLV = SPR_BRIDGE_DECKS_BASE + 12;
 static const SpriteID SPR_BRIDGE_DECKS_ROAD = SPR_BRIDGE_DECKS_BASE + 18;
 
+/* Programmable pre-signal sprites */
+static const SpriteID SPR_PROGSIGNAL_BASE = SPR_BRIDGE_DECKS_BASE + BRIDGE_DECKS_SPRITE_COUNT;
+static const uint16_t PROGSIGNAL_SPRITE_COUNT = 32;
+static const SpriteID SPR_DUP_PROGSIGNAL_BASE = SPR_PROGSIGNAL_BASE + PROGSIGNAL_SPRITE_COUNT;
+
+/* Extra signal sprites */
+static const SpriteID SPR_EXTRASIGNAL_BASE = SPR_DUP_PROGSIGNAL_BASE + PROGSIGNAL_SPRITE_COUNT;
+static const uint16_t EXTRASIGNAL_SPRITE_COUNT = 16;
+static const SpriteID SPR_DUP_EXTRASIGNAL_BASE = SPR_EXTRASIGNAL_BASE + EXTRASIGNAL_SPRITE_COUNT;
+
+/* Zoning sprites */
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_BASE       = SPR_DUP_EXTRASIGNAL_BASE + EXTRASIGNAL_SPRITE_COUNT;
+static const uint16_t ZONING_INNER_HIGHLIGHT_SPRITE_COUNT = 32;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_RED        = SPR_ZONING_INNER_HIGHLIGHT_BASE + 19;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_GREEN      = SPR_ZONING_INNER_HIGHLIGHT_BASE + 20;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_BLACK      = SPR_ZONING_INNER_HIGHLIGHT_BASE + 21;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_LIGHT_BLUE = SPR_ZONING_INNER_HIGHLIGHT_BASE + 22;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_ORANGE     = SPR_ZONING_INNER_HIGHLIGHT_BASE + 23;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_WHITE      = SPR_ZONING_INNER_HIGHLIGHT_BASE + 24;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_PURPLE     = SPR_ZONING_INNER_HIGHLIGHT_BASE + 25;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_BROWN      = SPR_ZONING_INNER_HIGHLIGHT_BASE + 26;
+static const SpriteID SPR_ZONING_INNER_HIGHLIGHT_YELLOW     = SPR_ZONING_INNER_HIGHLIGHT_BASE + 27;
+
+/* Sprites for the route step marker. */
+static const SpriteID SPR_ROUTE_STEP_BASE          = SPR_ZONING_INNER_HIGHLIGHT_BASE + ZONING_INNER_HIGHLIGHT_SPRITE_COUNT;
+static const SpriteID SPR_ROUTE_STEP_TOP           = SPR_ROUTE_STEP_BASE + 0;
+static const SpriteID SPR_ROUTE_STEP_MIDDLE        = SPR_ROUTE_STEP_BASE + 1;
+static const SpriteID SPR_ROUTE_STEP_BOTTOM        = SPR_ROUTE_STEP_BASE + 2;
+static const SpriteID SPR_ROUTE_STEP_BOTTOM_SHADOW = SPR_ROUTE_STEP_BASE + 3;
+static const SpriteID ROUTE_STEP_SPRITE_COUNT = 4;
+
+/* Tracerestrict sprites */
+static const SpriteID SPR_TRACERESTRICT_BASE = SPR_ROUTE_STEP_BASE + ROUTE_STEP_SPRITE_COUNT;
+static const uint16_t TRACERESTRICT_SPRITE_COUNT = 3;
+
+/* Misc GUI sprites */
+static const SpriteID SPR_MISC_GUI_BASE = SPR_TRACERESTRICT_BASE + TRACERESTRICT_SPRITE_COUNT;
+static const uint16_t MISC_GUI_SPRITE_COUNT = 2;
+
+/* Duplicated signal sprites */
+static const SpriteID SPR_DUP_ORIGINAL_SIGNALS_BASE = SPR_MISC_GUI_BASE + MISC_GUI_SPRITE_COUNT;
+static const uint16_t DUP_ORIGINAL_SIGNALS_SPRITE_COUNT = 16;
+static const SpriteID SPR_DUP_SIGNALS_BASE = SPR_DUP_ORIGINAL_SIGNALS_BASE + DUP_ORIGINAL_SIGNALS_SPRITE_COUNT;
+static const uint16_t DUP_SIGNALS_SPRITE_COUNT = PRESIGNAL_SEMAPHORE_AND_PBS_SPRITE_COUNT;
+
 /* From where can we start putting NewGRFs? */
-static const SpriteID SPR_NEWGRFS_BASE = SPR_BRIDGE_DECKS_BASE + BRIDGE_DECKS_SPRITE_COUNT;
+static const SpriteID SPR_NEWGRFS_BASE = SPR_DUP_SIGNALS_BASE + DUP_SIGNALS_SPRITE_COUNT;
 
 /* Manager face sprites */
 static const SpriteID SPR_GRADIENT = 874; // background gradient behind manager face
@@ -1359,12 +1404,16 @@ static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_EXIT     = SPR_SIGNALS_BASE +  28;
 static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_COMBO    = SPR_SIGNALS_BASE +  44;
 static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_PBS      = SPR_SIGNALS_BASE + 124;
 static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_PBS_OWAY = SPR_SIGNALS_BASE + 140;
+static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_PROG     = SPR_PROGSIGNAL_BASE + 28;
+static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_NO_ENTRY = SPR_EXTRASIGNAL_BASE + 14;
 static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_NORM    = SPR_SIGNALS_BASE +  60;
 static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_ENTRY   = SPR_SIGNALS_BASE +  76;
 static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_EXIT    = SPR_SIGNALS_BASE +  92;
 static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_COMBO   = SPR_SIGNALS_BASE + 108;
 static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_PBS     = SPR_SIGNALS_BASE + 188;
 static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_PBS_OWAY= SPR_SIGNALS_BASE + 204;
+static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_PROG    = SPR_PROGSIGNAL_BASE + 12;
+static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_NO_ENTRY= SPR_EXTRASIGNAL_BASE + 6;
 static const SpriteID SPR_IMG_SIGNAL_CONVERT           = SPR_OPENTTD_BASE + 135;
 
 static const SpriteID SPR_IMG_TUNNEL_RAIL   = 2430;
@@ -1544,6 +1593,9 @@ static constexpr uint8_t OPAQUE_BIT = 28;
 
 /* This bit is applied to palette ID */
 static constexpr uint8_t PALETTE_TEXT_RECOLOUR = 31; ///< Set if palette is actually a magic text recolour
+static constexpr uint8_t PALETTE_BRIGHTNESS_MODIFY = 30; ///< Set if palette has a brightness adjustment
+static constexpr uint8_t PALETTE_BRIGHTNESS_OFFSET = 24; ///< Palette brightness adjustment bit offset
+static constexpr uint8_t PALETTE_BRIGHTNESS_WIDTH = 5;   ///< Palette brightness adjustment width
 
 static constexpr uint8_t PALETTE_WIDTH = 24; ///< number of bits of the sprite containing the recolour palette
 static constexpr uint8_t SPRITE_WIDTH = 24; ///< number of bits for the sprite number
@@ -1568,6 +1620,8 @@ static constexpr uint8_t PALETTE_MODIFIER_COLOUR       = RECOLOUR_BIT;    ///< t
  */
 static constexpr uint32_t MAX_SPRITES = 1U << SPRITE_WIDTH; ///< Maximum number of sprites that can be loaded at a given time
 static constexpr uint32_t SPRITE_MASK = MAX_SPRITES - 1; ///< The mask to for the main sprite
+
+static constexpr uint32_t INVALID_SPRITE_ID = UINT32_MAX;
 
 static constexpr uint32_t MAX_PALETTES = 1U << PALETTE_WIDTH;
 static constexpr uint32_t PALETTE_MASK = MAX_PALETTES - 1; ///< The mask for the auxiliary sprite (the one that takes care of recolouring)
@@ -1623,5 +1677,7 @@ static const PaletteID PALETTE_CHURCH_RED          = 1438; ///< Recolour sprite 
 static const PaletteID PALETTE_CHURCH_CREAM        = 1439; ///< Recolour sprite for white churches
 
 static const PaletteID PALETTE_ALL_BLACK           = SPR_PALETTE_BASE; ///< Exchange any colour by black, needed for painting fictive tiles outside map
+
+static const PaletteID PALETTE_WHITE_TINT          = SPR_MISC_GUI_BASE + 1;
 
 #endif /* SPRITES_H */

@@ -9,6 +9,7 @@
 
 #include "stdafx.h"
 #include "core/geometry_func.hpp"
+#include "core/mem_func.hpp"
 #include "landscape.h"
 #include "newgrf_text.h"
 #include "error.h"
@@ -23,8 +24,6 @@
 #include "window_func.h"
 #include "console_func.h"
 #include "window_gui.h"
-#include "timer/timer.h"
-#include "timer/timer_window.h"
 
 #include "widgets/error_widget.h"
 
@@ -35,37 +34,39 @@
 
 static constexpr std::initializer_list<NWidgetPart> _nested_errmsg_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_RED),
-		NWidget(WWT_CAPTION, COLOUR_RED, WID_EM_CAPTION), SetStringTip(STR_ERROR_MESSAGE_CAPTION),
+		NWidget(WWT_CLOSEBOX, Colours::Red),
+		NWidget(WWT_CAPTION, Colours::Red, WID_EM_CAPTION), SetStringTip(STR_ERROR_MESSAGE_CAPTION),
 	EndContainer(),
-	NWidget(WWT_PANEL, COLOUR_RED),
-		NWidget(WWT_EMPTY, INVALID_COLOUR, WID_EM_MESSAGE), SetPadding(WidgetDimensions::unscaled.modalpopup), SetFill(1, 0), SetMinimalSize(236, 0),
+	NWidget(WWT_PANEL, Colours::Red),
+		NWidget(WWT_EMPTY, Colours::Invalid, WID_EM_MESSAGE), SetPadding(WidgetDimensions::unscaled.modalpopup), SetFill(1, 0), SetMinimalSize(236, 0),
 	EndContainer(),
 };
 
-static WindowDesc _errmsg_desc(
-	WDP_MANUAL, {}, 0, 0,
-	WC_ERRMSG, WC_NONE,
+/** Window definition for the error message window. */
+static WindowDesc _errmsg_desc(__FILE__, __LINE__,
+	WindowPosition::Manual, nullptr, 0, 0,
+	WindowClass::ErrorMessage, WindowClass::None,
 	{},
 	_nested_errmsg_widgets
 );
 
 static constexpr std::initializer_list<NWidgetPart> _nested_errmsg_face_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_RED),
-		NWidget(WWT_CAPTION, COLOUR_RED, WID_EM_CAPTION),
+		NWidget(WWT_CLOSEBOX, Colours::Red),
+		NWidget(WWT_CAPTION, Colours::Red, WID_EM_CAPTION),
 	EndContainer(),
-	NWidget(WWT_PANEL, COLOUR_RED),
+	NWidget(WWT_PANEL, Colours::Red),
 		NWidget(NWID_HORIZONTAL),
-			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_EM_FACE), SetPadding(2, 0, 2, 2), SetFill(0, 1), SetMinimalSize(92, 119),
-			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_EM_MESSAGE), SetPadding(WidgetDimensions::unscaled.modalpopup), SetFill(1, 1), SetMinimalSize(236, 0),
+			NWidget(WWT_EMPTY, Colours::Invalid, WID_EM_FACE), SetPadding(2, 0, 2, 2), SetFill(0, 1), SetMinimalSize(92, 119),
+			NWidget(WWT_EMPTY, Colours::Invalid, WID_EM_MESSAGE), SetPadding(WidgetDimensions::unscaled.modalpopup), SetFill(1, 1), SetMinimalSize(236, 0),
 		EndContainer(),
 	EndContainer(),
 };
 
-static WindowDesc _errmsg_face_desc(
-	WDP_MANUAL, {}, 0, 0,
-	WC_ERRMSG, WC_NONE,
+/** Window definition for the error message with company president face window. */
+static WindowDesc _errmsg_face_desc(__FILE__, __LINE__,
+	WindowPosition::Manual, nullptr, 0, 0,
+	WindowClass::ErrorMessage, WindowClass::None,
 	{},
 	_nested_errmsg_face_widgets
 );
@@ -74,13 +75,13 @@ static WindowDesc _errmsg_face_desc(
  * Display an error message in a window.
  * @param summary_msg  General error message showed in first line. Must be valid.
  * @param detailed_msg Detailed error message showed in second line. Can be empty.
- * @param is_critical  Whether the error is critical. Critical messages never go away on their own.
+ * @param duration     The amount of time to show this error message.
  * @param x            World X position (TileVirtX) of the error location. Set both x and y to 0 to just center the message when there is no related error tile.
  * @param y            World Y position (TileVirtY) of the error location. Set both x and y to 0 to just center the message when there is no related error tile.
  * @param extra_msg    Extra error message showed in third line. Can be empty.
+ * @param company The associated company to the error message. Company::Invalid() when there is none.
  */
-ErrorMessageData::ErrorMessageData(EncodedString &&summary_msg, EncodedString &&detailed_msg, bool is_critical, int x, int y, EncodedString &&extra_msg, CompanyID company) :
-	is_critical(is_critical),
+ErrorMessageData::ErrorMessageData(EncodedString &&summary_msg, EncodedString &&detailed_msg, uint duration, int x, int y, EncodedString &&extra_msg, CompanyID company) :
 	summary_msg(std::move(summary_msg)),
 	detailed_msg(std::move(detailed_msg)),
 	extra_msg(std::move(extra_msg)),
@@ -88,6 +89,8 @@ ErrorMessageData::ErrorMessageData(EncodedString &&summary_msg, EncodedString &&
 	company(company)
 {
 	assert(!this->summary_msg.empty());
+
+	this->display_timer.SetInterval(duration * 1000);
 }
 
 /** The actual queue with errors. */
@@ -98,19 +101,14 @@ bool _window_system_initialized = false;
 /** Window class for displaying an error message window. */
 struct ErrmsgWindow : public Window, ErrorMessageData {
 private:
-	uint height_summary = 0; ///< Height of the #summary_msg string in pixels in the #WID_EM_MESSAGE widget.
-	uint height_detailed = 0; ///< Height of the #detailed_msg string in pixels in the #WID_EM_MESSAGE widget.
-	uint height_extra = 0; ///< Height of the #extra_msg string in pixels in the #WID_EM_MESSAGE widget.
-
-	TimeoutTimer<TimerWindow> display_timeout = {std::chrono::seconds(_settings_client.gui.errmsg_duration), [this]() {
-		this->Close();
-	}};
+	uint height_summary = 0;        ///< Height of the #summary_msg string in pixels in the #WID_EM_MESSAGE widget.
+	uint height_detailed = 0;       ///< Height of the #detailed_msg string in pixels in the #WID_EM_MESSAGE widget.
+	uint height_extra = 0;          ///< Height of the #extra_msg string in pixels in the #WID_EM_MESSAGE widget.
 
 public:
-	ErrmsgWindow(const ErrorMessageData &data) :
-		Window(data.HasFace() ? _errmsg_face_desc : _errmsg_desc),
-		ErrorMessageData(data)
+	ErrmsgWindow(ErrorMessageData &&data) : Window(data.HasFace() ? _errmsg_face_desc : _errmsg_desc), ErrorMessageData(std::move(data))
 	{
+		this->invalidation_policy = WindowInvalidationPolicy::NoQueue;
 		this->InitNested();
 	}
 
@@ -135,7 +133,7 @@ public:
 		}
 	}
 
-	Point OnInitialPosition([[maybe_unused]] int16_t sm_width, [[maybe_unused]] int16_t sm_height, [[maybe_unused]] int window_number) override
+	Point OnInitialPosition(int16_t sm_width, int16_t sm_height, int window_number) override
 	{
 		/* Position (0, 0) given, center the window. */
 		if (this->position.x == 0 && this->position.y == 0) {
@@ -182,21 +180,21 @@ public:
 	{
 		switch (widget) {
 			case WID_EM_FACE: {
-				const Company *c = Company::Get(this->company);
-				DrawCompanyManagerFace(c->face, c->colour, r);
+				const Company *c = Company::GetIfValid(this->company);
+				if (c != nullptr) DrawCompanyManagerFace(c->face, c->colour, r);
 				break;
 			}
 
 			case WID_EM_MESSAGE:
 				if (this->detailed_msg.empty()) {
-					DrawStringMultiLineWithClipping(r, this->summary_msg.GetDecodedString(), TC_FROMSTRING, SA_CENTER);
+					DrawStringMultiLineWithClipping(r, this->summary_msg.GetDecodedString(), TextColour::White, SA_CENTER);
 				} else if (this->extra_msg.empty()) {
 					/* Extra space when message is shorter than company face window */
 					int extra = (r.Height() - this->height_summary - this->height_detailed - WidgetDimensions::scaled.vsep_wide) / 2;
 
 					/* Note: NewGRF supplied error message often do not start with a colour code, so default to white. */
-					DrawStringMultiLineWithClipping(r.WithHeight(this->height_summary + extra, false), this->summary_msg.GetDecodedString(), TC_WHITE, SA_CENTER);
-					DrawStringMultiLineWithClipping(r.WithHeight(this->height_detailed + extra, true), this->detailed_msg.GetDecodedString(), TC_WHITE, SA_CENTER);
+					DrawStringMultiLineWithClipping(r.WithHeight(this->height_summary + extra, false), this->summary_msg.GetDecodedString(), TextColour::White, SA_CENTER);
+					DrawStringMultiLineWithClipping(r.WithHeight(this->height_detailed + extra, true), this->detailed_msg.GetDecodedString(), TextColour::White, SA_CENTER);
 				} else {
 					/* Extra space when message is shorter than company face window */
 					int extra = (r.Height() - this->height_summary - this->height_detailed - this->height_extra - (WidgetDimensions::scaled.vsep_wide * 2)) / 3;
@@ -205,9 +203,9 @@ public:
 					Rect top_section = r.WithHeight(this->height_summary + extra, false);
 					Rect bottom_section = r.WithHeight(this->height_extra + extra, true);
 					Rect middle_section = top_section.WithY(top_section.bottom, bottom_section.top);
-					DrawStringMultiLineWithClipping(top_section, this->summary_msg.GetDecodedString(), TC_WHITE, SA_CENTER);
-					DrawStringMultiLineWithClipping(middle_section, this->detailed_msg.GetDecodedString(), TC_WHITE, SA_CENTER);
-					DrawStringMultiLineWithClipping(bottom_section, this->extra_msg.GetDecodedString(), TC_WHITE, SA_CENTER);
+					DrawStringMultiLineWithClipping(top_section, this->summary_msg.GetDecodedString(), TextColour::White, SA_CENTER);
+					DrawStringMultiLineWithClipping(middle_section, this->detailed_msg.GetDecodedString(), TextColour::White, SA_CENTER);
+					DrawStringMultiLineWithClipping(bottom_section, this->extra_msg.GetDecodedString(), TextColour::White, SA_CENTER);
 				}
 
 				break;
@@ -217,21 +215,17 @@ public:
 		}
 	}
 
-	void OnPaint() override
-	{
-		/* Start the timeout if not already started and the message is not critical. This is handled during OnPaint so that any delay between
-		 * creating the window and displaying it does not affect how long the message is visible. */
-		if (!this->is_critical && this->display_timeout.HasFired()) {
-			this->display_timeout.Reset();
-		}
-
-		this->Window::OnPaint();
-	}
-
 	void OnMouseLoop() override
 	{
 		/* Disallow closing the window too easily, if timeout is disabled */
-		if (_right_button_down && !this->is_critical) this->Close();
+		if (_right_button_down && !this->display_timer.HasElapsed()) this->Close();
+	}
+
+	void OnRealtimeTick(uint delta_ms) override
+	{
+		if (this->display_timer.CountElapsed(delta_ms) == 0) return;
+
+		this->Close();
 	}
 
 	void Close([[maybe_unused]] int data = 0) override
@@ -247,7 +241,7 @@ public:
 	 */
 	bool IsCritical()
 	{
-		return this->is_critical;
+		return this->display_timer.HasElapsed();
 	}
 };
 
@@ -265,7 +259,7 @@ void ShowFirstError()
 {
 	_window_system_initialized = true;
 	if (!_error_list.empty()) {
-		new ErrmsgWindow(_error_list.front());
+		new ErrmsgWindow(std::move(_error_list.front()));
 		_error_list.pop_front();
 	}
 }
@@ -277,7 +271,7 @@ void ShowFirstError()
  */
 void UnshowCriticalError()
 {
-	ErrmsgWindow *w = dynamic_cast<ErrmsgWindow *>(FindWindowById(WC_ERRMSG, 0));
+	ErrmsgWindow *w = dynamic_cast<ErrmsgWindow *>(FindWindowById(WindowClass::ErrorMessage, 0));
 	if (_window_system_initialized && w != nullptr) {
 		if (w->IsCritical()) _error_list.push_front(*w);
 		_window_system_initialized = false;
@@ -287,7 +281,7 @@ void UnshowCriticalError()
 
 /**
  * Display an error message in a window.
- * Note: CommandCost errors are always severity level WL_INFO.
+ * Note: CommandCost errors are always severity level WarningLevel::Info.
  * @param summary_msg  General error message showed in first line. Must be valid.
  * @param x            World X position (TileVirtX) of the error location. Set both x and y to 0 to just center the message when there is no related error tile.
  * @param y            World Y position (TileVirtY) of the error location. Set both x and y to 0 to just center the message when there is no related error tile.
@@ -298,7 +292,7 @@ void ShowErrorMessage(EncodedString &&summary_msg, int x, int y, CommandCost &cc
 	EncodedString error = std::move(cc.GetEncodedMessage());
 	if (error.empty()) error = GetEncodedStringIfValid(cc.GetErrorMessage());
 
-	ShowErrorMessage(std::move(summary_msg), std::move(error), WL_INFO, x, y,
+	ShowErrorMessage(std::move(summary_msg), std::move(error), WarningLevel::Info, x, y,
 		GetEncodedStringIfValid(cc.GetExtraErrorMessage()), cc.GetErrorOwner());
 }
 
@@ -310,37 +304,41 @@ void ShowErrorMessage(EncodedString &&summary_msg, int x, int y, CommandCost &cc
  * @param x            World X position (TileVirtX) of the error location. Set both x and y to 0 to just center the message when there is no related error tile.
  * @param y            World Y position (TileVirtY) of the error location. Set both x and y to 0 to just center the message when there is no related error tile.
  * @param extra_msg    Extra error message shown in third line. Can be empty.
+ * @param company The associated company to the error message. Company::Invalid() when there is none.
  */
 void ShowErrorMessage(EncodedString &&summary_msg, EncodedString &&detailed_msg, WarningLevel wl, int x, int y, EncodedString &&extra_msg, CompanyID company)
 {
-	if (wl != WL_INFO) {
+	if (wl != WarningLevel::Info) {
 		/* Print message to console */
 
-		std::string message = summary_msg.GetDecodedString();
+		format_buffer message;
+		summary_msg.AppendDecodedStringInPlace(message);
 		if (!detailed_msg.empty()) {
-			message += " ";
-			message += detailed_msg.GetDecodedString();
+			message.push_back(' ');
+			detailed_msg.AppendDecodedStringInPlace(message);
 		}
 		if (!extra_msg.empty()) {
-			message += " ";
-			message += extra_msg.GetDecodedString();
+			message.push_back(' ');
+			extra_msg.AppendDecodedStringInPlace(message);
 		}
 
-		IConsolePrint(wl == WL_WARNING ? CC_WARNING : CC_ERROR, message);
+		IConsolePrint(wl == WarningLevel::Warning ? CC_WARNING : CC_ERROR, message.to_string());
 	}
 
-	bool is_critical = wl == WL_CRITICAL;
+	bool no_timeout = wl == WarningLevel::Critical;
 
-	if (_game_mode == GM_BOOTSTRAP) return;
-	if (_settings_client.gui.errmsg_duration == 0 && !is_critical) return;
+	if (_game_mode == GameMode::Bootstrap) return;
+	if (_settings_client.gui.errmsg_duration == 0 && !no_timeout) return;
 
-	ErrorMessageData data(std::move(summary_msg), std::move(detailed_msg), is_critical, x, y, std::move(extra_msg), company);
+	if (company != CompanyID::Invalid() && !Company::IsValidID(company)) company = CompanyID::Invalid();
 
-	ErrmsgWindow *w = dynamic_cast<ErrmsgWindow *>(FindWindowById(WC_ERRMSG, 0));
+	ErrorMessageData data(std::move(summary_msg), std::move(detailed_msg), no_timeout ? 0 : _settings_client.gui.errmsg_duration, x, y, std::move(extra_msg), company);
+
+	ErrmsgWindow *w = dynamic_cast<ErrmsgWindow *>(FindWindowById(WindowClass::ErrorMessage, 0));
 	if (w != nullptr) {
 		if (w->IsCritical()) {
 			/* A critical error is currently shown. */
-			if (wl == WL_CRITICAL) {
+			if (wl == WarningLevel::Critical) {
 				/* Push another critical error in the queue of errors,
 				 * but do not put other errors in the queue. */
 				_error_list.push_back(std::move(data));
@@ -350,7 +348,7 @@ void ShowErrorMessage(EncodedString &&summary_msg, EncodedString &&detailed_msg,
 		/* A non-critical error was shown. */
 		w->Close();
 	}
-	new ErrmsgWindow(data);
+	new ErrmsgWindow(std::move(data));
 }
 
 
@@ -360,7 +358,7 @@ void ShowErrorMessage(EncodedString &&summary_msg, EncodedString &&detailed_msg,
  */
 bool HideActiveErrorMessage()
 {
-	ErrmsgWindow *w = dynamic_cast<ErrmsgWindow *>(FindWindowById(WC_ERRMSG, 0));
+	ErrmsgWindow *w = dynamic_cast<ErrmsgWindow *>(FindWindowById(WindowClass::ErrorMessage, 0));
 	if (w == nullptr) return false;
 	w->Close();
 	return true;

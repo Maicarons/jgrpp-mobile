@@ -4,7 +4,6 @@ add_files(
     binaryheap.hpp
     dbg_helpers.cpp
     dbg_helpers.h
-    endian_buffer.hpp
     getoptdata.cpp
     getoptdata.h
     hashtable.hpp

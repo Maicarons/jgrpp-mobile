@@ -5,7 +5,9 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file newgrf_internal.h NewGRF internal processing state. */
+/**
+ * @file newgrf_internal.h Internal NewGRF processing definitions.
+ */
 
 #ifndef NEWGRF_INTERNAL_H
 #define NEWGRF_INTERNAL_H
@@ -14,36 +16,85 @@
 #include "../newgrf_commons.h"
 #include "../newgrf_config.h"
 #include "../spriteloader/sprite_file_type.hpp"
+#include "../core/enum_type.hpp"
 #include "newgrf_bytereader.h"
 
+#include "../3rdparty/cpp-btree/btree_map.h"
+#include <vector>
+
 /** Possible return values for the GrfChangeInfoHandler functions */
-enum ChangeInfoResult : uint8_t {
-	CIR_SUCCESS,    ///< Variable was parsed and read
-	CIR_DISABLED,   ///< GRF was disabled due to error
-	CIR_UNHANDLED,  ///< Variable was parsed but unread
-	CIR_UNKNOWN,    ///< Variable is unknown
-	CIR_INVALID_ID, ///< Attempt to modify an invalid ID
+enum class ChangeInfoResult : uint8_t {
+	Success, ///< Variable was parsed and read
+	Disabled, ///< GRF was disabled due to error
+	Unhandled, ///< Variable was parsed but unread
+	Unknown, ///< Variable is unknown
+	InvalidId, ///< Attempt to modify an invalid ID
 };
+
+ChangeInfoResult HandleAction0PropertyDefault(ByteReader &buf, int prop);
+bool MappedPropertyLengthMismatch(ByteReader &buf, uint expected_size, const GRFFilePropertyRemapEntry *mapping_entry);
 
 /** GRF feature handler */
 template <GrfSpecFeature TFeature>
 struct GrfChangeInfoHandler {
-	static ChangeInfoResult Reserve(uint first, uint last, int prop, ByteReader &buf);
-	static ChangeInfoResult Activation(uint first, uint last, int prop, ByteReader &buf);
+	/**
+	 * Implementation of the \ref GrfLoadingStage::Reserve stage of this feature.
+	 * @param first The first id of the feature instance (engine, station, ...) to reserve for.
+	 * @param last The id to stop iterating at (exclusive).
+	 * @param prop The property to reserve for.
+	 * @param buf The buffer containing the sprite data.
+	 * @return Whether it was successful, or why it wasn't.
+	 */
+	static ChangeInfoResult Reserve(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf);
+
+	/**
+	 * Implementation of the \ref GrfLoadingStage::Activation stage of this feature.
+	 * @param first The first id of the feature instance (engine, station, ...) to activate for.
+	 * @param last The id to stop iterating at (exclusive).
+	 * @param prop The property to activate for.
+	 * @param buf The buffer containing the sprite data.
+	 * @return Whether it was successful, or why it wasn't.
+	 */
+	static ChangeInfoResult Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf);
 };
 
 /** GRF action handler */
 template <uint8_t TAction>
 struct GrfActionHandler {
+	/**
+	 * Implementation of the \ref GrfLoadingStage::FileScan stage of this action.
+	 * @param buf The buffer containing the sprite data.
+	 */
 	static void FileScan(ByteReader &buf);
+	/**
+	 * Implementation of the \ref GrfLoadingStage::SafetyScan stage of this action.
+	 * @param buf The buffer containing the sprite data.
+	 */
 	static void SafetyScan(ByteReader &buf);
+	/**
+	 * Implementation of the \ref GrfLoadingStage::LabelScan stage of this action.
+	 * @param buf The buffer containing the sprite data.
+	 */
 	static void LabelScan(ByteReader &buf);
+	/**
+	 * Implementation of the \ref GrfLoadingStage::Init stage of this action.
+	 * @param buf The buffer containing the sprite data.
+	 */
 	static void Init(ByteReader &buf);
+	/**
+	 * Implementation of the \ref GrfLoadingStage::Reserve stage of this action.
+	 * @param buf The buffer containing the sprite data.
+	 */
 	static void Reserve(ByteReader &buf);
+	/**
+	 * Implementation of the \ref GrfLoadingStage::Activation stage of this action.
+	 * @param buf The buffer containing the sprite data.
+	 */
 	static void Activation(ByteReader &buf);
 };
 
-static constexpr uint MAX_SPRITEGROUP = UINT8_MAX; ///< Maximum GRF-local ID for a spritegroup.
+/** Base GRF ID for OpenTTD's base graphics GRFs. */
+static const uint32_t OPENTTD_GRAPHICS_BASE_GRF_ID = std::byteswap<uint32_t>(0xFF4F5400);
 
 /** Temporary data during loading of GRFs */
 struct GrfProcessingState {
@@ -55,7 +106,7 @@ private:
 	};
 
 	/** Currently referenceable spritesets */
-	std::map<uint, SpriteSet> spritesets[GSF_END];
+	EnumIndexArray<btree::btree_map<uint, SpriteSet>, GrfSpecFeature, GrfSpecFeature::End> spritesets{};
 
 public:
 	/* Global state */
@@ -66,26 +117,16 @@ public:
 	SpriteFile *file;         ///< File of currently processed GRF file.
 	GRFFile *grffile;         ///< Currently processed GRF file.
 	GRFConfig *grfconfig;     ///< Config of the currently processed GRF file.
-	uint32_t nfo_line;          ///< Currently processed pseudo sprite number in the GRF.
+	uint32_t nfo_line;        ///< Currently processed pseudo sprite number in the GRF.
 
 	/* Kind of return values when processing certain actions */
 	int skip_sprites;         ///< Number of pseudo sprites to skip before processing the next one. (-1 to skip to end of file)
 
 	/* Currently referenceable spritegroups */
-	std::array<const SpriteGroup *, MAX_SPRITEGROUP + 1> spritegroups{};
+	std::vector<const SpriteGroup *> spritegroups;
 
 	/** Clear temporary data before processing the next file in the current loading stage */
-	void ClearDataForNextFile()
-	{
-		this->nfo_line = 0;
-		this->skip_sprites = 0;
-
-		for (uint i = 0; i < GSF_END; i++) {
-			this->spritesets[i].clear();
-		}
-
-		this->spritegroups = {};
-	}
+	void ClearDataForNextFile();
 
 	/**
 	 * Records new spritesets.
@@ -97,7 +138,7 @@ public:
 	 */
 	void AddSpriteSets(GrfSpecFeature feature, SpriteID first_sprite, uint first_set, uint numsets, uint numents)
 	{
-		assert(feature < GSF_END);
+		assert(feature < GrfSpecFeature::End);
 		for (uint i = 0; i < numsets; i++) {
 			SpriteSet &set = this->spritesets[feature][first_set + i];
 			set.sprite = first_sprite + i * numents;
@@ -113,47 +154,62 @@ public:
 	 */
 	bool HasValidSpriteSets(GrfSpecFeature feature) const
 	{
-		assert(feature < GSF_END);
+		assert(feature < GrfSpecFeature::End);
 		return !this->spritesets[feature].empty();
 	}
 
+	struct SpriteSetInfo {
+	private:
+		SpriteSet info;
+
+	public:
+		SpriteSetInfo() : info({ 0, UINT_MAX }) {}
+		SpriteSetInfo(SpriteSet info) : info(info) {}
+
+		/**
+		 * Check whether this set is defined.
+		 * @return true if the set is valid.
+		 * @note Spritesets with zero sprites are valid to allow callback-failures.
+		 */
+		bool IsValid() const { return this->info.num_sprites != UINT_MAX; }
+
+		/**
+		 * Returns the first sprite of this spriteset.
+		 * @return First sprite of the set.
+		 */
+		SpriteID GetSprite() const
+		{
+			assert(this->IsValid());
+			return this->info.sprite;
+		}
+
+		/**
+		 * Returns the number of sprites in this spriteset
+		 * @return Number of sprites in the set.
+		 */
+		uint GetNumEnts() const
+		{
+			assert(this->IsValid());
+			return this->info.num_sprites;
+		}
+	};
+
 	/**
-	 * Check whether a specific set is defined.
+	 * Get information for a specific set is defined.
 	 * @param feature GrfSpecFeature to check.
 	 * @param set Set to check.
-	 * @return true if the set is valid.
+	 * @return Sprite set information.
 	 * @note Spritesets with zero sprites are valid to allow callback-failures.
 	 */
-	bool IsValidSpriteSet(GrfSpecFeature feature, uint set) const
+	SpriteSetInfo GetSpriteSetInfo(GrfSpecFeature feature, uint set) const
 	{
-		assert(feature < GSF_END);
-		return this->spritesets[feature].find(set) != this->spritesets[feature].end();
-	}
-
-	/**
-	 * Returns the first sprite of a spriteset.
-	 * @param feature GrfSpecFeature to query.
-	 * @param set Set to query.
-	 * @return First sprite of the set.
-	 */
-	SpriteID GetSprite(GrfSpecFeature feature, uint set) const
-	{
-		assert(IsValidSpriteSet(feature, set));
-		return this->spritesets[feature].find(set)->second.sprite;
-	}
-
-	/**
-	 * Returns the number of sprites in a spriteset
-	 * @param feature GrfSpecFeature to query.
-	 * @param set Set to query.
-	 * @return Number of sprites in the set.
-	 */
-	uint GetNumEnts(GrfSpecFeature feature, uint set) const
-	{
-		assert(IsValidSpriteSet(feature, set));
-		return this->spritesets[feature].find(set)->second.num_sprites;
+		assert(feature < GrfSpecFeature::End);
+		auto iter = this->spritesets[feature].find(set);
+		return iter != this->spritesets[feature].end() ? SpriteSetInfo(iter->second) : SpriteSetInfo();
 	}
 };
+
+using SpriteSetInfo = GrfProcessingState::SpriteSetInfo;
 
 extern GrfProcessingState _cur_gps;
 
@@ -174,10 +230,11 @@ struct GRFLocation {
 	}
 };
 
-using GRFLineToSpriteOverride = std::map<GRFLocation, std::vector<uint8_t>>;
+using GRFLineToSpriteOverride = btree::btree_map<GRFLocation, std::unique_ptr<uint8_t[]>>;
 
-extern std::map<GRFLocation, std::pair<SpriteID, uint16_t>> _grm_sprites;
+extern btree::btree_map<GRFLocation, std::pair<SpriteID, uint16_t>> _grm_sprites;
 extern GRFLineToSpriteOverride _grf_line_to_action6_sprite_override;
+extern bool _action6_override_active;
 
 extern GrfMiscBits _misc_grf_features;
 
@@ -198,10 +255,12 @@ bool ReadSpriteLayout(ByteReader &buf, uint num_building_sprites, bool use_cur_s
 GRFFile *GetFileByGRFID(uint32_t grfid);
 GRFError *DisableGrf(StringID message = {}, GRFConfig *config = nullptr);
 void DisableStaticNewGRFInfluencingNonStaticNewGRFs(GRFConfig &c);
-bool HandleChangeInfoResult(std::string_view caller, ChangeInfoResult cir, GrfSpecFeature feature, uint8_t property);
+bool HandleChangeInfoResult(std::string_view caller, ChangeInfoResult cir, GrfSpecFeature feature, int property);
 uint32_t GetParamVal(uint8_t param, uint32_t *cond_val);
 void GRFUnsafe(ByteReader &);
 
 void InitializePatchFlags();
+
+GrfSpecFeatureRef ReadFeature(uint8_t raw_byte, bool allow_48 = false);
 
 #endif /* NEWGRF_INTERNAL_H */

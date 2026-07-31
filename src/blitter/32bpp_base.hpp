@@ -17,21 +17,32 @@
 /** Base for all 32bpp blitters. */
 class Blitter_32bppBase : public Blitter {
 public:
-	uint8_t GetScreenDepth() override { return 32; }
+	Blitter_32bppBase()
+	{
+		this->SetScreenDepth(32);
+	}
+
 	void *MoveTo(void *video, int x, int y) override;
 	void SetPixel(void *video, int x, int y, PixelColour colour) override;
+	void SetPixel32(void *video, int x, int y, PixelColour colour, uint32_t colour32) override;
 	void DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash) override;
+	void SetRect(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) override;
+	void SetRect32(void *video, int x, int y, const uint32_t *colours, uint lines, uint width, uint pitch) override;
+	void SetRectNoD7(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) override;
 	void DrawRect(void *video, int width, int height, PixelColour colour) override;
+	void DrawRectAt(void *video, int x, int y, int width, int height, PixelColour colour) override;
 	void CopyFromBuffer(void *video, const void *src, int width, int height) override;
 	void CopyToBuffer(const void *video, void *dst, int width, int height) override;
 	void CopyImageToBuffer(const void *video, void *dst, int width, int height, int dst_pitch) override;
-	void ScrollBuffer(void *video, int &left, int &top, int &width, int &height, int scroll_x, int scroll_y) override;
+	void ScrollBuffer(void *video, int left, int top, int width, int height, int scroll_x, int scroll_y) override;
 	size_t BufferSize(uint width, uint height) override;
 	void PaletteAnimate(const Palette &palette) override;
 	Blitter::PaletteAnimation UsePaletteAnimation() override;
 
 	/**
 	 * Look up the colour in the current palette.
+	 * @param index The index into the palette.
+	 * @return The colour.
 	 */
 	static inline Colour LookupColourInPalette(uint index)
 	{
@@ -40,6 +51,12 @@ public:
 
 	/**
 	 * Compose a colour based on RGBA values and the current pixel value.
+	 * @param r The red component of the colour to blend between 0 and 255 (inclusive).
+	 * @param g The green component of the colour to blend between 0 and 255 (inclusive).
+	 * @param b The blue component of the colour to blend between 0 and 255 (inclusive).
+	 * @param a The 'percentage' between 0 and 255 (inclusive) to blend into the current colour.
+	 * @param current The current/base colour.
+	 * @return The blended colour.
 	 */
 	static inline Colour ComposeColourRGBANoCheck(uint r, uint g, uint b, uint a, Colour current)
 	{
@@ -57,6 +74,12 @@ public:
 	/**
 	 * Compose a colour based on RGBA values and the current pixel value.
 	 * Handles fully transparent and solid pixels in a special (faster) way.
+	 * @param r The red component of the colour to blend between 0 and 255 (inclusive).
+	 * @param g The green component of the colour to blend between 0 and 255 (inclusive).
+	 * @param b The blue component of the colour to blend between 0 and 255 (inclusive).
+	 * @param a The 'percentage' between 0 and 255 (inclusive) to blend into the current colour.
+	 * @param current The current/base colour.
+	 * @return The blended colour.
 	 */
 	static inline Colour ComposeColourRGBA(uint r, uint g, uint b, uint a, Colour current)
 	{
@@ -68,6 +91,10 @@ public:
 
 	/**
 	 * Compose a colour based on Pixel value, alpha value, and the current pixel value.
+	 * @param colour The colour to blend.
+	 * @param a The 'percentage' between 0 and 255 (inclusive) to blend into the current colour.
+	 * @param current The current/base colour.
+	 * @return The blended colour.
 	 */
 	static inline Colour ComposeColourPANoCheck(Colour colour, uint a, Colour current)
 	{
@@ -81,6 +108,10 @@ public:
 	/**
 	 * Compose a colour based on Pixel value, alpha value, and the current pixel value.
 	 * Handles fully transparent and solid pixels in a special (faster) way.
+	 * @param colour The colour to blend.
+	 * @param a The 'percentage' between 0 and 255 (inclusive) to blend into the current colour.
+	 * @param current The current/base colour.
+	 * @return The blended colour.
 	 */
 	static inline Colour ComposeColourPA(Colour colour, uint a, Colour current)
 	{

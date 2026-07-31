@@ -8,6 +8,8 @@
 /** @file ini_load.cpp Definition of the #IniLoadFile class, related to reading and storing '*.ini' files. */
 
 #include "stdafx.h"
+#include "core/format.hpp"
+#include "core/mem_func.hpp"
 #include "core/string_consumer.hpp"
 #include "ini_type.h"
 #include "string_func.h"
@@ -16,7 +18,6 @@
 
 /**
  * Construct a new in-memory item of an Ini file.
- * @param parent the group we belong to
  * @param name   the name of the item
  */
 IniItem::IniItem(std::string_view name)
@@ -35,8 +36,8 @@ void IniItem::SetValue(std::string_view value)
 
 /**
  * Construct a new in-memory group of an Ini file.
- * @param parent the file we belong to
  * @param name   the name of the group
+ * @param type The type of group.
  */
 IniGroup::IniGroup(std::string_view name, IniGroupType type) : type(type), comment("\n")
 {
@@ -182,7 +183,7 @@ void IniLoadFile::RemoveGroup(std::string_view name)
  * @param subdir the sub directory to load the file from.
  * @pre nothing has been loaded yet.
  */
-void IniLoadFile::LoadFromDisk(std::string_view filename, Subdirectory subdir)
+void IniLoadFile::LoadFromDisk(const std::string &filename, Subdirectory subdir, std::string *save)
 {
 	assert(this->groups.empty());
 
@@ -195,11 +196,17 @@ void IniLoadFile::LoadFromDisk(std::string_view filename, Subdirectory subdir)
 	auto in = this->OpenFile(filename, subdir, &end);
 	if (!in.has_value()) return;
 
+	if (save != nullptr) {
+		save->clear();
+		if (end < (1 << 20)) save->reserve(end);
+	}
+
 	end += ftell(*in);
 
 	size_t line = 0;
 	/* for each line in the file */
 	while (static_cast<size_t>(ftell(*in)) < end && fgets(buffer, sizeof(buffer), *in)) {
+		if (save != nullptr) *save += buffer;
 		++line;
 		StringConsumer consumer{StrTrimView(buffer, StringConsumer::WHITESPACE_OR_NEWLINE)};
 

@@ -12,31 +12,38 @@
 #include <mmsystem.h>
 #include "../../openttd.h"
 #include "../../core/random_func.hpp"
-#include "../../core/string_consumer.hpp"
 #include "../../string_func.h"
 #include "../../crashlog.h"
 #include "../../debug.h"
+#include "../../thread.h"
 
 #include "../../safeguards.h"
 
-static auto ParseCommandLine(std::string_view line)
+static auto ParseCommandLine(char *line)
 {
-	std::vector<std::string_view> arguments;
+	std::vector<char *> arguments;
+	for (;;) {
+		/* skip whitespace */
+		while (*line == ' ' || *line == '\t') line++;
 
-	StringConsumer consumer{line};
-	while (consumer.AnyBytesLeft()) {
-		consumer.SkipUntilCharNotIn(StringConsumer::WHITESPACE_NO_NEWLINE);
-		if (!consumer.AnyBytesLeft()) break;
+		/* end? */
+		if (*line == '\0') break;
 
-		std::string_view argument;
-		if (consumer.ReadIf("\"")) {
-			/* special handling when quoted */
-			argument = consumer.ReadUntil("\"", StringConsumer::SKIP_ONE_SEPARATOR);
+		/* special handling when quoted */
+		if (*line == '"') {
+			arguments.push_back(++line);
+			while (*line != '"') {
+				if (*line == '\0') return arguments;
+				line++;
+			}
 		} else {
-			argument = consumer.ReadUntilCharIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+			arguments.push_back(line);
+			while (*line != ' ' && *line != '\t') {
+				if (*line == '\0') return arguments;
+				line++;
+			}
 		}
-
-		arguments.push_back(argument);
+		*line++ = '\0';
 	};
 
 	return arguments;
@@ -44,15 +51,17 @@ static auto ParseCommandLine(std::string_view line)
 
 void CreateConsole();
 
-int APIENTRY WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	/* Set system timer resolution to 1ms. */
 	timeBeginPeriod(1);
 
+	PerThreadSetupInit();
 	CrashLog::InitialiseCrashLog();
+	CrashLog::InitialiseExceptionTerminateHandler();
 
-	/* Convert the command line to valid UTF-8. */
-	std::string cmdline = StrMakeValid(FS2OTTD(GetCommandLine()));
+	/* Convert the command line to UTF-8. */
+	std::string cmdline = FS2OTTD(GetCommandLine());
 
 	/* Set the console codepage to UTF-8. */
 	SetConsoleOutputCP(CP_UTF8);
@@ -63,10 +72,13 @@ int APIENTRY WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	_set_error_mode(_OUT_TO_MSGBOX); // force assertion output to messagebox
 
-	/* setup random seed to something quite random */
-	SetRandomSeed(GetTickCount());
+	InitialiseRandomSeeds();
 
-	auto arguments = ParseCommandLine(cmdline);
+	auto arguments = ParseCommandLine(cmdline.data());
+
+	/* Make sure our arguments contain only valid UTF-8 characters. */
+	for (auto argument : arguments) StrMakeValidInPlace(argument);
+
 	int ret = openttd_main(arguments);
 
 	/* Restore system timer resolution. */

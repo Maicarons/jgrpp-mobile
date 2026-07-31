@@ -30,6 +30,7 @@ enum GraphWidgets : WidgetID {
 	WID_GRAPH_RESIZE,     ///< Resize button.
 	WID_GRAPH_HEADER,     ///< Header.
 	WID_GRAPH_FOOTER,     ///< Footer.
+	WID_GRAPH_FOOTER_CUSTOM, ///< Footer (custom).
 
 	WID_GRAPH_ENABLE_CARGOES,  ///< Enable cargoes button.
 	WID_GRAPH_DISABLE_CARGOES, ///< Disable cargoes button.
@@ -39,16 +40,32 @@ enum GraphWidgets : WidgetID {
 	WID_GRAPH_RANGE_MATRIX, ///< Range list.
 	WID_GRAPH_SCALE_MATRIX, ///< Horizontal axis scale list.
 
+	WID_CPR_DAYS,            ///< Days in transit mode.
+	WID_CPR_SPEED,           ///< Speed mode.
+
+	WID_DCG_BY_COMPANY,      ///< By company button.
+	WID_DCG_BY_CARGO,        ///< By cargo button.
+
 	WID_PHG_DETAILED_PERFORMANCE, ///< Detailed performance.
 };
 
 /** Widget of the #PerformanceRatingDetailWindow class. */
 enum PerformanceRatingDetailsWidgets : WidgetID {
 	WID_PRD_SCORE_FIRST, ///< First entry in the score list.
-	WID_PRD_SCORE_LAST = WID_PRD_SCORE_FIRST + (SCORE_END - SCORE_BEGIN) - 1, ///< Last entry in the score list.
+	WID_PRD_SCORE_LAST = WID_PRD_SCORE_FIRST + to_underlying(ScoreID::End) - 1, ///< Last entry in the score list.
 
 	WID_PRD_COMPANY_FIRST, ///< First company.
 	WID_PRD_COMPANY_LAST  = WID_PRD_COMPANY_FIRST + MAX_COMPANIES - 1, ///< Last company.
+};
+
+/** Widget of the #ExcludingCargoBaseGraphWindow class. */
+enum ExcludingCargoBaseGraphWindowWidgets : WidgetID {
+	WID_ECBG_FOOTER = 0x80,   ///< Footer.
+	WID_ECBG_ENABLE_CARGOES,  ///< Enable cargoes button.
+	WID_ECBG_DISABLE_CARGOES, ///< Disable cargoes button.
+	WID_ECBG_MATRIX,          ///< Cargo list.
+	WID_ECBG_MATRIX_SCROLLBAR,///< Cargo list scrollbar.
+	WID_ECBG_CARGO_FIRST,     ///< First cargo in the list.
 };
 
 #endif /* WIDGETS_GRAPH_WIDGET_H */

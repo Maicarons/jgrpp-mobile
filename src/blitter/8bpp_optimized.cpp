@@ -10,6 +10,8 @@
 #include "../stdafx.h"
 #include "../zoom_func.h"
 #include "../settings_type.h"
+#include "../core/math_func.hpp"
+#include "../core/mem_func.hpp"
 #include "8bpp_optimized.hpp"
 
 #include "../safeguards.h"
@@ -83,7 +85,8 @@ void Blitter_8bppOptimized::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Z
 
 			switch (mode) {
 				case BlitterMode::ColourRemap:
-				case BlitterMode::CrashRemap: {
+				case BlitterMode::CrashRemap:
+				case BlitterMode::ColourRemapWithBrightness: {
 					const uint8_t *remap = bp->remap;
 					do {
 						uint m = remap[*src];
@@ -94,7 +97,7 @@ void Blitter_8bppOptimized::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Z
 				}
 
 				case BlitterMode::BlackRemap:
-					std::fill_n(dst, pixels, 0);
+					MemSetT(dst, 0, pixels);
 					dst += pixels;
 					break;
 
@@ -110,7 +113,7 @@ void Blitter_8bppOptimized::Draw(Blitter::BlitterParams *bp, BlitterMode mode, Z
 				}
 
 				default:
-					std::copy_n(src, pixels, dst);
+					MemCpyT(dst, src, pixels);
 					dst += pixels; src += pixels;
 					break;
 			}
@@ -131,8 +134,8 @@ Sprite *Blitter_8bppOptimized::Encode(SpriteType sprite_type, const SpriteLoader
 		zoom_max = ZoomLevel::Min;
 	} else {
 		zoom_min = _settings_client.gui.zoom_min;
-		zoom_max = _settings_client.gui.zoom_max;
-		if (zoom_max == zoom_min) zoom_max = ZoomLevel::Max;
+		zoom_max = (ZoomLevel) std::min<ZoomLevel>(_settings_client.gui.zoom_max, ZoomLevel::SpriteMax);
+		if (zoom_max == zoom_min) zoom_max = ZoomLevel::SpriteMax;
 	}
 
 	for (ZoomLevel i = zoom_min; i <= zoom_max; i++) {
@@ -151,14 +154,13 @@ Sprite *Blitter_8bppOptimized::Encode(SpriteType sprite_type, const SpriteLoader
 
 	/* Make the sprites per zoom-level */
 	for (ZoomLevel i = zoom_min; i <= zoom_max; i++) {
-		const SpriteLoader::Sprite &src_orig = sprite[i];
 		/* Store the index table */
 		uint offset = dst - temp_dst->data;
 		temp_dst->offset[i] = offset;
 
 		/* cache values, because compiler can't cache it */
-		int scaled_height = src_orig.height;
-		int scaled_width = src_orig.width;
+		int scaled_height = sprite[i].height;
+		int scaled_width  = sprite[i].width;
 
 		for (int y = 0; y < scaled_height; y++) {
 			uint trans = 0;
@@ -167,7 +169,7 @@ Sprite *Blitter_8bppOptimized::Encode(SpriteType sprite_type, const SpriteLoader
 			uint8_t *count_dst = nullptr;
 
 			/* Store the scaled image */
-			const SpriteLoader::CommonPixel *src = &src_orig.data[y * src_orig.width];
+			const SpriteLoader::CommonPixel *src = &sprite[i].data[y * sprite[i].width];
 
 			for (int x = 0; x < scaled_width; x++) {
 				uint colour = src++->m;
@@ -221,10 +223,12 @@ Sprite *Blitter_8bppOptimized::Encode(SpriteType sprite_type, const SpriteLoader
 
 	const auto &root_sprite = sprite.Root();
 	dest_sprite->height = root_sprite.height;
-	dest_sprite->width = root_sprite.width;
+	dest_sprite->width  = root_sprite.width;
 	dest_sprite->x_offs = root_sprite.x_offs;
 	dest_sprite->y_offs = root_sprite.y_offs;
-	std::copy_n(reinterpret_cast<std::byte *>(temp_dst), size, dest_sprite->data);
+	dest_sprite->next = nullptr;
+	dest_sprite->missing_zoom_levels = {};
+	memcpy(dest_sprite->data, temp_dst, size);
 
 	return dest_sprite;
 }

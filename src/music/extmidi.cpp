@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include "table/strings.h"
 
@@ -33,15 +34,13 @@
 #define EXTERNAL_PLAYER "timidity"
 #endif
 
-#ifndef __EMSCRIPTEN__
 /** Factory for the midi player that uses external players. */
 static FMusicDriver_ExtMidi iFMusicDriver_ExtMidi;
-#endif
 
-std::optional<std::string_view> MusicDriver_ExtMidi::Start(const StringList &parm)
+const char *MusicDriver_ExtMidi::Start(const StringList &parm)
 {
-	if (VideoDriver::GetInstance()->GetName() == "allegro" ||
-			SoundDriver::GetInstance()->GetName() == "allegro") {
+	if (strcmp(VideoDriver::GetInstance()->GetName(), "allegro") == 0 ||
+			strcmp(SoundDriver::GetInstance()->GetName(), "allegro") == 0) {
 		return "the extmidi driver does not work when Allegro is loaded.";
 	}
 
@@ -64,7 +63,7 @@ std::optional<std::string_view> MusicDriver_ExtMidi::Start(const StringList &par
 
 	this->song.clear();
 	this->pid = -1;
-	return std::nullopt;
+	return nullptr;
 }
 
 void MusicDriver_ExtMidi::Stop()
@@ -90,8 +89,10 @@ void MusicDriver_ExtMidi::StopSong()
 
 bool MusicDriver_ExtMidi::IsSongPlaying()
 {
-	if (this->pid != -1 && waitpid(this->pid, nullptr, WNOHANG) == this->pid) {
+	int status = 0;
+	if (this->pid != -1 && waitpid(this->pid, &status, WNOHANG) == this->pid) {
 		this->pid = -1;
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 255) this->failed = true;
 	}
 	if (this->pid == -1 && !this->song.empty()) this->DoPlay();
 	return this->pid != -1;
@@ -104,6 +105,7 @@ void MusicDriver_ExtMidi::SetVolume(uint8_t)
 
 void MusicDriver_ExtMidi::DoPlay()
 {
+	this->failed = false;
 	this->pid = fork();
 	switch (this->pid) {
 		case 0: {
@@ -119,11 +121,11 @@ void MusicDriver_ExtMidi::DoPlay()
 
 				execvp(parameters[0], parameters.data());
 			}
-			_exit(1);
+			_exit(255);
 		}
 
 		case -1:
-			Debug(driver, 0, "extmidi: couldn't fork: {}", strerror(errno));
+			Debug(driver, 0, "extmidi: couldn't fork: {}", StrErrorDumper().GetLast());
 			[[fallthrough]];
 
 		default:

@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
- /** @file help_gui.cpp GUI to access manuals and related. */
+/** @file help_gui.cpp GUI to access manuals and related. */
 
 #include "stdafx.h"
 #include "gui.h"
@@ -15,16 +15,12 @@
 #include "table/control_codes.h"
 #include "string_func.h"
 #include "openttd.h"
-#include "language.h"
 
 #include "help_gui.h"
-
 #include "widgets/help_widget.h"
 #include "widgets/misc_widget.h"
 
 #include "table/strings.h"
-
-#include <unordered_map>
 
 #include "safeguards.h"
 
@@ -39,35 +35,6 @@ static const std::string WIKI_LINK = "https://wiki.openttd.org/";
 static const std::string BUGTRACKER_LINK = "https://bugs.openttd.org/";
 static const std::string COMMUNITY_LINK = "https://community.openttd.org/";
 
-using VideoOption = std::unordered_map<std::string, std::string> ;
-static const std::unordered_map<WidgetID, VideoOption> tutorial_list = {
-	{
-		WID_HW_BUS, {
-			{"en", "https://www.youtube.com/watch?v=EULXRMR4PyE"}
-		},
-	},
-	{
-		WID_HW_TRAIN, {
-			{"en", "https://www.youtube.com/watch?v=VdMdL2qyZ6s"}
-		},
-	},
-	{
-		WID_HW_TRUCK, {
-			{"en", "https://www.youtube.com/watch?v=B-CL-XFGNtw"}
-		},
-	},
-	{
-		WID_HW_SHIP, {
-			{"en", "https://www.youtube.com/watch?v=a5JHlWtIg3A"}
-		},
-	},
-	{
-		WID_HW_FACILALL, {
-			{"en", "https://www.youtube.com/watch?v=GwjiQYsu3xg"}
-		},
-	}
-};
-
 /** Only show the first 20 changelog versions in the textfile viewer. */
 static constexpr size_t CHANGELOG_VERSIONS_LIMIT = 20;
 
@@ -75,18 +42,19 @@ static constexpr size_t CHANGELOG_VERSIONS_LIMIT = 20;
  * Find the path to the game manual file.
  *
  * @param filename The filename to find.
+ * @param subdir The sub directory to search in.
  * @return std::string The path to the filename if found.
  */
 static std::optional<std::string> FindGameManualFilePath(std::string_view filename, Subdirectory subdir)
 {
 	static const Searchpath searchpaths[] = {
-		SP_APPLICATION_BUNDLE_DIR, SP_INSTALLATION_DIR, SP_SHARED_DIR, SP_BINARY_DIR, SP_WORKING_DIR
+		Searchpath::ApplicationBundleDir, Searchpath::InstallationDir, Searchpath::SharedDir, Searchpath::BinaryDir, Searchpath::WorkingDir
 	};
 
 	for (Searchpath sp : searchpaths) {
 		std::string file_path = FioGetDirectory(sp, subdir);
 		file_path.append(filename);
-		if (FioCheckFileExists(file_path, NO_DIRECTORY)) return file_path;
+		if (FioCheckFileExists(file_path, Subdirectory::None)) return file_path;
 	}
 
 	return {};
@@ -108,7 +76,7 @@ struct GameManualTextfileWindow : public TextfileWindow {
 		}
 
 		this->filepath = filepath.value();
-		this->LoadTextfile(this->filepath, NO_DIRECTORY);
+		this->LoadTextfile(this->filepath, Subdirectory::None);
 		this->OnClick({ 0, 0 }, WID_TF_WRAPTEXT, 1);
 	}
 
@@ -161,42 +129,30 @@ struct HelpWindow : public Window {
 	{
 		this->InitNested(number);
 
-		this->EnableTextfileButton(README_FILENAME, BASE_DIR, WID_HW_README);
-		this->EnableTextfileButton(CHANGELOG_FILENAME, BASE_DIR, WID_HW_CHANGELOG);
-		this->EnableTextfileButton(KNOWN_BUGS_FILENAME, BASE_DIR, WID_HW_KNOWN_BUGS);
-		this->EnableTextfileButton(LICENSE_FILENAME, BASE_DIR, WID_HW_LICENSE);
-		this->EnableTextfileButton(FONTS_FILENAME, DOCS_DIR, WID_HW_FONTS);
-	}
-
-	static void OpenTutorial(WidgetID wid) {
-		std::string link;
-
-		try {
-			link = tutorial_list.at(wid).at(_current_language->isocode);
-		} catch (const std::out_of_range& e) {
-			link = tutorial_list.at(wid).at("en");
-		}
-
-		OpenBrowser(link);
+		this->EnableTextfileButton(README_FILENAME, Subdirectory::Base, WID_HW_README);
+		this->EnableTextfileButton(CHANGELOG_FILENAME, Subdirectory::Base, WID_HW_CHANGELOG);
+		this->EnableTextfileButton(KNOWN_BUGS_FILENAME, Subdirectory::Base, WID_HW_KNOWN_BUGS);
+		this->EnableTextfileButton(LICENSE_FILENAME, Subdirectory::Base, WID_HW_LICENSE);
+		this->EnableTextfileButton(FONTS_FILENAME, Subdirectory::Docs, WID_HW_FONTS);
 	}
 
 	void OnClick([[maybe_unused]] Point pt, WidgetID widget, [[maybe_unused]] int click_count) override
 	{
 		switch (widget) {
 			case WID_HW_README:
-				new GameManualTextfileWindow(README_FILENAME, BASE_DIR);
+				new GameManualTextfileWindow(README_FILENAME, Subdirectory::Base);
 				break;
 			case WID_HW_CHANGELOG:
-				new GameManualTextfileWindow(CHANGELOG_FILENAME, BASE_DIR);
+				new GameManualTextfileWindow(CHANGELOG_FILENAME, Subdirectory::Base);
 				break;
 			case WID_HW_KNOWN_BUGS:
-				new GameManualTextfileWindow(KNOWN_BUGS_FILENAME, BASE_DIR);
+				new GameManualTextfileWindow(KNOWN_BUGS_FILENAME, Subdirectory::Base);
 				break;
 			case WID_HW_LICENSE:
-				new GameManualTextfileWindow(LICENSE_FILENAME, BASE_DIR);
+				new GameManualTextfileWindow(LICENSE_FILENAME, Subdirectory::Base);
 				break;
 			case WID_HW_FONTS:
-				new GameManualTextfileWindow(FONTS_FILENAME, DOCS_DIR);
+				new GameManualTextfileWindow(FONTS_FILENAME, Subdirectory::Docs);
 				break;
 			case WID_HW_WEBSITE:
 				OpenBrowser(WEBSITE_LINK);
@@ -210,13 +166,6 @@ struct HelpWindow : public Window {
 			case WID_HW_COMMUNITY:
 				OpenBrowser(COMMUNITY_LINK);
 				break;
-			case WID_HW_BUS:
-			case WID_HW_TRAIN:
-			case WID_HW_TRUCK:
-			case WID_HW_SHIP:
-			case WID_HW_FACILALL:
-				OpenTutorial(widget);
-				break;
 		}
 	}
 
@@ -229,41 +178,34 @@ private:
 
 static constexpr std::initializer_list<NWidgetPart> _nested_helpwin_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_CAPTION, COLOUR_DARK_GREEN), SetStringTip(STR_HELP_WINDOW_CAPTION),
+		NWidget(WWT_CLOSEBOX, Colours::DarkGreen),
+		NWidget(WWT_CAPTION, Colours::DarkGreen), SetStringTip(STR_HELP_WINDOW_CAPTION),
 	EndContainer(),
 
-	NWidget(WWT_PANEL, COLOUR_DARK_GREEN),
+	NWidget(WWT_PANEL, Colours::DarkGreen),
 		NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0), SetPadding(WidgetDimensions::unscaled.sparse),
-			NWidget(WWT_FRAME, COLOUR_DARK_GREEN), SetStringTip(STR_HELP_WINDOW_WEBSITES),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_WEBSITE), SetStringTip(STR_HELP_WINDOW_MAIN_WEBSITE), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_WIKI), SetStringTip(STR_HELP_WINDOW_MANUAL_WIKI), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_BUGTRACKER), SetStringTip(STR_HELP_WINDOW_BUGTRACKER), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_COMMUNITY), SetStringTip(STR_HELP_WINDOW_COMMUNITY), SetMinimalSize(128, 12), SetFill(1, 0),
+			NWidget(WWT_FRAME, Colours::DarkGreen), SetStringTip(STR_HELP_WINDOW_WEBSITES),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_WEBSITE), SetStringTip(STR_HELP_WINDOW_MAIN_WEBSITE), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_WIKI), SetStringTip(STR_HELP_WINDOW_MANUAL_WIKI), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_BUGTRACKER), SetStringTip(STR_HELP_WINDOW_BUGTRACKER), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_COMMUNITY), SetStringTip(STR_HELP_WINDOW_COMMUNITY), SetMinimalSize(128, 12), SetFill(1, 0),
 			EndContainer(),
 
-			NWidget(WWT_FRAME, COLOUR_DARK_GREEN), SetStringTip(STR_HELP_WINDOW_DOCUMENTS),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_README), SetStringTip(STR_HELP_WINDOW_README), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_CHANGELOG), SetStringTip(STR_HELP_WINDOW_CHANGELOG), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_KNOWN_BUGS),SetStringTip(STR_HELP_WINDOW_KNOWN_BUGS), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_LICENSE), SetStringTip(STR_HELP_WINDOW_LICENSE), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_FONTS), SetStringTip(STR_HELP_WINDOW_FONTS), SetMinimalSize(128, 12), SetFill(1, 0),
-			EndContainer(),
-
-			NWidget(WWT_FRAME, COLOUR_DARK_GREEN), SetStringTip(STR_TUTORIAL_WINDOW_TITLE, STR_TUTORIAL_WINDOW_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_BUS), SetStringTip(STR_TUTORIAL_ROADS_AND_STATIONS, STR_TUTORIAL_ROADS_AND_STATIONS), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_TRAIN), SetStringTip(STR_TUTORIAL_RAILWAYS, STR_TUTORIAL_RAILWAYS), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_TRUCK),SetStringTip(STR_TUTORIAL_ROAD_VEHICLES, STR_TUTORIAL_ROAD_VEHICLES), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_SHIP), SetStringTip(STR_TUTORIAL_SHIPS, STR_TUTORIAL_SHIPS), SetMinimalSize(128, 12), SetFill(1, 0),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_FACILALL), SetStringTip(STR_TUTORIAL_CARGO, STR_TUTORIAL_CARGO), SetMinimalSize(128, 12), SetFill(1, 0),
+			NWidget(WWT_FRAME, Colours::DarkGreen), SetStringTip(STR_HELP_WINDOW_DOCUMENTS),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_README), SetStringTip(STR_HELP_WINDOW_README), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_CHANGELOG), SetStringTip(STR_HELP_WINDOW_CHANGELOG), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_KNOWN_BUGS),SetStringTip(STR_HELP_WINDOW_KNOWN_BUGS), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_LICENSE), SetStringTip(STR_HELP_WINDOW_LICENSE), SetMinimalSize(128, 12), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, Colours::Green, WID_HW_FONTS), SetStringTip(STR_HELP_WINDOW_FONTS), SetMinimalSize(128, 12), SetFill(1, 0),
 			EndContainer(),
 		EndContainer(),
 	EndContainer(),
 };
 
-static WindowDesc _helpwin_desc(
-	WDP_CENTER, {}, 0, 0,
-	WC_HELPWIN, WC_NONE,
+/** Window definition for the help window. */
+static WindowDesc _helpwin_desc(__FILE__, __LINE__,
+	WindowPosition::Center, nullptr, 0, 0,
+	WindowClass::Help, WindowClass::None,
 	{},
 	_nested_helpwin_widgets
 );

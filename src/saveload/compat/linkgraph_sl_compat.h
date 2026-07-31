@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for SlLinkgraphEdge. */
 const SaveLoadCompat _linkgraph_edge_sl_compat[] = {
 	SLC_NULL(4, SL_MIN_VERSION, SLV_191),
@@ -62,5 +64,7 @@ const SaveLoadCompat _linkgraph_schedule_sl_compat[] = {
 	SLC_VAR("schedule"),
 	SLC_VAR("running"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_LINKGRAPH_H */

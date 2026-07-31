@@ -5,9 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file http_shared.h Shared functions for implementations of HTTP requests.
- */
+/** @file http_shared.h Shared functions for implementations of HTTP requests. */
 
 #ifndef NETWORK_CORE_HTTP_SHARED_H
 #define NETWORK_CORE_HTTP_SHARED_H
@@ -24,12 +22,15 @@ private:
 	/** Entries on the queue for later handling. */
 	class Callback {
 	public:
-		Callback(std::unique_ptr<char[]> data, size_t length) : data(std::move(data)), length(length), failure(false) {}
-		Callback() : data(nullptr), length(0), failure(true) {}
+		/**
+		 * Create the callback.
+		 * @param data The data of the callback.
+		 */
+		Callback(UniqueBuffer<char> data) : data(std::move(data)), failure(false) {}
+		Callback() : data({}), failure(true) {}
 
-		std::unique_ptr<char[]> data;
-		size_t length;
-		bool failure;
+		UniqueBuffer<char> data; ///< The data of the callback.
+		bool failure; ///< Whether the callback denotes a failure.
 	};
 
 public:
@@ -44,11 +45,12 @@ public:
 
 	/**
 	 * Similar to HTTPCallback::OnReceiveData, but thread-safe.
+	 * @copydoc HTTPCallback::OnReceiveData
 	 */
-	void OnReceiveData(std::unique_ptr<char[]> data, size_t length)
+	void OnReceiveData(UniqueBuffer<char> data)
 	{
 		std::lock_guard<std::mutex> lock(this->mutex);
-		this->queue.emplace_back(std::move(data), length);
+		this->queue.emplace_back(std::move(data));
 	}
 
 	/**
@@ -66,7 +68,7 @@ public:
 			if (item.failure) {
 				this->callback->OnFailure();
 			} else {
-				this->callback->OnReceiveData(std::move(item.data), item.length);
+				this->callback->OnReceiveData(std::move(item.data));
 			}
 		}
 
@@ -90,6 +92,7 @@ public:
 
 	/**
 	 * Check if the queue is empty.
+	 * @return \c true iff the queue is empty.
 	 */
 	bool IsQueueEmpty()
 	{
@@ -97,18 +100,21 @@ public:
 		return this->queue.empty();
 	}
 
+	/**
+	 * Create the thread safe callback.
+	 * @param callback The underlying callback to call.
+	 */
 	HTTPThreadSafeCallback(HTTPCallback *callback) : callback(callback) {}
 
 	~HTTPThreadSafeCallback()
 	{
 		std::lock_guard<std::mutex> lock(this->mutex);
 
-		/* Clear the list and notify explicitly. */
 		queue.clear();
 		queue_cv.notify_all();
 	}
 
-	std::atomic<bool> cancelled = false;
+	std::atomic<bool> cancelled = false; ///< Whether this callback has been cancelled, or not.
 
 private:
 	HTTPCallback *callback; ///< The callback to send data back on.

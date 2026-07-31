@@ -10,16 +10,21 @@
 #include "../stdafx.h"
 #include "../gfx_func.h"
 #include "../blitter/factory.hpp"
-#include "../saveload/saveload.h"
+#include "../sl/saveload.h"
 #include "../window_func.h"
+#include "../thread.h"
 #include "null_v.h"
+
+#include <atomic>
 
 #include "../safeguards.h"
 
 /** Factory for the null video driver. */
 static FVideoDriver_Null iFVideoDriver_Null;
 
-std::optional<std::string_view> VideoDriver_Null::Start(const StringList &parm)
+extern std::atomic<bool> _exit_game;
+
+const char *VideoDriver_Null::Start(const StringList &parm)
 {
 #ifdef _MSC_VER
 	/* Disable the MSVC assertion message box. */
@@ -31,6 +36,7 @@ std::optional<std::string_view> VideoDriver_Null::Start(const StringList &parm)
 	this->UpdateAutoResolution();
 
 	this->ticks = GetDriverParamInt(parm, "ticks", 1000);
+	this->until_exit = GetDriverParamBool(parm, "until_exit");
 	_screen.width  = _screen.pitch = _cur_resolution.width;
 	_screen.height = _cur_resolution.height;
 	_screen.dst_ptr = nullptr;
@@ -39,7 +45,7 @@ std::optional<std::string_view> VideoDriver_Null::Start(const StringList &parm)
 	/* Do not render, nor blit */
 	Debug(misc, 1, "Forcing blitter 'null'...");
 	BlitterFactory::SelectBlitter("null");
-	return std::nullopt;
+	return nullptr;
 }
 
 void VideoDriver_Null::Stop() { }
@@ -48,12 +54,19 @@ void VideoDriver_Null::MakeDirty(int, int, int, int) {}
 
 void VideoDriver_Null::MainLoop()
 {
-	uint i;
-
-	for (i = 0; i < this->ticks; i++) {
-		::GameLoop();
-		::InputLoop();
-		::UpdateWindows();
+	SetSelfAsGameThread();
+	if (this->until_exit) {
+		while (!_exit_game) {
+			::GameLoop();
+			::InputLoop();
+			::UpdateWindows();
+		}
+	} else {
+		for (int i = 0; i < this->ticks; i++) {
+			::GameLoop();
+			::InputLoop();
+			::UpdateWindows();
+		}
 	}
 
 	/* If requested, make a save just before exit. The normal exit-flow is

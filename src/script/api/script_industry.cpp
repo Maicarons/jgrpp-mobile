@@ -15,14 +15,14 @@
 #include "script_map.hpp"
 #include "../../company_base.h"
 #include "../../industry.h"
+#include "../../industry_cmd.h"
 #include "../../string_func.h"
 #include "../../strings_func.h"
 #include "../../station_base.h"
 #include "../../newgrf_industries.h"
-#include "../../industry_cmd.h"
-#include "../../timer/timer_game_calendar.h"
 
 #include "table/strings.h"
+#include <numeric>
 
 #include "../../safeguards.h"
 
@@ -38,7 +38,7 @@
 
 /* static */ IndustryID ScriptIndustry::GetIndustryID(TileIndex tile)
 {
-	if (!::IsValidTile(tile) || !::IsTileType(tile, MP_INDUSTRY)) return IndustryID::Invalid();
+	if (!::IsValidTile(tile) || !::IsTileType(tile, TileType::Industry)) return IndustryID::Invalid();
 	return ::GetIndustryIndex(tile);
 }
 
@@ -63,7 +63,7 @@
 	EnforceDeityMode(false);
 	EnforcePrecondition(false, IsValidIndustry(industry_id));
 
-	return ScriptObject::Command<CMD_INDUSTRY_SET_TEXT>::Do(industry_id, text != nullptr ? text->GetEncodedText() : EncodedString{});
+	return ScriptObject::Command<Commands::IndustrySetText>::Do(industry_id, text != nullptr ? text->GetEncodedText() : EncodedString{});
 }
 
 /* static */ ScriptIndustry::CargoAcceptState ScriptIndustry::IsCargoAccepted(IndustryID industry_id, CargoType cargo_type)
@@ -87,10 +87,10 @@
 
 	const Industry *i = ::Industry::Get(industry_id);
 
-	auto it = i->GetCargoAccepted(cargo_type);
-	if (it == std::end(i->accepted)) return -1;
+	int j = i->GetCargoAcceptedIndex(cargo_type);
+	if (j < 0) return -1;
 
-	return it->waiting;
+	return i->accepted[j].waiting;
 }
 
 /* static */ SQInteger ScriptIndustry::GetLastMonthProduction(IndustryID industry_id, CargoType cargo_type)
@@ -100,10 +100,10 @@
 
 	const Industry *i = ::Industry::Get(industry_id);
 
-	auto it = i->GetCargoProduced(cargo_type);
-	if (it == std::end(i->produced)) return -1;
+	int j = i->GetCargoProducedIndex(cargo_type);
+	if (j < 0) return -1;
 
-	return it->history[LAST_MONTH].production;
+	return i->produced[j].history[LAST_MONTH].production;
 }
 
 /* static */ SQInteger ScriptIndustry::GetLastMonthTransported(IndustryID industry_id, CargoType cargo_type)
@@ -113,10 +113,10 @@
 
 	const Industry *i = ::Industry::Get(industry_id);
 
-	auto it = i->GetCargoProduced(cargo_type);
-	if (it == std::end(i->produced)) return -1;
+	int j = i->GetCargoProducedIndex(cargo_type);
+	if (j < 0) return -1;
 
-	return it->history[LAST_MONTH].transported;
+	return i->produced[j].history[LAST_MONTH].transported;
 }
 
 /* static */ SQInteger ScriptIndustry::GetLastMonthTransportedPercentage(IndustryID industry_id, CargoType cargo_type)
@@ -126,10 +126,10 @@
 
 	const Industry *i = ::Industry::Get(industry_id);
 
-	auto it = i->GetCargoProduced(cargo_type);
-	if (it == std::end(i->produced)) return -1;
+	int j = i->GetCargoProducedIndex(cargo_type);
+	if (j < 0) return -1;
 
-	return ::ToPercent8(it->history[LAST_MONTH].PctTransported());
+	return ::ToPercent8(i->produced[j].history[LAST_MONTH].PctTransported());
 }
 
 /* static */ TileIndex ScriptIndustry::GetLocation(IndustryID industry_id)
@@ -182,7 +182,7 @@
 
 	const Industry *ind = ::Industry::Get(industry_id);
 	for (TileIndex tile_cur : ind->location) {
-		if (IsTileType(tile_cur, MP_STATION) && IsOilRig(tile_cur)) {
+		if (IsTileType(tile_cur, TileType::Station) && IsOilRig(tile_cur)) {
 			return tile_cur;
 		}
 	}
@@ -204,7 +204,7 @@
 
 	const Industry *ind = ::Industry::Get(industry_id);
 	for (TileIndex tile_cur : ind->location) {
-		if (IsTileType(tile_cur, MP_STATION) && IsOilRig(tile_cur)) {
+		if (IsTileType(tile_cur, TileType::Station) && IsOilRig(tile_cur)) {
 			return tile_cur;
 		}
 	}
@@ -231,13 +231,16 @@
 	const Industry *i = Industry::GetIfValid(industry_id);
 	if (i == nullptr) return ScriptDate::DATE_INVALID;
 
-	if (!::IsValidCargoType(cargo_type)) {
-		auto it = std::max_element(std::begin(i->accepted), std::end(i->accepted), [](const auto &a, const auto &b) { return a.last_accepted < b.last_accepted; });
-		return (ScriptDate::Date)it->last_accepted.base();
+	if (cargo_type == INVALID_CARGO) {
+		EconTime::Date date{0};
+		for (const auto &a : i->Accepted()) {
+			date = std::max(date, a.last_accepted);
+		}
+		return (ScriptDate::Date)date.base();
 	} else {
-		auto it = i->GetCargoAccepted(cargo_type);
-		if (it == std::end(i->accepted)) return ScriptDate::DATE_INVALID;
-		return (ScriptDate::Date)it->last_accepted.base();
+		int index = i->GetCargoAcceptedIndex(cargo_type);
+		if (index < 0) return ScriptDate::DATE_INVALID;
+		return (ScriptDate::Date)i->accepted[index].last_accepted.base();
 	}
 }
 
@@ -253,7 +256,7 @@
 	EnforceDeityMode(false);
 	if (!IsValidIndustry(industry_id)) return false;
 
-	return ScriptObject::Command<CMD_INDUSTRY_SET_FLAGS>::Do(industry_id, ::IndustryControlFlags(control_flags));
+	return ScriptObject::Command<Commands::IndustrySetFlags>::Do(industry_id, ::IndustryControlFlags(control_flags));
 }
 
 /* static */ ScriptCompany::CompanyID ScriptIndustry::GetExclusiveSupplier(IndustryID industry_id)
@@ -273,7 +276,7 @@
 
 	auto company = ScriptCompany::ResolveCompanyID(company_id);
 	::Owner owner = (company == ScriptCompany::COMPANY_INVALID ? ::INVALID_OWNER : (::Owner)company);
-	return ScriptObject::Command<CMD_INDUSTRY_SET_EXCLUSIVITY>::Do(industry_id, owner, false);
+	return ScriptObject::Command<Commands::IndustrySetExclusivity>::Do(industry_id, owner, false);
 }
 
 /* static */ ScriptCompany::CompanyID ScriptIndustry::GetExclusiveConsumer(IndustryID industry_id)
@@ -293,7 +296,7 @@
 
 	auto company = ScriptCompany::ResolveCompanyID(company_id);
 	::Owner owner = (company == ScriptCompany::COMPANY_INVALID ? ::INVALID_OWNER : (::Owner)company);
-	return ScriptObject::Command<CMD_INDUSTRY_SET_EXCLUSIVITY>::Do(industry_id, owner, true);
+	return ScriptObject::Command<Commands::IndustrySetExclusivity>::Do(industry_id, owner, true);
 }
 
 /* static */ SQInteger ScriptIndustry::GetProductionLevel(IndustryID industry_id)
@@ -311,5 +314,5 @@
 	EnforcePrecondition(false, IsValidIndustry(industry_id));
 	EnforcePrecondition(false, prod_level >= PRODLEVEL_MINIMUM && prod_level <= PRODLEVEL_MAXIMUM);
 
-	return ScriptObject::Command<CMD_INDUSTRY_SET_PRODUCTION>::Do(industry_id, prod_level, show_news, custom_news != nullptr ? custom_news->GetEncodedText() : EncodedString{});
+	return ScriptObject::Command<Commands::IndustrySetProduction>::Do(industry_id, prod_level, show_news, custom_news != nullptr ? custom_news->GetEncodedText() : EncodedString{});
 }

@@ -1,21 +1,41 @@
+/*
+ * This file is part of OpenTTD.
+ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
+ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
+ */
+
 /** @file mcf.cpp Definition of Multi-Commodity-Flow solver. */
 
 #include "../stdafx.h"
 #include "../core/math_func.hpp"
-#include "../timer/timer_game_tick.h"
 #include "mcf.h"
+#include "../3rdparty/cpp-btree/btree_map.h"
 
 #include "../safeguards.h"
 
-typedef std::map<NodeID, Path *> PathViaMap;
+typedef btree::btree_map<NodeID, Path *> PathViaMap;
+
+/**
+ * This is a priority queue item for Tannotation annotation values and IDs
+ */
+template <typename Tannotation>
+class AnnoQueueItem {
+public:
+	typename Tannotation::AnnotationValueType cached_annotation;
+	NodeID node_id;
+
+	AnnoQueueItem(Tannotation *anno) : cached_annotation(anno->GetAnnotation()), node_id(anno->GetNode()) {}
+};
 
 /**
  * Distance-based annotation for use in the Dijkstra algorithm. This is close
  * to the original meaning of "annotation" in this context. Paths are rated
  * according to the sum of distances of their edges.
  */
-class DistanceAnnotation : public Path {
+class DistanceAnnotation final : public Path {
 public:
+	typedef uint AnnotationValueType;
 
 	/**
 	 * Constructor.
@@ -24,7 +44,7 @@ public:
 	 */
 	DistanceAnnotation(NodeID n, bool source = false) : Path(n, source) {}
 
-	bool IsBetter(const DistanceAnnotation *base, uint cap, int free_cap, uint dist) const;
+	bool IsBetter(const DistanceAnnotation *base, uint, int free_cap, uint dist) const;
 
 	/**
 	 * Return the actual value of the annotation, in this case the distance.
@@ -38,12 +58,28 @@ public:
 	inline void UpdateAnnotation() { }
 
 	/**
-	 * Comparator for std containers.
+	 * Compare two annotation values.
+	 * @param x First annotation values.
+	 * @param y Second annotation values.
+	 * @return If x is better than y.
 	 */
-	struct Comparator {
-		bool operator()(const DistanceAnnotation *x, const DistanceAnnotation *y) const;
-	};
+	static bool CompareAnnotations(uint x, uint y)
+	{
+		return x < y;
+	}
+
+	/**
+	 * Compare two annotation queue items.
+	 * @param x First annotation queue items.
+	 * @param y Second annotation queue items.
+	 * @return If x is better than y.
+	 */
+	static bool CompareQueueItems(const AnnoQueueItem<DistanceAnnotation> &x, const AnnoQueueItem<DistanceAnnotation> &y)
+	{
+		return std::tie(x.cached_annotation, x.node_id) < std::tie(y.cached_annotation, y.node_id);
+	}
 };
+static_assert(std::is_trivially_destructible_v<DistanceAnnotation>);
 
 /**
  * Capacity-based annotation for use in the Dijkstra algorithm. This annotation
@@ -51,10 +87,12 @@ public:
  * algorithm still gives meaningful results like this as the capacity of a path
  * can only decrease or stay the same if you add more edges.
  */
-class CapacityAnnotation : public Path {
+class CapacityAnnotation final : public Path {
 	int cached_annotation = 0;
 
 public:
+	typedef int AnnotationValueType;
+
 
 	/**
 	 * Constructor.
@@ -80,12 +118,30 @@ public:
 	}
 
 	/**
-	 * Comparator for std containers.
+	 * Compare two annotation values.
+	 * @param x First annotation values.
+	 * @param y Second annotation values.
+	 * @return If x is better than y.
 	 */
-	struct Comparator {
-		bool operator()(const CapacityAnnotation *x, const CapacityAnnotation *y) const;
-	};
+	static bool CompareAnnotations(int x, int y)
+	{
+		/* Note that x and y are swapped, as a larger capacity is better */
+		return y < x;
+	}
+
+	/**
+	 * Compare two annotation queue items.
+	 * @param x First annotation queue items.
+	 * @param y Second annotation queue items.
+	 * @return If x is better than y.
+	 */
+	static bool CompareQueueItems(const AnnoQueueItem<CapacityAnnotation> &x, const AnnoQueueItem<CapacityAnnotation> &y)
+	{
+		/* Note that x and y are swapped for cached_annotation, as a larger capacity is better */
+		return std::tie(y.cached_annotation, x.node_id) < std::tie(x.cached_annotation, y.node_id);
+	}
 };
+static_assert(std::is_trivially_destructible_v<CapacityAnnotation>);
 
 /**
  * Iterator class for getting the edges in the order of their next_edge
@@ -93,10 +149,11 @@ public:
  */
 class GraphEdgeIterator {
 private:
-	LinkGraphJob &job; ///< Job being executed
-
-	std::vector<LinkGraphJob::EdgeAnnotation>::const_iterator i;   ///< Iterator pointing to current edge.
-	std::vector<LinkGraphJob::EdgeAnnotation>::const_iterator end; ///< Iterator pointing beyond last edge.
+	LinkGraphJob &job;    ///< Job being executed
+	const Edge *i;        ///< Iterator pointing to current edge.
+	const Edge *end;      ///< Iterator pointing beyond last edge.
+	NodeID node;          ///< Source node
+	const Edge *saved;    ///< Saved edge
 
 public:
 
@@ -104,7 +161,9 @@ public:
 	 * Construct a GraphEdgeIterator.
 	 * @param job Job to iterate on.
 	 */
-	GraphEdgeIterator(LinkGraphJob &job) : job(job), i(), end() {}
+	GraphEdgeIterator(LinkGraphJob &job) : job(job),
+		i(nullptr), end(nullptr), node(INVALID_NODE), saved(nullptr)
+	{}
 
 	/**
 	 * Setup the node to start iterating at.
@@ -112,8 +171,11 @@ public:
 	 */
 	void SetNode(NodeID, NodeID node)
 	{
-		this->i = this->job[node].edges.cbegin();
-		this->end = this->job[node].edges.cend();
+		Node node_anno = this->job[node];
+		std::span<Edge> edges = node_anno.GetEdges();
+		this->i = edges.data();
+		this->end = edges.data() + edges.size();
+		this->node = node;
 	}
 
 	/**
@@ -122,8 +184,16 @@ public:
 	 */
 	NodeID Next()
 	{
-		return this->i != this->end ? (this->i++)->base.dest_node : INVALID_NODE;
+		if (this->i == this->end) return INVALID_NODE;
+		NodeID to = this->i->To();
+		this->saved = this->i;
+		++this->i;
+		return to;
 	}
+
+	bool SavedEdge() const { return true; }
+
+	const Edge &GetSavedEdge() { return *(this->saved); }
 };
 
 /**
@@ -137,10 +207,10 @@ private:
 	TypedIndexContainer<std::vector<NodeID>, StationID> station_to_node;
 
 	/** Current iterator in the shares map. */
-	FlowStat::SharesMap::const_iterator it;
+	FlowStat::const_iterator it;
 
 	/** End of the shares map. */
-	FlowStat::SharesMap::const_iterator end;
+	FlowStat::const_iterator end;
 public:
 
 	/**
@@ -150,7 +220,7 @@ public:
 	FlowEdgeIterator(LinkGraphJob &job) : job(job)
 	{
 		for (NodeID i = 0; i < job.Size(); ++i) {
-			StationID st = job[i].base.station;
+			StationID st = job[i].Station();
 			if (st >= this->station_to_node.size()) {
 				this->station_to_node.resize(st + 1);
 			}
@@ -165,14 +235,14 @@ public:
 	 */
 	void SetNode(NodeID source, NodeID node)
 	{
-		const FlowStatMap &flows = this->job[node].flows;
-		FlowStatMap::const_iterator it = flows.find(this->job[source].base.station);
+		const FlowStatMap &flows = this->job[node].Flows();
+		FlowStatMap::const_iterator it = flows.find(this->job[source].Station());
 		if (it != flows.end()) {
-			this->it = it->second.GetShares()->begin();
-			this->end = it->second.GetShares()->end();
+			this->it = it->begin();
+			this->end = it->end();
 		} else {
-			this->it = FlowStat::empty_sharesmap.begin();
-			this->end = FlowStat::empty_sharesmap.end();
+			this->it = nullptr;
+			this->end = nullptr;
 		}
 	}
 
@@ -185,6 +255,10 @@ public:
 		if (this->it == this->end) return INVALID_NODE;
 		return this->station_to_node[(this->it++)->second];
 	}
+
+	bool SavedEdge() const { return false; }
+
+	const Edge &GetSavedEdge() { NOT_REACHED(); }
 };
 
 /**
@@ -225,6 +299,7 @@ bool DistanceAnnotation::IsBetter(const DistanceAnnotation *base, uint,
  * Determines if an extension to the given Path with the given parameters is
  * better than this path.
  * @param base Other path.
+ * @param cap Capacity of the edge.
  * @param free_cap Capacity of the new edge to be added to base.
  * @param dist Distance of the new edge.
  * @return True if base + the new edge would be better than the path associated
@@ -234,7 +309,7 @@ bool CapacityAnnotation::IsBetter(const CapacityAnnotation *base, uint cap,
 		int free_cap, uint dist) const
 {
 	int min_cap = Path::GetCapacityRatio(std::min(base->free_capacity, free_cap), std::min(base->capacity, cap));
-	int this_cap = this->GetCapacityRatio();
+	int this_cap = this->GetAnnotation();
 	if (min_cap == this_cap) {
 		/* If the capacities are the same and the other path isn't disconnected
 		 * choose the shorter path. */
@@ -243,6 +318,19 @@ bool CapacityAnnotation::IsBetter(const CapacityAnnotation *base, uint cap,
 		return min_cap > this_cap;
 	}
 }
+
+template <class Tannotation>
+struct MultiCommodityFlow::DijkstraState {
+	std::vector<AnnoQueueItem<Tannotation>> anno_queue;
+	std::vector<Tannotation> local_paths;
+
+	DijkstraState(uint16_t job_size)
+	{
+		this->anno_queue.reserve(job_size);
+		this->local_paths.reserve(job_size);
+		static_assert(std::is_trivially_destructible_v<Tannotation>);
+	}
+};
 
 /**
  * A slightly modified Dijkstra algorithm. Grades the paths not necessarily by
@@ -254,52 +342,101 @@ bool CapacityAnnotation::IsBetter(const CapacityAnnotation *base, uint cap,
  * @param paths Container for the paths to be calculated.
  */
 template <class Tannotation, class Tedge_iterator>
-void MultiCommodityFlow::Dijkstra(NodeID source_node, PathVector &paths)
+void MultiCommodityFlow::Dijkstra(NodeID source_node, PathVector &paths, DijkstraState<Tannotation> &state)
 {
-	typedef std::set<Tannotation *, typename Tannotation::Comparator> AnnoSet;
+	const uint size = this->job.Size();
+
+	std::vector<AnnoQueueItem<Tannotation>> &anno_queue = state.anno_queue;
+	anno_queue.clear();
+	auto anno_queue_comp = [](const AnnoQueueItem<Tannotation> &a, const AnnoQueueItem<Tannotation> &b) {
+		/* Note that arguments are passed in opposite order, as std::push_heap sorts largest items to front, but the queue should return the lowest/best items */
+		return Tannotation::CompareQueueItems(b, a);
+	};
+
+	auto update_queue_anno = [&](NodeID id, Tannotation *anno) -> bool {
+		auto it = std::find_if(anno_queue.begin(), anno_queue.end(), [&](const AnnoQueueItem<Tannotation> &item) {
+			return item.node_id == id;
+		});
+		if (it == anno_queue.end()) return false; // Couldn't fine node
+
+		/* Update annotation value */
+		if (Tannotation::CompareAnnotations(it->cached_annotation, anno->GetAnnotation())) {
+			/* Annotation is worse, moving the queue item backwards in the heap is awkward, so just remove it via moving it to the front */
+			it->cached_annotation = Tannotation::CompareAnnotations(0, 1) ?
+					std::numeric_limits<typename Tannotation::AnnotationValueType>::min() : std::numeric_limits<typename Tannotation::AnnotationValueType>::max();
+			it->node_id = 0;
+			std::push_heap(anno_queue.begin(), it + 1, anno_queue_comp);
+			assert(anno_queue.front().node_id == 0);
+			std::pop_heap(anno_queue.begin(), anno_queue.end(), anno_queue_comp);
+			anno_queue.pop_back();
+			dbg_assert(std::is_heap(anno_queue.begin(), anno_queue.end(), anno_queue_comp));
+			return false;
+		} else {
+			/* Annotation is better or equal, queue item never needs to be moved away from front of heap */
+			it->cached_annotation = anno->GetAnnotation();
+			std::push_heap(anno_queue.begin(), it + 1, anno_queue_comp);
+			dbg_assert(std::is_heap(anno_queue.begin(), anno_queue.end(), anno_queue_comp));
+			return true;
+		}
+	};
+
 	Tedge_iterator iter(this->job);
-	uint16_t size = this->job.Size();
-	AnnoSet annos;
-	paths.resize(size, nullptr);
+
+	state.local_paths.clear();
 	for (NodeID node = 0; node < size; ++node) {
-		Tannotation *anno = new Tannotation(node, node == source_node);
+		Tannotation *anno = &state.local_paths.emplace_back(node, node == source_node);
 		anno->UpdateAnnotation();
-		annos.insert(anno);
-		paths[node] = anno;
+		if (node == source_node) {
+			anno_queue.emplace_back(anno);
+			std::push_heap(anno_queue.begin(), anno_queue.end(), anno_queue_comp);
+			anno->SetAnnosSetFlag(true);
+		}
 	}
-	while (!annos.empty()) {
-		typename AnnoSet::iterator i = annos.begin();
-		Tannotation *source = *i;
-		annos.erase(i);
-		NodeID from = source->GetNode();
+	Tannotation *local_paths = state.local_paths.data();
+	while (!anno_queue.empty()) {
+		NodeID from = anno_queue.front().node_id;
+		std::pop_heap(anno_queue.begin(), anno_queue.end(), anno_queue_comp);
+		anno_queue.pop_back();
+		Tannotation *source = local_paths + from;
+
 		iter.SetNode(source_node, from);
 		for (NodeID to = iter.Next(); to != INVALID_NODE; to = iter.Next()) {
 			if (to == from) continue; // Not a real edge but a consumption sign.
-			const Edge &edge = this->job[from][to];
-			uint capacity = edge.base.capacity;
+			const Edge &edge = iter.SavedEdge() ? iter.GetSavedEdge() : this->job[from].GetEdgeTo(to);
+			uint capacity = edge.Capacity();
 			if (this->max_saturation != UINT_MAX) {
 				capacity *= this->max_saturation;
 				capacity /= 100;
 				if (capacity == 0) capacity = 1;
 			}
-			/* Prioritize the fastest route for passengers, mail and express cargo,
-			 * and the shortest route for other classes of cargo.
-			 * In-between stops are punished with a 1 tile or 1 day penalty. */
-			bool express = IsCargoInClass(this->job.Cargo(), CargoClass::Passengers) ||
-				IsCargoInClass(this->job.Cargo(), CargoClass::Mail) ||
-				IsCargoInClass(this->job.Cargo(), CargoClass::Express);
-			uint distance = DistanceMaxPlusManhattan(this->job[from].base.xy, this->job[to].base.xy) + 1;
-			/* Compute a default travel time from the distance and an average speed of 1 tile/day. */
-			uint time = (edge.base.TravelTime() != 0) ? edge.base.TravelTime() + Ticks::DAY_TICKS : distance * Ticks::DAY_TICKS;
-			uint distance_anno = express ? time : distance;
 
-			Tannotation *dest = static_cast<Tannotation *>(paths[to]);
-			if (dest->IsBetter(source, capacity, capacity - edge.Flow(), distance_anno)) {
-				annos.erase(dest);
-				dest->Fork(source, capacity, capacity - edge.Flow(), distance_anno);
+			Tannotation *dest = local_paths + to;
+			if (dest->IsBetter(source, capacity, capacity - edge.Flow(), edge.DistanceAnno())) {
+				dest->Fork(source, capacity, capacity - edge.Flow(), edge.DistanceAnno());
 				dest->UpdateAnnotation();
-				annos.insert(dest);
+				if (!dest->GetAnnosSetFlag() || !update_queue_anno(to, dest)) {
+					/* Add new item to queue */
+					anno_queue.emplace_back(dest);
+					std::push_heap(anno_queue.begin(), anno_queue.end(), anno_queue_comp);
+					dest->SetAnnosSetFlag(true);
+				}
 			}
+		}
+	}
+
+	/* Copy path nodes to path_allocator, fill output vector */
+	paths.clear();
+	paths.reserve(size);
+	this->job.path_allocator.SetParameters(sizeof(Tannotation), (8192 - 32) / sizeof(Tannotation));
+	for (NodeID node = 0; node < size; ++node) {
+		/* Allocate and copy nodes */
+		paths.push_back(new (this->job.path_allocator.Allocate()) Tannotation(local_paths[node]));
+	}
+	for (NodeID node = 0; node < size; ++node) {
+		/* Fixup parent pointers */
+		Path *path = paths[node];
+		if (path->GetParent() != nullptr) {
+			path->SetParent(paths[path->GetParent()->GetNode()]);
 		}
 	}
 }
@@ -322,32 +459,35 @@ void MultiCommodityFlow::CleanupPaths(NodeID source_id, PathVector &paths)
 			path->Detach();
 			if (path->GetNumChildren() == 0) {
 				paths[path->GetNode()] = nullptr;
-				delete path;
+				path->~Path();
+				this->job.path_allocator.Free(path);
 			}
 			path = parent;
 		}
 	}
-	delete source;
+	source->~Path();
+	this->job.path_allocator.Free(source);
 	paths.clear();
 }
 
 /**
  * Push flow along a path and update the unsatisfied_demand of the associated
  * edge.
- * @param node Node where the path starts.
- * @param to Node where the path ends.
+ * @param anno Distance annotation whose ends the path connects.
  * @param path End of the path the flow should be pushed on.
+ * @param min_step_size Minimum flow size.
  * @param accuracy Accuracy of the calculation.
  * @param max_saturation If < UINT_MAX only push flow up to the given
  *                       saturation, otherwise the path can be "overloaded".
+ * @return The new flow.
  */
-uint MultiCommodityFlow::PushFlow(Node &node, NodeID to, Path *path, uint accuracy,
+uint MultiCommodityFlow::PushFlow(DemandAnnotation &anno, Path *path, uint min_step_size, uint accuracy,
 		uint max_saturation)
 {
-	assert(node.UnsatisfiedDemandTo(to) > 0);
-	uint flow = Clamp(node.DemandTo(to) / accuracy, 1, node.UnsatisfiedDemandTo(to));
+	dbg_assert(anno.unsatisfied_demand > 0);
+	uint flow = std::min(std::max(anno.demand / accuracy, min_step_size), anno.unsatisfied_demand);
 	flow = path->AddFlow(flow, this->job, max_saturation);
-	node.SatisfyDemandTo(to, flow);
+	anno.unsatisfied_demand -= flow;
 	return flow;
 }
 
@@ -381,17 +521,16 @@ void MCF1stPass::EliminateCycle(PathVector &path, Path *cycle_begin, uint flow)
 		NodeID prev = cycle_begin->GetNode();
 		cycle_begin->ReduceFlow(flow);
 		if (cycle_begin->GetFlow() == 0) {
-			PathList &node_paths = this->job[cycle_begin->GetParent()->GetNode()].paths;
+			PathList &node_paths = this->job[cycle_begin->GetParent()->GetNode()].Paths();
 			for (PathList::iterator i = node_paths.begin(); i != node_paths.end(); ++i) {
 				if (*i == cycle_begin) {
-					node_paths.erase(i);
-					node_paths.push_back(cycle_begin);
+					*i = nullptr;
 					break;
 				}
 			}
 		}
 		cycle_begin = path[prev];
-		Edge &edge = this->job[prev][cycle_begin->GetNode()];
+		Edge &edge = this->job[prev].GetEdgeTo(cycle_begin->GetNode());
 		edge.RemoveFlow(flow);
 	} while (cycle_begin != cycle_end);
 }
@@ -415,32 +554,36 @@ bool MCF1stPass::EliminateCycles(PathVector &path, NodeID origin_id, NodeID next
 	if (at_next_pos == nullptr) {
 		/* Summarize paths; add up the paths with the same source and next hop
 		 * in one path each. */
-		PathList &paths = this->job[next_id].paths;
+		PathList &paths = this->job[next_id].Paths();
 		PathViaMap next_hops;
+		uint holes = 0;
 		for (PathList::iterator i = paths.begin(); i != paths.end();) {
 			Path *new_child = *i;
-			uint new_flow = new_child->GetFlow();
-			if (new_flow == 0) break;
-			if (new_child->GetOrigin() == origin_id) {
-				PathViaMap::iterator via_it = next_hops.find(new_child->GetNode());
-				if (via_it == next_hops.end()) {
-					next_hops[new_child->GetNode()] = new_child;
-					++i;
-				} else {
-					Path *child = via_it->second;
-					child->AddFlow(new_flow);
-					new_child->ReduceFlow(new_flow);
+			if (new_child != nullptr) {
+				if (new_child->GetOrigin() == origin_id) {
+					PathViaMap::iterator via_it = next_hops.find(new_child->GetNode());
+					if (via_it == next_hops.end()) {
+						next_hops[new_child->GetNode()] = new_child;
+					} else {
+						uint new_flow = new_child->GetFlow();
+						Path *child = via_it->second;
+						child->AddFlow(new_flow);
+						new_child->ReduceFlow(new_flow);
 
-					/* We might hit end() with with the ++ here and skip the
-					 * newly push_back'ed path. That's good as the flow of that
-					 * path is 0 anyway. */
-					paths.erase(i++);
-					paths.push_back(new_child);
+						*i = nullptr;
+						holes++;
+					}
 				}
 			} else {
-				++i;
+				holes++;
 			}
+			++i;
 		}
+		if (holes > paths.size() / 4) {
+			/* remove any holes */
+			paths.erase(std::remove(paths.begin(), paths.end(), nullptr), paths.end());
+		}
+
 		bool found = false;
 		/* Search the next hops for nodes we have already visited */
 		for (PathViaMap::iterator via_it = next_hops.begin();
@@ -498,11 +641,31 @@ bool MCF1stPass::EliminateCycles()
  */
 MCF1stPass::MCF1stPass(LinkGraphJob &job) : MultiCommodityFlow(job)
 {
+	const uint16_t size = job.Size();
 	PathVector paths;
-	uint16_t size = job.Size();
+	DijkstraState<DistanceAnnotation> state(size);
 	uint accuracy = job.Settings().accuracy;
 	bool more_loops;
 	std::vector<bool> finished_sources(size);
+
+	uint min_step_size = 1;
+	const uint adjust_threshold = 50;
+	if (size >= adjust_threshold) {
+		uint64_t total_demand = 0;
+		uint demand_count = 0;
+		for (NodeID source = 0; source < size; ++source) {
+			const Node &node = job[source];
+			for (const DemandAnnotation &anno : node.GetDemandAnnotations()) {
+				if (anno.unsatisfied_demand > 0) {
+					total_demand += anno.unsatisfied_demand;
+					demand_count++;
+				}
+			}
+		}
+		if (demand_count == 0) return;
+		min_step_size = std::max<uint>(min_step_size, (total_demand * (1 + FindLastBit(size / adjust_threshold))) / (size * accuracy));
+		accuracy = Clamp(IntSqrt((4 * accuracy * accuracy * size) / demand_count), CeilDiv(accuracy, 4), accuracy);
+	}
 
 	do {
 		more_loops = false;
@@ -510,30 +673,30 @@ MCF1stPass::MCF1stPass(LinkGraphJob &job) : MultiCommodityFlow(job)
 			if (finished_sources[source]) continue;
 
 			/* First saturate the shortest paths. */
-			this->Dijkstra<DistanceAnnotation, GraphEdgeIterator>(source, paths);
+			this->Dijkstra<DistanceAnnotation, GraphEdgeIterator>(source, paths, state);
 
-			Node &src_node = job[source];
 			bool source_demand_left = false;
-			for (NodeID dest = 0; dest < size; ++dest) {
-				if (src_node.UnsatisfiedDemandTo(dest) > 0) {
+			for (DemandAnnotation &anno : job[source].GetDemandAnnotations()) {
+				NodeID dest = anno.dest;
+				if (anno.unsatisfied_demand > 0) {
 					Path *path = paths[dest];
 					assert(path != nullptr);
 					/* Generally only allow paths that don't exceed the
 					 * available capacity. But if no demand has been assigned
 					 * yet, make an exception and allow any valid path *once*. */
-					if (path->GetFreeCapacity() > 0 && this->PushFlow(src_node, dest, path,
-							accuracy, this->max_saturation) > 0) {
+					if (path->GetFreeCapacity() > 0 && this->PushFlow(anno, path,
+							min_step_size, accuracy, this->max_saturation) > 0) {
 						/* If a path has been found there is a chance we can
 						 * find more. */
-						more_loops = more_loops || (src_node.UnsatisfiedDemandTo(dest) > 0);
-					} else if (src_node.UnsatisfiedDemandTo(dest) == src_node.DemandTo(dest) &&
+						more_loops = more_loops || (anno.unsatisfied_demand > 0);
+					} else if (anno.unsatisfied_demand == anno.demand &&
 							path->GetFreeCapacity() > INT_MIN) {
-						this->PushFlow(src_node, dest, path, accuracy, UINT_MAX);
+						this->PushFlow(anno, path, min_step_size, accuracy, UINT_MAX);
 					}
-					if (src_node.UnsatisfiedDemandTo(dest) > 0) source_demand_left = true;
+					if (anno.unsatisfied_demand > 0) source_demand_left = true;
 				}
 			}
-			finished_sources[source] = !source_demand_left;
+			if (!source_demand_left) finished_sources[source] = true;
 			this->CleanupPaths(source, paths);
 		}
 	} while ((more_loops || this->EliminateCycles()) && !job.IsJobAborted());
@@ -547,8 +710,9 @@ MCF1stPass::MCF1stPass(LinkGraphJob &job) : MultiCommodityFlow(job)
 MCF2ndPass::MCF2ndPass(LinkGraphJob &job) : MultiCommodityFlow(job)
 {
 	this->max_saturation = UINT_MAX; // disable artificial cap on saturation
+	const uint16_t size = job.Size();
 	PathVector paths;
-	uint16_t size = job.Size();
+	DijkstraState<CapacityAnnotation> state(size);
 	uint accuracy = job.Settings().accuracy;
 	bool demand_left = true;
 	std::vector<bool> finished_sources(size);
@@ -557,67 +721,22 @@ MCF2ndPass::MCF2ndPass(LinkGraphJob &job) : MultiCommodityFlow(job)
 		for (NodeID source = 0; source < size; ++source) {
 			if (finished_sources[source]) continue;
 
-			this->Dijkstra<CapacityAnnotation, FlowEdgeIterator>(source, paths);
+			this->Dijkstra<CapacityAnnotation, FlowEdgeIterator>(source, paths, state);
 
-			Node &src_node = job[source];
 			bool source_demand_left = false;
-			for (NodeID dest = 0; dest < size; ++dest) {
-				Path *path = paths[dest];
-				if (src_node.UnsatisfiedDemandTo(dest) > 0 && path->GetFreeCapacity() > INT_MIN) {
-					this->PushFlow(src_node, dest, path, accuracy, UINT_MAX);
-					if (src_node.UnsatisfiedDemandTo(dest) > 0) {
+			for (DemandAnnotation &anno : this->job[source].GetDemandAnnotations()) {
+				if (anno.unsatisfied_demand == 0) continue;
+				Path *path = paths[anno.dest];
+				if (path->GetFreeCapacity() > INT_MIN) {
+					this->PushFlow(anno, path, 1, accuracy, UINT_MAX);
+					if (anno.unsatisfied_demand > 0) {
 						demand_left = true;
 						source_demand_left = true;
 					}
 				}
 			}
-			finished_sources[source] = !source_demand_left;
+			if (!source_demand_left) finished_sources[source] = true;
 			this->CleanupPaths(source, paths);
 		}
 	}
-}
-
-/**
- * Relation that creates a weak order without duplicates.
- * Avoid accidentally deleting different paths of the same capacity/distance in
- * a set. When the annotation is the same node IDs are compared, so there are
- * no equal ranges.
- * @tparam T Type to be compared on.
- * @param x_anno First value.
- * @param y_anno Second value.
- * @param x Node id associated with the first value.
- * @param y Node id associated with the second value.
- */
-template <typename T>
-bool Greater(T x_anno, T y_anno, NodeID x, NodeID y)
-{
-	if (x_anno > y_anno) return true;
-	if (x_anno < y_anno) return false;
-	return x > y;
-}
-
-/**
- * Compare two capacity annotations.
- * @param x First capacity annotation.
- * @param y Second capacity annotation.
- * @return If x is better than y.
- */
-bool CapacityAnnotation::Comparator::operator()(const CapacityAnnotation *x,
-		const CapacityAnnotation *y) const
-{
-	return x != y && Greater<int>(x->GetAnnotation(), y->GetAnnotation(),
-			x->GetNode(), y->GetNode());
-}
-
-/**
- * Compare two distance annotations.
- * @param x First distance annotation.
- * @param y Second distance annotation.
- * @return If x is better than y.
- */
-bool DistanceAnnotation::Comparator::operator()(const DistanceAnnotation *x,
-		const DistanceAnnotation *y) const
-{
-	return x != y && !Greater<uint>(x->GetAnnotation(), y->GetAnnotation(),
-			x->GetNode(), y->GetNode());
 }

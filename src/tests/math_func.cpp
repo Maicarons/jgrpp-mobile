@@ -37,10 +37,29 @@ TEST_CASE("IntSqrtTest - Zero")
 
 TEST_CASE("IntSqrtTest - FindSqRt")
 {
+	CHECK(1 == IntSqrt(1));
+	CHECK(1 == IntSqrt(2));
+	CHECK(2 == IntSqrt(3));
+	CHECK(2 == IntSqrt(4));
 	CHECK(5 == IntSqrt(25));
 	CHECK(10 == IntSqrt(100));
 	CHECK(9 == IntSqrt(88));
 	CHECK(1696 == IntSqrt(2876278));
+	CHECK(0x10000 == IntSqrt(std::numeric_limits<uint32_t>::max()));
+}
+
+TEST_CASE("IntSqrt64Test - FindSqRt")
+{
+	CHECK(1 == IntSqrt64(1));
+	CHECK(1 == IntSqrt64(2));
+	CHECK(2 == IntSqrt64(3));
+	CHECK(2 == IntSqrt64(4));
+	CHECK(5 == IntSqrt64(25));
+	CHECK(10 == IntSqrt64(100));
+	CHECK(9 == IntSqrt64(88));
+	CHECK(1696 == IntSqrt64(2876278));
+	CHECK(0x10000 == IntSqrt64(std::numeric_limits<uint32_t>::max()));
+	CHECK(0x100000000ULL == IntSqrt64(std::numeric_limits<uint64_t>::max()));
 }
 
 
@@ -96,4 +115,48 @@ TEST_CASE("SoftClamp")
 	int million = 1000 * 1000;
 	CHECK(1250 * million == SoftClamp(0, 1500 * million, 1000 * million));
 	CHECK(0 == SoftClamp(0, 1500 * million, -1500 * million));
+}
+
+TEST_CASE("SaturatingAdd")
+{
+	CHECK(SaturatingAdd<uint8_t>(2, 3) == 5);
+	CHECK(SaturatingAdd<uint8_t>(200, 200) == 255);
+	CHECK(SaturatingAdd<uint8_t>(255, 255) == 255);
+	CHECK(SaturatingAdd<uint8_t>(1, 255) == 255);
+	CHECK(SaturatingAdd<uint8_t>(255, 1) == 255);
+	CHECK(SaturatingAdd<uint8_t>(0, 254) == 254);
+}
+
+TEST_CASE("GetBase10DigitsRequired")
+{
+	CHECK(GetBase10DigitsRequired<uint32_t>(0) == 1);
+	CHECK(GetBase10DigitsRequired<uint32_t>(1) == 1);
+	CHECK(GetBase10DigitsRequired<uint32_t>(9) == 1);
+	CHECK(GetBase10DigitsRequired<uint32_t>(10) == 2);
+	CHECK(GetBase10DigitsRequired<uint32_t>(99) == 2);
+	CHECK(GetBase10DigitsRequired<uint32_t>(100) == 3);
+	CHECK(GetBase10DigitsRequired<uint32_t>(999) == 3);
+	CHECK(GetBase10DigitsRequired<uint32_t>(1000) == 4);
+	CHECK(GetBase10DigitsRequired<uint32_t>(9999) == 4);
+	CHECK(GetBase10DigitsRequired<uint32_t>(10000) == 5);
+	CHECK(GetBase10DigitsRequired<uint32_t>(99999) == 5);
+	CHECK(GetBase10DigitsRequired<uint32_t>(100000) == 6);
+	CHECK(GetBase10DigitsRequired<uint32_t>(999999) == 6);
+	CHECK(GetBase10DigitsRequired<uint32_t>(1000000) == 7);
+	CHECK(GetBase10DigitsRequired<uint32_t>(9999999) == 7);
+	CHECK(GetBase10DigitsRequired<uint32_t>(10000000) == 8);
+	CHECK(GetBase10DigitsRequired<uint32_t>(99999999) == 8);
+	CHECK(GetBase10DigitsRequired<uint32_t>(100000000) == 9);
+	CHECK(GetBase10DigitsRequired<uint32_t>(999999999) == 9);
+	CHECK(GetBase10DigitsRequired<uint32_t>(1000000000) == 10);
+	CHECK(GetBase10DigitsRequired<uint32_t>(UINT32_MAX) == 10);
+	CHECK(GetBase10DigitsRequired<uint64_t>(9999999999ULL) == 10);
+	CHECK(GetBase10DigitsRequired<uint64_t>(10000000000ULL) == 11);
+	CHECK(GetBase10DigitsRequired<uint64_t>(99999999999ULL) == 11);
+	CHECK(GetBase10DigitsRequired<uint64_t>(100000000000ULL) == 12);
+	CHECK(GetBase10DigitsRequired<uint64_t>(999999999999ULL) == 12);
+	CHECK(GetBase10DigitsRequired<uint64_t>(1000000000000000000ULL) == 19);
+	CHECK(GetBase10DigitsRequired<uint64_t>(9999999999999999999ULL) == 19);
+	CHECK(GetBase10DigitsRequired<uint64_t>(10000000000000000000ULL) == 20);
+	CHECK(GetBase10DigitsRequired<uint64_t>(UINT64_MAX) == 20);
 }

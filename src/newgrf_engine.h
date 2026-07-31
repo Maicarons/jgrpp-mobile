@@ -39,30 +39,30 @@ struct VehicleScopeResolver : public ScopeResolver {
 	void SetVehicle(const Vehicle *v) { this->v = v; }
 
 	uint32_t GetRandomBits() const override;
-	uint32_t GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const override;
+	uint32_t GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const override;
 	uint32_t GetRandomTriggers() const override;
 };
 
 /** Resolver for a vehicle (chain) */
 struct VehicleResolverObject : public SpecializedResolverObject<VehicleRandomTriggers> {
 	/** Application of 'wagon overrides'. */
-	enum WagonOverride : uint8_t {
-		WO_NONE,     //!< Resolve no wagon overrides.
-		WO_UNCACHED, //!< Resolve wagon overrides.
-		WO_CACHED,   //!< Resolve wagon overrides using TrainCache::cached_override.
-		WO_SELF,     //!< Resolve self-override (helicopter rotors and such).
+	enum class WagonOverride : uint8_t {
+		None, ///< Resolve no wagon overrides.
+		Uncached, ///< Resolve wagon overrides.
+		Cached, ///< Resolve wagon overrides using TrainCache::cached_override.
+		Self, ///< Resolve self-override (helicopter rotors and such).
 	};
 
 	VehicleScopeResolver self_scope;     ///< Scope resolver for the indicated vehicle.
 	VehicleScopeResolver parent_scope;   ///< Scope resolver for its parent vehicle.
 
 	VehicleScopeResolver relative_scope; ///< Scope resolver for an other vehicle in the chain.
-	uint8_t cached_relative_count;          ///< Relative position of the other vehicle.
+	VarSpriteGroupScopeOffset cached_relative_count; ///< Relative position of the other vehicle.
 
 	VehicleResolverObject(EngineID engine_type, const Vehicle *v, WagonOverride wagon_override, bool rotor_in_gui = false,
 			CallbackID callback = CBID_NO_CALLBACK, uint32_t callback_param1 = 0, uint32_t callback_param2 = 0);
 
-	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, uint8_t relative = 0) override;
+	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, VarSpriteGroupScopeOffset relative = 0) override;
 
 	const SpriteGroup *ResolveReal(const RealSpriteGroup &group) const override;
 
@@ -92,8 +92,8 @@ struct GRFFile;
 
 void SetEngineGRF(EngineID engine, const struct GRFFile *file);
 
-uint16_t GetVehicleCallback(CallbackID callback, uint32_t param1, uint32_t param2, EngineID engine, const Vehicle *v, std::span<int32_t> regs100 = {});
-uint16_t GetVehicleCallbackParent(CallbackID callback, uint32_t param1, uint32_t param2, EngineID engine, const Vehicle *v, const Vehicle *parent, std::span<int32_t> regs100 = {});
+uint16_t GetVehicleCallback(CallbackID callback, uint32_t param1, uint32_t param2, EngineID engine, const Vehicle *v);
+uint16_t GetVehicleCallbackParent(CallbackID callback, uint32_t param1, uint32_t param2, EngineID engine, const Vehicle *v, const Vehicle *parent);
 bool UsesWagonOverride(const Vehicle *v);
 
 /* Handler to Evaluate callback 36. If the callback fails (i.e. most of the
@@ -101,11 +101,12 @@ bool UsesWagonOverride(const Vehicle *v);
 int GetVehicleProperty(const Vehicle *v, PropertyID property, int orig_value, bool is_signed = false);
 int GetEngineProperty(EngineID engine, PropertyID property, int orig_value, const Vehicle *v = nullptr, bool is_signed = false);
 
+/** Different types of modifications during the purchase of a vehicle to request the chance for using a NewGRF callback. */
 enum class BuildProbabilityType : uint8_t {
-	Reversed = 0,
+	Reversed = 0, ///< Change the rail vehicle should be reversed when purchased.
 };
 
-std::optional<bool> TestVehicleBuildProbability(Vehicle *v, EngineID engine, BuildProbabilityType type);
+std::optional<bool> TestVehicleBuildProbability(const Vehicle *v, BuildProbabilityType type);
 
 void TriggerVehicleRandomisation(Vehicle *veh, VehicleRandomTrigger trigger);
 

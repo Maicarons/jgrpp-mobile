@@ -8,7 +8,9 @@
 /** @file pool_func.cpp Implementation of PoolBase methods. */
 
 #include "../stdafx.h"
+#include "../error_func.h"
 #include "pool_type.hpp"
+#include "format.hpp"
 
 #include "../safeguards.h"
 
@@ -32,4 +34,22 @@
 	for (PoolBase *pool : *PoolBase::GetPools()) {
 		if (pt.Test(pool->type)) pool->CleanPool();
 	}
+}
+
+/* These are here to avoid needing formatting includes in pool_func */
+[[noreturn]] void PoolNoMoreFreeItemsError(std::string_view name)
+{
+	FatalError("{}: no more free items", name);
+}
+
+[[noreturn]] void PoolOutOfRangeError(std::string_view name, size_t index, size_t max_size)
+{
+	[[noreturn]] extern void SlErrorCorrupt(std::string msg);
+	SlErrorCorrupt(fmt::format("{} index {} out of range ({})", name, index, max_size));
+}
+
+[[noreturn]] void PoolIndexAlreadyInUseError(std::string_view name, size_t index)
+{
+	[[noreturn]] extern void SlErrorCorrupt(std::string msg);
+	SlErrorCorrupt(fmt::format("{} index {} already in use", name, index));
 }

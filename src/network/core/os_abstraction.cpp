@@ -11,7 +11,7 @@
  * The general idea is to have simple abstracting functions for things that
  * require different implementations for different environments.
  * In here the functions, and their documentation, are defined only once
- * and the implementation contains the #ifdefs to change the implementation.
+ * and the implementation contains the \#ifdefs to change the implementation.
  * Since Windows is usually different that is usually the first case, after
  * that the behaviour is usually Unix/BSD-like with occasional variation.
  */
@@ -19,7 +19,11 @@
 #include "../../stdafx.h"
 #include "os_abstraction.h"
 #include "../../string_func.h"
-#include "../../3rdparty/fmt/format.h"
+
+#if defined(_WIN32)
+#include "../../core/format.hpp"
+#endif
+
 #include <mutex>
 
 #include "../../safeguards.h"
@@ -85,19 +89,12 @@ std::string_view NetworkError::AsString() const
 		wchar_t buffer[512];
 		if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, this->error,
 			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buffer, static_cast<DWORD>(std::size(buffer)), nullptr) == 0) {
-			this->message.assign(fmt::format("Unknown error {}", this->error));
+			this->message = fmt::format("Unknown error {}", this->error);
 		} else {
-			this->message.assign(FS2OTTD(buffer));
+			this->message = FS2OTTD(buffer);
 		}
 #else
-		/* Make strerror thread safe by locking access to it. There is a thread safe strerror_r, however
-		 * the non-POSIX variant is available due to defining _GNU_SOURCE meaning it is not portable.
-		 * The problem with the non-POSIX variant is that it does not necessarily fill the buffer with
-		 * the error message but can also return a pointer to a static bit of memory, whereas the POSIX
-		 * variant always fills the buffer. This makes the behaviour too erratic to work with. */
-		static std::mutex mutex;
-		std::lock_guard<std::mutex> guard(mutex);
-		this->message.assign(strerror(this->error));
+		this->message.assign(StrErrorDumper().Get(this->error));
 #endif
 	}
 	return this->message;
@@ -145,15 +142,37 @@ bool SetNonBlocking([[maybe_unused]] SOCKET d)
 }
 
 /**
+ * Try to set the socket into blocking mode.
+ * @param d The socket to set the blocking more for.
+ * @return True if setting the blocking mode succeeded, otherwise false.
+ */
+bool SetBlocking(SOCKET d)
+{
+#if defined(_WIN32)
+	u_long nonblocking = 0;
+	return ioctlsocket(d, FIONBIO, &nonblocking) == 0;
+#elif defined __EMSCRIPTEN__
+	return true;
+#else
+	int nonblocking = 0;
+	return ioctl(d, FIONBIO, &nonblocking) == 0;
+#endif
+}
+
+/**
  * Try to set the socket to not delay sending.
  * @param d The socket to disable the delaying for.
  * @return True if disabling the delaying succeeded, otherwise false.
  */
 bool SetNoDelay([[maybe_unused]] SOCKET d)
 {
+#ifdef __EMSCRIPTEN__
+	return true;
+#else
 	int flags = 1;
 	/* The (const char *) cast is needed for windows */
 	return setsockopt(d, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char *>(&flags), sizeof(flags)) == 0;
+#endif
 }
 
 /**
@@ -171,6 +190,31 @@ bool SetReusePort(SOCKET d)
 	int reuse_port = 1;
 	return setsockopt(d, SOL_SOCKET, SO_REUSEPORT, &reuse_port, sizeof(reuse_port)) == 0;
 #endif
+}
+
+/**
+ * Try to shutdown the socket in one or both directions.
+ * @param d The socket to disable the delaying for.
+ * @param read Whether to shutdown the read direction.
+ * @param write Whether to shutdown the write direction.
+ * @param linger_timeout The socket linger timeout.
+ * @return True if successful
+ */
+bool ShutdownSocket(SOCKET d, bool read, bool write, uint linger_timeout)
+{
+	if (!read && !write) return true;
+#ifdef _WIN32
+	LINGER ln = { 1U, (uint16_t) linger_timeout };
+#else
+	struct linger ln = { 1, (int) linger_timeout };
+#endif
+
+	setsockopt(d, SOL_SOCKET, SO_LINGER, (const char*)&ln, sizeof(ln));
+
+	int how = SD_BOTH;
+	if (!read) how = SD_SEND;
+	if (!write) how = SD_RECEIVE;
+	return shutdown(d, how) == 0;
 }
 
 /**

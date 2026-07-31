@@ -5,15 +5,12 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file game_info.cpp Functions to convert NetworkGameInfo to Packet and back.
- */
+/** @file network_game_info.cpp Functions to convert NetworkGameInfo to Packet and back. */
 
 #include "../../stdafx.h"
 #include "network_game_info.h"
 #include "../../company_base.h"
-#include "../../timer/timer_game_calendar.h"
-#include "../../timer/timer_game_tick.h"
+#include "../../date_func.h"
 #include "../../debug.h"
 #include "../../map_func.h"
 #include "../../game/game.hpp"
@@ -21,6 +18,7 @@
 #include "../../settings_type.h"
 #include "../../string_func.h"
 #include "../../rev.h"
+#include "../../core/format.hpp"
 #include "../network_func.h"
 #include "../network.h"
 #include "../network_internal.h"
@@ -30,6 +28,7 @@
 
 #include "../../safeguards.h"
 
+extern const uint8_t _out_of_band_grf_md5[16];
 
 /**
  * How many hex digits of the git hash to include in network revision string.
@@ -42,20 +41,18 @@ NetworkServerGameInfo _network_game_info; ///< Information about our game.
 /**
  * Get the network version string used by this build.
  * The returned string is guaranteed to be at most NETWORK_REVISION_LENGTH bytes including '\0' terminator.
+ * @return The revision string.
  */
 std::string_view GetNetworkRevisionString()
 {
 	static std::string network_revision;
 
 	if (network_revision.empty()) {
-#if not defined(NETWORK_INTERNAL_H)
+#if !defined(NETWORK_INTERNAL_H)
 #	error("network_internal.h must be included, otherwise the debug related preprocessor tokens won't be picked up correctly.")
-#elif not defined(ENABLE_NETWORK_SYNC_EVERY_FRAME)
+#elif !defined(ENABLE_NETWORK_SYNC_EVERY_FRAME)
 		/* Just a standard build. */
 		network_revision = _openttd_revision;
-#elif defined(NETWORK_SEND_DOUBLE_SEED)
-		/* Build for debugging that sends both parts of the seeds and by doing that practically syncs every frame. */
-		network_revision = fmt::format("dbg_seed-{}", _openttd_revision);
 #else
 		/* Build for debugging that sends the first part of the seed every frame, practically syncing every frame. */
 		network_revision = fmt::format("dbg_sync-{}", _openttd_revision);
@@ -100,8 +97,9 @@ static std::string_view ExtractNetworkRevisionHash(std::string_view revision_str
  * Checks whether the given version string is compatible with our version.
  * First tries to match the full string, if that fails, attempts to compare just git hashes.
  * @param other the version string to compare to
+ * @return \c true if the other version is deemed compatible.
  */
-bool IsNetworkCompatibleVersion(std::string_view other)
+bool IsNetworkCompatibleVersion(std::string_view other, bool extended)
 {
 	std::string_view our_revision = GetNetworkRevisionString();
 	if (our_revision == other) return true;
@@ -122,16 +120,17 @@ bool IsNetworkCompatibleVersion(std::string_view other)
 
 /**
  * Check if an game entry is compatible with our client.
+ * @param ngi The game information to process and update the compatible field of.
  */
-void CheckGameCompatibility(NetworkGameInfo &ngi)
+void CheckGameCompatibility(NetworkGameInfo &ngi, bool extended)
 {
 	/* Check if we are allowed on this server based on the revision-check. */
-	ngi.version_compatible = IsNetworkCompatibleVersion(ngi.server_revision);
+	ngi.version_compatible = IsNetworkCompatibleVersion(ngi.server_revision, extended);
 	ngi.compatible = ngi.version_compatible;
 
 	/* Check if we have all the GRFs on the client-system too. */
 	for (const auto &c : ngi.grfconfig) {
-		if (c->status == GCS_NOT_FOUND) ngi.compatible = false;
+		if (c->status == GRFStatus::NotFound) ngi.compatible = false;
 	}
 }
 
@@ -142,7 +141,7 @@ void CheckGameCompatibility(NetworkGameInfo &ngi)
 void FillStaticNetworkServerGameInfo()
 {
 	_network_game_info.use_password   = !_settings_client.network.server_password.empty();
-	_network_game_info.calendar_start = TimerGameCalendar::ConvertYMDToDate(_settings_game.game_creation.starting_year, 0, 1);
+	_network_game_info.calendar_start = CalTime::ConvertYMDToDate(_settings_game.game_creation.starting_year, 0, 1);
 	_network_game_info.clients_max    = _settings_client.network.max_clients;
 	_network_game_info.companies_max  = _settings_client.network.max_companies;
 	_network_game_info.map_width      = Map::SizeX();
@@ -168,8 +167,8 @@ const NetworkServerGameInfo &GetCurrentNetworkServerGameInfo()
 	 */
 	_network_game_info.companies_on  = (uint8_t)Company::GetNumItems();
 	_network_game_info.spectators_on = NetworkSpectatorCount();
-	_network_game_info.calendar_date = TimerGameCalendar::date;
-	_network_game_info.ticks_playing = TimerGameTick::counter;
+	_network_game_info.calendar_date = CalTime::CurDate();
+	_network_game_info.ticks_playing = _scaled_tick_counter;
 	return _network_game_info;
 }
 
@@ -184,10 +183,10 @@ const NetworkServerGameInfo &GetCurrentNetworkServerGameInfo()
 static void HandleIncomingNetworkGameInfoGRFConfig(GRFConfig &config, std::string_view name)
 {
 	/* Find the matching GRF file */
-	const GRFConfig *f = FindGRFConfig(config.ident.grfid, FGCM_EXACT, &config.ident.md5sum);
+	const GRFConfig *f = FindGRFConfig(config.ident.grfid, FindGRFConfigMode::Exact, &config.ident.md5sum);
 	if (f == nullptr) {
 		AddGRFTextToList(config.name, name.empty() ? GetString(STR_CONFIG_ERROR_INVALID_GRF_UNKNOWN) : name);
-		config.status = GCS_NOT_FOUND;
+		config.status = GRFStatus::NotFound;
 	} else {
 		config.filename = f->filename;
 		config.name = f->name;
@@ -201,6 +200,7 @@ static void HandleIncomingNetworkGameInfoGRFConfig(GRFConfig &config, std::strin
  * Serializes the NetworkGameInfo struct to the packet.
  * @param p    the packet to write the data to.
  * @param info the NetworkGameInfo struct to serialize from.
+ * @param send_newgrf_names Whether to send the NewGRF names or not.
  */
 void SerializeNetworkGameInfo(Packet &p, const NetworkServerGameInfo &info, bool send_newgrf_names)
 {
@@ -232,7 +232,7 @@ void SerializeNetworkGameInfo(Packet &p, const NetworkServerGameInfo &info, bool
 		 * selected in the NewGRF GUI and not the ones that are used due
 		 * to the fact that they are in [newgrf-static] in openttd.cfg */
 		uint count = std::ranges::count_if(info.grfconfig, [](const auto &c) { return !c->flags.Test(GRFConfigFlag::Static); });
-		p.Send_uint8 (count); // Send number of GRFs
+		p.Send_uint8(ClampTo<uint8_t>(std::min<uint>(count, NETWORK_MAX_GRF_COUNT))); // Send number of GRFs
 
 		/* Send actual GRF Identifications */
 		for (const auto &c : info.grfconfig) {
@@ -259,16 +259,89 @@ void SerializeNetworkGameInfo(Packet &p, const NetworkServerGameInfo &info, bool
 	p.Send_uint8 (info.clients_max);
 	p.Send_uint8 (info.clients_on);
 	p.Send_uint8 (info.spectators_on);
-	p.Send_uint16(info.map_width);
-	p.Send_uint16(info.map_height);
+
+	auto encode_map_size = [&](uint32_t in) -> uint16_t {
+		if (in < UINT16_MAX) {
+			return in;
+		} else {
+			return 65000 + FindFirstBit(in);
+		}
+	};
+	p.Send_uint16(encode_map_size(info.map_width));
+	p.Send_uint16(encode_map_size(info.map_height));
 	p.Send_uint8 (to_underlying(info.landscape));
 	p.Send_bool  (info.dedicated);
+}
+
+/**
+ * Serializes the NetworkGameInfo struct to the packet
+ * @param p    the packet to write the data to
+ * @param info the NetworkGameInfo struct to serialize
+ */
+void SerializeNetworkGameInfoExtended(Packet &p, const NetworkServerGameInfo &info, uint16_t flags, uint16_t version, bool send_newgrf_names)
+{
+	version = std::min<uint16_t>(version, 2); // Version 2 is the max supported
+
+	p.Send_uint8(version); // version num
+
+	p.Send_uint32(info.calendar_date.base());
+	p.Send_uint32(info.calendar_start.base());
+	p.Send_uint8 (info.companies_max);
+	p.Send_uint8 (info.companies_on);
+	p.Send_uint8 (info.clients_max); // Used to be max-spectators
+	p.Send_string(info.server_name);
+	p.Send_string(info.server_revision);
+	p.Send_uint8 (0); // Used to be server-lang.
+	p.Send_bool  (info.use_password);
+	p.Send_uint8 (info.clients_max);
+	p.Send_uint8 (info.clients_on);
+	p.Send_uint8 (info.spectators_on);
+	p.Send_string(""); // Used to be map-name.
+	p.Send_uint32(info.map_width);
+	p.Send_uint32(info.map_height);
+	p.Send_uint8 (to_underlying(info.landscape));
+	p.Send_bool  (info.dedicated);
+
+	if (version >= 1) {
+		GameInfo *game_info = Game::GetInfo();
+		p.Send_uint32(game_info == nullptr ? -1 : (uint32_t)game_info->GetVersion());
+		p.Send_string(game_info == nullptr ? "" : game_info->GetName());
+
+		p.Send_uint8(send_newgrf_names ? NST_GRFID_MD5_NAME : NST_GRFID_MD5);
+	}
+
+	if (version >= 2) {
+		p.Send_uint64(info.ticks_playing);
+	}
+
+	{
+		/* Only send the GRF Identification (GRF_ID and MD5 checksum) of
+		 * the GRFs that are needed, i.e. the ones that the server has
+		 * selected in the NewGRF GUI and not the ones that are used due
+		 * to the fact that they are in [newgrf-static] in openttd.cfg */
+		uint count = 0;
+
+		/* Count number of GRFs to send information about */
+		for (const auto &c : info.grfconfig) {
+			if (!c->flags.Test(GRFConfigFlag::Static)) count++;
+		}
+		p.Send_uint32(count); // Send number of GRFs
+
+		/* Send actual GRF Identifications */
+		for (const auto &c : info.grfconfig) {
+			if (c->flags.Test(GRFConfigFlag::Static)) continue;
+
+			SerializeGRFIdentifier(p, c->ident);
+			if (send_newgrf_names && version >= 1) p.Send_string(c->GetName());
+		}
+	}
 }
 
 /**
  * Deserializes the NetworkGameInfo struct from the packet.
  * @param p    the packet to read the data from.
  * @param info the NetworkGameInfo to deserialize into.
+ * @param newgrf_lookup_table Lookup table for index-mapped NewGRFs.
  */
 void DeserializeNetworkGameInfo(Packet &p, NetworkGameInfo &info, const GameInfoNewGRFLookupTable *newgrf_lookup_table)
 {
@@ -341,8 +414,8 @@ void DeserializeNetworkGameInfo(Packet &p, NetworkGameInfo &info, const GameInfo
 		}
 
 		case 3:
-			info.calendar_date = TimerGameCalendar::Date{Clamp(p.Recv_uint32(), 0, CalendarTime::MAX_DATE.base())};
-			info.calendar_start = TimerGameCalendar::Date{Clamp(p.Recv_uint32(), 0, CalendarTime::MAX_DATE.base())};
+			info.calendar_date  = CalTime::DeserialiseDateClamped(p.Recv_uint32());
+			info.calendar_start = CalTime::DeserialiseDateClamped(p.Recv_uint32());
 			[[fallthrough]];
 
 		case 2:
@@ -360,21 +433,105 @@ void DeserializeNetworkGameInfo(Packet &p, NetworkGameInfo &info, const GameInfo
 			info.clients_on     = p.Recv_uint8 ();
 			info.spectators_on  = p.Recv_uint8 ();
 			if (game_info_version < 3) { // 16 bits dates got scrapped and are read earlier
-				info.calendar_date = CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR + p.Recv_uint16();
-				info.calendar_start = CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR + p.Recv_uint16();
+				info.calendar_date  = CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR + p.Recv_uint16();
+				info.calendar_start = CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR + p.Recv_uint16();
 			}
 			if (game_info_version < 6) while (p.Recv_uint8() != 0) {} // Used to contain the map-name.
-			info.map_width      = p.Recv_uint16();
-			info.map_height     = p.Recv_uint16();
+
+			auto decode_map_size = [&](uint16_t in) -> uint32_t {
+				if (in >= 65000) {
+					return 1 << (in - 65000);
+				} else {
+					return in;
+				}
+			};
+			info.map_width      = decode_map_size(p.Recv_uint16());
+			info.map_height     = decode_map_size(p.Recv_uint16());
+
 			info.landscape      = LandscapeType{p.Recv_uint8()};
 			info.dedicated      = p.Recv_bool  ();
 
 			if (to_underlying(info.landscape) >= NUM_LANDSCAPE) info.landscape = LandscapeType::Temperate;
 	}
+}
 
-	/* For older servers, estimate the ticks running based on the calendar date. */
-	if (game_info_version < 7) {
-		info.ticks_playing = static_cast<uint64_t>(std::max(0, info.calendar_date.base() - info.calendar_start.base())) * Ticks::DAY_TICKS;
+/**
+ * Deserializes the NetworkGameInfo struct from the packet
+ * @param p    the packet to read the data from
+ * @param info the NetworkGameInfo to deserialize into
+ */
+void DeserializeNetworkGameInfoExtended(Packet &p, NetworkGameInfo &info)
+{
+	const uint8_t version = p.Recv_uint8();
+	if (version > SERVER_GAME_INFO_EXTENDED_MAX_VERSION) return; // Unknown version
+
+	NewGRFSerializationType newgrf_serialisation = NST_GRFID_MD5;
+
+	info.calendar_date  = CalTime::DeserialiseDateClamped(p.Recv_uint32());
+	info.calendar_start = CalTime::DeserialiseDateClamped(p.Recv_uint32());
+	info.companies_max  = p.Recv_uint8 ();
+	info.companies_on   = p.Recv_uint8 ();
+	p.Recv_uint8(); // Used to contain max-spectators.
+	info.server_name = p.Recv_string(NETWORK_NAME_LENGTH);
+	info.server_revision = p.Recv_string(NETWORK_LONG_REVISION_LENGTH);
+	p.Recv_uint8 (); // Used to contain server-lang.
+	info.use_password   = p.Recv_bool  ();
+	info.clients_max    = p.Recv_uint8 ();
+	info.clients_on     = p.Recv_uint8 ();
+	info.spectators_on  = p.Recv_uint8 ();
+	while (p.Recv_uint8() != 0) {} // Used to contain the map-name.
+	info.map_width      = p.Recv_uint32();
+	info.map_height     = p.Recv_uint32();
+	info.landscape      = LandscapeType{p.Recv_uint8()};
+	if (to_underlying(info.landscape) >= NUM_LANDSCAPE) info.landscape = LandscapeType::Temperate;
+	info.dedicated      = p.Recv_bool  ();
+
+	if (version >= 1) {
+		info.gamescript_version = (int)p.Recv_uint32();
+		info.gamescript_name = p.Recv_string(NETWORK_NAME_LENGTH);
+
+		newgrf_serialisation = (NewGRFSerializationType)p.Recv_uint8();
+		if (newgrf_serialisation >= NST_END) return;
+	}
+
+	if (version >= 2) {
+		info.ticks_playing = p.Recv_uint64();
+	}
+
+	{
+		GRFConfigList &dst = info.grfconfig;
+		uint num_grfs = p.Recv_uint32();
+
+		/* Broken/bad data. It cannot have that many NewGRFs. */
+		if (num_grfs > MAX_NON_STATIC_GRF_COUNT) return;
+
+		for (uint i = 0; i < num_grfs; i++) {
+			NamedGRFIdentifier grf;
+			switch (newgrf_serialisation) {
+				case NST_GRFID_MD5:
+					DeserializeGRFIdentifier(p, grf.ident);
+					break;
+
+				case NST_GRFID_MD5_NAME:
+					DeserializeGRFIdentifierWithName(p, grf);
+					break;
+
+				case NST_LOOKUP_ID: {
+					Debug(net, 0, "Unexpected NST_LOOKUP_ID in DeserializeNetworkGameInfoExtended");
+					return;
+				}
+
+				default:
+					NOT_REACHED();
+			}
+
+			auto c = std::make_unique<GRFConfig>();
+			c->ident = grf.ident;
+			HandleIncomingNetworkGameInfoGRFConfig(*c, grf.name);
+
+			/* Append GRFConfig to the list */
+			dst.push_back(std::move(c));
+		}
 	}
 }
 

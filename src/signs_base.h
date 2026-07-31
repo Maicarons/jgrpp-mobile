@@ -14,6 +14,8 @@
 #include "viewport_type.h"
 #include "core/pool_type.hpp"
 #include "company_type.h"
+#include "company_func.h"
+#include <string>
 
 typedef Pool<Sign, SignID, 16> SignPool;
 extern SignPool _sign_pool;
@@ -24,11 +26,18 @@ struct Sign : SignPool::PoolItem<&_sign_pool> {
 	int32_t x = 0;
 	int32_t y = 0;
 	int32_t z = 0;
-	Owner owner = INVALID_OWNER; // placed by this company. Anyone can delete them though. OWNER_NONE for gray signs from old games.
+	Owner owner = INVALID_OWNER; ///< Placed by this company. Anyone can delete them though. OWNER_NONE for gray signs from old games.
+	Colours text_colour = Colours::White; ///< Colour of the sign's text. Only relevant for OWNER_DEITY.
 
-	Sign() {}
-	Sign(Owner owner, int32_t x, int32_t y, int32_t z, const std::string &name) : name(name), x(x), y(y), z(z), owner(owner) {}
+	Sign(SignID index) : PoolItemBase(index) {}
+	Sign(SignID index, Owner owner, int32_t x, int32_t y, int32_t z, const std::string &name) :
+		PoolItemBase(index), name(name), x(x), y(y), z(z), owner(owner) {}
 	~Sign();
+
+	bool IsCompetitorOwned() const
+	{
+		return _local_company != this->owner && this->owner != OWNER_DEITY;
+	}
 
 	void UpdateVirtCoord();
 };

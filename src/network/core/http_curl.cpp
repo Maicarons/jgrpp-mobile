@@ -5,15 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file http_curl.cpp CURL-based implementation for HTTP requests.
- */
+/** @file http_curl.cpp CURL-based implementation for HTTP requests. */
 
 #include "../../stdafx.h"
 #include "../../debug.h"
 #include "../../fileio_func.h"
 #include "../../rev.h"
 #include "../../thread.h"
+#include "../../core/ring_buffer_queue.hpp"
 #include "../network_internal.h"
 
 #include "http.h"
@@ -22,33 +21,33 @@
 #include <atomic>
 #include <condition_variable>
 #include <curl/curl.h>
+#include <memory>
 #include <mutex>
-#include <queue>
 
 #include "../../safeguards.h"
 
 #if defined(UNIX)
 /** List of certificate bundles, depending on OS. Taken from: https://go.dev/src/crypto/x509/root_linux.go. */
-static constexpr std::initializer_list<std::string_view> _certificate_files = {
-	"/etc/ssl/certs/ca-certificates.crt"sv,                // Debian/Ubuntu/Gentoo etc.
-	"/etc/pki/tls/certs/ca-bundle.crt"sv,                  // Fedora/RHEL 6
-	"/etc/ssl/ca-bundle.pem"sv,                            // OpenSUSE
-	"/etc/pki/tls/cacert.pem"sv,                           // OpenELEC
-	"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"sv, // CentOS/RHEL 7
-	"/etc/ssl/cert.pem"sv,                                 // Alpine Linux
+static constexpr std::initializer_list<const char *> _certificate_files = {
+	"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
+	"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
+	"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
+	"/etc/pki/tls/cacert.pem",                           // OpenELEC
+	"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
+	"/etc/ssl/cert.pem",                                 // Alpine Linux
 };
 /** List of certificate directories, depending on OS. Taken from: https://go.dev/src/crypto/x509/root_linux.go. */
-static constexpr std::initializer_list<std::string_view> _certificate_directories = {
-	"/etc/ssl/certs"sv,                                    // SLES10/SLES11, https://golang.org/issue/12139
-	"/etc/pki/tls/certs"sv,                                // Fedora/RHEL
-	"/system/etc/security/cacerts"sv,                      // Android
+static constexpr std::initializer_list<const char *> _certificate_directories = {
+	"/etc/ssl/certs",                                    // SLES10/SLES11, https://golang.org/issue/12139
+	"/etc/pki/tls/certs",                                // Fedora/RHEL
+	"/system/etc/security/cacerts",                      // Android
 };
 #endif /* UNIX */
 
-static std::vector<HTTPThreadSafeCallback *> _http_callbacks;
-static std::vector<HTTPThreadSafeCallback *> _new_http_callbacks;
-static std::mutex _http_callback_mutex;
-static std::mutex _new_http_callback_mutex;
+static std::vector<HTTPThreadSafeCallback *> _http_callbacks; ///< Callback for the current requests.
+static std::vector<HTTPThreadSafeCallback *> _new_http_callbacks; ///< Callbacks for the request that should be started.
+static std::mutex _http_callback_mutex; ///< Mutex to prevent concurrent access to #_http_callbacks.
+static std::mutex _new_http_callback_mutex; ///< Mutex to prevent concurrent access to #_new_http_callbacks.
 
 /** Single HTTP request. */
 class NetworkHTTPRequest {
@@ -60,7 +59,7 @@ public:
 	 * @param callback the callback to send data back on.
 	 * @param data     the data we want to send. When non-empty, this will be a POST request, otherwise a GET request.
 	 */
-	NetworkHTTPRequest(std::string_view uri, HTTPCallback *callback, std::string &&data) :
+	NetworkHTTPRequest(std::string_view uri, HTTPCallback *callback, std::string data) :
 		uri(uri),
 		callback(callback),
 		data(std::move(data))
@@ -80,15 +79,16 @@ public:
 	const std::string data; ///< Data to send, if any.
 };
 
-static std::thread _http_thread;
-static std::atomic<bool> _http_thread_exit = false;
-static std::queue<std::unique_ptr<NetworkHTTPRequest>> _http_requests;
-static std::mutex _http_mutex;
-static std::condition_variable _http_cv;
+static std::thread _http_thread; ///< The thread running the HTTP requests.
+static std::atomic<bool> _http_thread_exit = false; ///< Whether to ask the HTTP request thread to stop.
+static ring_buffer_queue<std::unique_ptr<NetworkHTTPRequest>> _http_requests; ///< HTTP requests that are currently running
+static std::mutex _http_mutex; ///< Mutex to prevent concurrent access #_http_requests.
+static std::condition_variable _http_cv; ///< Conditional variable to wake up the HTTP request thread.
 #if defined(UNIX)
-static std::string _http_ca_file = "";
-static std::string _http_ca_path = "";
+static std::string _http_ca_file = ""; ///< File with certificate authority data.
+static std::string _http_ca_path = ""; ///< Folder with certificate authority data.
 #endif /* UNIX */
+
 
 /* static */ void NetworkHTTPSocketHandler::Connect(std::string_view uri, HTTPCallback *callback, std::string &&data)
 {
@@ -122,6 +122,12 @@ static std::string _http_ca_path = "";
 	}
 }
 
+/**
+ * Set some specific option and emit debug information upon failure.
+ * @param curl The curl instance we're using.
+ * @param option The option to set.
+ * @param value The value for the option.
+ */
 void CurlSetOption(CURL *curl, auto option, auto value)
 {
 	CURLcode res = curl_easy_setopt(curl, option, value);
@@ -130,6 +136,7 @@ void CurlSetOption(CURL *curl, auto option, auto value)
 	}
 }
 
+/** Thread entry point for the HTTP request thread. */
 void HttpThread()
 {
 	CURL *curl = curl_easy_init();
@@ -154,7 +161,7 @@ void HttpThread()
 		curl_easy_reset(curl);
 		curl_slist *headers = nullptr;
 
-		if (_debug_net_level >= 5) {
+		if (GetDebugLevel(DebugLevelID::net) >= 5) {
 			CurlSetOption(curl, CURLOPT_VERBOSE, 1L);
 		}
 
@@ -202,9 +209,11 @@ void HttpThread()
 			HTTPThreadSafeCallback *callback = static_cast<HTTPThreadSafeCallback *>(userdata);
 
 			/* Copy the buffer out of CURL. OnReceiveData() will free it when done. */
-			std::unique_ptr<char[]> buffer = std::make_unique<char[]>(size * nmemb);
-			std::copy_n(ptr, size * nmemb, buffer.get());
-			callback->OnReceiveData(std::move(buffer), size * nmemb);
+			UniqueBuffer<char> buffer(size * nmemb);
+			if (buffer != nullptr) {
+				memcpy(buffer.get(), ptr, size * nmemb);
+			}
+			callback->OnReceiveData(std::move(buffer));
 
 			return size * nmemb;
 		});
@@ -228,7 +237,7 @@ void HttpThread()
 
 		if (res == CURLE_OK) {
 			Debug(net, 1, "HTTP request succeeded");
-			request->callback.OnReceiveData(nullptr, 0);
+			request->callback.OnReceiveData({});
 		} else {
 			long status_code = 0;
 			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code);

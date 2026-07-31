@@ -14,8 +14,9 @@
 
 #include "../safeguards.h"
 
-std::map<GRFLocation, std::pair<SpriteID, uint16_t>> _grm_sprites;
+btree::btree_map<GRFLocation, std::pair<SpriteID, uint16_t>> _grm_sprites;
 GRFLineToSpriteOverride _grf_line_to_action6_sprite_override;
+bool _action6_override_active = false;
 
 /* Action 0x06 */
 static void CfgApply(ByteReader &buf)
@@ -48,12 +49,12 @@ static void CfgApply(ByteReader &buf)
 
 	/* Get (or create) the override for the next sprite. */
 	GRFLocation location(_cur_gps.grfconfig->ident.grfid, _cur_gps.nfo_line + 1);
-	std::vector<uint8_t> &preload_sprite = _grf_line_to_action6_sprite_override[location];
+	std::unique_ptr<uint8_t[]> &preload_sprite = _grf_line_to_action6_sprite_override[location];
 
 	/* Load new sprite data if it hasn't already been loaded. */
-	if (preload_sprite.empty()) {
-		preload_sprite.resize(num);
-		file.ReadBlock(preload_sprite.data(), num);
+	if (preload_sprite == nullptr) {
+		preload_sprite = std::make_unique<uint8_t[]>(num);
+		file.ReadBlock(preload_sprite.get(), num);
 	}
 
 	/* Reset the file position to the start of the next sprite */
@@ -111,9 +112,15 @@ static void CfgApply(ByteReader &buf)
 	}
 }
 
+/** @copybrief GrfActionHandler::FileScan */
 template <> void GrfActionHandler<0x06>::FileScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::SafetyScan */
 template <> void GrfActionHandler<0x06>::SafetyScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::LabelScan */
 template <> void GrfActionHandler<0x06>::LabelScan(ByteReader &) { }
+/** @copydoc GrfActionHandler::Init */
 template <> void GrfActionHandler<0x06>::Init(ByteReader &buf) { CfgApply(buf); }
+/** @copydoc GrfActionHandler::Reserve */
 template <> void GrfActionHandler<0x06>::Reserve(ByteReader &buf) { CfgApply(buf); }
+/** @copydoc GrfActionHandler::Activation */
 template <> void GrfActionHandler<0x06>::Activation(ByteReader &buf) { CfgApply(buf); }

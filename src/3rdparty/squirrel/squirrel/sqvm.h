@@ -80,7 +80,7 @@ public:
 	SQString *PrintObjVal(const SQObject &o);
 
 
-	void Raise_Error(const std::string &msg);
+	void Raise_Error(std::string_view str);
 	void Raise_Error(SQObjectPtr &desc);
 	void Raise_IdxError(const SQObject &o);
 	void Raise_CompareError(const SQObject &o1, const SQObject &o2);
@@ -121,7 +121,7 @@ public:
 		_callsstack = &_callstackdata[0];
 		_alloccallsstacksize = newsize;
 	}
-	void Release() override { sq_delete(this,SQVM); } //does nothing
+	void Release() override { sq_delete_refcounted(this,SQVM); } //does nothing
 ////////////////////////////////////////////////////////////////////////////
 	//stack functions for the api
 	void Remove(SQInteger n);

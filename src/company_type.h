@@ -13,7 +13,8 @@
 #include "core/base_bitset_type.hpp"
 #include "core/pool_type.hpp"
 
-using CompanyID = PoolID<uint8_t, struct CompanyIDTag, 0xF, 0xFF>;
+struct CompanyIDTag : public PoolIDTraits<uint8_t, 0xF, 0xFF> {};
+using CompanyID = PoolID<CompanyIDTag>;
 
 /* 'Fake' companies used for networks */
 static constexpr CompanyID COMPANY_INACTIVE_CLIENT{253}; ///< The client is joining
@@ -34,6 +35,7 @@ static const uint MAX_LENGTH_PRESIDENT_NAME_CHARS = 32; ///< The maximum length 
 static const uint MAX_LENGTH_COMPANY_NAME_CHARS   = 32; ///< The maximum length of a company name in characters including '\0'
 
 static const uint MAX_HISTORY_QUARTERS            = 24; ///< The maximum number of quarters kept as performance's history
+static const uint MAX_COMPANY_SHARE_OWNERS        =  4; ///< The maximum number of shares of a company that can be owned by another company.
 
 static const uint MIN_COMPETITORS_INTERVAL = 0;   ///< The minimum interval (in minutes) between competitors.
 static const uint MAX_COMPETITORS_INTERVAL = 500; ///< The maximum interval (in minutes) between competitors.
@@ -57,31 +59,38 @@ struct CompanyManagerFace {
 };
 
 /** The reason why the company was removed. */
-enum CompanyRemoveReason : uint8_t {
-	CRR_MANUAL,    ///< The company is manually removed.
-	CRR_AUTOCLEAN, ///< The company is removed due to autoclean.
-	CRR_BANKRUPT,  ///< The company went belly-up.
+enum class CompanyRemoveReason : uint8_t {
+	Manual, ///< The company is manually removed.
+	Autoclean, ///< The company is removed due to autoclean.
+	Bankrupt, ///< The company went belly-up.
 
-	CRR_END,       ///< Sentinel for end.
+	End, ///< Sentinel for end.
 
-	CRR_NONE = CRR_MANUAL, ///< Dummy reason for actions that don't need one.
+	None = Manual, ///< Dummy reason for actions that don't need one.
 };
 
-/** The action to do with CMD_COMPANY_CTRL. */
-enum CompanyCtrlAction : uint8_t {
-	CCA_NEW,    ///< Create a new company.
-	CCA_NEW_AI, ///< Create a new AI company.
-	CCA_DELETE, ///< Delete a company.
-
-	CCA_END,    ///< Sentinel for end.
+/** The action to do with Commands::CompanyControl. */
+enum class CompanyCtrlAction : uint8_t {
+	New,    ///< Create a new company.
+	NewAI,  ///< Create a new AI company.
+	Delete, ///< Delete a company.
+	Sale,   ///< Offer a company for sale.
+	Merge,  ///< Merge companies.
 };
 
-/** The action to do with CMD_COMPANY_ALLOW_LIST_CTRL. */
-enum CompanyAllowListCtrlAction : uint8_t {
-	CALCA_ADD, ///< Create a public key.
-	CALCA_REMOVE, ///< Remove a public key.
+/** The action to do with Commands::CompanyAllowListControl. */
+enum class CompanyAllowListCtrlAction : uint8_t {
+	AddKey,      ///< Create a public key.
+	RemoveKey,   ///< Remove a public key.
+	AllowAny,    ///< Allow joining the company without a key.
+	AllowListed, ///< Allow only listed keys to join the company.
+};
 
-	CALCA_END,    ///< Sentinel for end.
+struct CompanyInfoDumper {
+	CompanyID value;
+	CompanyInfoDumper(CompanyID value) : value(value) {}
+
+	void fmt_format_value(struct format_target &output) const;
 };
 
 #endif /* COMPANY_TYPE_H */

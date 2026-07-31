@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file newgrf_sl.cpp Code handling saving and loading of newgrf config */
+/** @file newgrf_sl.cpp Code handling saving and loading of newgrf config. */
 
 #include "../stdafx.h"
 
@@ -14,8 +14,12 @@
 
 #include "newgrf_sl.h"
 #include "../fios.h"
+#include "../load_check.h"
+#include "../debug.h"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 /** Save and load the mapping between a spec and the NewGRF it came from. */
 static const SaveLoad _newgrf_mapping_desc[] = {
@@ -31,14 +35,8 @@ static const SaveLoad _newgrf_mapping_desc[] = {
  */
 void NewGRFMappingChunkHandler::Save() const
 {
-	SlTableHeader(_newgrf_mapping_desc);
-
-	for (uint i = 0; i < this->mapping.GetMaxMapping(); i++) {
-		if (this->mapping.mappings[i].grfid == 0 &&
-			this->mapping.mappings[i].entity_id == 0) continue;
-		SlSetArrayIndex(i);
-		SlObject(&this->mapping.mappings[i], _newgrf_mapping_desc);
-	}
+	// removed
+	NOT_REACHED();
 }
 
 /**
@@ -118,13 +116,15 @@ struct NGRFChunkHandler : ChunkHandler {
 			this->LoadParameters(*c);
 			AppendToGRFConfigList(grfconfig, std::move(c));
 		}
+
+		Debug(sl, 2, "Loaded {} NewGRFs", GetGRFConfigListNonStaticCount(grfconfig));
 	}
 
 	void Load() const override
 	{
 		this->LoadCommon(_grfconfig);
 
-		if (_game_mode == GM_MENU) {
+		if (_game_mode == GameMode::Menu) {
 			/* Intro game must not have NewGRF. */
 			if (!_grfconfig.empty()) SlErrorCorrupt("The intro game must not use NewGRF");
 
@@ -148,3 +148,5 @@ static const ChunkHandlerRef newgrf_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _newgrf_chunk_handlers(newgrf_chunk_handlers);
+
+}

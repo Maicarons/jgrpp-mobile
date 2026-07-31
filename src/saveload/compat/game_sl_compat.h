@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _game_script_desc. */
 const SaveLoadCompat _game_script_sl_compat[] = {
 	SLC_VAR("name"),
@@ -31,5 +33,7 @@ const SaveLoadCompat _game_language_sl_compat[] = {
 	SLC_VAR("count"),
 	SLC_VAR("strings"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_GAME_H */

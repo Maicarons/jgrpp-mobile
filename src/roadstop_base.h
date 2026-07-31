@@ -13,12 +13,15 @@
 #include "station_type.h"
 #include "core/pool_type.hpp"
 #include "vehicle_type.h"
+#include "roadveh.h"
+#include "road_map.h"
 
 using RoadStopPool = Pool<RoadStop, RoadStopID, 32>;
 extern RoadStopPool _roadstop_pool;
 
 /** A Stop for a Road Vehicle */
 struct RoadStop : RoadStopPool::PoolItem<&_roadstop_pool> {
+	/** Flags describing the status of a single road stop. */
 	enum class RoadStopStatusFlag : uint8_t {
 		Bay0Free  = 0, ///< Non-zero when bay 0 is free
 		Bay1Free  = 1, ///< Non-zero when bay 1 is free
@@ -54,6 +57,14 @@ struct RoadStop : RoadStopPool::PoolItem<&_roadstop_pool> {
 			return this->occupied;
 		}
 
+		/**
+		 * Adjust the occupation of this road stop, only to handle vehicles unexpectedly changing length
+		 */
+		inline void AdjustOccupation(int adjustment)
+		{
+			this->occupied += adjustment;
+		}
+
 		void Leave(const RoadVehicle *rv);
 		void Enter(const RoadVehicle *rv);
 		void CheckIntegrity(const RoadStop *rs) const;
@@ -68,10 +79,14 @@ struct RoadStop : RoadStopPool::PoolItem<&_roadstop_pool> {
 
 	RoadStopStatusFlags status{RoadStopStatusFlag::Bay0Free, RoadStopStatusFlag::Bay1Free}; ///< Current status of the Stop. Access using *Bay and *Busy functions.
 	TileIndex xy = INVALID_TILE; ///< Position on the map
-	RoadStop *next = nullptr; ///< Next stop of the given type at this station
+	RoadStop *next = nullptr;    ///< Next stop of the given type at this station
 
-	/** Initializes a RoadStop */
-	inline RoadStop(TileIndex tile = INVALID_TILE) : xy(tile) { }
+	/**
+	 * Initializes a RoadStop.
+	 * @param index The pool identifier of the road stop.
+	 * @param tile The tile the road stop is at.
+	 */
+	inline RoadStop(RoadStopID index, TileIndex tile = INVALID_TILE) : PoolItemBase(index), xy(tile) { }
 
 	~RoadStop();
 
@@ -123,7 +138,7 @@ struct RoadStop : RoadStopPool::PoolItem<&_roadstop_pool> {
 	 */
 	inline const Entry &GetEntry(DiagDirection dir) const
 	{
-		return dir >= DIAGDIR_SW ? this->entries->west : this->entries->east;
+		return dir >= DiagDirection::SW ? this->entries->west : this->entries->east;
 	}
 
 	/**
@@ -133,11 +148,22 @@ struct RoadStop : RoadStopPool::PoolItem<&_roadstop_pool> {
 	 */
 	inline Entry &GetEntry(DiagDirection dir)
 	{
-		return dir >= DIAGDIR_SW ? this->entries->west : this->entries->east;
+		return dir >= DiagDirection::SW ? this->entries->west : this->entries->east;
+	}
+
+	inline const Entry &GetEntry(const RoadVehicle *rv) const {
+		DiagDirection diag_dir = DirToDiagDir(rv->direction);
+		return this->GetEntry(rv->overtaking != 0 ? ReverseDiagDir(diag_dir) : diag_dir);
+	}
+
+	inline Entry &GetEntry(const RoadVehicle *rv) {
+		DiagDirection diag_dir = DirToDiagDir(rv->direction);
+		return this->GetEntry(rv->overtaking != 0 ? ReverseDiagDir(diag_dir) : diag_dir);
 	}
 
 	void MakeDriveThrough();
 	void ClearDriveThrough();
+	void ChangeDriveThroughDisallowedRoadDirections(DisallowedRoadDirections drd);
 
 	void Leave(RoadVehicle *rv);
 	bool Enter(RoadVehicle *rv);
@@ -147,6 +173,9 @@ struct RoadStop : RoadStopPool::PoolItem<&_roadstop_pool> {
 	static RoadStop *GetByTile(TileIndex tile, RoadStopType type);
 
 	static bool IsDriveThroughRoadStopContinuation(TileIndex rs, TileIndex next);
+
+	void DebugClearOccupancy();
+	void DebugReEnter(const RoadVehicle *rv);
 
 private:
 	Entries *entries = nullptr; ///< Information about available and allocated bays.

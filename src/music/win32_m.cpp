@@ -18,6 +18,7 @@
 #include "midi.h"
 #include "../base_media_base.h"
 #include "../base_media_music.h"
+#include "../core/mem_func.hpp"
 #include <mutex>
 
 #include "../safeguards.h"
@@ -47,7 +48,7 @@ static struct {
 	MidiFile next_file;              ///< upcoming file to play
 	PlaybackSegment next_segment;    ///< segment info for upcoming file
 
-	std::array<uint8_t, 16> channel_volumes; ///< last seen volume controller values in raw data
+	uint8_t channel_volumes[16]; ///< last seen volume controller values in raw data
 } _midi;
 
 static FMusicDriver_Win32 iFMusicDriver_Win32;
@@ -105,6 +106,7 @@ static void TransmitStandardSysex(MidiSysexMessage msg)
 /**
  * Realtime MIDI playback service routine.
  * This is called by the multimedia timer.
+ * @param uTimerID The identifier of the timer.
  */
 void CALLBACK TimerCallback(UINT uTimerID, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 {
@@ -162,7 +164,7 @@ void CALLBACK TimerCallback(UINT uTimerID, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR
 			_midi.do_start = 0;
 			_midi.current_block = 0;
 
-			_midi.channel_volumes.fill(127);
+			MemSetT<uint8_t>(_midi.channel_volumes, 127, lengthof(_midi.channel_volumes));
 			/* Invalidate current volume. */
 			_midi.current_volume = UINT8_MAX;
 			volume_throttle = 0;
@@ -365,7 +367,7 @@ void MusicDriver_Win32::SetVolume(uint8_t vol)
 	_midi.new_volume = vol;
 }
 
-std::optional<std::string_view> MusicDriver_Win32::Start(const StringList &parm)
+const char *MusicDriver_Win32::Start(const StringList &parm)
 {
 	Debug(driver, 2, "Win32-MIDI: Start: initializing");
 
@@ -374,7 +376,7 @@ std::optional<std::string_view> MusicDriver_Win32::Start(const StringList &parm)
 	auto portname = GetDriverParam(parm, "portname");
 
 	/* Enumerate ports either for selecting port by name, or for debug output */
-	if (portname.has_value() || _debug_driver_level > 0) {
+	if (portname.has_value() || GetDebugLevel(DebugLevelID::driver) > 0) {
 		uint numports = midiOutGetNumDevs();
 		Debug(driver, 1, "Win32-MIDI: Found {} output devices:", numports);
 		for (uint tryport = 0; tryport < numports; tryport++) {
@@ -413,8 +415,8 @@ std::optional<std::string_view> MusicDriver_Win32::Start(const StringList &parm)
 		_midi.time_period = std::min(std::max((UINT)resolution, timecaps.wPeriodMin), timecaps.wPeriodMax);
 		if (timeBeginPeriod(_midi.time_period) == MMSYSERR_NOERROR) {
 			/* success */
-			Debug(driver, 2, "Win32-MIDI: Start: timer resolution is {}", _midi.time_period);
-			return std::nullopt;
+			Debug(driver, 2, "Win32-MIDI: Start: timer resolution is {}", (int)_midi.time_period);
+			return nullptr;
 		}
 	}
 	midiOutClose(_midi.midi_out);

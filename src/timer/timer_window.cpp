@@ -5,10 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file timer_window.cpp
- * This file implements the timer logic for the Window system.
- */
+/** @file timer_window.cpp This file implements the timer logic for the Window system. */
 
 #include "../stdafx.h"
 #include "timer.h"
@@ -49,16 +46,11 @@ void TimeoutTimer<TimerWindow>::Elapsed(TimerWindow::TElapsed delta)
 }
 
 template <>
-bool TimerManager<TimerWindow>::Elapsed(TimerWindow::TElapsed delta)
+void TimerManager<TimerWindow>::Elapsed(TimerWindow::TElapsed delta)
 {
-	/* Make a temporary copy of the timers, as a timer's callback might add/remove other timers. */
-	auto timers = TimerManager<TimerWindow>::GetTimers();
-
-	for (auto timer : timers) {
+	for (auto timer : TimerManager<TimerWindow>::GetTimerVector()) {
 		timer->Elapsed(delta);
 	}
-
-	return true;
 }
 
 #ifdef WITH_ASSERT

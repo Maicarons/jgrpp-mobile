@@ -15,32 +15,35 @@
 #include "town.h"
 #include "town_type.h"
 
-enum TownAcceptanceEffect : uint8_t;
+enum class TownAcceptanceEffect : uint8_t;
+enum TownSettingOverrideFlags : uint8_t;
 using HouseID = uint16_t;
 
-std::tuple<CommandCost, Money, TownID> CmdFoundTown(DoCommandFlags flags, TileIndex tile, TownSize size, bool city, TownLayout layout, bool random_location, uint32_t townnameparts, const std::string &text);
-CommandCost CmdRenameTown(DoCommandFlags flags, TownID town_id, const std::string &text);
-CommandCost CmdDoTownAction(DoCommandFlags flags, TownID town_id, TownAction action);
-CommandCost CmdTownGrowthRate(DoCommandFlags flags, TownID town_id, uint16_t growth_rate);
-CommandCost CmdTownRating(DoCommandFlags flags, TownID town_id, CompanyID company_id, int16_t rating);
-CommandCost CmdTownCargoGoal(DoCommandFlags flags, TownID town_id, TownAcceptanceEffect tae, uint32_t goal);
-CommandCost CmdTownSetText(DoCommandFlags flags, TownID town_id, const EncodedString &text);
-CommandCost CmdExpandTown(DoCommandFlags flags, TownID town_id, uint32_t grow_amount, TownExpandModes modes);
-CommandCost CmdDeleteTown(DoCommandFlags flags, TownID town_id);
-CommandCost CmdPlaceHouse(DoCommandFlags flags, TileIndex tile, HouseID house, bool house_protected, bool replace);
+struct HouseIDCmdVector {
+	static constexpr bool command_payload_as_ref = true;
+	static constexpr size_t MAX_HOUSE_IDS = 1024;
 
-DEF_CMD_TRAIT(CMD_FOUND_TOWN,       CmdFoundTown,      CommandFlags({CommandFlag::Deity, CommandFlag::NoTest}),  CommandType::LandscapeConstruction) // founding random town can fail only in exec run
-DEF_CMD_TRAIT(CMD_RENAME_TOWN,      CmdRenameTown,     CommandFlags({CommandFlag::Deity, CommandFlag::Server}),  CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_DO_TOWN_ACTION,   CmdDoTownAction,   CommandFlags({CommandFlag::Location}),                    CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_TOWN_CARGO_GOAL,  CmdTownCargoGoal,  CommandFlags({CommandFlag::Deity}),                       CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_TOWN_GROWTH_RATE, CmdTownGrowthRate, CommandFlags({CommandFlag::Deity}),                       CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_TOWN_RATING,      CmdTownRating,     CommandFlags({CommandFlag::Deity}),                       CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_TOWN_SET_TEXT,    CmdTownSetText,    CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_EXPAND_TOWN,      CmdExpandTown,     CommandFlags({CommandFlag::Deity}),                       CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_DELETE_TOWN,      CmdDeleteTown,     CommandFlags({CommandFlag::Offline}),                     CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_PLACE_HOUSE,      CmdPlaceHouse,     CommandFlags({CommandFlag::Deity}),                       CommandType::OtherManagement)
+	std::vector<HouseID> ids;
 
-CommandCallback CcFoundTown;
-void CcFoundRandomTown(Commands cmd, const CommandCost &result, Money, TownID town_id);
+	void Serialise(BufferSerialisationRef buffer) const;
+	bool Deserialise(DeserialisationBuffer &buffer, StringValidationSettings default_string_validation);
+
+	void fmt_format_value(struct format_target &) const;
+};
+
+DEF_CMD_TUPLE   (Commands::FoundTown,                     CmdFoundTown,                    CMD_DEITY | CMD_NO_TEST, CommandType::LandscapeConstruction, CmdDataT<TownSize, bool, TownLayout, bool, uint32_t, std::string>) // founding random town can fail only in exec run
+DEF_CMD_TUPLE_NT(Commands::RenameTown,                    CmdRenameTown,                    CMD_DEITY | CMD_SERVER, CommandType::OtherManagement,       CmdDataT<TownID, std::string>)
+DEF_CMD_TUPLE_NT(Commands::RenameTownNonAdmin,            CmdRenameTownNonAdmin,                                {}, CommandType::OtherManagement,       CmdDataT<TownID, std::string>)
+DEF_CMD_TUPLE_LT(Commands::TownAction,                    CmdDoTownAction,                                      {}, CommandType::LandscapeConstruction, CmdDataT<TownID, TownAction>)
+DEF_CMD_TUPLE_NT(Commands::TownCargoGoal,                 CmdTownCargoGoal,                CMD_LOG_AUX | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<TownID, TownAcceptanceEffect, uint32_t>)
+DEF_CMD_TUPLE_NT(Commands::TownGrowthRate,                CmdTownGrowthRate,               CMD_LOG_AUX | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<TownID, uint16_t>)
+DEF_CMD_TUPLE_NT(Commands::TownRating,                    CmdTownRating,                   CMD_LOG_AUX | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<TownID, CompanyID, int16_t>)
+DEF_CMD_TUPLE_NT(Commands::TownSetText,                   CmdTownSetText,   CMD_LOG_AUX | CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<TownID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::ExpandTown,                    CmdExpandTown,                                 CMD_DEITY, CommandType::LandscapeConstruction, CmdDataT<TownID, uint32_t, TownExpandModes>)
+DEF_CMD_TUPLE_NT(Commands::DeleteTown,                    CmdDeleteTown,                               CMD_OFFLINE, CommandType::LandscapeConstruction, CmdDataT<TownID>)
+DEF_CMD_TUPLE   (Commands::PlaceHouse,                    CmdPlaceHouse,                                 CMD_DEITY, CommandType::OtherManagement,       CmdDataT<HouseID, bool, TownID, bool>)
+DEF_CMD_TUPLE   (Commands::PlaceHouseArea,                CmdPlaceHouseArea,                             CMD_DEITY, CommandType::OtherManagement,       CmdDataT<TileIndex, HouseIDCmdVector, bool, TownID, bool, bool>)
+DEF_CMD_TUPLE_NT(Commands::TownSettingOverride,           CmdOverrideTownSetting,           CMD_DEITY | CMD_SERVER, CommandType::OtherManagement,       CmdDataT<TownID, TownSettingOverrideFlags, bool, uint8_t>)
+DEF_CMD_TUPLE_NT(Commands::TownSettingOverrideNonAdmin,   CmdOverrideTownSettingNonAdmin,                       {}, CommandType::OtherManagement,       CmdDataT<TownID, TownSettingOverrideFlags, bool, uint8_t>)
 
 #endif /* TOWN_CMD_H */

@@ -15,18 +15,28 @@
 #include "newgrf_config.h"
 
 struct IniFile;
-struct WindowDesc;
 
 void IConsoleSetSetting(std::string_view name, std::string_view value, bool force_newgame = false);
 void IConsoleSetSetting(std::string_view name, int32_t value);
 void IConsoleGetSetting(std::string_view name, bool force_newgame = false);
-void IConsoleListSettings(std::string_view prefilter);
+void IConsoleListSettings(std::string_view prefilter, bool show_defaults);
 
 void LoadFromConfig(bool minimal = false);
-void SaveToConfig();
 
-void IniLoadWindowSettings(IniFile &ini, std::string_view grpname, WindowDesc *desc);
-void IniSaveWindowSettings(IniFile &ini, std::string_view grpname, WindowDesc *desc);
+enum SaveToConfigFlags : uint32_t {
+	STCF_NONE = 0,
+	STCF_GENERIC = 1 << 0,
+	STCF_PRIVATE = 1 << 1,
+	STCF_SECRETS = 1 << 2,
+	STCF_FAVS    = 1 << 3,
+	STCF_ALL     = STCF_GENERIC | STCF_PRIVATE | STCF_SECRETS | STCF_FAVS,
+};
+DECLARE_ENUM_AS_BIT_SET(SaveToConfigFlags)
+
+void SaveToConfig(SaveToConfigFlags flags);
+
+void IniLoadWindowSettings(IniFile &ini, std::string_view grpname, struct WindowDescPreferences *desc);
+void IniSaveWindowSettings(IniFile &ini, std::string_view grpname, struct WindowDescPreferences *desc);
 
 StringList GetGRFPresetList();
 GRFConfigList LoadGRFPresetFromConfig(std::string_view config_name);
@@ -36,5 +46,9 @@ void DeleteGRFPresetFromConfig(std::string_view config_name);
 void SetDefaultCompanySettings(CompanyID cid);
 
 void SyncCompanySettings();
+
+void SetupTimeSettings();
+
+const char *GetCompanySettingNameByIndex(uint32_t idx);
 
 #endif /* SETTINGS_FUNC_H */

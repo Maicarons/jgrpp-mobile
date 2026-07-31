@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file track_type.h All types related to tracks */
+/** @file track_type.h All types related to tracks. */
 
 #ifndef TRACK_TYPE_H
 #define TRACK_TYPE_H
@@ -31,6 +31,13 @@ enum Track : uint8_t {
 /** Allow incrementing of Track variables */
 DECLARE_INCREMENT_DECREMENT_OPERATORS(Track)
 
+/**
+ * Array with \c Track as index.
+ * @tparam T the type contained within the array.
+ */
+template <typename T>
+using TrackIndexArray = EnumIndexArray<T, Track, TRACK_END>;
+
 /** Bitfield corresponding to Track */
 enum TrackBits : uint8_t {
 	TRACK_BIT_NONE    = 0U,                                                 ///< No track
@@ -48,6 +55,8 @@ enum TrackBits : uint8_t {
 	TRACK_BIT_3WAY_SW = TRACK_BIT_X     | TRACK_BIT_LOWER | TRACK_BIT_LEFT, ///< "Arrow" to the south-west
 	TRACK_BIT_3WAY_NW = TRACK_BIT_Y     | TRACK_BIT_UPPER | TRACK_BIT_LEFT, ///< "Arrow" to the north-west
 	TRACK_BIT_ALL     = TRACK_BIT_CROSS | TRACK_BIT_HORZ  | TRACK_BIT_VERT, ///< All possible tracks
+	TRACK_BIT_RT_1    = TRACK_BIT_UPPER | TRACK_BIT_LEFT,                   ///< Track bits using the primary rail type, if the total track bits are TRACK_BIT_HORZ or TRACK_BIT_VERT
+	TRACK_BIT_RT_2    = TRACK_BIT_LOWER | TRACK_BIT_RIGHT,                  ///< Track bits using the secondary rail type, if the total track bits are TRACK_BIT_HORZ or TRACK_BIT_VERT
 	TRACK_BIT_MASK    = 0x3FU,                                              ///< Bitmask for the first 6 bits
 	TRACK_BIT_WORMHOLE = 0x40U,                                             ///< Bitflag for a wormhole (used for tunnels)
 	TRACK_BIT_DEPOT   = 0x80U,                                              ///< Bitflag for a depot
@@ -89,6 +98,13 @@ enum Trackdir : uint8_t {
 DECLARE_INCREMENT_DECREMENT_OPERATORS(Trackdir)
 
 /**
+ * Array with \c Trackdir as index.
+ * @tparam T the type contained within the array.
+ */
+template <typename T>
+using TrackdirIndexArray = EnumIndexArray<T, Trackdir, TRACKDIR_END>;
+
+/**
  * Enumeration of bitmasks for the TrackDirs
  *
  * These are a combination of tracks and directions. Values are 0-5 in one
@@ -114,6 +130,10 @@ enum TrackdirBits : uint16_t {
 };
 DECLARE_ENUM_AS_BIT_SET(TrackdirBits)
 
-typedef uint32_t TrackStatus;
+/** Track status of a tile. */
+struct TrackStatus {
+	TrackdirBits trackdirs; ///< Trackdirs present on the tile.
+	TrackdirBits signals; ///< Red signals on the tile.
+};
 
 #endif /* TRACK_TYPE_H */

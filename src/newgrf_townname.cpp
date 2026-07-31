@@ -6,8 +6,8 @@
  */
 
 /**
- * @file newgrf_townname.cpp
- * Implementation of  Action 0F "universal holder" structure and functions.
+ * @file newgrf_townname.cpp Implementation of  Action 0F "universal holder" structure and functions.
+ *
  * This file implements a linked-lists of townname generators,
  * holding everything that the newgrf action 0F will send over to OpenTTD.
  */
@@ -15,6 +15,7 @@
 #include "stdafx.h"
 #include "newgrf_townname.h"
 #include "string_func.h"
+#include "core/string_builder.hpp"
 #include "strings_internal.h"
 
 #include "table/strings.h"
@@ -46,7 +47,7 @@ void DelGRFTownName(uint32_t grfid)
 	_grf_townnames.erase(std::ranges::find(_grf_townnames, grfid, &GRFTownName::grfid));
 }
 
-static void RandomPart(StringBuilder &builder, const GRFTownName *t, uint32_t seed, uint8_t id)
+static void RandomPart(StringBuilder builder, const GRFTownName *t, uint32_t seed, uint8_t id)
 {
 	assert(t != nullptr);
 	for (const auto &partlist : t->partlists[id]) {
@@ -66,7 +67,7 @@ static void RandomPart(StringBuilder &builder, const GRFTownName *t, uint32_t se
 	}
 }
 
-void GRFTownNameGenerate(StringBuilder &builder, uint32_t grfid, uint16_t gen, uint32_t seed)
+void GRFTownNameGenerate(StringBuilder builder, uint32_t grfid, uint16_t gen, uint32_t seed)
 {
 	const GRFTownName *t = GetGRFTownName(grfid);
 	if (t != nullptr) {

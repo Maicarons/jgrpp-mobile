@@ -5,13 +5,13 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file house.h definition of HouseSpec and accessors */
+/** @file house.h Definition of HouseSpec and accessors. */
 
 #ifndef HOUSE_H
 #define HOUSE_H
 
 #include "cargo_type.h"
-#include "timer/timer_game_calendar.h"
+#include "date_type.h"
 #include "house_type.h"
 #include "newgrf_animation_type.h"
 #include "newgrf_badge_type.h"
@@ -34,15 +34,16 @@ static const HouseID NUM_HOUSES_PER_GRF = NUM_HOUSES; ///< Number of supported h
 static const uint HOUSE_NUM_ACCEPTS = 16; ///< Max number of cargoes accepted by a tile
 static const uint HOUSE_ORIGINAL_NUM_ACCEPTS = 3; ///< Original number of accepted cargo types.
 
+/** Flags describing the layout and purpose of a building. */
 enum class BuildingFlag : uint8_t {
-	Size1x1    = 0,
-	NotSloped  = 1,
-	Size2x1    = 2,
-	Size1x2    = 3,
-	Size2x2    = 4,
-	IsAnimated = 5,
-	IsChurch   = 6,
-	IsStadium  = 7,
+	Size1x1    = 0, ///< The building is a single tile.
+	NotSloped  = 1, ///< The building can only be built on flat land; when not set foundations are placed.
+	Size2x1    = 2, ///< The building is 2x1 tiles, i.e. wider on the X-axis.
+	Size1x2    = 3, ///< The building is 1x2 tiles, i.e. wider on the Y-axis.
+	Size2x2    = 4, ///< The building is 2x2 tiles.
+	IsAnimated = 5, ///< The building uses animation.
+	IsChurch   = 6, ///< The building functions as a church, i.e. only one can be built in a town.
+	IsStadium  = 7, ///< The building functions as a stadium, i.e. only one can be built in a town.
 };
 using BuildingFlags = EnumBitSet<BuildingFlag, uint8_t>;
 
@@ -52,12 +53,13 @@ static constexpr BuildingFlags BUILDING_2_TILES_X   = {BuildingFlag::Size2x1, Bu
 static constexpr BuildingFlags BUILDING_2_TILES_Y   = {BuildingFlag::Size1x2, BuildingFlag::Size2x2};
 static constexpr BuildingFlags BUILDING_HAS_4_TILES = {BuildingFlag::Size2x2};
 
+/** Concentric rings of zoning around the centre of a town. */
 enum class HouseZone : uint8_t {
-	TownEdge = 0,
-	TownOutskirt = 1,
-	TownOuterSuburb = 2,
-	TownInnerSuburb = 3,
-	TownCentre = 4,
+	TownEdge = 0, ///< Edge of the town; roads without pavement.
+	TownOutskirt = 1, ///< Outskirts of a town; roads without pavement.
+	TownOuterSuburb = 2, ///< Outer suburbs; roads with pavement.
+	TownInnerSuburb = 3, ///< Inner suburbs; roads with pavement and trees.
+	TownCentre = 4, ///< Centre of town; roads with pavement and streetlights.
 	TownEnd,
 
 	ClimateSubarcticAboveSnow = 11, ///< Building can appear in sub-arctic climate above the snow line
@@ -66,6 +68,8 @@ enum class HouseZone : uint8_t {
 	ClimateSubtropic = 14, ///< Building can appear in subtropical climate
 	ClimateToyland = 15, ///< Building can appear in toyland climate
 };
+DECLARE_INCREMENT_DECREMENT_OPERATORS(HouseZone)
+DECLARE_ENUM_ADD_OPERATOR(HouseZone)
 using HouseZones = EnumBitSet<HouseZone, uint16_t>;
 
 static constexpr uint NUM_HOUSE_ZONES = to_underlying(HouseZone::TownEnd);
@@ -95,31 +99,38 @@ enum class HouseExtraFlag : uint8_t {
 };
 using HouseExtraFlags = EnumBitSet<HouseExtraFlag, uint8_t>;
 
+enum HouseCtrlFlags : uint8_t {
+	HCF_NONE                 =       0,
+	HCF_NO_TRIGGERS          = 1U << 0,  ///< this house does not use random triggers
+};
+DECLARE_ENUM_AS_BIT_SET(HouseCtrlFlags)
+
 struct HouseSpec {
 	/* Standard properties */
-	TimerGameCalendar::Year min_year;         ///< introduction year of the house
-	TimerGameCalendar::Year max_year;         ///< last year it can be built
-	uint8_t population;                          ///< population (Zero on other tiles in multi tile house.)
-	uint8_t removal_cost;                        ///< cost multiplier for removing it
-	StringID building_name;                   ///< building name
-	uint16_t remove_rating_decrease;            ///< rating decrease if removed
-	uint8_t mail_generation;                     ///< mail generation multiplier (tile based, as the acceptances below)
-	uint8_t cargo_acceptance[HOUSE_NUM_ACCEPTS]; ///< acceptance level for the cargo slots
-	CargoType accepts_cargo[HOUSE_NUM_ACCEPTS]; ///< input cargo slots
-	BuildingFlags building_flags;             ///< some flags that describe the house (size, stadium etc...)
-	HouseZones building_availability;         ///< where can it be built (climates, zones)
-	bool enabled;                             ///< the house is available to build (true by default, but can be disabled by newgrf)
+	CalTime::Year min_year;                            ///< introduction year of the house
+	CalTime::Year max_year;                            ///< last year it can be built
+	uint8_t population;                                ///< population (Zero on other tiles in multi tile house.)
+	uint8_t removal_cost;                              ///< cost multiplier for removing it
+	StringID building_name;                            ///< building name
+	uint16_t remove_rating_decrease;                   ///< rating decrease if removed
+	uint8_t mail_generation;                           ///< mail generation multiplier (tile based, as the acceptances below)
+	uint8_t cargo_acceptance[HOUSE_NUM_ACCEPTS];       ///< acceptance level for the cargo slots
+	CargoType accepts_cargo[HOUSE_NUM_ACCEPTS];        ///< input cargo slots
+	BuildingFlags building_flags;                      ///< some flags that describe the house (size, stadium etc...)
+	HouseZones building_availability;                  ///< where can it be built (climates, zones)
+	bool enabled;                                      ///< the house is available to build (true by default, but can be disabled by newgrf)
 
 	/* NewHouses properties */
-	SubstituteGRFFileProps grf_prop; ///< Properties related the the grf file
-	HouseCallbackMasks callback_mask;                     ///< Bitmask of house callbacks that have to be called
+	SubstituteGRFFileProps grf_prop;          ///< Properties related the the grf file
+	HouseCallbackMasks callback_mask;         ///< Bitmask of house callbacks that have to be called
 	Colours random_colour[4];                 ///< 4 "random" colours
-	uint8_t probability;                         ///< Relative probability of appearing (16 is the standard value)
-	HouseExtraFlags extra_flags{};              ///< some more flags
+	uint8_t probability;                      ///< Relative probability of appearing (16 is the standard value)
+	HouseExtraFlags extra_flags;              ///< some more flags
+	HouseCtrlFlags ctrl_flags;                ///< control flags
 	HouseClassID class_id;                    ///< defines the class this house has (not grf file based)
-	AnimationInfo<void> animation; ///< information about the animation.
-	uint8_t processing_time;                     ///< Periodic refresh multiplier
-	uint8_t minimum_life;                        ///< The minimum number of years this house will survive before the town rebuilds it
+	AnimationInfo<void> animation;            ///< information about the animation.
+	uint8_t processing_time;                  ///< Periodic refresh multiplier
+	uint8_t minimum_life;                     ///< The minimum number of years this house will survive before the town rebuilds it
 	CargoTypes watched_cargoes;               ///< Cargo types watched for acceptance.
 	std::vector<BadgeID> badges;
 
@@ -144,6 +155,9 @@ inline HouseID GetTranslatedHouseID(HouseID hid)
 }
 
 void ShowBuildHousePicker(struct Window *);
+void ShowBuildHousePickerAndSelect(TileIndex tile);
 HouseZones GetClimateMaskForLandscape();
+
+StringID GetHouseName(HouseID house, TileIndex tile = INVALID_TILE);
 
 #endif /* HOUSE_H */

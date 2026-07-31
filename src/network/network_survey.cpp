@@ -9,24 +9,29 @@
 
 #include "../stdafx.h"
 #include "network_survey.h"
-#include "../settings_table.h"
 #include "network.h"
 #include "network_func.h"
+#include "../settings_type.h"
 #include "../debug.h"
 #include "../survey.h"
+
+#include "../3rdparty/nlohmann/json.hpp"
+#include "../core/format.hpp"
 #include "../3rdparty/fmt/chrono.h"
-#include "../3rdparty/fmt/std.h"
 
 #include "../safeguards.h"
 
-NetworkSurveyHandler _survey = {};
-
+#ifndef DOXYGEN_API
+/* Mapping to a string representation of the Reason enumeration. */
 NLOHMANN_JSON_SERIALIZE_ENUM(NetworkSurveyHandler::Reason, {
-	{NetworkSurveyHandler::Reason::PREVIEW, "preview"},
-	{NetworkSurveyHandler::Reason::LEAVE, "leave"},
-	{NetworkSurveyHandler::Reason::EXIT, "exit"},
-	{NetworkSurveyHandler::Reason::CRASH, "crash"},
+	{NetworkSurveyHandler::Reason::Preview, "preview"},
+	{NetworkSurveyHandler::Reason::Leave, "leave"},
+	{NetworkSurveyHandler::Reason::Exit, "exit"},
+	{NetworkSurveyHandler::Reason::Crash, "crash"},
 })
+#endif /* DOXYGEN_API */
+
+NetworkSurveyHandler _survey = {};
 
 /**
  * Create the payload for the survey.
@@ -90,7 +95,7 @@ void NetworkSurveyHandler::Transmit(Reason reason, bool blocking)
 		return;
 	}
 
-	if (_settings_client.network.participate_survey != PS_YES) {
+	if (_settings_client.network.participate_survey != ParticipateSurvey::Yes) {
 		Debug(net, 5, "Survey: user is not participating in survey; skipping survey");
 		return;
 	}
@@ -118,7 +123,7 @@ void NetworkSurveyHandler::OnFailure()
 	this->transmitted_cv.notify_all();
 }
 
-void NetworkSurveyHandler::OnReceiveData(std::unique_ptr<char[]> data, size_t)
+void NetworkSurveyHandler::OnReceiveData(UniqueBuffer<char> data)
 {
 	if (data == nullptr) {
 		Debug(net, 1, "Survey: survey results sent");

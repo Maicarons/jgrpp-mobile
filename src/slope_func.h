@@ -75,7 +75,7 @@ static constexpr inline Slope RemoveHalftileSlope(Slope s)
  */
 inline Slope ComplementSlope(Slope s)
 {
-	assert(!IsSteepSlope(s) && !IsHalftileSlope(s));
+	dbg_assert(!IsSteepSlope(s) && !IsHalftileSlope(s));
 	return s ^ SLOPE_ELEVATED;
 }
 
@@ -98,7 +98,7 @@ inline bool IsSlopeWithOneCornerRaised(Slope s)
  */
 inline Slope SlopeWithOneCornerRaised(Corner corner)
 {
-	assert(IsValidCorner(corner));
+	dbg_assert(IsValidCorner(corner));
 	return (Slope)(1 << corner);
 }
 
@@ -147,7 +147,7 @@ inline Corner GetHighestSlopeCorner(Slope s)
  */
 static constexpr inline Corner GetHalftileSlopeCorner(Slope s)
 {
-	assert(IsHalftileSlope(s));
+	dbg_assert(IsHalftileSlope(s));
 	return (Corner)((s >> 6) & 3);
 }
 
@@ -234,16 +234,16 @@ inline bool IsInclinedSlope(Slope s)
  * Returns the direction of an inclined slope.
  *
  * @param s A #Slope
- * @return The direction the slope goes up in. Or INVALID_DIAGDIR if the slope is not an inclined slope.
+ * @return The direction the slope goes up in. Or DiagDirection::Invalid if the slope is not an inclined slope.
  */
 inline DiagDirection GetInclinedSlopeDirection(Slope s)
 {
 	switch (s) {
-		case SLOPE_NE: return DIAGDIR_NE;
-		case SLOPE_SE: return DIAGDIR_SE;
-		case SLOPE_SW: return DIAGDIR_SW;
-		case SLOPE_NW: return DIAGDIR_NW;
-		default: return INVALID_DIAGDIR;
+		case SLOPE_NE: return DiagDirection::NE;
+		case SLOPE_SE: return DiagDirection::SE;
+		case SLOPE_SW: return DiagDirection::SW;
+		case SLOPE_NW: return DiagDirection::NW;
+		default: return DiagDirection::Invalid;
 	}
 }
 
@@ -256,10 +256,10 @@ inline DiagDirection GetInclinedSlopeDirection(Slope s)
 inline Slope InclinedSlope(DiagDirection dir)
 {
 	switch (dir) {
-		case DIAGDIR_NE: return SLOPE_NE;
-		case DIAGDIR_SE: return SLOPE_SE;
-		case DIAGDIR_SW: return SLOPE_SW;
-		case DIAGDIR_NW: return SLOPE_NW;
+		case DiagDirection::NE: return SLOPE_NE;
+		case DiagDirection::SE: return SLOPE_SE;
+		case DiagDirection::SW: return SLOPE_SW;
+		case DiagDirection::NW: return SLOPE_NW;
 		default: NOT_REACHED();
 	}
 }
@@ -273,20 +273,20 @@ inline Slope InclinedSlope(DiagDirection dir)
  */
 static constexpr inline Slope HalftileSlope(Slope s, Corner corner)
 {
-	assert(IsValidCorner(corner));
+	dbg_assert(IsValidCorner(corner));
 	return (Slope)(s | SLOPE_HALFTILE | (corner << 6));
 }
 
 
 /**
- * Tests for FOUNDATION_NONE.
+ * Tests whether the given foundation is a foundation.
  *
  * @param f  Maybe a #Foundation.
  * @return   true iff f is a foundation.
  */
 inline bool IsFoundation(Foundation f)
 {
-	return f != FOUNDATION_NONE;
+	return f != Foundation::None;
 }
 
 /**
@@ -297,7 +297,7 @@ inline bool IsFoundation(Foundation f)
  */
 inline bool IsLeveledFoundation(Foundation f)
 {
-	return f == FOUNDATION_LEVELED;
+	return f == Foundation::Leveled;
 }
 
 /**
@@ -308,32 +308,32 @@ inline bool IsLeveledFoundation(Foundation f)
  */
 inline bool IsInclinedFoundation(Foundation f)
 {
-	return (f == FOUNDATION_INCLINED_X) || (f == FOUNDATION_INCLINED_Y);
+	return (f == Foundation::InclinedX) || (f == Foundation::InclinedY);
 }
 
 /**
- * Tests if a foundation is a non-continuous foundation, i.e. halftile-foundation or FOUNDATION_STEEP_BOTH.
+ * Tests if a foundation is a non-continuous foundation, i.e. halftile-foundation or Foundation::SteepBoth.
  *
  * @param f  The #Foundation.
  * @return   true iff f is a non-continuous foundation
  */
 inline bool IsNonContinuousFoundation(Foundation f)
 {
-	return IsInsideMM(f, FOUNDATION_STEEP_BOTH, FOUNDATION_HALFTILE_N + 1);
+	return IsInsideMM(f, Foundation::SteepBoth, Foundation::HalfTileEnd);
 }
 
 /**
  * Returns the halftile corner of a halftile-foundation
  *
- * @pre f != FOUNDATION_STEEP_BOTH
+ * @pre f != Foundation::SteepBoth
  *
  * @param f  The #Foundation.
  * @return   The #Corner with track.
  */
 inline Corner GetHalftileFoundationCorner(Foundation f)
 {
-	assert(IsInsideMM(f, FOUNDATION_HALFTILE_W, FOUNDATION_HALFTILE_N + 1));
-	return (Corner)(f - FOUNDATION_HALFTILE_W);
+	dbg_assert(IsInsideMM(f, Foundation::HalfTileW, Foundation::HalfTileEnd));
+	return static_cast<Corner>(to_underlying(f) - to_underlying(Foundation::HalfTileW));
 }
 
 /**
@@ -344,7 +344,7 @@ inline Corner GetHalftileFoundationCorner(Foundation f)
  */
 inline bool IsSpecialRailFoundation(Foundation f)
 {
-	return IsInsideMM(f, FOUNDATION_RAIL_W, FOUNDATION_RAIL_N + 1);
+	return IsInsideMM(f, Foundation::RailW, Foundation::End);
 }
 
 /**
@@ -355,20 +355,18 @@ inline bool IsSpecialRailFoundation(Foundation f)
  */
 inline Corner GetRailFoundationCorner(Foundation f)
 {
-	assert(IsSpecialRailFoundation(f));
-	return (Corner)(f - FOUNDATION_RAIL_W);
+	dbg_assert(IsSpecialRailFoundation(f));
+	return static_cast<Corner>(to_underlying(f) - to_underlying(Foundation::RailW));
 }
 
 /**
  * Returns the foundation needed to flatten a slope.
- * The returned foundation is either FOUNDATION_NONE if the tile was already flat, or FOUNDATION_LEVELED.
- *
  * @param s  The current #Slope.
- * @return   The needed #Foundation.
+ * @return Either Foundation::None if the tile was already flat, or Foundation::Leveled.
  */
 inline Foundation FlatteningFoundation(Slope s)
 {
-	return (s == SLOPE_FLAT ? FOUNDATION_NONE : FOUNDATION_LEVELED);
+	return (s == SLOPE_FLAT ? Foundation::None : Foundation::Leveled);
 }
 
 /**
@@ -379,7 +377,7 @@ inline Foundation FlatteningFoundation(Slope s)
  */
 inline Foundation InclinedFoundation(Axis axis)
 {
-	return (axis == AXIS_X ? FOUNDATION_INCLINED_X : FOUNDATION_INCLINED_Y);
+	return (axis == Axis::X ? Foundation::InclinedX : Foundation::InclinedY);
 }
 
 /**
@@ -390,8 +388,8 @@ inline Foundation InclinedFoundation(Axis axis)
  */
 inline Foundation HalftileFoundation(Corner corner)
 {
-	assert(IsValidCorner(corner));
-	return static_cast<Foundation>(static_cast<uint>(FOUNDATION_HALFTILE_W) + static_cast<uint>(corner));
+	dbg_assert(IsValidCorner(corner));
+	return static_cast<Foundation>(static_cast<uint>(Foundation::HalfTileW) + static_cast<uint>(corner));
 }
 
 /**
@@ -402,8 +400,8 @@ inline Foundation HalftileFoundation(Corner corner)
  */
 inline Foundation SpecialRailFoundation(Corner corner)
 {
-	assert(IsValidCorner(corner));
-	return static_cast<Foundation>(static_cast<uint>(FOUNDATION_RAIL_W) + static_cast<uint>(corner));
+	dbg_assert(IsValidCorner(corner));
+	return static_cast<Foundation>(static_cast<uint>(Foundation::RailW) + static_cast<uint>(corner));
 }
 
 /**

@@ -12,6 +12,7 @@
 
 #include "script_vehicle.hpp"
 #include "../../group_type.h"
+#include <optional>
 
 /**
  * Class that handles all group related functions.

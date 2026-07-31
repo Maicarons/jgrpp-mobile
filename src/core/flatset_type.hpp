@@ -10,6 +10,9 @@
 #ifndef FLATSET_TYPE_HPP
 #define FLATSET_TYPE_HPP
 
+#include <ranges>
+#include <vector>
+
 /**
  * Flat set implementation that uses a sorted vector for storage.
  * This is subset of functionality implemented by std::flat_set in c++23.
@@ -18,9 +21,34 @@
  */
 template <class Tkey, class Tcompare = std::less<>>
 class FlatSet {
-	std::vector<Tkey> data; ///< Sorted vector. of values.
+	std::vector<Tkey> contents; ///< Sorted vector. of values.
+
+	void sort_initial_values()
+	{
+		std::sort(this->contents.begin(), this->contents.end(), Tcompare{});
+		this->contents.erase(std::unique(this->contents.begin(), this->contents.end()), this->contents.end());
+	}
+
 public:
 	using const_iterator = std::vector<Tkey>::const_iterator;
+
+	FlatSet() = default;
+	FlatSet(const FlatSet &) = default;
+	FlatSet(FlatSet &&) = default;
+
+	FlatSet(std::initializer_list<Tkey> init) : contents(init)
+	{
+		this->sort_initial_values();
+	}
+
+	template <typename InputIt>
+	FlatSet(InputIt first, InputIt last) : contents(first, last)
+	{
+		this->sort_initial_values();
+	}
+
+	FlatSet &operator =(const FlatSet &rhs) = default;
+	FlatSet &operator =(FlatSet &&rhs) = default;
 
 	/**
 	 * Insert a key into the set, if it does not already exist.
@@ -30,8 +58,8 @@ public:
 	 */
 	std::pair<const_iterator, bool> insert(const Tkey &key)
 	{
-		auto it = std::ranges::lower_bound(this->data, key, Tcompare{});
-		if (it == std::end(this->data) || *it != key) return {this->data.emplace(it, key), true};
+		auto it = std::ranges::lower_bound(this->contents, key, Tcompare{});
+		if (it == std::end(this->contents) || *it != key) return {this->contents.emplace(it, key), true};
 		return {it, false};
 	}
 
@@ -42,10 +70,10 @@ public:
 	 */
 	size_t erase(const Tkey &key)
 	{
-		auto it = std::ranges::lower_bound(this->data, key, Tcompare{});
-		if (it == std::end(this->data) || *it != key) return 0;
+		auto it = std::ranges::lower_bound(this->contents, key, Tcompare{});
+		if (it == std::end(this->contents) || *it != key) return 0;
 
-		this->data.erase(it);
+		this->contents.erase(it);
 		return 1;
 	}
 
@@ -56,19 +84,27 @@ public:
 	 */
 	bool contains(const Tkey &key) const
 	{
-		return std::ranges::binary_search(this->data, key, Tcompare{});
+		return std::ranges::binary_search(this->contents, key, Tcompare{});
 	}
 
-	const_iterator begin() const { return std::cbegin(this->data); }
-	const_iterator end() const { return std::cend(this->data); }
+	const_iterator find(const Tkey &key) const
+	{
+		auto it = std::ranges::lower_bound(this->contents, key, Tcompare{});
+		if (it != this->end() && *it != key) it = this->end();
+		return it;
+	}
 
-	const_iterator cbegin() const { return std::cbegin(this->data); }
-	const_iterator cend() const { return std::cend(this->data); }
+	const_iterator begin() const { return std::cbegin(this->contents); }
+	const_iterator end() const { return std::cend(this->contents); }
 
-	size_t size() const { return std::size(this->data); }
-	bool empty() const { return this->data.empty(); }
+	const_iterator cbegin() const { return std::cbegin(this->contents); }
+	const_iterator cend() const { return std::cend(this->contents); }
 
-	void clear() { this->data.clear(); }
+	size_t size() const { return std::size(this->contents); }
+	const Tkey *data() const { return this->contents.data(); }
+	bool empty() const { return this->contents.empty(); }
+
+	void clear() { this->contents.clear(); }
 
 	auto operator<=>(const FlatSet<Tkey, Tcompare> &) const = default;
 };

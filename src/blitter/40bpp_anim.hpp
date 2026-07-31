@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file 40bpp_optimized.hpp Optimized 40 bpp blitter. */
+/** @file 40bpp_anim.hpp Animated 40 bpp blitter. */
 
 #ifndef BLITTER_40BPP_OPTIMIZED_HPP
 #define BLITTER_40BPP_OPTIMIZED_HPP
@@ -19,12 +19,17 @@ class Blitter_40bppAnim : public Blitter_32bppOptimized {
 public:
 
 	void SetPixel(void *video, int x, int y, PixelColour colour) override;
+	void SetPixel32(void *video, int x, int y, PixelColour colour, uint32_t colour32) override;
+	void SetRect(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) override;
+	void SetRect32(void *video, int x, int y, const uint32_t *colours, uint lines, uint width, uint pitch) override;
+	void SetRectNoD7(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) override;
 	void DrawRect(void *video, int width, int height, PixelColour colour) override;
+	void DrawRectAt(void *video, int x, int y, int width, int height, PixelColour colour) override;
 	void DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash) override;
 	void CopyFromBuffer(void *video, const void *src, int width, int height) override;
 	void CopyToBuffer(const void *video, void *dst, int width, int height) override;
 	void CopyImageToBuffer(const void *video, void *dst, int width, int height, int dst_pitch) override;
-	void ScrollBuffer(void *video, int &left, int &top, int &width, int &height, int scroll_x, int scroll_y) override;
+	void ScrollBuffer(void *video, int left, int top, int width, int height, int scroll_x, int scroll_y) override;
 	void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) override;
 	void DrawColourMappingRect(void *dst, int width, int height, PaletteID pal) override;
 	Sprite *Encode(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator) override;
@@ -32,7 +37,7 @@ public:
 	Blitter::PaletteAnimation UsePaletteAnimation() override;
 	bool NeedsAnimationBuffer() override;
 
-	std::string_view GetName()  override { return "40bpp-anim"; }
+	const char *GetName() const override { return "40bpp-anim"; }
 
 	template <BlitterMode mode> void Draw(const Blitter::BlitterParams *bp, ZoomLevel zoom);
 

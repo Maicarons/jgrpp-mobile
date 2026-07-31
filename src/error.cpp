@@ -9,14 +9,36 @@
 
 #include "stdafx.h"
 #include "error_func.h"
+
+#include <iterator>
+
 #include "safeguards.h"
 
-[[noreturn]] void NOT_REACHED(const std::source_location location)
+[[noreturn]] void not_reached_error(int line, const char *file)
 {
-	FatalError("NOT_REACHED triggered at line {} of {}", location.line(), location.file_name());
+	FatalErrorI(fmt::format("NOT_REACHED triggered at line {} of {}", line, file));
 }
 
-[[noreturn]] void AssertFailedError(std::string_view expression, const std::source_location location)
+void assert_str_error(int line, const char *file, const char *expr, std::string_view str)
 {
-	FatalError("Assertion failed at line {} of {}: {}", location.line(), location.file_name(), expression);
+	std::string msg;
+
+	fmt::format_to(std::back_inserter(msg), "Assertion failed at line {} of {}: {}", line, file, expr);
+	if (!str.empty()) {
+		msg += '\n';
+		msg += str;
+	}
+	FatalErrorI(msg);
+}
+
+/* Do strlen here instead of assert call site for common char* case */
+void assert_str_error(int line, const char *file, const char *expr, const char *str)
+{
+	assert_str_error(line, file, expr, std::string_view(str));
+}
+
+/* Don't require an extra argument for common case of no extra info */
+void assert_str_error(int line, const char *file, const char *expr)
+{
+	assert_str_error(line, file, expr, std::string_view{});
 }

@@ -41,7 +41,7 @@ class ScreenshotProvider_Pcx : public ScreenshotProvider {
 public:
 	ScreenshotProvider_Pcx() : ScreenshotProvider("pcx", "PCX", 20) {}
 
-	bool MakeImage(std::string_view name, const ScreenshotCallback &callb, uint w, uint h, int pixelformat, const Colour *palette) const override
+	bool MakeImage(const char *name, ScreenshotCallback *callb, void *userdata, uint w, uint h, int pixelformat, const Colour *palette) const override
 	{
 		uint maxlines;
 		uint y;
@@ -82,7 +82,7 @@ public:
 		maxlines = Clamp(65536 / w, 16, 128);
 
 		/* now generate the bitmap bits */
-		std::vector<uint8_t> buff(static_cast<size_t>(w) * maxlines); // by default generate 128 lines at a time.
+		std::unique_ptr<uint8_t[]> buff = std::make_unique<uint8_t[]>(static_cast<size_t>(w) * maxlines); // by default generate 128 lines at a time.
 
 		y = 0;
 		do {
@@ -91,12 +91,12 @@ public:
 			uint i;
 
 			/* render the pixels into the buffer */
-			callb(buff.data(), y, w, n);
+			callb(userdata, buff.get(), y, w, n);
 			y += n;
 
 			/* write them to pcx */
 			for (i = 0; i != n; i++) {
-				const uint8_t *bufp = buff.data() + i * w;
+				const uint8_t *bufp = buff.get() + i * w;
 				uint8_t runchar = bufp[0];
 				uint runcount = 1;
 				uint j;

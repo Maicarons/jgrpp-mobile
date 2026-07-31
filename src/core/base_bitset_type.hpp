@@ -5,15 +5,20 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file base_bitset_type.hpp Base for bitset types that accept strong types,
- * i.e. types that need some casting like StrongType and enum class.
- */
+/** @file base_bitset_type.hpp Base for bitset types that accept strong types, ones that need some casting like StrongType and enum class. */
 
 #ifndef BASE_BITSET_TYPE_HPP
 #define BASE_BITSET_TYPE_HPP
 
 #include "bitmath_func.hpp"
+#include <limits>
+#include <optional>
+
+/** Trait to enable direct iteration of BaseBitSet bits without use of IterateSetBits. */
+template <typename enum_type>
+struct BaseBitSetEnableDirectIteration {
+	static constexpr bool value = false;
+};
 
 /**
  * Base for bit set wrapper.
@@ -24,14 +29,28 @@
 template <typename Timpl, typename Tvalue_type, typename Tstorage, Tstorage Tmask = std::numeric_limits<Tstorage>::max()>
 class BaseBitSet {
 public:
+	static inline constexpr bool fmt_as_base_hex = true;
+	static inline constexpr bool serialisation_as_base = true;
+	static inline constexpr bool string_parameter_as_base = true;
+	static inline constexpr bool saveload_primitive_type = true;
+	static inline constexpr bool integer_type_hint = true;
+	static inline constexpr bool bitset_as_base = true;
+
 	using ValueType = Tvalue_type; ///< Value type of this BaseBitSet.
 	using BaseType = Tstorage; ///< Storage type of this BaseBitSet, be ConvertibleThroughBase
 	static constexpr Tstorage MASK = Tmask; ///< Mask of valid values.
 
+	/** Create an empty bitset. */
 	constexpr BaseBitSet() : data(0) {}
+
+	/**
+	 * Create a bitset with a given bits that are within the mask of valid values.
+	 * @param data The initial set bits.
+	 */
 	explicit constexpr BaseBitSet(Tstorage data) : data(data & Tmask) {}
 
-	constexpr auto operator <=>(const BaseBitSet &) const noexcept = default;
+	constexpr bool operator==(const BaseBitSet &rhs) const { return this->data == rhs.data; }
+	constexpr auto operator<=>(const BaseBitSet &rhs) const { return this->data <=> rhs.data; }
 
 	/**
 	 * Set all bits.
@@ -106,6 +125,16 @@ public:
 	{
 		this->data &= ~other.data;
 		return static_cast<Timpl&>(*this);
+	}
+
+	/**
+	 * Flip all bits.
+	 * @returns The bit set
+	 */
+	inline constexpr Timpl &Flip()
+	{
+		this->data ^= Tmask;
+		return static_cast<Timpl &>(*this);
 	}
 
 	/**
@@ -190,26 +219,42 @@ public:
 		return this->data == 0;
 	}
 
-	inline constexpr Timpl &operator|=(const Timpl &other)
-	{
-		this->data |= other.data;
-		return static_cast<Timpl &>(*this);
-	}
-
-	inline constexpr Timpl operator|(const Timpl &other) const
+	inline constexpr Timpl operator |(const Timpl &other) const
 	{
 		return Timpl{static_cast<Tstorage>(this->data | other.data)};
 	}
 
-	inline constexpr Timpl &operator&=(const Timpl &other)
-	{
-		this->data &= other.data;
-		return static_cast<Timpl &>(*this);
-	}
-
-	inline constexpr Timpl operator&(const Timpl &other) const
+	inline constexpr Timpl operator &(const Timpl &other) const
 	{
 		return Timpl{static_cast<Tstorage>(this->data & other.data)};
+	}
+
+	inline constexpr Timpl operator ^(const Timpl &other) const
+	{
+		return Timpl{static_cast<Tstorage>(this->data ^ other.data)};
+	}
+
+	inline constexpr Timpl operator ~() const
+	{
+		return Timpl{static_cast<Tstorage>((~this->data) & Tmask)};
+	}
+
+	inline constexpr Timpl &operator |=(const Timpl &other)
+	{
+		this->data |= other.data;
+		return static_cast<Timpl&>(*this);
+	}
+
+	inline constexpr Timpl &operator &=(const Timpl &other)
+	{
+		this->data &= other.data;
+		return static_cast<Timpl&>(*this);
+	}
+
+	inline constexpr Timpl &operator ^=(const Timpl &other)
+	{
+		this->data ^= other.data;
+		return static_cast<Timpl&>(*this);
 	}
 
 	/**
@@ -221,6 +266,8 @@ public:
 		return this->data;
 	}
 
+	inline constexpr Tstorage &edit_base() { return this->data; }
+
 	/**
 	 * Test that the raw value of this bit set is valid.
 	 * @returns true iff the no bits outside the masked value are set.
@@ -228,15 +275,6 @@ public:
 	inline constexpr bool IsValid() const
 	{
 		return (this->base() & Tmask) == this->base();
-	}
-
-	/**
-	 * Count the number of set bits.
-	 * @return The number of bits set to true.
-	 */
-	inline uint Count() const
-	{
-		return CountBits(this->base());
 	}
 
 	/**
@@ -254,8 +292,36 @@ public:
 		return std::nullopt;
 	}
 
-	auto begin() const { return SetBitIterator<Tvalue_type, Tstorage>(this->data).begin(); }
-	auto end() const { return SetBitIterator<Tvalue_type, Tstorage>(this->data).end(); }
+	inline constexpr SetBitIterator<Tvalue_type, Tstorage> IterateSetBits() const { return SetBitIterator<Tvalue_type, Tstorage>(this->data); }
+
+	/**
+	 * Returns an iterator to begin of the set bits.
+	 * @return The iterator.
+	 * @note Use IterateSetBits instead, unless BaseBitSetEnableDirectIteration is specifically enabled for the implementation type.
+	 */
+	auto begin() const requires BaseBitSetEnableDirectIteration<Timpl>::value
+	{
+		return SetBitIterator<Tvalue_type, Tstorage>(this->data).begin();
+	}
+	/**
+	 * Returns an iterator to the end of the set bits.
+	 * @return The iterator past the last set bit.
+	 * @note Use IterateSetBits instead, unless BaseBitSetEnableDirectIteration is specifically enabled for the implementation type.
+	 */
+	auto end() const requires BaseBitSetEnableDirectIteration<Timpl>::value
+	{
+		return SetBitIterator<Tvalue_type, Tstorage>(this->data).end();
+	}
+
+	Tvalue_type FindFirstBit() const
+	{
+		return static_cast<Tvalue_type>(::FindFirstBit(this->data));
+	}
+
+	Tvalue_type FindLastBit() const
+	{
+		return static_cast<Tvalue_type>(::FindLastBit(this->data));
+	}
 
 private:
 	Tstorage data; ///< Bitmask of values.

@@ -5,18 +5,19 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file squirrel_helper.hpp declarations and parts of the implementation of the class for convert code */
+/** @file squirrel_helper.hpp Declarations and parts of the implementation of the class for convert code. */
 
 #ifndef SQUIRREL_HELPER_HPP
 #define SQUIRREL_HELPER_HPP
 
 #include "squirrel.hpp"
+#include "../economy_type.h"
 #include "../string_func.h"
 #include "../tile_type.h"
-#include "../core/convertible_through_base.hpp"
 #include "squirrel_helper_type.hpp"
+#include <optional>
 
-template <class CL, ScriptType ST> SQInteger PushClassName(HSQUIRRELVM);
+template <class CL, ScriptType ST> const char *GetClassName();
 
 /**
  * The Squirrel convert routines
@@ -28,13 +29,14 @@ namespace SQConvert {
 	 */
 	template <typename T> struct Return;
 
-	template <> struct Return<uint8_t>        { static inline int Set(HSQUIRRELVM vm, uint8_t res)       { sq_pushinteger(vm, (int32_t)res); return 1; } };
-	template <> struct Return<uint16_t>       { static inline int Set(HSQUIRRELVM vm, uint16_t res)      { sq_pushinteger(vm, (int32_t)res); return 1; } };
-	template <> struct Return<uint32_t>       { static inline int Set(HSQUIRRELVM vm, uint32_t res)      { sq_pushinteger(vm, (int32_t)res); return 1; } };
-	template <> struct Return<int8_t>         { static inline int Set(HSQUIRRELVM vm, int8_t res)        { sq_pushinteger(vm, res); return 1; } };
-	template <> struct Return<int16_t>        { static inline int Set(HSQUIRRELVM vm, int16_t res)       { sq_pushinteger(vm, res); return 1; } };
-	template <> struct Return<int32_t>        { static inline int Set(HSQUIRRELVM vm, int32_t res)       { sq_pushinteger(vm, res); return 1; } };
-	template <> struct Return<int64_t>        { static inline int Set(HSQUIRRELVM vm, int64_t res)       { sq_pushinteger(vm, res); return 1; } };
+	template <> struct Return<uint8_t>      { static inline int Set(HSQUIRRELVM vm, uint8_t res)     { sq_pushinteger(vm, (int32_t)res); return 1; } };
+	template <> struct Return<uint16_t>     { static inline int Set(HSQUIRRELVM vm, uint16_t res)    { sq_pushinteger(vm, (int32_t)res); return 1; } };
+	template <> struct Return<uint32_t>     { static inline int Set(HSQUIRRELVM vm, uint32_t res)    { sq_pushinteger(vm, (int32_t)res); return 1; } };
+	template <> struct Return<int8_t>       { static inline int Set(HSQUIRRELVM vm, int8_t res)      { sq_pushinteger(vm, res); return 1; } };
+	template <> struct Return<int16_t>      { static inline int Set(HSQUIRRELVM vm, int16_t res)     { sq_pushinteger(vm, res); return 1; } };
+	template <> struct Return<int32_t>      { static inline int Set(HSQUIRRELVM vm, int32_t res)     { sq_pushinteger(vm, res); return 1; } };
+	template <> struct Return<int64_t>      { static inline int Set(HSQUIRRELVM vm, int64_t res)     { sq_pushinteger(vm, res); return 1; } };
+	template <> struct Return<Money>        { static inline int Set(HSQUIRRELVM vm, Money res)       { sq_pushinteger(vm, res); return 1; } };
 	template <> struct Return<TileIndex>    { static inline int Set(HSQUIRRELVM vm, TileIndex res)   { sq_pushinteger(vm, (int32_t)res.base()); return 1; } };
 	template <> struct Return<bool>         { static inline int Set(HSQUIRRELVM vm, bool res)        { sq_pushbool   (vm, res); return 1; } };
 	template <> struct Return<char *>       { /* Do not use char *, use std::optional<std::string> instead. */ };
@@ -49,7 +51,7 @@ namespace SQConvert {
 		}
 	};
 
-	template <ConvertibleThroughBase T> struct Return<T> {
+	template <typename T> requires SquirrelStackValueAsBase<T> struct Return<T> {
 		static inline int Set(HSQUIRRELVM vm, T res)
 		{
 			sq_pushinteger(vm, res.base());
@@ -69,20 +71,33 @@ namespace SQConvert {
 		}
 	};
 
+	template <> struct Return<std::optional<std::string_view>> {
+		static inline int Set(HSQUIRRELVM vm, std::optional<std::string_view> res)
+		{
+			if (res.has_value()) {
+				sq_pushstring(vm, res.value());
+			} else {
+				sq_pushnull(vm);
+			}
+			return 1;
+		}
+	};
+
 	/**
 	 * To get a param from squirrel, we use this helper class. It converts to the right format.
 	 * We use a class instead of a plain function to allow us to use partial template specializations.
 	 */
 	template <typename T> struct Param;
 
-	template <> struct Param<uint8_t>        { static inline uint8_t       Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
-	template <> struct Param<uint16_t>       { static inline uint16_t      Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
-	template <> struct Param<uint32_t>       { static inline uint32_t      Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
-	template <> struct Param<int8_t>         { static inline int8_t        Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
-	template <> struct Param<int16_t>        { static inline int16_t       Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
-	template <> struct Param<int32_t>        { static inline int32_t       Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
-	template <> struct Param<int64_t>        { static inline int64_t       Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<uint8_t>      { static inline uint8_t     Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<uint16_t>     { static inline uint16_t    Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<uint32_t>     { static inline uint32_t    Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<int8_t>       { static inline int8_t      Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<int16_t>      { static inline int16_t     Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<int32_t>      { static inline int32_t     Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
+	template <> struct Param<int64_t>      { static inline int64_t     Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
 	template <> struct Param<TileIndex>    { static inline TileIndex   Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return TileIndex((uint32_t)(int32_t)tmp); } };
+	template <> struct Param<Money>        { static inline Money       Get(HSQUIRRELVM vm, int index) { SQInteger     tmp; sq_getinteger    (vm, index, &tmp); return tmp; } };
 	template <> struct Param<bool>         { static inline bool        Get(HSQUIRRELVM vm, int index) { SQBool        tmp; sq_getbool       (vm, index, &tmp); return tmp != 0; } };
 	template <> struct Param<const char *> { /* Do not use const char *, use std::string& instead. */ };
 
@@ -95,7 +110,7 @@ namespace SQConvert {
 		}
 	};
 
-	template <ConvertibleThroughBase T> struct Param<T> {
+	template <typename T> requires SquirrelStackValueAsBase<T> struct Param<T> {
 		static inline T Get(HSQUIRRELVM vm, int index)
 		{
 			SQInteger tmp;
@@ -103,6 +118,7 @@ namespace SQConvert {
 			return T{static_cast<T::BaseType>(tmp)};
 		}
 	};
+
 
 	template <> struct Param<const std::string &> {
 		static inline const std::string Get(HSQUIRRELVM vm, int index)
@@ -182,7 +198,7 @@ namespace SQConvert {
 	 */
 	template <class Tcls, typename Tretval, typename... Targs>
 	struct HelperT<Tretval(Tcls:: *)(Targs...)> {
-		static int SQCall(Tcls *instance, Tretval(Tcls:: *func)(Targs...), HSQUIRRELVM vm)
+		static int SQCall(Tcls *instance, auto func, HSQUIRRELVM vm)
 		{
 			return SQCall(instance, func, vm, std::index_sequence_for<Targs...>{});
 		}
@@ -194,7 +210,7 @@ namespace SQConvert {
 
 	private:
 		template <size_t... i>
-		static int SQCall(Tcls *instance, Tretval(Tcls:: *func)(Targs...), [[maybe_unused]] HSQUIRRELVM vm, std::index_sequence<i...>)
+		static int SQCall(Tcls *instance, auto func, [[maybe_unused]] HSQUIRRELVM vm, std::index_sequence<i...>)
 		{
 			if constexpr (std::is_void_v<Tretval>) {
 				(instance->*func)(
@@ -220,11 +236,19 @@ namespace SQConvert {
 		}
 	};
 
+	/**
+	 * The real C++ caller for const methods.
+	 */
+	template <class Tcls, typename Tretval, typename... Targs>
+	struct HelperT<Tretval(Tcls:: *)(Targs...) const> : HelperT<Tretval(Tcls:: *)(Targs...)> {};
+
 
 	/**
 	 * A general template for all non-static method callbacks from Squirrel.
 	 *  In here the function_proc is recovered, and the SQCall is called that
 	 *  can handle this exact amount of params.
+	 * @param vm The virtual machine to create the callback in.
+	 * @return \c 0 upon success, or any other number upon failure.
 	 */
 	template <typename Tcls, typename Tmethod, ScriptType Ttype>
 	inline SQInteger DefSQNonStaticCallback(HSQUIRRELVM vm)
@@ -240,7 +264,8 @@ namespace SQConvert {
 
 		/* Protect against calls to a non-static method in a static way */
 		sq_pushroottable(vm);
-		PushClassName<Tcls, Ttype>(vm);
+		const char *className = GetClassName<Tcls, Ttype>();
+		sq_pushstring(vm, className);
 		sq_get(vm, -2);
 		sq_pushobject(vm, instance);
 		if (sq_instanceof(vm) != SQTrue) return sq_throwerror(vm, "class method is non-static");
@@ -268,6 +293,8 @@ namespace SQConvert {
 	 * A general template for all non-static advanced method callbacks from Squirrel.
 	 *  In here the function_proc is recovered, and the SQCall is called that
 	 *  can handle this exact amount of params.
+	 * @param vm The virtual machine to create the callback in.
+	 * @return \c 0 upon success, or any other number upon failure.
 	 */
 	template <typename Tcls, typename Tmethod, ScriptType Ttype>
 	inline SQInteger DefSQAdvancedNonStaticCallback(HSQUIRRELVM vm)
@@ -283,7 +310,8 @@ namespace SQConvert {
 
 		/* Protect against calls to a non-static method in a static way */
 		sq_pushroottable(vm);
-		PushClassName<Tcls, Ttype>(vm);
+		const char *className = GetClassName<Tcls, Ttype>();
+		sq_pushstring(vm, className);
 		sq_get(vm, -2);
 		sq_pushobject(vm, instance);
 		if (sq_instanceof(vm) != SQTrue) return sq_throwerror(vm, "class method is non-static");
@@ -311,6 +339,8 @@ namespace SQConvert {
 	 * A general template for all function/static method callbacks from Squirrel.
 	 *  In here the function_proc is recovered, and the SQCall is called that
 	 *  can handle this exact amount of params.
+	 * @param vm The virtual machine to create the callback in.
+	 * @return \c 0 upon success, or any other number upon failure.
 	 */
 	template <typename Tcls, typename Tmethod>
 	inline SQInteger DefSQStaticCallback(HSQUIRRELVM vm)
@@ -337,6 +367,8 @@ namespace SQConvert {
 	 * A general template for all static advanced method callbacks from Squirrel.
 	 *  In here the function_proc is recovered, and the SQCall is called that
 	 *  can handle this exact amount of params.
+	 * @param vm The virtual machine to create the callback in.
+	 * @return \c 0 upon success, or any other number upon failure.
 	 */
 	template <typename Tcls, typename Tmethod>
 	inline SQInteger DefSQAdvancedStaticCallback(HSQUIRRELVM vm)
@@ -362,6 +394,8 @@ namespace SQConvert {
 	/**
 	 * A general template for the destructor of SQ instances. This is needed
 	 *  here as it has to be in the same scope as DefSQConstructorCallback.
+	 * @param p Pointer to the instance to release.
+	 * @return \c 0 upon success. Has a return type due to this being passed as a parameter to another function.
 	 */
 	template <typename Tcls>
 	static SQInteger DefSQDestructorCallback(SQUserPointer p, SQInteger)
@@ -375,6 +409,8 @@ namespace SQConvert {
 	 * A general template to handle creating of instance with any amount of
 	 *  params. It creates the instance in C++, and it sets all the needed
 	 *  settings in SQ to register the instance.
+	 * @param vm The virtual machine to create the callback in.
+	 * @return \c 0 upon success, or any other number upon failure.
 	 */
 	template <typename Tcls, typename Tmethod>
 	inline SQInteger DefSQConstructorCallback(HSQUIRRELVM vm)
@@ -397,6 +433,8 @@ namespace SQConvert {
 	/**
 	 * A general template to handle creating of an instance with a complex
 	 *  constructor.
+	 * @param vm The virtual machine to create the callback in.
+	 * @return \c 0 upon success, or any other number upon failure.
 	 */
 	template <typename Tcls>
 	inline SQInteger DefSQAdvancedConstructorCallback(HSQUIRRELVM vm)

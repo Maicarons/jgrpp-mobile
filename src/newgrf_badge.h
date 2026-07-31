@@ -11,11 +11,14 @@
 #define NEWGRF_BADGE_H
 
 #include "core/flatset_type.hpp"
+#include "date_type.h"
 #include "newgrf.h"
 #include "newgrf_badge_type.h"
 #include "newgrf_commons.h"
 #include "strings_type.h"
-#include "timer/timer_game_calendar.h"
+#include "3rdparty/robin_hood/robin_hood.h"
+
+using BadgeFilterChoices = robin_hood::unordered_map<BadgeClassID, BadgeID>;
 
 class Badge {
 public:
@@ -47,7 +50,7 @@ public:
 	}
 
 private:
-	GrfSpecFeature feature;
+	GrfSpecFeature feature{};
 	std::vector<BadgeClassID> classes; ///< List of badge classes.
 };
 
@@ -64,9 +67,9 @@ Badge *GetBadgeByLabel(std::string_view label);
 Badge *GetClassBadge(BadgeClassID class_index);
 std::span<const BadgeID> GetClassBadges();
 
-uint32_t GetBadgeVariableResult(const struct GRFFile &grffile, std::span<const BadgeID> badges, uint32_t parameter);
+uint32_t GetBadgeVariableResult(const GRFFile &grffile, std::span<const BadgeID> badges, uint32_t parameter);
 
-PalSpriteID GetBadgeSprite(const Badge &badge, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, PaletteID remap);
+PalSpriteID GetBadgeSprite(const Badge &badge, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, PaletteID remap);
 
 class BadgeTextFilter {
 public:

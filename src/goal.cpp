@@ -39,7 +39,7 @@ INSTANTIATE_POOL_METHODS(Goal)
 			break;
 
 		case GT_TILE:
-			if (!IsValidTile(dest)) return false;
+			if (!IsValidTile(TileIndex(dest))) return false;
 			break;
 
 		case GT_INDUSTRY:
@@ -75,29 +75,31 @@ INSTANTIATE_POOL_METHODS(Goal)
  * @param text Text of the goal.
  * @return the cost of this operation or an error
  */
-std::tuple<CommandCost, GoalID> CmdCreateGoal(DoCommandFlags flags, CompanyID company, GoalType type, GoalTypeID dest, const EncodedString &text)
+CommandCost CmdCreateGoal(DoCommandFlags flags, CompanyID company, GoalType type, GoalTypeID dest, const EncodedString &text)
 {
-	if (!Goal::CanAllocateItem()) return { CMD_ERROR, GoalID::Invalid() };
+	if (!Goal::CanAllocateItem()) return CMD_ERROR;
 
-	if (_current_company != OWNER_DEITY) return { CMD_ERROR, GoalID::Invalid() };
-	if (text.empty()) return { CMD_ERROR, GoalID::Invalid() };
-	if (company != CompanyID::Invalid() && !Company::IsValidID(company)) return { CMD_ERROR, GoalID::Invalid() };
-	if (!Goal::IsValidGoalDestination(company, type, dest)) return { CMD_ERROR, GoalID::Invalid() };
+	if (_current_company != OWNER_DEITY) return CMD_ERROR;
+	if (text.empty()) return CMD_ERROR;
+	if (company != CompanyID::Invalid() && !Company::IsValidID(company)) return CMD_ERROR;
+	if (!Goal::IsValidGoalDestination(company, type, dest)) return CMD_ERROR;
 
 	if (flags.Test(DoCommandFlag::Execute)) {
-		Goal *g = new Goal(type, dest, company, text);
+		Goal *g = Goal::Create(type, dest, company, text);
 
 		if (g->company == CompanyID::Invalid()) {
-			InvalidateWindowClassesData(WC_GOALS_LIST);
+			InvalidateWindowClassesData(WindowClass::GoalList);
 		} else {
-			InvalidateWindowData(WC_GOALS_LIST, g->company);
+			InvalidateWindowData(WindowClass::GoalList, g->company);
 		}
-		if (Goal::GetNumItems() == 1) InvalidateWindowData(WC_MAIN_TOOLBAR, 0);
+		if (Goal::GetNumItems() == 1) InvalidateWindowData(WindowClass::MainToolbar, 0);
 
-		return { CommandCost(), g->index };
+		CommandCost cost;
+		cost.SetResultData(g->index);
+		return cost;
 	}
 
-	return { CommandCost(), GoalID::Invalid() };
+	return CommandCost();
 }
 
 /**
@@ -117,11 +119,11 @@ CommandCost CmdRemoveGoal(DoCommandFlags flags, GoalID goal)
 		delete g;
 
 		if (c == CompanyID::Invalid()) {
-			InvalidateWindowClassesData(WC_GOALS_LIST);
+			InvalidateWindowClassesData(WindowClass::GoalList);
 		} else {
-			InvalidateWindowData(WC_GOALS_LIST, c);
+			InvalidateWindowData(WindowClass::GoalList, c);
 		}
-		if (Goal::GetNumItems() == 0) InvalidateWindowData(WC_MAIN_TOOLBAR, 0);
+		if (Goal::GetNumItems() == 0) InvalidateWindowData(WindowClass::MainToolbar, 0);
 	}
 
 	return CommandCost();
@@ -168,9 +170,9 @@ CommandCost CmdSetGoalText(DoCommandFlags flags, GoalID goal, const EncodedStrin
 		g->text = text;
 
 		if (g->company == CompanyID::Invalid()) {
-			InvalidateWindowClassesData(WC_GOALS_LIST);
+			InvalidateWindowClassesData(WindowClass::GoalList);
 		} else {
-			InvalidateWindowData(WC_GOALS_LIST, g->company);
+			InvalidateWindowData(WindowClass::GoalList, g->company);
 		}
 	}
 
@@ -194,9 +196,9 @@ CommandCost CmdSetGoalProgress(DoCommandFlags flags, GoalID goal, const EncodedS
 		g->progress = text;
 
 		if (g->company == CompanyID::Invalid()) {
-			InvalidateWindowClassesData(WC_GOALS_LIST);
+			InvalidateWindowClassesData(WindowClass::GoalList);
 		} else {
-			InvalidateWindowData(WC_GOALS_LIST, g->company);
+			InvalidateWindowData(WindowClass::GoalList, g->company);
 		}
 	}
 
@@ -220,9 +222,9 @@ CommandCost CmdSetGoalCompleted(DoCommandFlags flags, GoalID goal, bool complete
 		g->completed = completed;
 
 		if (g->company == CompanyID::Invalid()) {
-			InvalidateWindowClassesData(WC_GOALS_LIST);
+			InvalidateWindowClassesData(WindowClass::GoalList);
 		} else {
-			InvalidateWindowData(WC_GOALS_LIST, g->company);
+			InvalidateWindowData(WindowClass::GoalList, g->company);
 		}
 	}
 
@@ -290,13 +292,13 @@ CommandCost CmdGoalQuestionAnswer(DoCommandFlags flags, uint16_t uniqueid, uint8
 
 	if (_current_company == OWNER_DEITY) {
 		/* It has been requested to close this specific question on all clients */
-		if (flags.Test(DoCommandFlag::Execute)) CloseWindowById(WC_GOAL_QUESTION, uniqueid);
+		if (flags.Test(DoCommandFlag::Execute)) CloseWindowById(WindowClass::GoalQuestion, uniqueid);
 		return CommandCost();
 	}
 
 	if (_networking && _local_company == _current_company) {
 		/* Somebody in the same company answered the question. Close the window */
-		if (flags.Test(DoCommandFlag::Execute)) CloseWindowById(WC_GOAL_QUESTION, uniqueid);
+		if (flags.Test(DoCommandFlag::Execute)) CloseWindowById(WindowClass::GoalQuestion, uniqueid);
 		if (!_network_server) return CommandCost();
 	}
 

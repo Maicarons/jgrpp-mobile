@@ -12,10 +12,14 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _cargomonitor_pair_desc. */
 const SaveLoadCompat _cargomonitor_pair_sl_compat[] = {
 	SLC_VAR("number"),
 	SLC_VAR("amount"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_CARGOMONITOR_H */

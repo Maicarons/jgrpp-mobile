@@ -15,6 +15,8 @@
 #include "script_date.hpp"
 #include "../../station_type.h"
 
+#include <optional>
+
 /**
  * Base class for stations and waypoints.
  * @api ai game

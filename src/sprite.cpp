@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file sprite.cpp Handling of sprites */
+/** @file sprite.cpp Handling of sprites. */
 
 #include "stdafx.h"
 #include "sprite.h"
@@ -112,7 +112,7 @@ void DrawCommonTileSeqInGUI(int x, int y, const DrawTileSprites *dts, int32_t or
 			Point pt = RemapCoords(dtss.origin.x, dtss.origin.y, dtss.origin.z);
 			DrawSprite(image, pal, x + UnScaleGUI(pt.x), y + UnScaleGUI(pt.y));
 
-			const Sprite *spr = GetSprite(image & SPRITE_MASK, SpriteType::Normal);
+			const Sprite *spr = GetSprite(image & SPRITE_MASK, SpriteType::Normal, LowZoomMask(_cur_dpi->zoom));
 			child_offset.x = UnScaleGUI(pt.x + spr->x_offs);
 			child_offset.y = UnScaleGUI(pt.y + spr->y_offs);
 		} else {

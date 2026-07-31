@@ -10,6 +10,13 @@
 #ifndef BITMATH_FUNC_HPP
 #define BITMATH_FUNC_HPP
 
+#include <bit>
+#include <limits>
+#include <type_traits>
+
+template <typename T>
+concept BitsetTypeAsBase = T::bitset_as_base || false;
+
 /**
  * Fetch \a n bits from \a x, started at bit \a s.
  *
@@ -58,7 +65,8 @@ template <typename T, typename U>
 constexpr T SB(T &x, const uint8_t s, const uint8_t n, const U d)
 {
 	x &= (T)(~((((T)1U << n) - 1) << s));
-	x |= (T)(d << s);
+	typename std::make_unsigned<T>::type td = d;
+	x |= (T)(td << s);
 	return x;
 }
 
@@ -179,6 +187,52 @@ constexpr T AssignBit(T &x, const uint8_t y, bool value)
 }
 
 /**
+ * Return a bit mask of count bits starting at start.
+ *
+ * @param start The start bit
+ * @param count The number of bits
+ * @return The bit mask
+ */
+template <typename T>
+constexpr T GetBitMaskSC(const uint8_t start, const uint8_t count)
+{
+	using U = typename std::make_unsigned<T>::type;
+	constexpr uint BIT_WIDTH = std::numeric_limits<U>::digits;
+
+	U mask = ((static_cast<U>(1) << (count & (BIT_WIDTH - 1))) - 1) | (count >= BIT_WIDTH ? ~static_cast<U>(0) : 0);
+	return (T)(mask << start);
+}
+
+/**
+ * Return a bit mask of bits from first to last (inclusive).
+ *
+ * @param first The first bit
+ * @param last The last bits (inclusive)
+ * @pre first <= last && last < sizeof(T) * 8
+ * @return The bit mask
+ */
+template <typename T>
+constexpr T GetBitMaskFL(const uint8_t first, const uint8_t last)
+{
+	return GetBitMaskSC<T>(first, 1 + last - first);
+}
+
+/**
+ * Return a bit mask of bits, set by bit number.
+ *
+ * @param bits The bits to set
+ * @pre each bit < sizeof(T) * 8
+ * @return The bit mask
+ */
+template <typename T, typename... Args>
+constexpr T GetBitMaskBN(Args... bits)
+{
+	T value = static_cast<T>(0);
+	(SetBit<T>(value, bits), ...);
+	return value;
+}
+
+/**
  * Search the first set bit in a value.
  * When no bit is set, it returns 0.
  *
@@ -209,7 +263,7 @@ constexpr uint8_t FindLastBit(T x)
 {
 	if (x == 0) return 0;
 
-	return std::numeric_limits<T>::digits - std::countl_zero(x) - 1;
+	return std::countl_zero<T>(1) - std::countl_zero<T>(x);
 }
 
 /**
@@ -239,9 +293,35 @@ constexpr uint CountBits(T value)
 {
 	if constexpr (std::is_enum_v<T>) {
 		return std::popcount<std::underlying_type_t<T>>(value);
+	} else if constexpr (BitsetTypeAsBase<T>) {
+		return std::popcount(value.base());
 	} else {
 		return std::popcount(value);
 	}
+}
+
+/**
+ * Return whether the input has odd parity (odd number of bits set).
+ *
+ * @param value the value to return the parity of.
+ * @return true if the parity is odd.
+ */
+template <typename T>
+inline bool IsOddParity(T value)
+{
+	static_assert(sizeof(T) <= sizeof(unsigned long long));
+	typename std::make_unsigned<T>::type unsigned_value = value;
+#ifdef WITH_BITMATH_BUILTINS
+	if (sizeof(T) <= sizeof(unsigned int)) {
+		return __builtin_parity(unsigned_value);
+	} else if (sizeof(T) == sizeof(unsigned long)) {
+		return __builtin_parityl(unsigned_value);
+	} else {
+		return __builtin_parityll(unsigned_value);
+	}
+#else
+	return CountBits(unsigned_value) & 1;
+#endif
 }
 
 /**
@@ -253,7 +333,11 @@ constexpr uint CountBits(T value)
 template <typename T>
 constexpr bool HasExactlyOneBit(T value)
 {
-	return value != 0 && (value & (value - 1)) == 0;
+	if constexpr (BitsetTypeAsBase<T>) {
+		return HasExactlyOneBit(value.base());
+	} else {
+		return value != 0 && (value & (value - 1)) == 0;
+	}
 }
 
 /**
@@ -265,7 +349,11 @@ constexpr bool HasExactlyOneBit(T value)
 template <typename T>
 constexpr bool HasAtMostOneBit(T value)
 {
-	return (value & (value - 1)) == 0;
+	if constexpr (BitsetTypeAsBase<T>) {
+		return HasAtMostOneBit(value.base());
+	} else {
+		return (value & (value - 1)) == 0;
+	}
 }
 
  /**
@@ -311,6 +399,7 @@ struct SetBitIterator {
 	};
 
 	SetBitIterator(Tbitset bitset) : bitset(bitset) {}
+
 	Iterator begin() { return Iterator(this->bitset); }
 	Iterator end() { return Iterator(static_cast<Tbitset>(0)); }
 	bool empty() { return this->begin() == this->end(); }
@@ -330,8 +419,16 @@ namespace std {
 	[[nodiscard]] constexpr enable_if_t<is_integral_v<T>, T> byteswap(T x) noexcept
 	{
 		if constexpr (sizeof(T) == 1) return x;
+#if !defined(__ICC) && (defined(__GNUC__) || defined(__clang__))
+		if constexpr (sizeof(T) == 2) return static_cast<T>(__builtin_bswap16((uint16_t)x));
+		if constexpr (sizeof(T) == 4) return static_cast<T>(__builtin_bswap32((uint32_t)x));
+		if constexpr (sizeof(T) == 8) return static_cast<T>(__builtin_bswap64((uint64_t)x));
+#else
 		if constexpr (sizeof(T) == 2) return (x >> 8) | (x << 8);
 		if constexpr (sizeof(T) == 4) return ((x >> 24) & 0xFF) | ((x >> 8) & 0xFF00) | ((x << 8) & 0xFF0000) | ((x << 24) & 0xFF000000);
+		if constexpr (sizeof(T) == 8) return ((x >> 56) & 0xFFULL) | ((x >> 40) & 0xFF00ULL) | ((x >> 24) & 0xFF0000ULL) | ((x >> 8) & 0xFF000000ULL) |
+				((x << 8) & 0xFF00000000ULL) | ((x << 24) & 0xFF0000000000ULL) | ((x << 40) & 0xFF000000000000ULL) | ((x << 56) & 0xFF00000000000000ULL);
+#endif
 	}
 }
 

@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _date_desc. */
 const SaveLoadCompat _date_sl_compat[] = {
 	SLC_VAR("date"),
@@ -64,5 +66,7 @@ const SaveLoadCompat _view_sl_compat[] = {
 	SLC_VAR("y"),
 	SLC_VAR("zoom"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_MISC_H */

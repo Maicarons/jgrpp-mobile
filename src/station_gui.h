@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file station_gui.h Contains enums and function declarations connected with stations GUI */
+/** @file station_gui.h Contains enums and function declarations connected with stations GUI. */
 
 #ifndef STATION_GUI_H
 #define STATION_GUI_H
@@ -14,7 +14,9 @@
 #include "command_type.h"
 #include "tilearea_type.h"
 #include "window_type.h"
-#include "station_type.h"
+
+struct Station;
+struct CargoSpec;
 
 
 /** Types of cargo to display for station coverage. */
@@ -25,14 +27,16 @@ enum StationCoverageType : uint8_t {
 };
 
 int DrawStationCoverageAreaText(const Rect &r, StationCoverageType sct, int rad, bool supplies);
-void CheckRedrawStationCoverage(const Window *w);
-void CheckRedrawRailWaypointCoverage(const Window *w);
-void CheckRedrawRoadWaypointCoverage(const Window *w);
+void CheckRedrawStationCoverage(Window *w);
+void CheckRedrawRailWaypointCoverage(Window *w);
+void CheckRedrawRoadWaypointCoverage(Window *w);
 
 using StationPickerCmdProc = std::function<bool(bool test, StationID to_join)>;
 
 void ShowSelectStationIfNeeded(TileArea ta, StationPickerCmdProc proc);
 void ShowSelectRailWaypointIfNeeded(TileArea ta, StationPickerCmdProc proc);
 void ShowSelectRoadWaypointIfNeeded(TileArea ta, StationPickerCmdProc proc);
+
+void GuiShowStationRatingTooltip(Window *parent, const Station *st, const CargoSpec *cs);
 
 #endif /* STATION_GUI_H */

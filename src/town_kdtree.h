@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file town_kdtree.h Declarations for accessing the k-d tree of towns */
+/** @file town_kdtree.h Declarations for accessing the k-d tree of towns. */
 
 #ifndef TOWN_KDTREE_H
 #define TOWN_KDTREE_H
@@ -14,13 +14,13 @@
 #include "town.h"
 
 struct Kdtree_TownXYFunc {
-	inline uint16_t operator()(TownID tid, int dim)
+	inline uint32_t operator()(TownID tid, int dim)
 	{
 		return (dim == 0) ? TileX(Town::Get(tid)->xy) : TileY(Town::Get(tid)->xy);
 	}
 };
 
-using TownKdtree = Kdtree<TownID, Kdtree_TownXYFunc, uint16_t, int>;
+using TownKdtree = Kdtree<TownID, Kdtree_TownXYFunc, uint32_t, int>;
 extern TownKdtree _town_kdtree;
 extern TownKdtree _town_local_authority_kdtree;
 

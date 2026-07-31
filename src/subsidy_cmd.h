@@ -13,22 +13,7 @@
 #include "command_type.h"
 #include "cargo_type.h"
 #include "source_type.h"
-#include "misc/endian_buffer.hpp"
 
-CommandCost CmdCreateSubsidy(DoCommandFlags flags, CargoType cargo_type, Source src, Source dst);
-
-DEF_CMD_TRAIT(CMD_CREATE_SUBSIDY, CmdCreateSubsidy, CommandFlag::Deity, CommandType::OtherManagement)
-
-
-template <typename Tcont, typename Titer>
-inline EndianBufferWriter<Tcont, Titer> &operator <<(EndianBufferWriter<Tcont, Titer> &buffer, const Source &source)
-{
-	return buffer << source.id << source.type;
-}
-
-inline EndianBufferReader &operator >>(EndianBufferReader &buffer, Source &source)
-{
-	return buffer >> source.id >> source.type;
-}
+DEF_CMD_TUPLE_NT(Commands::CreateSubsidy, CmdCreateSubsidy, CMD_DEITY, CommandType::OtherManagement, CmdDataT<CargoType, Source, Source>)
 
 #endif /* SUBSIDY_CMD_H */

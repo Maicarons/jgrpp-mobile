@@ -17,12 +17,10 @@
 #	include <emscripten.h>
 #endif
 
-#if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L) || (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500) || defined(__ANDROID__)
+#if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L) || (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500)
 # include <unistd.h>
 # include <fcntl.h>
 #endif
-
-#include <filesystem>
 
 #include "safeguards.h"
 
@@ -88,10 +86,8 @@ bool IniFile::SaveToDisk(const std::string &filename)
 	if (ret != 0) return false;
 #endif
 
-	std::error_code ec;
-	std::filesystem::rename(OTTD2FS(file_new), OTTD2FS(filename), ec);
-	if (ec) {
-		Debug(misc, 0, "Renaming {} to {} failed; configuration not saved: {}", file_new, filename, ec.message());
+	if (!FioRenameFile(file_new, filename)) {
+		Debug(misc, 0, "Renaming {} to {} failed; configuration not saved", file_new, filename);
 	}
 
 #ifdef __EMSCRIPTEN__
@@ -101,7 +97,7 @@ bool IniFile::SaveToDisk(const std::string &filename)
 	return true;
 }
 
-/* virtual */ std::optional<FileHandle> IniFile::OpenFile(std::string_view filename, Subdirectory subdir, size_t *size)
+/* virtual */ std::optional<FileHandle> IniFile::OpenFile(const std::string &filename, Subdirectory subdir, size_t *size)
 {
 	/* Open the text file in binary mode to prevent end-of-line translations
 	 * done by ftell() and friends, as defined by K&R. */

@@ -15,24 +15,14 @@
 #include "story_type.h"
 #include "vehicle_type.h"
 
-std::tuple<CommandCost, StoryPageID> CmdCreateStoryPage(DoCommandFlags flags, CompanyID company, const EncodedString &text);
-std::tuple<CommandCost, StoryPageElementID> CmdCreateStoryPageElement(DoCommandFlags flags, TileIndex tile, StoryPageID page_id, StoryPageElementType type, uint32_t reference, const EncodedString &text);
-CommandCost CmdUpdateStoryPageElement(DoCommandFlags flags, TileIndex tile, StoryPageElementID page_element_id, uint32_t reference, const EncodedString &text);
-CommandCost CmdSetStoryPageTitle(DoCommandFlags flags, StoryPageID page_id, const EncodedString &text);
-CommandCost CmdSetStoryPageDate(DoCommandFlags flags, StoryPageID page_id, TimerGameCalendar::Date date);
-CommandCost CmdShowStoryPage(DoCommandFlags flags, StoryPageID page_id);
-CommandCost CmdRemoveStoryPage(DoCommandFlags flags, StoryPageID page_id);
-CommandCost CmdRemoveStoryPageElement(DoCommandFlags flags, StoryPageElementID page_element_id);
-CommandCost CmdStoryPageButton(DoCommandFlags flags, TileIndex tile, StoryPageElementID page_element_id, VehicleID reference);
-
-DEF_CMD_TRAIT(CMD_CREATE_STORY_PAGE,         CmdCreateStoryPage,        CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_CREATE_STORY_PAGE_ELEMENT, CmdCreateStoryPageElement, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_UPDATE_STORY_PAGE_ELEMENT, CmdUpdateStoryPageElement, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_STORY_PAGE_TITLE,      CmdSetStoryPageTitle,      CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_STORY_PAGE_DATE,       CmdSetStoryPageDate,       CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SHOW_STORY_PAGE,           CmdShowStoryPage,          CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_REMOVE_STORY_PAGE,         CmdRemoveStoryPage,        CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_REMOVE_STORY_PAGE_ELEMENT, CmdRemoveStoryPageElement, CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_STORY_PAGE_BUTTON,         CmdStoryPageButton,        CommandFlag::Deity, CommandType::OtherManagement)
+DEF_CMD_TUPLE_NT(Commands::CreateStoryPage,         CmdCreateStoryPage,         CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<CompanyID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::CreateStoryPageElement,  CmdCreateStoryPageElement,  CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<TileIndex, StoryPageID, StoryPageElementType, uint32_t, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::UpdateStoryPageElement,  CmdUpdateStoryPageElement,  CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<TileIndex, StoryPageElementID, uint32_t, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::SetStoryPageTitle,       CmdSetStoryPageTitle,       CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<StoryPageID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::SetStoryPageDate,        CmdSetStoryPageDate,                       CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<StoryPageID, CalTime::Date>)
+DEF_CMD_TUPLE_NT(Commands::ShowStoryPage,           CmdShowStoryPage,                          CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<StoryPageID>)
+DEF_CMD_TUPLE_NT(Commands::RemoveStoryPage,         CmdRemoveStoryPage,                        CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<StoryPageID>)
+DEF_CMD_TUPLE_NT(Commands::RemoveStoryPageElement,  CmdRemoveStoryPageElement,                 CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<StoryPageElementID>)
+DEF_CMD_TUPLE   (Commands::StoryPageButton,         CmdStoryPageButton,                        CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<StoryPageElementID, VehicleID>)
 
 #endif /* STORY_CMD_H */

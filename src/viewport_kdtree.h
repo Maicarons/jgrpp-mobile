@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file town_kdtree.h Declarations for accessing the k-d tree of towns */
+/** @file viewport_kdtree.h Declarations for accessing the k-d tree of viewports. */
 
 #ifndef VIEWPORT_KDTREE_H
 #define VIEWPORT_KDTREE_H
@@ -17,6 +17,15 @@
 #include "signs_base.h"
 
 struct ViewportSignKdtreeItem {
+	using IDType = uint16_t;
+
+	template <typename T>
+	static constexpr void IDTypeCheck()
+	{
+		static_assert(std::is_same_v<T, StationID> || std::is_same_v<T, TownID> || std::is_same_v<T, SignID>);
+		static_assert(sizeof(IDType) >= sizeof(T));
+	}
+
 	enum ItemType : uint16_t {
 		VKI_STATION,
 		VKI_WAYPOINT,
@@ -24,9 +33,34 @@ struct ViewportSignKdtreeItem {
 		VKI_SIGN,
 	};
 	ItemType type;
-	std::variant<StationID, TownID, SignID> id;
+	IDType id;
 	int32_t center;
 	int32_t top;
+
+	template <typename T>
+	T GetIdAs() const
+	{
+		IDTypeCheck<T>();
+		if constexpr (std::is_integral_v<T> || std::is_enum_v<T>) {
+			return T(this->id);
+		} else {
+			return T(static_cast<typename T::BaseType>(this->id));
+		}
+
+	}
+
+	template <typename T>
+	void SetID(T id)
+	{
+		IDTypeCheck<T>();
+		if constexpr (std::is_integral_v<T>) {
+			this->id = id;
+		} else if constexpr (std::is_enum_v<T>) {
+			this->id = to_underlying(id);
+		} else {
+			this->id = id.base();
+		}
+	}
 
 	bool operator== (const ViewportSignKdtreeItem &other) const
 	{
@@ -55,6 +89,7 @@ struct Kdtree_ViewportSignXYFunc {
 
 using ViewportSignKdtree = Kdtree<ViewportSignKdtreeItem, Kdtree_ViewportSignXYFunc, int32_t, int32_t>;
 extern ViewportSignKdtree _viewport_sign_kdtree;
+extern bool _viewport_sign_kdtree_valid;
 
 void RebuildViewportKdtree();
 

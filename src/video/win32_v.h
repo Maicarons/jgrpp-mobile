@@ -13,6 +13,7 @@
 #include "video_driver.hpp"
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 #include <windows.h>
 
 /** Base class for Windows video drivers. */
@@ -30,7 +31,7 @@ public:
 
 	bool ToggleFullscreen(bool fullscreen) override;
 
-	bool ClaimMousePointer() override;
+	void ClaimMousePointer() override;
 
 	void EditBoxLostFocus() override;
 
@@ -55,19 +56,34 @@ protected:
 	void CheckPaletteAnim() override;
 	bool PollEvent() override;
 
-	void Initialize();
+	const char *Initialize();
 	bool MakeWindow(bool full_screen, bool resize = true);
 	void ClientSizeChanged(int w, int h, bool force = false);
 
-	/** Get screen depth to use for fullscreen mode. */
 	virtual uint8_t GetFullscreenBpp();
-	/** (Re-)create the backing store. */
+
+	/**
+	 * (Re-)create the backing store.
+	 * @param w The width of the window.
+	 * @param h The height of the window.
+	 * @param force Whether to force full reallocation, instead of not reallocating when size did not change.
+	 * @return Whether the backing store was (re-)created.
+	 */
 	virtual bool AllocateBackingStore(int w, int h, bool force = false) = 0;
-	/** Get a pointer to the video buffer. */
+
+	/**
+	 * Get a pointer to the video buffer.
+	 * @return The pointer.
+	 */
 	virtual void *GetVideoPointer() = 0;
+
 	/** Hand video buffer back to the painting backend. */
 	virtual void ReleaseVideoPointer() {}
-	/** Palette of the window has changed. */
+
+	/**
+	 * Palette of the window has changed.
+	 * @param hWnd The window handle of the changed window.
+	 */
 	virtual void PaletteChanged(HWND hWnd) = 0;
 
 private:
@@ -78,13 +94,13 @@ class VideoDriver_Win32GDI : public VideoDriver_Win32Base {
 public:
 	VideoDriver_Win32GDI() : dib_sect(nullptr), gdi_palette(nullptr), buffer_bits(nullptr) {}
 
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
 	bool AfterBlitterChange() override;
 
-	std::string_view GetName() const override { return "win32"; }
+	const char *GetName() const override { return "win32"; }
 
 protected:
 	HBITMAP  dib_sect;      ///< System bitmap object referencing our rendering buffer.
@@ -108,7 +124,7 @@ public:
 /** The factory for Windows' video driver. */
 class FVideoDriver_Win32GDI : public DriverFactoryBase {
 public:
-	FVideoDriver_Win32GDI() : DriverFactoryBase(Driver::DT_VIDEO, 9, "win32", "Win32 GDI Video Driver") {}
+	FVideoDriver_Win32GDI() : DriverFactoryBase(Driver::Type::Video, 9, "win32", "Win32 GDI Video Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<VideoDriver_Win32GDI>(); }
 };
 
@@ -117,9 +133,9 @@ public:
 /** The OpenGL video driver for windows. */
 class VideoDriver_Win32OpenGL : public VideoDriver_Win32Base {
 public:
-	VideoDriver_Win32OpenGL() : VideoDriver_Win32Base(true), dc(nullptr), gl_rc(nullptr), anim_buffer(nullptr), driver_info(this->GetName()) {}
+	VideoDriver_Win32OpenGL() : VideoDriver_Win32Base(true), dc(nullptr), gl_rc(nullptr), driver_info(this->GetName()) {}
 
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -136,18 +152,16 @@ public:
 	void ClearSystemSprites() override;
 
 	bool HasAnimBuffer() override { return true; }
-	uint8_t *GetAnimBuffer() override { return this->anim_buffer; }
 
 	void ToggleVsync(bool vsync) override;
 
-	std::string_view GetName() const override { return "win32-opengl"; }
+	const char *GetName() const override { return "win32-opengl"; }
 
-	std::string_view GetInfoString() const override { return this->driver_info; }
+	const char *GetInfoString() const override { return this->driver_info.c_str(); }
 
 protected:
 	HDC    dc;          ///< Window device context.
 	HGLRC  gl_rc;       ///< OpenGL context.
-	uint8_t *anim_buffer; ///< Animation buffer from OpenGL back-end.
 	std::string driver_info; ///< Information string about selected driver.
 
 	uint8_t GetFullscreenBpp() override { return 32; } // OpenGL is always 32 bpp.
@@ -159,15 +173,15 @@ protected:
 	void ReleaseVideoPointer() override;
 	void PaletteChanged(HWND) override {}
 
-	std::optional<std::string_view> AllocateContext();
+	const char *AllocateContext();
 	void DestroyContext();
 };
 
 /** The factory for Windows' OpenGL video driver. */
 class FVideoDriver_Win32OpenGL : public DriverFactoryBase {
 public:
-	FVideoDriver_Win32OpenGL() : DriverFactoryBase(Driver::DT_VIDEO, 10, "win32-opengl", "Win32 OpenGL Video Driver") {}
-	/* virtual */ std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<VideoDriver_Win32OpenGL>(); }
+	FVideoDriver_Win32OpenGL() : DriverFactoryBase(Driver::Type::Video, 10, "win32-opengl", "Win32 OpenGL Video Driver") {}
+	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<VideoDriver_Win32OpenGL>(); }
 
 protected:
 	bool UsesHardwareAcceleration() const override { return true; }

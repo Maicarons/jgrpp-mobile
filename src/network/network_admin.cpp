@@ -8,9 +8,9 @@
 /** @file network_admin.cpp Server part of the admin network protocol. */
 
 #include "../stdafx.h"
+#include "../debug.h"
 #include "../strings_func.h"
-#include "../timer/timer_game_calendar.h"
-#include "../timer/timer_game_calendar.h"
+#include "../date_func.h"
 #include "core/network_game_info.h"
 #include "network_admin.h"
 #include "network_base.h"
@@ -25,6 +25,8 @@
 
 #include "table/strings.h"
 
+#include <numeric>
+
 #include "../safeguards.h"
 
 
@@ -37,11 +39,11 @@ AdminID _redirect_console_to_admin = AdminID::Invalid();
 NetworkAdminSocketPool _networkadminsocket_pool("NetworkAdminSocket");
 INSTANTIATE_POOL_METHODS(NetworkAdminSocket)
 
-static NetworkAuthenticationDefaultPasswordProvider _admin_password_provider(_settings_client.network.admin_password); ///< Provides the password validation for the game's password.
-static NetworkAuthenticationDefaultAuthorizedKeyHandler _admin_authorized_key_handler(_settings_client.network.admin_authorized_keys); ///< Provides the authorized key handling for the game authentication.
+static NetworkAuthenticationDefaultPasswordProvider _admin_password_provider{_settings_client.network.admin_password}; ///< Provides the password validation for the game's password.
+static NetworkAuthenticationDefaultAuthorizedKeyHandler _admin_authorized_key_handler{_settings_client.network.admin_authorized_keys}; ///< Provides the authorized key handling for the game authentication.
 
 /** The timeout for authorisation of the client. */
-static const std::chrono::seconds ADMIN_AUTHORISATION_TIMEOUT(10);
+static const std::chrono::seconds ADMIN_AUTHORISATION_TIMEOUT{10};
 
 
 /** Frequencies, which may be registered for a certain update type. */
@@ -62,9 +64,11 @@ static_assert(lengthof(_admin_update_type_frequencies) == ADMIN_UPDATE_END);
 
 /**
  * Create a new socket for the server side of the admin network.
+ * @param index The index in the admin pool.
  * @param s The socket to connect with.
  */
-ServerNetworkAdminSocketHandler::ServerNetworkAdminSocketHandler(SOCKET s) : NetworkAdminSocketHandler(s)
+ServerNetworkAdminSocketHandler::ServerNetworkAdminSocketHandler(AdminID index, SOCKET s) :
+	PoolItemBase(index), NetworkAdminSocketHandler(s)
 {
 	this->status = ADMIN_STATUS_INACTIVE;
 	this->connect_time = std::chrono::steady_clock::now();
@@ -115,7 +119,7 @@ ServerNetworkAdminSocketHandler::~ServerNetworkAdminSocketHandler()
  */
 /* static */ void ServerNetworkAdminSocketHandler::AcceptConnection(SOCKET s, const NetworkAddress &address)
 {
-	ServerNetworkAdminSocketHandler *as = new ServerNetworkAdminSocketHandler(s);
+	ServerNetworkAdminSocketHandler *as = ServerNetworkAdminSocketHandler::Create(s);
 	as->address = address; // Save the IP of the client
 }
 
@@ -126,15 +130,16 @@ ServerNetworkAdminSocketHandler::~ServerNetworkAdminSocketHandler()
 /**
  * Send an error to the admin.
  * @param error The error to send.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendError(NetworkErrorCode error)
 {
 	/* Whatever the error might be, authentication (keys) must be released as soon as possible. */
 	this->authentication_handler = nullptr;
 
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_ERROR);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerError);
 
-	p->Send_uint8(error);
+	p->Send_uint8(to_underlying(error));
 	this->SendPacket(std::move(p));
 
 	std::string error_message = GetString(GetNetworkErrorMsg(error));
@@ -144,12 +149,15 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendError(NetworkErrorCode er
 	return this->CloseConnection(true);
 }
 
-/** Send the protocol version to the admin. */
+/**
+ * Send the protocol version to the admin.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendProtocol()
 {
 	this->status = ADMIN_STATUS_ACTIVE;
 
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_PROTOCOL);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerProtocol);
 
 	/* announce the protocol version */
 	p->Send_uint8(NETWORK_GAME_ADMIN_VERSION);
@@ -166,19 +174,22 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendProtocol()
 	return this->SendWelcome();
 }
 
-/** Send a welcome message to the admin. */
+/**
+ * Send a welcome message to the admin.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendWelcome()
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_WELCOME);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerWelcome);
 
 	p->Send_string(_settings_client.network.server_name);
-	p->Send_string(GetNetworkRevisionString());
+	p->Send_string(_openttd_revision);
 	p->Send_bool  (_network_dedicated);
 
 	p->Send_string(""); // Used to be map-name.
 	p->Send_uint32(_settings_game.game_creation.generation_seed);
 	p->Send_uint8 (to_underlying(_settings_game.game_creation.landscape));
-	p->Send_uint32(TimerGameCalendar::ConvertYMDToDate(_settings_game.game_creation.starting_year, 0, 1).base());
+	p->Send_uint32(CalTime::ConvertYMDToDate(_settings_game.game_creation.starting_year, 0, 1).base());
 	p->Send_uint16(Map::SizeX());
 	p->Send_uint16(Map::SizeY());
 
@@ -187,28 +198,37 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendWelcome()
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Tell the admin we started a new game. */
+/**
+ * Tell the admin we started a new game.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendNewGame()
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_NEWGAME);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerNewGame);
 	this->SendPacket(std::move(p));
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Tell the admin we're shutting down. */
+/**
+ * Tell the admin we're shutting down.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendShutdown()
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_SHUTDOWN);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerShutdown);
 	this->SendPacket(std::move(p));
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Tell the admin the date. */
+/**
+ * Tell the admin the date.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendDate()
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_DATE);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerDate);
 
-	p->Send_uint32(TimerGameCalendar::date.base());
+	p->Send_uint32(CalTime::CurDate().base());
 	this->SendPacket(std::move(p));
 
 	return NETWORK_RECV_STATUS_OKAY;
@@ -217,10 +237,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendDate()
 /**
  * Tell the admin that a client joined.
  * @param client_id The client that joined.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientJoin(ClientID client_id)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CLIENT_JOIN);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerClientJoin);
 
 	p->Send_uint32(client_id);
 	this->SendPacket(std::move(p));
@@ -232,13 +253,14 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientJoin(ClientID clien
  * Send an initial set of data from some client's information.
  * @param cs The socket of the client.
  * @param ci The information about the client.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientInfo(const NetworkClientSocket *cs, const NetworkClientInfo *ci)
 {
 	/* Only send data when we're a proper client, not just someone trying to query the server. */
 	if (ci == nullptr) return NETWORK_RECV_STATUS_OKAY;
 
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CLIENT_INFO);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerClientInfo);
 
 	p->Send_uint32(ci->client_id);
 	p->Send_string(cs == nullptr ? "" : const_cast<NetworkAddress &>(cs->client_address).GetHostname());
@@ -256,10 +278,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientInfo(const NetworkC
 /**
  * Send an update for some client's information.
  * @param ci The information about a client.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientUpdate(const NetworkClientInfo *ci)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CLIENT_UPDATE);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerClientUpdate);
 
 	p->Send_uint32(ci->client_id);
 	p->Send_string(ci->client_name);
@@ -273,10 +296,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientUpdate(const Networ
 /**
  * Tell the admin that a client quit.
  * @param client_id The client that quit.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientQuit(ClientID client_id)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CLIENT_QUIT);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerClientQuit);
 
 	p->Send_uint32(client_id);
 	this->SendPacket(std::move(p));
@@ -288,13 +312,14 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientQuit(ClientID clien
  * Tell the admin that a client made an error.
  * @param client_id The client that made the error.
  * @param error The error that was made.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientError(ClientID client_id, NetworkErrorCode error)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CLIENT_ERROR);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerClientError);
 
 	p->Send_uint32(client_id);
-	p->Send_uint8 (error);
+	p->Send_uint8(to_underlying(error));
 	this->SendPacket(std::move(p));
 
 	return NETWORK_RECV_STATUS_OKAY;
@@ -303,10 +328,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendClientError(ClientID clie
 /**
  * Tell the admin that a new company was founded.
  * @param company_id The company that was founded.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyNew(CompanyID company_id)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_COMPANY_NEW);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCompanyNew);
 	p->Send_uint8(company_id);
 
 	this->SendPacket(std::move(p));
@@ -317,17 +343,18 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyNew(CompanyID comp
 /**
  * Send the admin some information about a company.
  * @param c The company to send the information about.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyInfo(const Company *c)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_COMPANY_INFO);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCompanyInfo);
 
 	p->Send_uint8 (c->index);
 	p->Send_string(GetString(STR_COMPANY_NAME, c->index));
 	p->Send_string(GetString(STR_PRESIDENT_NAME, c->index));
-	p->Send_uint8 (c->colour);
-	p->Send_bool  (true);
-	p->Send_uint32(c->inaugurated_year.base());
+	p->Send_uint8 (to_underlying(c->colour));
+	p->Send_bool  (NetworkCompanyIsPassworded(c->index));
+	p->Send_uint32(c->InauguratedDisplayYear());
 	p->Send_bool  (c->is_ai);
 	p->Send_uint8 (CeilDiv(c->months_of_bankruptcy, 3)); // send as quarters_of_bankruptcy
 
@@ -340,16 +367,17 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyInfo(const Company
 /**
  * Send an update about a company.
  * @param c The company to send the update of.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyUpdate(const Company *c)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_COMPANY_UPDATE);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCompanyUpdate);
 
 	p->Send_uint8 (c->index);
 	p->Send_string(GetString(STR_COMPANY_NAME, c->index));
 	p->Send_string(GetString(STR_PRESIDENT_NAME, c->index));
-	p->Send_uint8 (c->colour);
-	p->Send_bool  (true);
+	p->Send_uint8 (to_underlying(c->colour));
+	p->Send_bool  (NetworkCompanyIsPassworded(c->index));
 	p->Send_uint8 (CeilDiv(c->months_of_bankruptcy, 3)); // send as quarters_of_bankruptcy
 
 	this->SendPacket(std::move(p));
@@ -361,10 +389,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyUpdate(const Compa
  * Tell the admin that a company got removed.
  * @param company_id The company that got removed.
  * @param acrr The reason for removal, e.g. bankruptcy or merger.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyRemove(CompanyID company_id, AdminCompanyRemoveReason acrr)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_COMPANY_REMOVE);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCompanyRemove);
 
 	p->Send_uint8(company_id);
 	p->Send_uint8(acrr);
@@ -374,14 +403,17 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyRemove(CompanyID c
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Send economic information of all companies. */
+/**
+ * Send economic information of all companies.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyEconomy()
 {
 	for (const Company *company : Company::Iterate()) {
 		/* Get the income. */
 		Money income = -std::reduce(std::begin(company->yearly_expenses[0]), std::end(company->yearly_expenses[0]));
 
-		auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_COMPANY_ECONOMY);
+		auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCompanyEconomy);
 
 		p->Send_uint8(company->index);
 
@@ -405,7 +437,10 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyEconomy()
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Send statistics about the companies. */
+/**
+ * Send statistics about the companies.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyStats()
 {
 	/* Fetch the latest version of the stats. */
@@ -413,18 +448,12 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyStats()
 
 	/* Go through all the companies. */
 	for (const Company *company : Company::Iterate()) {
-		auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_COMPANY_STATS);
+		auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCompanyStatistics);
 
 		/* Send the information. */
 		p->Send_uint8(company->index);
-
-		for (uint i = 0; i < NETWORK_VEH_END; i++) {
-			p->Send_uint16(company_stats[company->index].num_vehicle[i]);
-		}
-
-		for (uint i = 0; i < NETWORK_VEH_END; i++) {
-			p->Send_uint16(company_stats[company->index].num_station[i]);
-		}
+		for (uint16_t value : company_stats[company->index].num_vehicle) p->Send_uint16(value);
+		for (uint16_t value : company_stats[company->index].num_station) p->Send_uint16(value);
 
 		this->SendPacket(std::move(p));
 	}
@@ -439,16 +468,17 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCompanyStats()
  * @param client_id The origin of the chat message.
  * @param msg The actual message.
  * @param data Arbitrary extra data.
+ * @return The new state the network.
  */
-NetworkRecvStatus ServerNetworkAdminSocketHandler::SendChat(NetworkAction action, DestType desttype, ClientID client_id, std::string_view msg, int64_t data)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::SendChat(NetworkAction action, NetworkChatDestinationType desttype, ClientID client_id, std::string_view msg, NetworkTextMessageData data)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CHAT);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerChat);
 
-	p->Send_uint8 (action);
-	p->Send_uint8 (desttype);
+	p->Send_uint8(to_underlying(action));
+	p->Send_uint8(to_underlying(desttype));
 	p->Send_uint32(client_id);
 	p->Send_string(msg);
-	p->Send_uint64(data);
+	data.send(*p);
 
 	this->SendPacket(std::move(p));
 	return NETWORK_RECV_STATUS_OKAY;
@@ -457,10 +487,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendChat(NetworkAction action
 /**
  * Send a notification indicating the rcon command has completed.
  * @param command The original command sent.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendRconEnd(std::string_view command)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_RCON_END);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerRemoteConsoleCommandEnd);
 
 	p->Send_string(command);
 	this->SendPacket(std::move(p));
@@ -472,10 +503,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendRconEnd(std::string_view 
  * Send the reply of an rcon command.
  * @param colour The colour of the text.
  * @param result The result of the command.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendRcon(uint16_t colour, std::string_view result)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_RCON);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerRemoteConsoleCommand);
 
 	p->Send_uint16(colour);
 	p->Send_string(result);
@@ -484,9 +516,9 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendRcon(uint16_t colour, std
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_RCON(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminRemoteConsoleCommand(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	std::string command = p.Recv_string(NETWORK_RCONCOMMAND_LENGTH);
 
@@ -498,9 +530,9 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_RCON(Packet &p)
 	return this->SendRconEnd(command);
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_GAMESCRIPT(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminGameScript(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	std::string json = p.Recv_string(NETWORK_GAMESCRIPT_JSON_LENGTH);
 
@@ -510,9 +542,9 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_GAMESCRIPT(Pack
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_PING(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminPing(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	uint32_t d1 = p.Recv_uint32();
 
@@ -525,6 +557,7 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_PING(Packet &p)
  * Send console output of other clients.
  * @param origin The origin of the string.
  * @param string The string that's put on the console.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendConsole(std::string_view origin, std::string_view string)
 {
@@ -534,7 +567,7 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendConsole(std::string_view 
 	 * smaller than COMPAT_MTU. */
 	if (origin.size() + string.size() + 2 + 3 >= COMPAT_MTU) return NETWORK_RECV_STATUS_OKAY;
 
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CONSOLE);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerConsole);
 
 	p->Send_string(origin);
 	p->Send_string(string);
@@ -546,10 +579,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendConsole(std::string_view 
 /**
  * Send GameScript JSON output.
  * @param json The JSON string.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendGameScript(std::string_view json)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_GAMESCRIPT);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerGameScript);
 
 	p->Send_string(json);
 	this->SendPacket(std::move(p));
@@ -557,10 +591,14 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendGameScript(std::string_vi
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Send ping-reply (pong) to admin **/
+/**
+ * Send ping-reply (pong) to admin.
+ * @param d1 Request ID from the admin, to return back to them.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendPong(uint32_t d1)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_PONG);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerPong);
 
 	p->Send_uint32(d1);
 	this->SendPacket(std::move(p));
@@ -568,12 +606,15 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendPong(uint32_t d1)
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-/** Send the names of the commands. */
+/**
+ * Send the names of the commands.
+ * @return The new state the network.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCmdNames()
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CMD_NAMES);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCommandNames);
 
-	for (uint16_t i = 0; i < CMD_END; i++) {
+	for (uint i = 0; i < to_underlying(Commands::End); i++) {
 		std::string_view cmdname = GetCommandName(static_cast<Commands>(i));
 
 		/* Should COMPAT_MTU be exceeded, start a new packet
@@ -583,7 +624,7 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCmdNames()
 			p->Send_bool(false);
 			this->SendPacket(std::move(p));
 
-			p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CMD_NAMES);
+			p = std::make_unique<Packet>(this, PacketAdminType::ServerCommandNames);
 		}
 
 		p->Send_bool(true);
@@ -602,15 +643,22 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCmdNames()
  * Send a command for logging purposes.
  * @param client_id The client executing the command.
  * @param cp The command that would be executed.
+ * @return The new state the network.
  */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCmdLogging(ClientID client_id, const CommandPacket &cp)
 {
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_CMD_LOGGING);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerCommandLogging);
 
 	p->Send_uint32(client_id);
 	p->Send_uint8 (cp.company);
-	p->Send_uint16(cp.cmd);
-	p->Send_buffer(cp.data);
+	p->Send_uint16(to_underlying(cp.command_container.cmd));
+
+	size_t payload_pos = p->GetSendOffset();
+	p->Send_uint16(0);
+	p->Send_uint32(cp.command_container.tile.base());
+	cp.command_container.payload->Serialise(p->AsBufferSerialisationRef());
+	p->SendAtOffset_uint16(payload_pos, (uint16_t)(p->GetSendOffset() - payload_pos - 2));
+
 	p->Send_uint32(cp.frame);
 
 	this->SendPacket(std::move(p));
@@ -622,20 +670,20 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendCmdLogging(ClientID clien
  * Receiving functions
  ************/
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_JOIN(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminJoin(Packet &p)
 {
-	if (this->status != ADMIN_STATUS_INACTIVE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status != ADMIN_STATUS_INACTIVE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	if (!_settings_client.network.allow_insecure_admin_login) {
 		/* You're not authorized to login using this method. */
-		return this->SendError(NETWORK_ERROR_NOT_AUTHORIZED);
+		return this->SendError(NetworkErrorCode::NotAuthorized);
 	}
 
 	std::string password = p.Recv_string(NETWORK_PASSWORD_LENGTH);
 
 	if (_settings_client.network.admin_password.empty() || _settings_client.network.admin_password != password) {
 		/* Password is invalid */
-		return this->SendError(NETWORK_ERROR_WRONG_PASSWORD);
+		return this->SendError(NetworkErrorCode::WrongPassword);
 	}
 
 	this->admin_name = p.Recv_string(NETWORK_CLIENT_NAME_LENGTH);
@@ -643,7 +691,7 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_JOIN(Packet &p)
 
 	if (this->admin_name.empty() || this->admin_version.empty()) {
 		/* no name or version supplied */
-		return this->SendError(NETWORK_ERROR_ILLEGAL_PACKET);
+		return this->SendError(NetworkErrorCode::IllegalPacket);
 	}
 
 	Debug(net, 3, "[admin] '{}' ({}) has connected", this->admin_name, this->admin_version);
@@ -651,15 +699,15 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_JOIN(Packet &p)
 	return this->SendProtocol();
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_QUIT(Packet &)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminQuit(Packet &)
 {
 	/* The admin is leaving nothing else to do */
 	return this->CloseConnection();
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_UPDATE_FREQUENCY(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminUpdateFrequency(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	AdminUpdateType type = (AdminUpdateType)p.Recv_uint16();
 	AdminUpdateFrequencies freq = static_cast<AdminUpdateFrequencies>(p.Recv_uint16());
@@ -667,7 +715,7 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_UPDATE_FREQUENC
 	if (type >= ADMIN_UPDATE_END || !_admin_update_type_frequencies[type].All(freq)) {
 		/* The server does not know of this UpdateType. */
 		Debug(net, 1, "[admin] Not supported update frequency {} ({}) from '{}' ({})", type, freq, this->admin_name, this->admin_version);
-		return this->SendError(NETWORK_ERROR_ILLEGAL_PACKET);
+		return this->SendError(NetworkErrorCode::IllegalPacket);
 	}
 
 	this->update_frequency[type] = freq;
@@ -677,9 +725,9 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_UPDATE_FREQUENC
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_POLL(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminPoll(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	AdminUpdateType type = (AdminUpdateType)p.Recv_uint8();
 	uint32_t d1 = p.Recv_uint32();
@@ -737,50 +785,50 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_POLL(Packet &p)
 		default:
 			/* An unsupported "poll" update type. */
 			Debug(net, 1, "[admin] Not supported poll {} ({}) from '{}' ({}).", type, d1, this->admin_name, this->admin_version);
-			return this->SendError(NETWORK_ERROR_ILLEGAL_PACKET);
+			return this->SendError(NetworkErrorCode::IllegalPacket);
 	}
 
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_CHAT(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminChat(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
-	NetworkAction action = (NetworkAction)p.Recv_uint8();
-	DestType desttype = (DestType)p.Recv_uint8();
+	NetworkAction action = static_cast<NetworkAction>(p.Recv_uint8());
+	NetworkChatDestinationType desttype = static_cast<NetworkChatDestinationType>(p.Recv_uint8());
 	int dest = p.Recv_uint32();
 
 	std::string msg = p.Recv_string(NETWORK_CHAT_LENGTH);
 
 	switch (action) {
-		case NETWORK_ACTION_CHAT:
-		case NETWORK_ACTION_CHAT_CLIENT:
-		case NETWORK_ACTION_CHAT_COMPANY:
-		case NETWORK_ACTION_SERVER_MESSAGE:
+		case NetworkAction::ChatBroadcast:
+		case NetworkAction::ChatClient:
+		case NetworkAction::ChatTeam:
+		case NetworkAction::ServerMessage:
 			NetworkServerSendChat(action, desttype, dest, msg, _network_own_client_id, 0, true);
 			break;
 
 		default:
 			Debug(net, 1, "[admin] Invalid chat action {} from admin '{}' ({}).", action, this->admin_name, this->admin_version);
-			return this->SendError(NETWORK_ERROR_ILLEGAL_PACKET);
+			return this->SendError(NetworkErrorCode::IllegalPacket);
 	}
 
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_EXTERNAL_CHAT(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminExternalChat(Packet &p)
 {
-	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status <= ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	std::string source = p.Recv_string(NETWORK_CHAT_LENGTH);
-	TextColour colour = (TextColour)p.Recv_uint16();
+	ExtendedTextColour colour = ExtendedTextColour::FromNetwork(p.Recv_uint16());
 	std::string user = p.Recv_string(NETWORK_CHAT_LENGTH);
 	std::string msg = p.Recv_string(NETWORK_CHAT_LENGTH);
 
 	if (!IsValidConsoleColour(colour)) {
-		Debug(net, 1, "[admin] Not supported chat colour {} ({}, {}, {}) from '{}' ({}).", (uint16_t)colour, source, user, msg, this->admin_name, this->admin_version);
-		return this->SendError(NETWORK_ERROR_ILLEGAL_PACKET);
+		Debug(net, 1, "[admin] Not supported chat colour {} ({}, {}, {}) from '{}' ({}).", colour.ToNetwork(), source, user, msg, this->admin_name, this->admin_version);
+		return this->SendError(NetworkErrorCode::IllegalPacket);
 	}
 
 	NetworkServerSendExternalChat(source, colour, user, msg);
@@ -792,9 +840,9 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_EXTERNAL_CHAT(P
  * Secure authentication send and receive methods.
  */
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_JOIN_SECURE(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminJoinSecure(Packet &p)
 {
-	if (this->status != ADMIN_STATUS_INACTIVE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status != ADMIN_STATUS_INACTIVE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	this->admin_name = p.Recv_string(NETWORK_CLIENT_NAME_LENGTH);
 	this->admin_version = p.Recv_string(NETWORK_REVISION_LENGTH);
@@ -805,11 +853,11 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_JOIN_SECURE(Pac
 
 	if (this->admin_name.empty() || this->admin_version.empty()) {
 		/* No name or version supplied. */
-		return this->SendError(NETWORK_ERROR_ILLEGAL_PACKET);
+		return this->SendError(NetworkErrorCode::IllegalPacket);
 	}
 
 	auto handler = NetworkAuthenticationServerHandler::Create(&_admin_password_provider, &_admin_authorized_key_handler, method_mask);
-	if (!handler->CanBeUsed()) return this->SendError(NETWORK_ERROR_NO_AUTHENTICATION_METHOD_AVAILABLE);
+	if (!handler->CanBeUsed()) return this->SendError(NetworkErrorCode::NoAuthenticationMethodAvailable);
 
 	this->authentication_handler = std::move(handler);
 	Debug(net, 3, "[admin] '{}' ({}) has connected", this->admin_name, this->admin_version);
@@ -817,13 +865,17 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_JOIN_SECURE(Pac
 	return this->SendAuthRequest();
 }
 
+/**
+ * Send the client a request to authenticate.
+ * @return The state the network should have.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendAuthRequest()
 {
 	this->status = ADMIN_STATUS_AUTHENTICATE;
 
 	Debug(net, 6, "[admin] '{}' ({}) authenticating using {}", this->admin_name, this->admin_version, this->authentication_handler->GetName());
 
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_AUTH_REQUEST);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerAuthenticationRequest);
 	this->authentication_handler->SendRequest(*p);
 
 	this->SendPacket(std::move(p));
@@ -831,20 +883,24 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::SendAuthRequest()
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
+/**
+ * Send the client the message to enable encryption.
+ * @return The state the network should have.
+ */
 NetworkRecvStatus ServerNetworkAdminSocketHandler::SendEnableEncryption()
 {
-	if (this->status != ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status != ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
-	auto p = std::make_unique<Packet>(this, ADMIN_PACKET_SERVER_ENABLE_ENCRYPTION);
+	auto p = std::make_unique<Packet>(this, PacketAdminType::ServerEnableEncryption);
 	this->authentication_handler->SendEnableEncryption(*p);
 	this->SendPacket(std::move(p));
 
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_AUTH_RESPONSE(Packet &p)
+NetworkRecvStatus ServerNetworkAdminSocketHandler::ReceiveAdminAuthenticationResponse(Packet &p)
 {
-	if (this->status != ADMIN_STATUS_AUTHENTICATE) return this->SendError(NETWORK_ERROR_NOT_EXPECTED);
+	if (this->status != ADMIN_STATUS_AUTHENTICATE) return this->SendError(NetworkErrorCode::NotExpected);
 
 	switch (this->authentication_handler->ReceiveResponse(p)) {
 		case NetworkAuthenticationServerHandler::ResponseResult::Authenticated:
@@ -864,7 +920,7 @@ NetworkRecvStatus ServerNetworkAdminSocketHandler::Receive_ADMIN_AUTH_RESPONSE(P
 		case NetworkAuthenticationServerHandler::ResponseResult::NotAuthenticated:
 		default:
 			Debug(net, 3, "[admin] '{}' ({}) authentication failed", this->admin_name, this->admin_version);
-			return this->SendError(NETWORK_ERROR_WRONG_PASSWORD);
+			return this->SendError(NetworkErrorCode::WrongPassword);
 	}
 }
 
@@ -978,8 +1034,14 @@ void NetworkAdminCompanyRemove(CompanyID company_id, AdminCompanyRemoveReason bc
 
 /**
  * Send chat to the admin network (if they did opt in for the respective update).
+ * @param action The action that's performed.
+ * @param desttype The type of destination.
+ * @param client_id The destination client.
+ * @param msg The actual message.
+ * @param data Arbitrary data.
+ * @param from_admin Whether the message is coming from the admin.
  */
-void NetworkAdminChat(NetworkAction action, DestType desttype, ClientID client_id, std::string_view msg, int64_t data, bool from_admin)
+void NetworkAdminChat(NetworkAction action, NetworkChatDestinationType desttype, ClientID client_id, std::string_view msg, NetworkTextMessageData data, bool from_admin)
 {
 	if (from_admin) return;
 
@@ -996,9 +1058,9 @@ void NetworkAdminChat(NetworkAction action, DestType desttype, ClientID client_i
  * @param colour_code The colour of the string.
  * @param string      The string to show.
  */
-void NetworkServerSendAdminRcon(AdminID admin_index, TextColour colour_code, std::string_view string)
+void NetworkServerSendAdminRcon(AdminID admin_index, ExtendedTextColour colour_code, std::string_view string)
 {
-	ServerNetworkAdminSocketHandler::Get(admin_index)->SendRcon(colour_code, string);
+	ServerNetworkAdminSocketHandler::Get(admin_index)->SendRcon(colour_code.ToNetwork(), string);
 }
 
 /**

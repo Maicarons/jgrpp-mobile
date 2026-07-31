@@ -21,7 +21,14 @@ jobs:
 
     steps:
     - name: Checkout
+      if: github.event_name != 'workflow_dispatch'
       uses: actions/checkout@v6
+
+    - name: Checkout (Manual)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.ref }}
 
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
@@ -31,15 +38,16 @@ jobs:
         install: >-
           git
           make
-          mingw-w64-${{ inputs.arch }}-cmake
-          mingw-w64-${{ inputs.arch }}-gcc
-          mingw-w64-${{ inputs.arch }}-lzo2
-          mingw-w64-${{ inputs.arch }}-libpng
-          mingw-w64-${{ inputs.arch }}-lld
-          mingw-w64-${{ inputs.arch }}-ninja
-          mingw-w64-${{ inputs.arch }}-libogg
-          mingw-w64-${{ inputs.arch }}-opus
-          mingw-w64-${{ inputs.arch }}-opusfile
+        pacboy: >-
+          cmake:p
+          gcc:p
+          lzo2:p
+          libpng:p
+          lld:p
+          ninja:p
+          libogg:p
+          opus:p
+          opusfile:p
 
     - name: Install OpenGFX
       shell: bash
@@ -72,11 +80,12 @@ jobs:
         cmake .. \
           -GNinja \
           -DCMAKE_CXX_FLAGS="-fuse-ld=lld" \
+          -DOPTION_NO_WARN_UNINIT=1 \
           # EOF
         echo "::endgroup::"
 
         echo "::group::Build"
-        cmake --build .
+        cmake --build . --target all openttd_test
         echo "::endgroup::"
 
     - name: Test

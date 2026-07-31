@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _gameopt. */
 const SaveLoadCompat _gameopt_sl_compat[] = {
 	SLC_VAR("diff_custom"),
@@ -150,8 +152,8 @@ const SaveLoadCompat _settings_sl_compat[] = {
 	SLC_NULL(4, SL_MIN_VERSION, SLV_105),
 	SLC_VAR("game_creation.ending_year"),
 	SLC_VAR("economy.type"),
-	SLC_NULL(1, SL_MIN_VERSION, SLV_TABLE_CHUNKS),
-	SLC_NULL(1, SLV_TRADING_AGE, SLV_TABLE_CHUNKS),
+	SLC_VAR("economy.allow_shares"),
+	SLC_VAR("economy.min_years_for_shares"),
 	SLC_VAR("economy.feeder_payment_share"),
 	SLC_VAR("economy.town_growth_rate"),
 	SLC_VAR("economy.larger_towns"),
@@ -246,5 +248,7 @@ const SaveLoadCompat _settings_sl_compat[] = {
 	SLC_VAR("locale.digit_group_separator_currency"),
 	SLC_VAR("locale.digit_decimal_separator"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_SETTINGS_H */

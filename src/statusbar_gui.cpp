@@ -9,6 +9,7 @@
 
 #include "stdafx.h"
 #include "core/backup_type.hpp"
+#include "date_func.h"
 #include "gfx_func.h"
 #include "news_func.h"
 #include "company_func.h"
@@ -19,16 +20,13 @@
 #include "news_gui.h"
 #include "company_gui.h"
 #include "window_gui.h"
-#include "saveload/saveload.h"
+#include "sl/saveload.h"
 #include "window_func.h"
 #include "statusbar_gui.h"
 #include "toolbar_gui.h"
 #include "core/geometry_func.hpp"
-#include "settings_gui.h"
+#include "guitimer_func.h"
 #include "zoom_func.h"
-#include "timer/timer.h"
-#include "timer/timer_game_calendar.h"
-#include "timer/timer_window.h"
 
 #include "widgets/statusbar_widget.h"
 
@@ -49,7 +47,7 @@ static bool DrawScrollingStatusText(const NewsItem &ni, int scroll_pos, int left
 	int pos = (_current_text_dir == TD_RTL) ? (scroll_pos - width) : (right - scroll_pos - left);
 
 	AutoRestoreBackup dpi_backup(_cur_dpi, &tmp_dpi);
-	DrawString(pos, INT16_MAX, 0, message, TC_LIGHT_BLUE, SA_LEFT | SA_FORCE);
+	DrawString(pos, INT16_MAX, 0, message, TextColour::LightBlue, SA_LEFT | SA_FORCE);
 
 	return (_current_text_dir == TD_RTL) ? (pos < right - left) : (pos + width > 0);
 }
@@ -57,19 +55,26 @@ static bool DrawScrollingStatusText(const NewsItem &ni, int scroll_pos, int left
 struct StatusBarWindow : Window {
 	bool saving = false;
 	int ticker_scroll = TICKER_STOP;
+	GUITimer ticker_timer{};
+	GUITimer reminder_timeout{};
+	TickMinutes last_minute{0};
 
 	static const int TICKER_STOP    = 1640; ///< scrolling is finished when counter reaches this value
+	static const int REMINDER_START = 1350; ///< time in ms for reminder notification (red dot on the right) to stay
+	static const int REMINDER_STOP  =    0; ///< reminder disappears when counter reaches this value
 	static const int COUNTER_STEP   =    2; ///< this is subtracted from active counters every tick
-	static constexpr auto REMINDER_START = std::chrono::milliseconds(1350); ///< time in ms for reminder notification (red dot on the right) to stay
 
 	StatusBarWindow(WindowDesc &desc) : Window(desc)
 	{
+		this->ticker_timer.SetInterval(15);
+		this->reminder_timeout.SetInterval(REMINDER_STOP);
+
 		this->InitNested();
 		this->flags.Reset(WindowFlag::WhiteBorder);
 		PositionStatusbar(this);
 	}
 
-	Point OnInitialPosition([[maybe_unused]] int16_t sm_width, [[maybe_unused]] int16_t sm_height, [[maybe_unused]] int window_number) override
+	Point OnInitialPosition(int16_t sm_width, int16_t sm_height, int window_number) override
 	{
 		Point pt = { 0, _screen.height - sm_height };
 		return pt;
@@ -77,32 +82,47 @@ struct StatusBarWindow : Window {
 
 	void FindWindowPlacementAndResize(int, int def_height, bool allow_resize) override
 	{
-		Window::FindWindowPlacementAndResize(std::min(_toolbar_width, _screen.width * 2 / 3 - GetMinButtonSize() * 2), def_height, allow_resize);
+		Window::FindWindowPlacementAndResize(_toolbar_width, def_height, allow_resize);
+	}
+
+	std::string PrepareHHMMDateString(int hhmm, CalTime::Date date, CalTime::Year year) const
+	{
+		switch (_settings_client.gui.date_with_time) {
+			case 0:
+				return GetString(STR_JUST_TIME_HHMM, hhmm);
+
+			case 1:
+				return GetString(STR_HHMM_WITH_DATE_Y, hhmm, year);
+
+			case 2:
+				return GetString(STR_HHMM_WITH_DATE_YM, hhmm, date);
+
+			case 3:
+				return GetString(STR_HHMM_WITH_DATE_YMD, hhmm, date);
+
+			default:
+				NOT_REACHED();
+		}
 	}
 
 	void UpdateWidgetSize(WidgetID widget, Dimension &size, [[maybe_unused]] const Dimension &padding, [[maybe_unused]] Dimension &fill, [[maybe_unused]] Dimension &resize) override
 	{
 		Dimension d;
 		switch (widget) {
-			/* Left and right should have same sizing. */
 			case WID_S_LEFT:
-			case WID_S_RIGHT: {
-				d = GetStringBoundingBox(GetString(STR_JUST_DATE_LONG, GetParamMaxValue(TimerGameCalendar::DateAtStartOfYear(CalendarTime::MAX_YEAR).base())));
+				if (_settings_time.time_in_minutes) {
+					d = GetStringBoundingBox(PrepareHHMMDateString(GetParamMaxDigits(4), CalTime::MAX_DATE, CalTime::MAX_YEAR));
+				} else {
+					d = GetStringBoundingBox(GetString(STR_JUST_DATE_LONG, CalTime::MAX_DATE));
+				}
+				break;
 
+			case WID_S_RIGHT: {
 				int64_t max_money = UINT32_MAX;
 				for (const Company *c : Company::Iterate()) max_money = std::max<int64_t>(c->money, max_money);
 				d = GetStringBoundingBox(GetString(STR_JUST_CURRENCY_LONG, 100LL * max_money));
 				break;
 			}
-
-			case WID_S_MIDDLE:
-				d = GetStringBoundingBox(STR_STATUSBAR_AUTOSAVE);
-				d = maxdim(d, GetStringBoundingBox(STR_STATUSBAR_PAUSED));
-
-				if (Company::IsValidID(_local_company)) {
-					d = maxdim(d, GetStringBoundingBox(GetString(STR_STATUSBAR_COMPANY_NAME, _local_company)));
-				}
-				break;
 
 			default:
 				return;
@@ -116,23 +136,28 @@ struct StatusBarWindow : Window {
 	void DrawWidget(const Rect &r, WidgetID widget) const override
 	{
 		Rect tr = r.Shrink(WidgetDimensions::scaled.framerect, RectPadding::zero);
-		tr.top = CentreBounds(r.top, r.bottom, GetCharacterHeight(FS_NORMAL));
+		tr.top = CentreBounds(r.top, r.bottom, GetCharacterHeight(FontSize::Normal));
 		switch (widget) {
 			case WID_S_LEFT:
 				/* Draw the date */
-				DrawString(tr, GetString(STR_JUST_DATE_LONG, TimerGameCalendar::date), TC_WHITE, SA_HOR_CENTER);
+				if (_settings_time.time_in_minutes) {
+					std::string str = PrepareHHMMDateString(_settings_time.ToTickMinutes(_state_ticks).ClockHHMM(), CalTime::CurDate(), CalTime::CurYear());
+					DrawString(tr, str, TextColour::White, SA_HOR_CENTER);
+				} else {
+					DrawString(tr, GetString(STR_JUST_DATE_LONG, CalTime::CurDate()), TextColour::White, SA_HOR_CENTER);
+				}
 				break;
 
 			case WID_S_RIGHT: {
 				if (_local_company == COMPANY_SPECTATOR) {
-					DrawString(tr, STR_STATUSBAR_SPECTATOR, TC_FROMSTRING, SA_HOR_CENTER);
+					DrawString(tr, STR_STATUSBAR_SPECTATOR, TextColour::FromString, SA_HOR_CENTER);
 				} else if (_settings_game.difficulty.infinite_money) {
-					DrawString(tr, STR_STATUSBAR_INFINITE_MONEY, TC_FROMSTRING, SA_HOR_CENTER);
+					DrawString(tr, STR_STATUSBAR_INFINITE_MONEY, TextColour::FromString, SA_HOR_CENTER);
 				} else {
 					/* Draw company money, if any */
 					const Company *c = Company::GetIfValid(_local_company);
 					if (c != nullptr) {
-						DrawString(tr, GetString(STR_JUST_CURRENCY_LONG, c->money), TC_WHITE, SA_HOR_CENTER);
+						DrawString(tr, GetString(STR_JUST_CURRENCY_LONG, c->money), TextColour::White, SA_HOR_CENTER);
 					}
 				}
 				break;
@@ -141,29 +166,29 @@ struct StatusBarWindow : Window {
 			case WID_S_MIDDLE:
 				/* Draw status bar */
 				if (this->saving) { // true when saving is active
-					DrawString(tr, STR_STATUSBAR_SAVING_GAME, TC_FROMSTRING, SA_HOR_CENTER | SA_VERT_CENTER);
+					DrawString(tr, STR_STATUSBAR_SAVING_GAME, TextColour::FromString, SA_HOR_CENTER | SA_VERT_CENTER);
 				} else if (_do_autosave) {
-					DrawString(tr, STR_STATUSBAR_AUTOSAVE, TC_FROMSTRING, SA_HOR_CENTER);
+					DrawString(tr, STR_STATUSBAR_AUTOSAVE, TextColour::FromString, SA_HOR_CENTER);
 				} else if (_pause_mode.Any()) {
 					StringID msg = _pause_mode.Test(PauseMode::LinkGraph) ? STR_STATUSBAR_PAUSED_LINK_GRAPH : STR_STATUSBAR_PAUSED;
-					DrawString(tr, msg, TC_FROMSTRING, SA_HOR_CENTER);
+					DrawString(tr, msg, TextColour::FromString, SA_HOR_CENTER);
 				} else if (this->ticker_scroll < TICKER_STOP && GetStatusbarNews() != nullptr && !GetStatusbarNews()->headline.empty()) {
 					/* Draw the scrolling news text */
 					if (!DrawScrollingStatusText(*GetStatusbarNews(), ScaleGUITrad(this->ticker_scroll), tr.left, tr.right, tr.top, tr.bottom)) {
-						InvalidateWindowData(WC_STATUS_BAR, 0, SBI_NEWS_DELETED);
+						InvalidateWindowData(WindowClass::Statusbar, 0, SBI_NEWS_DELETED);
 						if (Company::IsValidID(_local_company)) {
 							/* This is the default text */
-							DrawString(tr, GetString(STR_STATUSBAR_COMPANY_NAME, _local_company), TC_FROMSTRING, SA_HOR_CENTER);
+							DrawString(tr, GetString(STR_STATUSBAR_COMPANY_NAME, _local_company), TextColour::FromString, SA_HOR_CENTER);
 						}
 					}
 				} else {
 					if (Company::IsValidID(_local_company)) {
 						/* This is the default text */
-						DrawString(tr, GetString(STR_STATUSBAR_COMPANY_NAME, _local_company), TC_FROMSTRING, SA_HOR_CENTER);
+						DrawString(tr, GetString(STR_STATUSBAR_COMPANY_NAME, _local_company), TextColour::FromString, SA_HOR_CENTER);
 					}
 				}
 
-				if (!this->reminder_timeout.HasFired()) {
+				if (!this->reminder_timeout.HasElapsed()) {
 					Dimension icon_size = GetSpriteSize(SPR_UNREAD_NEWS);
 					DrawSprite(SPR_UNREAD_NEWS, PAL_NONE, tr.right - icon_size.width, CentreBounds(r.top, r.bottom, icon_size.height));
 				}
@@ -184,10 +209,13 @@ struct StatusBarWindow : Window {
 			case SBI_SAVELOAD_START:  this->saving = true;  break;
 			case SBI_SAVELOAD_FINISH: this->saving = false; break;
 			case SBI_SHOW_TICKER:     this->ticker_scroll = 0; break;
-			case SBI_SHOW_REMINDER:   this->reminder_timeout.Reset(); break;
+			case SBI_SHOW_REMINDER:   this->reminder_timeout.SetInterval(REMINDER_START); break;
 			case SBI_NEWS_DELETED:
 				this->ticker_scroll    =   TICKER_STOP; // reset ticker ...
-				this->reminder_timeout.Abort(); // ... and reminder
+				this->reminder_timeout.SetInterval(REMINDER_STOP); // ... and reminder
+				break;
+			case SBI_REINIT:
+				this->ReInit();
 				break;
 		}
 	}
@@ -201,46 +229,56 @@ struct StatusBarWindow : Window {
 		}
 	}
 
-	/** Move information on the ticker slowly from one side to the other. */
-	const IntervalTimer<TimerWindow> ticker_scroll_interval = {std::chrono::milliseconds(15), [this](uint count) {
+	void OnRealtimeTick(uint delta_ms) override
+	{
 		if (_pause_mode.Any()) return;
 
-		if (this->ticker_scroll < TICKER_STOP) {
-			this->ticker_scroll += count;
+		if (_settings_time.time_in_minutes) {
+			const TickMinutes now = _settings_time.NowInTickMinutes();
+			if (this->last_minute != now) {
+				this->last_minute = now;
+				this->SetWidgetDirty(WID_S_LEFT);
+			}
+		}
+
+		if (this->ticker_scroll < TICKER_STOP) { // Scrolling text
+			uint count = this->ticker_timer.CountElapsed(delta_ms);
+			if (count > 0) {
+				this->ticker_scroll += count;
+				this->SetWidgetDirty(WID_S_MIDDLE);
+			}
+		}
+
+		// Red blot to show there are new unread newsmessages
+		if (this->reminder_timeout.Elapsed(delta_ms)) {
 			this->SetWidgetDirty(WID_S_MIDDLE);
 		}
-	}};
-
-	TimeoutTimer<TimerWindow> reminder_timeout = {REMINDER_START, [this]() {
-		this->SetWidgetDirty(WID_S_MIDDLE);
-	}};
-
-	const IntervalTimer<TimerGameCalendar> daily_interval = {{TimerGameCalendar::DAY, TimerGameCalendar::Priority::NONE}, [this](auto) {
-		this->SetWidgetDirty(WID_S_LEFT);
-	}};
+	}
 };
 
 static constexpr std::initializer_list<NWidgetPart> _nested_main_status_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_S_LEFT), SetMinimalSize(140, 12), EndContainer(),
-		NWidget(WWT_PUSHBTN, COLOUR_GREY, WID_S_MIDDLE), SetMinimalSize(40, 12), SetToolTip(STR_STATUSBAR_TOOLTIP_SHOW_LAST_NEWS), SetResize(1, 0),
-		NWidget(WWT_PUSHBTN, COLOUR_GREY, WID_S_RIGHT), SetMinimalSize(140, 12),
+		NWidget(WWT_PANEL, Colours::Grey, WID_S_LEFT), SetMinimalSize(160, 12), EndContainer(),
+		NWidget(WWT_PUSHBTN, Colours::Grey, WID_S_MIDDLE), SetMinimalSize(40, 12), SetToolTip(STR_STATUSBAR_TOOLTIP_SHOW_LAST_NEWS), SetResize(1, 0),
+		NWidget(WWT_PUSHBTN, Colours::Grey, WID_S_RIGHT), SetMinimalSize(140, 12),
 	EndContainer(),
 };
 
-static WindowDesc _main_status_desc(
-	WDP_MANUAL, {}, 0, 0,
-	WC_STATUS_BAR, WC_NONE,
+/** Window definition for the main status bar. */
+static WindowDesc _main_status_desc(__FILE__, __LINE__,
+	WindowPosition::Manual, nullptr, 0, 0,
+	WindowClass::Statusbar, WindowClass::None,
 	{WindowDefaultFlag::NoFocus, WindowDefaultFlag::NoClose},
 	_nested_main_status_widgets
 );
 
 /**
  * Checks whether the news ticker is currently being used.
+ * @return \c true iff the status bar exists and the ticker is in use.
  */
 bool IsNewsTickerShown()
 {
-	const StatusBarWindow *w = dynamic_cast<StatusBarWindow*>(FindWindowById(WC_STATUS_BAR, 0));
+	const StatusBarWindow *w = dynamic_cast<StatusBarWindow*>(FindWindowById(WindowClass::Statusbar, 0));
 	return w != nullptr && w->ticker_scroll < StatusBarWindow::TICKER_STOP;
 }
 

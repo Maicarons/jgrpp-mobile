@@ -16,18 +16,18 @@
  * Make a nice void tile ;)
  * @param t the tile to make void
  */
-inline void MakeVoid(Tile t)
+inline void MakeVoid(TileIndex t)
 {
-	SetTileType(t, MP_VOID);
+	SetTileType(t, TileType::Void);
 	SetTileHeight(t, 0);
-	t.m1() = 0;
-	t.m2() = 0;
-	t.m3() = 0;
-	t.m4() = 0;
-	t.m5() = 0;
-	t.m6() = 0;
-	t.m7() = 0;
-	t.m8() = 0;
+	_m[t].m1 = 0;
+	_m[t].m2 = 0;
+	_m[t].m3 = 0;
+	_m[t].m4 = 0;
+	_m[t].m5 = 0;
+	_me[t].m6 = 0;
+	_me[t].m7 = 0;
+	_me[t].m8 = 0;
 }
 
 #endif /* VOID_MAP_H */

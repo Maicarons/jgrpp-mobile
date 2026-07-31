@@ -10,6 +10,7 @@
 #include "../stdafx.h"
 #include "../debug.h"
 #include "../newgrf_engine.h"
+#include "../newgrf_extension.h"
 #include "../newgrf_roadstop.h"
 #include "newgrf_bytereader.h"
 #include "newgrf_internal.h"
@@ -25,7 +26,7 @@
  */
 static ChangeInfoResult IgnoreRoadStopProperty(uint prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	switch (prop) {
 		case 0x09:
@@ -59,28 +60,37 @@ static ChangeInfoResult IgnoreRoadStopProperty(uint prop, ByteReader &buf)
 			break;
 
 		default:
-			ret = CIR_UNKNOWN;
+			ret = HandleAction0PropertyDefault(buf, prop);
 			break;
 	}
 
 	return ret;
 }
 
-static ChangeInfoResult RoadStopChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static uint ReadPropertyLengthWithLegacyFallback(int prop, ByteReader &buf, uint legacy_length)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	if (prop < A0RPI_UNKNOWN_IGNORE && HasBit(_cur_gps.grffile->ctrl_flags, GFCF_ROADSTOPS_FEATURE_MAP_NON_DEFAULT_ID)) {
+		/* Treat as legacy behaviour */
+		return legacy_length;
+	}
+	return buf.ReadExtendedByte();
+}
+
+static ChangeInfoResult RoadStopChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
+{
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_ROADSTOPS_PER_GRF) {
 		GrfMsg(1, "RoadStopChangeInfo: RoadStop {} is invalid, max {}, ignoring", last, NUM_ROADSTOPS_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	if (_cur_gps.grffile->roadstops.size() < last) _cur_gps.grffile->roadstops.resize(last);
 
 	for (uint id = first; id < last; ++id) {
-		auto &rs = _cur_gps.grffile->roadstops[id];
+		RoadStopSpec *rs = _cur_gps.grffile->roadstops[id].get();
 
-		if (rs == nullptr && prop != 0x08) {
+		if (rs == nullptr && prop != 0x08 && prop != A0RPI_ROADSTOP_CLASS_ID) {
 			GrfMsg(1, "RoadStopChangeInfo: Attempt to modify undefined road stop {}, ignoring", id);
 			ChangeInfoResult cir = IgnoreRoadStopProperty(prop, buf);
 			if (cir > ret) ret = cir;
@@ -88,9 +98,13 @@ static ChangeInfoResult RoadStopChangeInfo(uint first, uint last, int prop, Byte
 		}
 
 		switch (prop) {
+			case A0RPI_ROADSTOP_CLASS_ID:
+				if (MappedPropertyLengthMismatch(buf, 4, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x08: { // Road Stop Class ID
 				if (rs == nullptr) {
-					rs = std::make_unique<RoadStopSpec>();
+					_cur_gps.grffile->roadstops[id] = std::make_unique<RoadStopSpec>();
+					rs = _cur_gps.grffile->roadstops[id].get();
 				}
 
 				uint32_t classid = buf.ReadDWord();
@@ -98,82 +112,120 @@ static ChangeInfoResult RoadStopChangeInfo(uint first, uint last, int prop, Byte
 				break;
 			}
 
+			case A0RPI_ROADSTOP_STOP_TYPE:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x09: // Road stop type
 				rs->stop_type = (RoadStopAvailabilityType)buf.ReadByte();
 				break;
 
+			case A0RPI_ROADSTOP_STOP_NAME:
+				if (MappedPropertyLengthMismatch(buf, 2, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x0A: // Road Stop Name
 				AddStringForMapping(GRFStringID{buf.ReadWord()}, &rs->name);
 				break;
 
+			case A0RPI_ROADSTOP_CLASS_NAME:
+				if (MappedPropertyLengthMismatch(buf, 2, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x0B: // Road Stop Class name
-				AddStringForMapping(GRFStringID{buf.ReadWord()}, [rs = rs.get()](StringID str) { RoadStopClass::Get(rs->class_index)->name = str; });
+				AddStringForMapping(GRFStringID{buf.ReadWord()}, rs, [](StringID str, RoadStopSpec *rs) { RoadStopClass::Get(rs->class_index)->name = str; });
 				break;
 
-			case 0x0C: // The draw modes
-				rs->draw_mode = static_cast<RoadStopDrawModes>(buf.ReadByte());
+			case A0RPI_ROADSTOP_DRAW_MODE:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				[[fallthrough]];
+			case 0x0C: // The draw mode
+				rs->draw_mode = RoadStopDrawModes{buf.ReadByte()};
 				break;
 
+			case A0RPI_ROADSTOP_TRIGGER_CARGOES:
+				if (MappedPropertyLengthMismatch(buf, 4, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x0D: // Cargo types for random triggers
 				rs->cargo_triggers = TranslateRefitMask(buf.ReadDWord());
 				break;
 
+			case A0RPI_ROADSTOP_ANIMATION_INFO:
+				if (MappedPropertyLengthMismatch(buf, 2, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x0E: // Animation info
 				rs->animation.frames = buf.ReadByte();
 				rs->animation.status = static_cast<AnimationStatus>(buf.ReadByte());
 				break;
 
+			case A0RPI_ROADSTOP_ANIMATION_SPEED:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x0F: // Animation speed
 				rs->animation.speed = buf.ReadByte();
 				break;
 
+			case A0RPI_ROADSTOP_ANIMATION_TRIGGERS:
+				if (MappedPropertyLengthMismatch(buf, 2, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x10: // Animation triggers
 				rs->animation.triggers = static_cast<StationAnimationTriggers>(buf.ReadWord());
 				break;
 
+			case A0RPI_ROADSTOP_CALLBACK_MASK:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x11: // Callback mask
 				rs->callback_mask = static_cast<RoadStopCallbackMasks>(buf.ReadByte());
 				break;
 
+			case A0RPI_ROADSTOP_GENERAL_FLAGS:
+				if (MappedPropertyLengthMismatch(buf, 4, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x12: // General flags
 				rs->flags = static_cast<RoadStopSpecFlags>(buf.ReadDWord()); // Future-proofing, size this as 4 bytes, but we only need two byte's worth of flags at present
 				break;
 
-			case 0x13: { // Minimum bridge height for each of the roadstop's tile layouts.
-				uint16_t tiles = buf.ReadExtendedByte();
-				for (uint j = 0; j != tiles; ++j) {
-					if (j < std::size(rs->bridgeable_info)) {
-						rs->bridgeable_info[j].height = buf.ReadByte();
-					} else {
-						buf.ReadByte();
-					}
+			case A0RPI_ROADSTOP_MIN_BRIDGE_HEIGHT:
+			case 0x13: { // Minimum height for a bridge above
+				rs->internal_flags.Set(RoadStopSpecIntlFlag::BridgeHeightsSet);
+				uint tiles = ReadPropertyLengthWithLegacyFallback(prop, buf, 6);
+				for (uint i = 0; i < tiles; i++) {
+					uint8_t height = buf.ReadByte();
+					if (i < lengthof(rs->bridge_height)) rs->bridge_height[i] = height;
 				}
 				break;
 			}
 
-			case 0x14: { // Disallowed pillars for each of the roadstop's tile layouts.
-				uint16_t tiles = buf.ReadExtendedByte();
-				for (uint j = 0; j != tiles; ++j) {
-					if (j < std::size(rs->bridgeable_info)) {
-						rs->bridgeable_info[j].disallowed_pillars = BridgePillarFlags{buf.ReadByte()};
-					} else {
-						buf.ReadByte();
-					}
+			case A0RPI_ROADSTOP_DISALLOWED_BRIDGE_PILLARS:
+			case 0x14: { // Disallowed bridge pillars
+				rs->internal_flags.Set(RoadStopSpecIntlFlag::BridgeDisallowedPillarsSet);
+				uint tiles = ReadPropertyLengthWithLegacyFallback(prop, buf, 6);
+				for (uint i = 0; i < tiles; i++) {
+					uint8_t pillars = buf.ReadByte();
+					if (i < lengthof(rs->bridge_disallowed_pillars)) rs->bridge_disallowed_pillars[i] = pillars;
 				}
 				break;
 			}
 
+			case A0RPI_ROADSTOP_COST_MULTIPLIERS:
+				if (MappedPropertyLengthMismatch(buf, 2, mapping_entry)) break;
+				[[fallthrough]];
 			case 0x15: // Cost multipliers
 				rs->build_cost_multiplier = buf.ReadByte();
 				rs->clear_cost_multiplier = buf.ReadByte();
 				break;
 
 			case 0x16: // Badge list
-				rs->badges = ReadBadgeList(buf, GSF_ROADSTOPS);
+				rs->badges = ReadBadgeList(buf, GrfSpecFeature::RoadStops);
+				break;
+
+			case A0RPI_ROADSTOP_HEIGHT:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+//				[[fallthrough]];
+//			case 0x16: // Height
+				rs->height = buf.ReadByte();
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -181,5 +233,5 @@ static ChangeInfoResult RoadStopChangeInfo(uint first, uint last, int prop, Byte
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_ROADSTOPS>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_ROADSTOPS>::Activation(uint first, uint last, int prop, ByteReader &buf) { return RoadStopChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::RoadStops>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::RoadStops>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return RoadStopChangeInfo(first, last, prop, mapping_entry, buf); }

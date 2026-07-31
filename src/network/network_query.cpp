@@ -12,6 +12,10 @@
 #include "core/network_game_info.h"
 #include "network_query.h"
 #include "network_gamelist.h"
+#include "../error.h"
+#include "../debug.h"
+
+#include "table/strings.h"
 
 #include "../safeguards.h"
 
@@ -36,6 +40,7 @@ NetworkRecvStatus QueryNetworkGameSocketHandler::CloseConnection(NetworkRecvStat
 
 /**
  * Check the connection's state, i.e. is the connection still up?
+ * @return \c true if the connection remains valid, otherwise it will be closed.
  */
 bool QueryNetworkGameSocketHandler::CheckConnection()
 {
@@ -76,19 +81,23 @@ void QueryNetworkGameSocketHandler::Send()
 
 /**
  * Query the server for server information.
+ * @return The status the network should have.
  */
 NetworkRecvStatus QueryNetworkGameSocketHandler::SendGameInfo()
 {
-	Debug(net, 9, "Query::SendGameInfo()");
+	auto p = std::make_unique<Packet>(this, PacketGameType::ClientGameInfo);
+	p->Send_uint32(FIND_SERVER_EXTENDED_TOKEN);
+	p->Send_uint8(to_underlying(PacketGameType::ServerGameInfoExtended)); // reply type
+	p->Send_uint16(1);                                                    // flags
+	p->Send_uint16(1);                                                    // version (original field, bug workaround)
+	p->Send_uint16(SERVER_GAME_INFO_EXTENDED_MAX_VERSION);                // version (enabled by flag bit 0)
+	this->SendPacket(std::move(p));
 
-	this->SendPacket(std::make_unique<Packet>(this, PACKET_CLIENT_GAME_INFO));
 	return NETWORK_RECV_STATUS_OKAY;
 }
 
-NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_FULL(Packet &)
+NetworkRecvStatus QueryNetworkGameSocketHandler::ReceiveServerFull(Packet &)
 {
-	Debug(net, 9, "Query::Receive_SERVER_FULL()");
-
 	NetworkGame *item = NetworkGameListAddItem(this->connection_string);
 	item->status = NGLS_FULL;
 	item->refreshing = false;
@@ -98,10 +107,8 @@ NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_FULL(Packet &)
 	return NETWORK_RECV_STATUS_CLOSE_QUERY;
 }
 
-NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_BANNED(Packet &)
+NetworkRecvStatus QueryNetworkGameSocketHandler::ReceiveServerBanned(Packet &)
 {
-	Debug(net, 9, "Query::Receive_SERVER_BANNED()");
-
 	NetworkGame *item = NetworkGameListAddItem(this->connection_string);
 	item->status = NGLS_BANNED;
 	item->refreshing = false;
@@ -111,10 +118,8 @@ NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_BANNED(Packet &)
 	return NETWORK_RECV_STATUS_CLOSE_QUERY;
 }
 
-NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_GAME_INFO(Packet &p)
+NetworkRecvStatus QueryNetworkGameSocketHandler::ReceiveServerGameInfo(Packet &p)
 {
-	Debug(net, 9, "Query::Receive_SERVER_GAME_INFO()");
-
 	NetworkGame *item = NetworkGameListAddItem(this->connection_string);
 
 	/* Clear any existing GRFConfig chain. */
@@ -132,17 +137,34 @@ NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_GAME_INFO(Packet
 	return NETWORK_RECV_STATUS_CLOSE_QUERY;
 }
 
-NetworkRecvStatus QueryNetworkGameSocketHandler::Receive_SERVER_ERROR(Packet &p)
+NetworkRecvStatus QueryNetworkGameSocketHandler::ReceiveServerGameInfoExtended(Packet &p)
 {
-	NetworkErrorCode error = (NetworkErrorCode)p.Recv_uint8();
+	NetworkGame *item = NetworkGameListAddItem(this->connection_string);
 
-	Debug(net, 9, "Query::Receive_SERVER_ERROR(): error={}", error);
+	/* Clear any existing GRFConfig chain. */
+	ClearGRFConfigList(item->info.grfconfig);
+	/* Retrieve the NetworkGameInfo from the packet. */
+	DeserializeNetworkGameInfoExtended(p, item->info);
+	/* Check for compatibility with the client. */
+	CheckGameCompatibility(item->info, true);
+	/* Ensure we consider the server online. */
+	item->status = NGLS_ONLINE;
+	item->refreshing = false;
+
+	UpdateNetworkGameWindow();
+
+	return NETWORK_RECV_STATUS_CLOSE_QUERY;
+}
+
+NetworkRecvStatus QueryNetworkGameSocketHandler::ReceiveServerError(Packet &p)
+{
+	NetworkErrorCode error = static_cast<NetworkErrorCode>(p.Recv_uint8());
 
 	NetworkGame *item = NetworkGameListAddItem(this->connection_string);
 
-	if (error == NETWORK_ERROR_NOT_EXPECTED) {
+	if (error == NetworkErrorCode::NotExpected) {
 		/* If we query a server that is 1.11.1 or older, we get an
-		 * NETWORK_ERROR_NOT_EXPECTED on requesting the game info. Show to the
+		 * NetworkErrorCode::NotExpected on requesting the game info. Show to the
 		 * user this server is too old to query.
 		 */
 		item->status = NGLS_TOO_OLD;

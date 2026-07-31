@@ -11,10 +11,12 @@
 #define OBJECT_BASE_H
 
 #include "core/pool_type.hpp"
+#include "gfx_type.h"
 #include "object_type.h"
 #include "tilearea_type.h"
 #include "town_type.h"
-#include "timer/timer_game_calendar.h"
+#include "date_type.h"
+#include <vector>
 
 using ObjectPool = Pool<Object, ObjectID, 64>;
 extern ObjectPool _object_pool;
@@ -22,16 +24,16 @@ extern ObjectPool _object_pool;
 /** An object, such as transmitter, on the map. */
 struct Object : ObjectPool::PoolItem<&_object_pool> {
 	ObjectType type = INVALID_OBJECT_TYPE; ///< Type of the object
-	Town *town = nullptr; ///< Town the object is built in
+	Town *town = nullptr;                  ///< Town the object is built in
 	TileArea location{INVALID_TILE, 0, 0}; ///< Location of the object
-	TimerGameCalendar::Date build_date{}; ///< Date of construction
-	uint8_t colour = 0; ///< Colour of the object, for display purpose
-	uint8_t view = 0; ///< The view setting for this object
+	CalTime::Date build_date{};            ///< Date of construction
+	uint8_t recolour_offset = 0;           ///< Recolour offset of the object (basically the 2CC colour offset), for display purpose.
+	uint8_t view = 0;                      ///< The view setting for this object
 
 	/** Make sure the object isn't zeroed. */
-	Object() {}
-	Object(ObjectType type, Town *town, TileArea location, TimerGameCalendar::Date build_date, uint8_t view) :
-		type(type), town(town), location(location), build_date(build_date), view(view) {}
+	Object(ObjectID index) : PoolItemBase(index) {}
+	Object(ObjectID index, ObjectType type, Town *town, TileArea location, CalTime::Date build_date, uint8_t view) :
+		PoolItemBase(index), type(type), town(town), location(location), build_date(build_date), view(view) {}
 	/** Make sure the right destructor is called as well! */
 	~Object() {}
 
@@ -44,7 +46,8 @@ struct Object : ObjectPool::PoolItem<&_object_pool> {
 	 */
 	static inline void IncTypeCount(ObjectType type)
 	{
-		assert(type < NUM_OBJECTS);
+		dbg_assert(type < NUM_OBJECTS);
+		if (type >= counts.size()) Object::counts.resize(type + 1);
 		Object::counts[type]++;
 	}
 
@@ -55,7 +58,8 @@ struct Object : ObjectPool::PoolItem<&_object_pool> {
 	 */
 	static inline void DecTypeCount(ObjectType type)
 	{
-		assert(type < NUM_OBJECTS);
+		dbg_assert(type < NUM_OBJECTS);
+		dbg_assert(type < Object::counts.size());
 		Object::counts[type]--;
 	}
 
@@ -63,21 +67,23 @@ struct Object : ObjectPool::PoolItem<&_object_pool> {
 	 * Get the count of objects for this type.
 	 * @param type ObjectType to query
 	 * @pre type < NUM_OBJECTS
+	 * @return The number of objects of the given type.
 	 */
 	static inline uint16_t GetTypeCount(ObjectType type)
 	{
-		assert(type < NUM_OBJECTS);
+		dbg_assert(type < NUM_OBJECTS);
+		if (type >= Object::counts.size()) return 0;
 		return Object::counts[type];
 	}
 
 	/** Resets object counts. */
 	static inline void ResetTypeCounts()
 	{
-		Object::counts.fill(0);
+		counts.clear();
 	}
 
 protected:
-	static std::array<uint16_t, NUM_OBJECTS> counts; ///< Number of objects per type ingame
+	static std::vector<uint16_t> counts; ///< Number of objects per type ingame
 };
 
 /**
@@ -90,5 +96,7 @@ struct ClearedObjectArea {
 
 ClearedObjectArea *FindClearedObject(TileIndex tile);
 extern std::vector<ClearedObjectArea> _cleared_object_areas;
+
+bool WouldObjectLeaveWaterBehind(TileIndex tile);
 
 #endif /* OBJECT_BASE_H */

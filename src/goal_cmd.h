@@ -11,24 +11,16 @@
 #define GOAL_CMD_H
 
 #include "command_type.h"
+#include "company_type.h"
 #include "goal_type.h"
 
-std::tuple<CommandCost, GoalID> CmdCreateGoal(DoCommandFlags flags, CompanyID company, GoalType type, GoalTypeID dest, const EncodedString &text);
-CommandCost CmdRemoveGoal(DoCommandFlags flags, GoalID goal);
-CommandCost CmdSetGoalDestination(DoCommandFlags flags, GoalID goal, GoalType type, GoalTypeID dest);
-CommandCost CmdSetGoalText(DoCommandFlags flags, GoalID goal, const EncodedString &text);
-CommandCost CmdSetGoalProgress(DoCommandFlags flags, GoalID goal, const EncodedString &text);
-CommandCost CmdSetGoalCompleted(DoCommandFlags flags, GoalID goal, bool completed);
-CommandCost CmdGoalQuestion(DoCommandFlags flags, uint16_t uniqueid, uint32_t target, bool is_client, uint32_t button_mask, GoalQuestionType type, const EncodedString &text);
-CommandCost CmdGoalQuestionAnswer(DoCommandFlags flags, uint16_t uniqueid, uint8_t button);
-
-DEF_CMD_TRAIT(CMD_CREATE_GOAL,          CmdCreateGoal,         CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_REMOVE_GOAL,          CmdRemoveGoal,         CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_GOAL_DESTINATION, CmdSetGoalDestination, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_GOAL_TEXT,        CmdSetGoalText,        CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_GOAL_PROGRESS,    CmdSetGoalProgress,    CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_GOAL_COMPLETED,   CmdSetGoalCompleted,   CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_GOAL_QUESTION,        CmdGoalQuestion,       CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_GOAL_QUESTION_ANSWER, CmdGoalQuestionAnswer, CommandFlag::Deity, CommandType::OtherManagement)
+DEF_CMD_TUPLE_NT(Commands::CreateGoal,          CmdCreateGoal,              CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<CompanyID, GoalType, GoalTypeID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::RemoveGoal,          CmdRemoveGoal,                             CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<GoalID>)
+DEF_CMD_TUPLE_NT(Commands::SetGoalDestination,  CmdSetGoalDestination,                     CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<GoalID, GoalType, GoalTypeID>)
+DEF_CMD_TUPLE_NT(Commands::SetGoalText,         CmdSetGoalText,             CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<GoalID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::SetGoalProgress,     CmdSetGoalProgress,         CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<GoalID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::SetGoalCompleted,    CmdSetGoalCompleted,        CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<GoalID, bool>)
+DEF_CMD_TUPLE_NT(Commands::GoalQuestion,        CmdGoalQuestion,            CMD_STR_CTRL | CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<uint16_t, uint32_t, bool, uint32_t, GoalQuestionType, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::GoalQuestionAnswer,  CmdGoalQuestionAnswer,                     CMD_DEITY | CMD_LOG_AUX, CommandType::OtherManagement, CmdDataT<uint16_t, uint8_t>)
 
 #endif /* GOAL_CMD_H */

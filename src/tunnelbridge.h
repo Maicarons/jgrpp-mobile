@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file tunnelbridge.h Header file for things common for tunnels and bridges */
+/** @file tunnelbridge.h Header file for things common for tunnels and bridges. */
 
 #ifndef TUNNELBRIDGE_H
 #define TUNNELBRIDGE_H
@@ -13,8 +13,11 @@
 #include "map_func.h"
 #include "tile_map.h"
 
-void MarkBridgeDirty(TileIndex begin, TileIndex end, DiagDirection direction, uint bridge_height);
-void MarkBridgeDirty(TileIndex tile);
+uint GetBestTunnelBridgeSignalSimulationSpacing(TileIndex begin, TileIndex end, int target);
+uint GetTunnelBridgeSignalSimulationSignalCount(TileIndex begin, TileIndex end);
+
+void MarkTunnelBridgeSignalDirty(TileIndex tile, bool exit);
+int GetTunnelBridgeSignalZ(TileIndex tile, bool exit);
 
 /**
  * Calculates the length of a tunnel or a bridge (without end tiles)

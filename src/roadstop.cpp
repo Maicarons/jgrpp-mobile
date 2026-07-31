@@ -8,6 +8,7 @@
 /** @file roadstop.cpp Implementation of the roadstop base class. */
 
 #include "stdafx.h"
+#include "debug.h"
 #include "roadveh.h"
 #include "core/pool_func.hpp"
 #include "core/container_func.hpp"
@@ -197,6 +198,98 @@ void RoadStop::ClearDriveThrough()
 }
 
 /**
+ * Change disallowed road directions of this stop; update other neighbouring stops
+ * if needed. Also update the length etc.
+ */
+void RoadStop::ChangeDriveThroughDisallowedRoadDirections(DisallowedRoadDirections drd)
+{
+	assert(this->entries != nullptr);
+
+	RoadStopType rst = GetRoadStopType(this->xy);
+	/* Offset points towards the south of the map */
+	TileIndexDiff offset = TileOffsByAxis(GetDriveThroughStopAxis(this->xy));
+
+	/* Information about the tile north of us */
+	TileIndex north_tile = this->xy - offset;
+	bool north = IsDriveThroughRoadStopContinuation(this->xy, north_tile);
+	RoadStop *rs_north = north ? RoadStop::GetByTile(north_tile, rst) : nullptr;
+
+	/* Information about the tile south of us */
+	TileIndex south_tile = this->xy + offset;
+	bool south = IsDriveThroughRoadStopContinuation(this->xy, south_tile);
+	RoadStop *rs_south = south ? RoadStop::GetByTile(south_tile, rst) : nullptr;
+
+	/* Must only be changed after we determined which neighbours are
+	 * part of our little entry 'queue' */
+	SetDriveThroughStopDisallowedRoadDirections(this->xy, drd);
+
+	if (north) {
+		/* There is a tile to the north, so we can't clear ourselves. */
+		if (south) {
+			/* There are more southern tiles too, they must be split;
+			 * first make the new southern 'base' */
+			rs_south->status.Set(RoadStopStatusFlag::BaseEntry);
+			rs_south->entries = new Entries();
+
+			/* Keep track of the base because we need it later on */
+			RoadStop *rs_south_base = rs_south;
+			TileIndex base_tile = south_tile;
+
+			/* Make all (even more) southern stops part of the new entry queue */
+			for (south_tile += offset; IsDriveThroughRoadStopContinuation(base_tile, south_tile); south_tile += offset) {
+				rs_south = RoadStop::GetByTile(south_tile, rst);
+				rs_south->entries = rs_south_base->entries;
+			}
+
+			/* We have to rebuild the entries because we cannot easily determine
+			 * how full each part is. So instead of keeping and maintaining a list
+			 * of vehicles and using that to 'rebuild' the occupied state we just
+			 * rebuild it from scratch as that removes lots of maintenance code
+			 * for the vehicle list and it's faster in real games as long as you
+			 * do not keep split and merge road stop every tick by the millions. */
+			rs_south_base->entries->east.Rebuild(rs_south_base);
+			rs_south_base->entries->west.Rebuild(rs_south_base);
+		}
+
+		/* Find the other end; the northern most tile */
+		TileIndex base_tile = north_tile;
+		for (north_tile -= offset; IsDriveThroughRoadStopContinuation(base_tile, north_tile); north_tile -= offset) {
+			rs_north = RoadStop::GetByTile(north_tile, rst);
+		}
+
+		assert(rs_north->status.Test(RoadStopStatusFlag::BaseEntry));
+		rs_north->entries->east.Rebuild(rs_north);
+		rs_north->entries->west.Rebuild(rs_north);
+	} else if (south) {
+		/* There is only something to the south. Hand over the base entry */
+		rs_south->status.Set(RoadStopStatusFlag::BaseEntry);
+		rs_south->entries->east.Rebuild(rs_south);
+		rs_south->entries->west.Rebuild(rs_south);
+	} else {
+		/* We were the last */
+		delete this->entries;
+	}
+
+	/* Make sure we don't get used for something 'incorrect' */
+	this->status.Reset(RoadStopStatusFlag::BaseEntry);
+	this->entries = nullptr;
+
+	this->MakeDriveThrough();
+
+	/* Find the other end; the northern most tile */
+	TileIndex self_north = this->xy - offset;
+	RoadStop *rs_self = RoadStop::GetByTile(this->xy, rst);
+	for (; IsDriveThroughRoadStopContinuation(this->xy, self_north); self_north -= offset) {
+		rs_self = RoadStop::GetByTile(self_north, rst);
+	}
+
+	/* Update occupancy of stop covering this tile */
+	assert(rs_self->status.Test(RoadStopStatusFlag::BaseEntry));
+	rs_self->entries->east.Rebuild(rs_self);
+	rs_self->entries->west.Rebuild(rs_self);
+}
+
+/**
  * Leave the road stop
  * @param rv the vehicle that leaves the stop
  */
@@ -208,7 +301,7 @@ void RoadStop::Leave(RoadVehicle *rv)
 		this->SetEntranceBusy(false);
 	} else {
 		/* Otherwise just leave the drive through's entry cache. */
-		this->GetEntry(DirToDiagDir(rv->direction)).Leave(rv);
+		this->GetEntry(rv).Leave(rv);
 	}
 }
 
@@ -236,7 +329,7 @@ bool RoadStop::Enter(RoadVehicle *rv)
 	}
 
 	/* Vehicles entering a drive-through stop from the 'normal' side use first bay (bay 0). */
-	this->GetEntry(DirToDiagDir(rv->direction)).Enter(rv);
+	this->GetEntry(rv).Enter(rv);
 
 	/* Indicate a drive-through stop */
 	SetBit(rv->state, RVS_IN_DT_ROAD_STOP);
@@ -258,6 +351,21 @@ bool RoadStop::Enter(RoadVehicle *rv)
 		if (rs->xy == tile) return rs;
 		assert(rs->next != nullptr);
 	}
+}
+
+void RoadStop::DebugClearOccupancy()
+{
+	this->status.Set(RoadStopStatusFlag::Bay0Free);
+	this->status.Set(RoadStopStatusFlag::Bay1Free);
+	this->status.Reset(RoadStopStatusFlag::EntryBusy);
+}
+
+void RoadStop::DebugReEnter(const RoadVehicle *rv)
+{
+	if (!IsInsideMM(rv->state, RVSB_IN_ROAD_STOP, RVSB_IN_ROAD_STOP_END)) return;
+
+	this->status.Reset(HasBit(rv->state, RVS_USING_SECOND_BAY) ? RoadStopStatusFlag::Bay1Free : RoadStopStatusFlag::Bay0Free);
+	if (!HasBit(rv->state, RVS_ENTERED_STOP)) this->status.Set(RoadStopStatusFlag::EntryBusy);
 }
 
 /**
@@ -291,11 +399,12 @@ void RoadStop::Entry::Enter(const RoadVehicle *rv)
  */
 /* static */ bool RoadStop::IsDriveThroughRoadStopContinuation(TileIndex rs, TileIndex next)
 {
-	return IsTileType(next, MP_STATION) &&
+	return IsTileType(next, TileType::Station) &&
 			GetStationIndex(next) == GetStationIndex(rs) &&
 			GetStationType(next) == GetStationType(rs) &&
 			IsDriveThroughStopTile(next) &&
-			GetDriveThroughStopAxis(next) == GetDriveThroughStopAxis(rs);
+			GetDriveThroughStopAxis(next) == GetDriveThroughStopAxis(rs) &&
+			GetDriveThroughStopDisallowedRoadDirections(next) == GetDriveThroughStopDisallowedRoadDirections(rs);
 }
 
 /**
@@ -307,8 +416,8 @@ void RoadStop::Entry::Enter(const RoadVehicle *rv)
 static DiagDirection GetEntryDirection(bool east, Axis axis)
 {
 	switch (axis) {
-		case AXIS_X: return east ? DIAGDIR_NE : DIAGDIR_SW;
-		case AXIS_Y: return east ? DIAGDIR_SE : DIAGDIR_NW;
+		case Axis::X: return east ? DiagDirection::NE : DiagDirection::SW;
+		case Axis::Y: return east ? DiagDirection::SE : DiagDirection::NW;
 		default: NOT_REACHED();
 	}
 }
@@ -332,11 +441,12 @@ void RoadStop::Entry::Rebuild(const RoadStop *rs, int side)
 	TileIndexDiff offset = TileOffsByAxis(axis);
 	for (TileIndex tile = rs->xy; IsDriveThroughRoadStopContinuation(rs->xy, tile); tile += offset) {
 		this->length += TILE_SIZE;
-		for (const Vehicle *v : VehiclesOnTile(tile)) {
+		for (const RoadVehicle *rv : VehiclesOnTile<VehicleType::Road>(tile)) {
 			/* Not a RV or not in the right direction or crashed :( */
-			if (v->type != VEH_ROAD || DirToDiagDir(v->direction) != entry_dir || !v->IsPrimaryVehicle() || v->vehstatus.Test(VehState::Crashed)) continue;
+			DiagDirection diag_dir = DirToDiagDir(rv->direction);
+			if (rv->overtaking != 0) diag_dir = ReverseDiagDir(diag_dir);
+			if (diag_dir != entry_dir || !rv->IsPrimaryVehicle() || rv->vehstatus.Test(VehState::Crashed)) continue;
 
-			const RoadVehicle *rv = RoadVehicle::From(v);
 			/* Don't add ones not in a road stop */
 			if (rv->state < RVSB_IN_ROAD_STOP) continue;
 
@@ -360,10 +470,10 @@ void RoadStop::Entry::CheckIntegrity(const RoadStop *rs) const
 	if (!rs->status.Test(RoadStopStatusFlag::BaseEntry)) return;
 
 	/* The tile 'before' the road stop must not be part of this 'line' */
-	assert(IsDriveThroughStopTile(rs->xy));
-	assert(!IsDriveThroughRoadStopContinuation(rs->xy, rs->xy - TileOffsByAxis(GetDriveThroughStopAxis(rs->xy))));
+	assert_msg(!IsDriveThroughRoadStopContinuation(rs->xy, rs->xy - TileOffsByAxis(GetDriveThroughStopAxis(rs->xy))), "xy: {:X}, index: {}", rs->xy, rs->index);
 
 	Entry temp;
 	temp.Rebuild(rs, &rs->entries->east == this);
-	if (temp.length != this->length || temp.occupied != this->occupied) NOT_REACHED();
+	assert_msg(temp.length == this->length && temp.occupied == this->occupied, "length: {} == {}, occupied: {} == {}, xy: {:X}, index: {}",
+			temp.length, this->length, temp.occupied, this->occupied, rs->xy, rs->index);
 }

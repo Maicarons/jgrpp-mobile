@@ -15,8 +15,11 @@
 
 /**
  * Check if a tile is a depot and it is a depot of the given type.
+ * @param tile The tile to check.
+ * @param type The type of transport.
+ * @return \c true iff the given tile is a depot for the given transport type.
  */
-inline bool IsDepotTypeTile(Tile tile, TransportType type)
+inline bool IsDepotTypeTile(TileIndex tile, TransportType type)
 {
 	switch (type) {
 		default: NOT_REACHED();
@@ -39,7 +42,7 @@ inline bool IsDepotTypeTile(Tile tile, TransportType type)
  * @param tile the tile to check
  * @return true if and only if there is a depot on the tile.
  */
-inline bool IsDepotTile(Tile tile)
+inline bool IsDepotTile(TileIndex tile)
 {
 	return IsRailDepotTile(tile) || IsRoadDepotTile(tile) || IsShipDepotTile(tile) || IsHangarTile(tile);
 }
@@ -50,11 +53,11 @@ inline bool IsDepotTile(Tile tile)
  * @pre IsRailDepotTile(t) || IsRoadDepotTile(t) || IsShipDepotTile(t)
  * @return DepotID
  */
-inline DepotID GetDepotIndex(Tile t)
+inline DepotID GetDepotIndex(TileIndex t)
 {
 	/* Hangars don't have a Depot class, thus store no DepotID. */
-	assert(IsRailDepotTile(t) || IsRoadDepotTile(t) || IsShipDepotTile(t));
-	return DepotID{t.m2()};
+	dbg_assert_tile(IsRailDepotTile(t) || IsRoadDepotTile(t) || IsShipDepotTile(t), t);
+	return DepotID{_m[t].m2};
 }
 
 /**
@@ -63,7 +66,7 @@ inline DepotID GetDepotIndex(Tile t)
  * @pre IsRailDepotTile(t) || IsRoadDepotTile(t) || IsShipDepotTile(t) || IsHangarTile(t)
  * @return DepotID
  */
-inline DestinationID GetDepotDestinationIndex(Tile t)
+inline DestinationID GetDepotDestinationIndex(TileIndex t)
 {
 	if (IsHangarTile(t)) return GetStationIndex(t);
 	return GetDepotIndex(t);
@@ -75,14 +78,14 @@ inline DestinationID GetDepotDestinationIndex(Tile t)
  * @pre IsDepotTile(t)
  * @return the type of vehicles that can use the depot
  */
-inline VehicleType GetDepotVehicleType(Tile t)
+inline VehicleType GetDepotVehicleType(TileIndex t)
 {
 	switch (GetTileType(t)) {
 		default: NOT_REACHED();
-		case MP_RAILWAY: return VEH_TRAIN;
-		case MP_ROAD:    return VEH_ROAD;
-		case MP_WATER:   return VEH_SHIP;
-		case MP_STATION: return VEH_AIRCRAFT;
+		case TileType::Railway: return VehicleType::Train;
+		case TileType::Road: return VehicleType::Road;
+		case TileType::Water: return VehicleType::Ship;
+		case TileType::Station: return VehicleType::Aircraft;
 	}
 }
 

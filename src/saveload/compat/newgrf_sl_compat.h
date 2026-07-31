@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _newgrf_mapping_desc. */
 const SaveLoadCompat _newgrf_mapping_sl_compat[] = {
 	SLC_VAR("grfid"),
@@ -29,5 +31,7 @@ const SaveLoadCompat _grfconfig_sl_compat[] = {
 	SLC_VAR("num_params"),
 	SLC_VAR("palette"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_NEWGRF_H */

@@ -7,34 +7,93 @@
 
 /**
  * @file string_func.h Functions related to low-level strings.
+ *
+ * @note Be aware of "dangerous" string functions; string functions that
+ * have behaviour that could easily cause buffer overruns and such:
+ * - strncpy: does not '\0' terminate when input string is longer than
+ *   the size of the output string. Use strecpy instead.
+ * - [v]snprintf: returns the length of the string as it would be written
+ *   when the output is large enough, so it can be more than the size of
+ *   the buffer and than can underflow size_t (uint-ish) which makes all
+ *   subsequent snprintf-like functions write outside of the buffer. Use
+ *   [v]seprintf instead; it will return the number of bytes actually
+ *   added so no [v]seprintf will cause outside of bounds writes.
+ * - [v]sprintf: does not bounds checking: use [v]seprintf instead.
  */
 
 #ifndef STRING_FUNC_H
 #define STRING_FUNC_H
 
 #include <iosfwd>
+#include <iterator>
 
+#include "core/bitmath_func.hpp"
+#include "core/utf8.hpp"
 #include "string_type.h"
+
+char *strecpy(char *dst, const char *src, const char *last, bool quiet_mode = false) NOACCESS(3);
+char *stredup(const char *src, const char *last = nullptr) NOACCESS(2);
 
 void strecpy(std::span<char> dst, std::string_view src);
 
-std::string FormatArrayAsHex(std::span<const uint8_t> data);
+std::string FormatArrayAsHex(std::span<const uint8_t> data, bool upper_case = true);
 
-void StrMakeValidInPlace(char *str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
-void StrMakeValidInPlace(std::string &str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
+template <typename T>
+inline T &BackInserterContainer(std::back_insert_iterator<T> iter)
+{
+	using BaseIter = std::back_insert_iterator<T>;
+	struct accessor : BaseIter {
+		constexpr accessor(BaseIter iter) : BaseIter(iter) {}
+		using BaseIter::container;
+	};
+	return *accessor(iter).container;
+}
 
+char *StrMakeValidInPlaceIntl(char *str, const char *end, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark) NOACCESS(2);
 [[nodiscard]] std::string StrMakeValid(std::string_view str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
+void StrMakeValidInPlace(char *str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
+void AppendStrMakeValidInPlace(struct format_target &buf, std::string_view str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
+void AppendStrMakeValidInPlace(std::string &output, std::string_view str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
+
+inline void StrMakeValidInPlace(std::string &str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark)
+{
+	if (str.empty()) return;
+	char *buf = str.data();
+	str.resize(StrMakeValidInPlaceIntl(buf, buf + str.size(), settings) - buf);
+}
+
 [[nodiscard]] inline std::string StrMakeValid(std::string &&str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark)
 {
 	StrMakeValidInPlace(str, settings);
 	return std::move(str);
 }
 
+[[nodiscard]] inline std::string StrMakeValid(const char *str, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark)
+{
+	return StrMakeValid(std::string_view(str), settings);
+}
+
+inline void StrMakeValidInPlace(char *str, const char *end, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark)
+{
+	*StrMakeValidInPlaceIntl(str, end, settings) = '\0';
+}
+
+void str_strip_colours(char *str);
+std::string_view strip_leading_colours(std::string_view str);
+
+
+std::string str_strip_all_scc(const char *str);
+void str_replace_wchar(struct format_target &buf, std::string_view str, char32_t find, char32_t replace);
+std::string str_replace_wchar(std::string_view str, char32_t find, char32_t replace);
+bool strtolower(char *str);
 bool strtolower(std::string &str, std::string::size_type offs = 0);
 
 [[nodiscard]] bool StrValid(std::span<const char> str);
 void StrTrimInPlace(std::string &str);
 [[nodiscard]] std::string_view StrTrimView(std::string_view str, std::string_view characters_to_trim);
+[[nodiscard]] std::string_view StrTrimView(std::string_view str, struct StringConsumerControlCharFilter characters_to_trim);
+
+std::string_view StrLastPathSegment(std::string_view path);
 
 [[nodiscard]] bool StrStartsWithIgnoreCase(std::string_view str, std::string_view prefix);
 [[nodiscard]] bool StrEndsWithIgnoreCase(std::string_view str, std::string_view suffix);
@@ -52,6 +111,32 @@ bool ConvertHexToBytes(std::string_view hex, std::span<uint8_t> bytes);
 struct CaseInsensitiveComparator {
 	bool operator()(std::string_view s1, std::string_view s2) const { return StrCompareIgnoreCase(s1, s2) < 0; }
 };
+
+/**
+ * Check if a string buffer is empty.
+ *
+ * @param s The pointer to the first element of the buffer
+ * @return true if the buffer starts with the terminating null-character or
+ *         if the given pointer points to nullptr else return false
+ */
+inline bool StrEmpty(const char *s)
+{
+	return s == nullptr || s[0] == '\0';
+}
+
+/**
+ * Get the length of a string, within a limited buffer.
+ *
+ * @param str The pointer to the first element of the buffer
+ * @param maxlen The maximum size of the buffer
+ * @return The length of the string
+ */
+inline size_t ttd_strnlen(const char *str, size_t maxlen)
+{
+	const char *t;
+	for (t = str; static_cast<size_t>(t - str) < maxlen && *t != '\0'; t++) {}
+	return t - str;
+}
 
 bool IsValidChar(char32_t key, CharSetFilter afilter);
 
@@ -151,5 +236,18 @@ inline bool IsWhitespace(char32_t c)
 #endif
 
 std::optional<std::string_view> GetEnv(const char *variable);
+
+/**
+ * The use of a struct is so that when used as an argument to seprintf/etc, the buffer lives
+ * on the stack with a lifetime which lasts until the end of the statement.
+ * This avoids using a static buffer which is thread-unsafe, or needing to call malloc, which would then need to be freed.
+ */
+struct StrErrorDumper {
+	const char *Get(int errornum);
+	const char *GetLast();
+
+private:
+	char buf[128];
+};
 
 #endif /* STRING_FUNC_H */

@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _object_desc. */
 const SaveLoadCompat _object_sl_compat[] = {
 	SLC_VAR("location.tile"),
@@ -23,5 +25,7 @@ const SaveLoadCompat _object_sl_compat[] = {
 	SLC_VAR("view"),
 	SLC_VAR("type"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_OBJECT_H */

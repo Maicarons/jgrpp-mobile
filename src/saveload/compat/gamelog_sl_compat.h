@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for SlGamelogMode. */
 const SaveLoadCompat _gamelog_mode_sl_compat[] = {
 	SLC_VAR("mode.mode"),
@@ -101,5 +103,7 @@ const SaveLoadCompat _gamelog_sl_compat[] = {
 	SLC_VAR("tick"),
 	SLC_VAR("action"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_GAMELOG_H */

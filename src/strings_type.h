@@ -10,13 +10,18 @@
 #ifndef STRINGS_TYPE_H
 #define STRINGS_TYPE_H
 
-#include "core/convertible_through_base.hpp"
+#include "string_type.h"
+#include "strings_type_trait.h"
+#include "core/enum_type.hpp"
 #include "core/strong_typedef_type.hpp"
+#include <optional>
+#include <variant>
 
 /**
  * Numeric value that represents a string, independent of the selected language.
  */
 typedef uint32_t StringID;
+static const StringID STR_NULL          = 0x0;
 static const StringID INVALID_STRING_ID = 0xFFFF; ///< Constant representing an invalid string (16bit in case it is used in savegames)
 static const int MAX_CHAR_LENGTH        = 4;      ///< Max. length of UTF-8 encoded unicode character
 static const uint MAX_LANG              = 0x7F;   ///< Maximum number of languages supported by the game, and the NewGRF specs
@@ -44,7 +49,8 @@ enum StringTab : uint8_t {
 };
 
 /** The index/offset of a string within a #StringTab. */
-using StringIndexInTab = StrongType::Typedef<uint32_t, struct StringIndexInTabTag, StrongType::Compare, StrongType::Integer>;
+struct StringIndexInTabTag : public StrongType::TypedefTraits<uint32_t, StrongType::Compare, StrongType::Integer> {};
+using StringIndexInTab = StrongType::Typedef<StringIndexInTabTag>;
 
 /** Number of bits for the StringIndex within a StringTab */
 static const uint TAB_SIZE_BITS       = 11;
@@ -56,6 +62,8 @@ static const uint TAB_SIZE_GAMESCRIPT = TAB_SIZE * 32;
 
 /** Number of strings for NewGRFs */
 static const uint TAB_SIZE_NEWGRF     = TAB_SIZE * 256;
+
+extern std::string _temp_special_strings[16];
 
 /** The number of builtin generators for town names. */
 static constexpr uint32_t BUILTIN_TOWNNAME_GENERATOR_COUNT = 21;
@@ -72,24 +80,93 @@ static constexpr StringID SPECSTR_SILLY_NAME = 0x70E5; ///< Special string for s
 static constexpr StringID SPECSTR_ANDCO_NAME = 0x70E6; ///< Special string for Surname & Co company names.
 static constexpr StringID SPECSTR_PRESIDENT_NAME = 0x70E7; ///< Special string for the president's name.
 
-using StringParameterData = std::variant<std::monostate, uint64_t, std::string>;
+static constexpr StringID SPECSTR_TEMP_START = 0x7000; ///< First string ID for _temp_special_strings
+
+template <typename T>
+concept StringParameterAsBase = T::string_parameter_as_base || false;
+
+/** This is a separate type instead of just string_view to ensure that it cannot be created by accident. */
+struct StringParameterDataStringView {
+	std::string_view view;
+
+	explicit StringParameterDataStringView(std::string_view view) : view(view) {}
+};
+
+using StringParameterData = std::variant<std::monostate, uint64_t, std::string, StringParameterDataStringView>;
 
 /** The data required to format and validate a single parameter of a string. */
 struct StringParameter {
 	StringParameterData data; ///< The data of the parameter.
-	char32_t type; ///< The #StringControlCode to interpret this data with when it's the first parameter, otherwise '\0'.
+	char32_t type = 0; ///< The #StringControlCode to interpret this data with when it's the first parameter, otherwise '\0'.
+
+private:
+	template <bool REF>
+	struct Helper {
+		static inline StringParameterData Init(const std::monostate &v)
+		{
+			return v;
+		}
+
+		static inline StringParameterData Init(uint64_t v)
+		{
+			return v;
+		}
+
+		static inline StringParameterData Init(const char *str)
+		{
+			if constexpr (REF) {
+				return StringParameterDataStringView(std::string_view{str});
+			} else {
+				return std::string{str};
+			}
+		}
+
+		static inline StringParameterData Init(std::string_view str)
+		{
+			if constexpr (REF) {
+				return StringParameterDataStringView(str);
+			} else {
+				return std::string{str};
+			}
+		}
+
+		static inline StringParameterData Init(std::string &&str)
+		{
+			return std::move(str);
+		}
+
+		template <typename T, std::enable_if_t<StringParameterAsBase<T>, int> = 0>
+		static inline StringParameterData Init(const T &v)
+		{
+			return Init(v.base());
+		}
+
+		template <typename T> requires is_scoped_enum_v<T>
+		static inline StringParameterData Init(const T &v)
+		{
+			static_assert(is_scoped_enum_convertible_to_string_parameter_v<T>);
+			return Init(static_cast<uint64_t>(to_underlying(v)));
+		}
+	};
+
+public:
+	struct ReferenceCaptureTag {};
 
 	StringParameter() = default;
 	inline StringParameter(StringParameterData &&data) : data(std::move(data)), type(0) {}
+	inline StringParameter(const StringParameterData &data) : data(data), type(0) {}
 
-	inline StringParameter(const std::monostate &data) : data(data), type(0) {}
-	inline StringParameter(uint64_t data) : data(data), type(0) {}
+	template <typename T, std::enable_if_t<!std::is_same_v<std::remove_cvref_t<T>, StringParameter>, int> = 0>
+	inline StringParameter(T &&v) : data(Helper<false>::Init(std::forward<T>(v))), type(0) {}
 
-	inline StringParameter(std::string_view data) : data(std::string{data}), type(0) {}
-	inline StringParameter(std::string &&data) : data(std::move(data)), type(0) {}
-	inline StringParameter(const std::string &data) : data(data), type(0) {}
+	inline StringParameter(ReferenceCaptureTag, StringParameterData &&data) : data(std::move(data)), type(0) {}
+	inline StringParameter(ReferenceCaptureTag, const StringParameterData &data) : data(data), type(0) {}
 
-	inline StringParameter(const ConvertibleThroughBase auto &data) : data(static_cast<uint64_t>(data.base())), type(0) {}
+	template <typename T, std::enable_if_t<!std::is_same_v<std::remove_cvref_t<T>, StringParameter>, int> = 0>
+	inline StringParameter(ReferenceCaptureTag, T &&v) : data(Helper<true>::Init(std::forward<T>(v))), type(0) {}
+
+	inline StringParameter(ReferenceCaptureTag, const StringParameter &param) : data(param.data), type(param.type) {}
+	inline StringParameter(ReferenceCaptureTag, StringParameter &&param) : data(std::move(param.data)), type(param.type) {}
 };
 
 /**
@@ -103,9 +180,20 @@ public:
 
 	std::string GetDecodedString() const;
 	EncodedString ReplaceParam(size_t param, StringParameter &&value) const;
+	void AppendDecodedStringInPlace(struct format_target &result) const;
+
+	std::string_view GetDecodedStringView(struct format_buffer_base &buffer) const;
 
 	inline void clear() { this->string.clear(); }
 	inline bool empty() const { return this->string.empty(); }
+
+	template <typename T>
+	void Serialise(T &&buffer) const { buffer.Send_string(this->string); }
+
+	template <typename T>
+	bool Deserialise(T &buffer, StringValidationSettings default_string_validation);
+
+	inline void Sanitise(StringValidationSettings default_string_validation);
 
 private:
 	std::string string; ///< The encoded string.
@@ -114,11 +202,10 @@ private:
 	explicit EncodedString(std::string &&string) : string(std::move(string)) {}
 
 	friend EncodedString GetEncodedStringWithArgs(StringID str, std::span<const StringParameter> params);
+	friend EncodedString GetEncodedRawString(std::string_view str);
 
-	template <typename Tcont, typename Titer>
-	friend class EndianBufferWriter;
-	friend class EndianBufferReader;
 	friend class ScriptText;
 };
+static_assert(sizeof(EncodedString) == sizeof(std::string)); // EncodedString is saved/loaded directly, std::string must be at offset 0.
 
 #endif /* STRINGS_TYPE_H */

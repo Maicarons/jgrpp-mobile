@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file 32bpp_anim.hpp A partially SSE2 32 bpp blitter with animation support. */
+/** @file 32bpp_anim_sse2.hpp A partially SSE2 32 bpp blitter with animation support. */
 
 #ifndef BLITTER_32BPP_SSE2_ANIM_HPP
 #define BLITTER_32BPP_SSE2_ANIM_HPP
@@ -26,12 +26,13 @@
 
 #include "32bpp_anim.hpp"
 #include "32bpp_sse2.hpp"
+#include "../cpu.h"
 
 /** A partially 32 bpp blitter with palette animation. */
 class Blitter_32bppSSE2_Anim : public Blitter_32bppAnim {
 public:
 	void PaletteAnimate(const Palette &palette) override;
-	std::string_view GetName() override { return "32bpp-sse2-anim"; }
+	const char *GetName() const override { return "32bpp-sse2-anim"; }
 };
 
 /** Factory for the partially 32bpp blitter with animation. */

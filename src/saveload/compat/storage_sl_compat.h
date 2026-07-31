@@ -12,10 +12,14 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _storage_desc. */
 const SaveLoadCompat _storage_sl_compat[] = {
 	SLC_VAR("grfid"),
 	SLC_VAR("storage"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_STORAGE_H */

@@ -11,6 +11,7 @@
 
 #include "command_func.h"
 #include "landscape.h"
+#include "landscape_cmd.h"
 #include "bridge_map.h"
 #include "town.h"
 #include "waypoint_base.h"
@@ -22,7 +23,7 @@
 #include "viewport_kdtree.h"
 #include "station_kdtree.h"
 #include "window_func.h"
-#include "timer/timer_game_calendar.h"
+#include "date_func.h"
 #include "vehicle_func.h"
 #include "string_func.h"
 #include "company_func.h"
@@ -33,8 +34,6 @@
 #include "water.h"
 #include "company_gui.h"
 #include "waypoint_cmd.h"
-#include "landscape_cmd.h"
-#include "station_layout_type.h"
 
 #include "widgets/misc_widget.h"
 
@@ -47,15 +46,17 @@
  */
 void Waypoint::UpdateVirtCoord()
 {
+	if (IsHeadless()) return;
 	Point pt = RemapCoords2(TileX(this->xy) * TILE_SIZE, TileY(this->xy) * TILE_SIZE);
-	if (this->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeWaypoint(this->index));
+	if (_viewport_sign_kdtree_valid && this->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeWaypoint(this->index));
 
-	this->sign.UpdatePosition(pt.x, pt.y - 32 * ZOOM_BASE, GetString(STR_WAYPOINT_NAME, this->index));
+	auto params = MakeParameters(this->index);
+	this->sign.UpdatePosition(ShouldShowBaseStationViewportLabel(this) ? ZoomLevel::SpriteMax : ZoomLevel::End, pt.x, pt.y - 32 * ZOOM_BASE, params, STR_WAYPOINT_NAME);
 
-	_viewport_sign_kdtree.Insert(ViewportSignKdtreeItem::MakeWaypoint(this->index));
+	if (_viewport_sign_kdtree_valid) _viewport_sign_kdtree.Insert(ViewportSignKdtreeItem::MakeWaypoint(this->index));
 
 	/* Recenter viewport */
-	InvalidateWindowData(WC_WAYPOINT_VIEW, this->index);
+	InvalidateWindowData(WindowClass::WaypointView, this->index);
 }
 
 /**
@@ -74,7 +75,6 @@ void Waypoint::MoveSign(TileIndex new_xy)
  * @param tile to search from
  * @param str  the string to get the 'type' of
  * @param cid previous owner of the waypoint
- * @param is_road whether to find a road waypoint
  * @return the deleted nearby waypoint
  */
 static Waypoint *FindDeletedWaypointCloseTo(TileIndex tile, StringID str, CompanyID cid, bool is_road)
@@ -97,24 +97,24 @@ static Waypoint *FindDeletedWaypointCloseTo(TileIndex tile, StringID str, Compan
 }
 
 /**
- * Get the axis for a new rail waypoint. This means that if it is a valid
+ * Get the axis for a new waypoint. This means that if it is a valid
  * tile to build a waypoint on it returns a valid Axis, otherwise an
  * invalid one.
  * @param tile the tile to look at.
  * @return the axis for the to-be-build waypoint.
  */
-Axis GetAxisForNewRailWaypoint(TileIndex tile)
+Axis GetAxisForNewWaypoint(TileIndex tile)
 {
 	/* The axis for rail waypoints is easy. */
 	if (IsRailWaypointTile(tile)) return GetRailStationAxis(tile);
 
 	/* Non-plain rail type, no valid axis for waypoints. */
-	if (!IsTileType(tile, MP_RAILWAY) || GetRailTileType(tile) != RailTileType::Normal) return INVALID_AXIS;
+	if (!IsTileType(tile, TileType::Railway) || GetRailTileType(tile) != RailTileType::Normal) return Axis::Invalid;
 
 	switch (GetTrackBits(tile)) {
-		case TRACK_BIT_X: return AXIS_X;
-		case TRACK_BIT_Y: return AXIS_Y;
-		default:          return INVALID_AXIS;
+		case TRACK_BIT_X: return Axis::X;
+		case TRACK_BIT_Y: return Axis::Y;
+		default: return Axis::Invalid;
 	}
 }
 
@@ -131,14 +131,14 @@ Axis GetAxisForNewRoadWaypoint(TileIndex tile)
 	if (IsRoadWaypointTile(tile)) return GetDriveThroughStopAxis(tile);
 
 	/* Non-plain road type, no valid axis for waypoints. */
-	if (!IsNormalRoadTile(tile)) return INVALID_AXIS;
+	if (!IsNormalRoadTile(tile)) return Axis::Invalid;
 
 	RoadBits bits = GetAllRoadBits(tile);
 
-	if ((bits & ROAD_Y) == 0) return AXIS_X;
-	if ((bits & ROAD_X) == 0) return AXIS_Y;
+	if (!bits.Any(ROAD_Y)) return Axis::X;
+	if (!bits.Any(ROAD_X)) return Axis::Y;
 
-	return INVALID_AXIS;
+	return Axis::Invalid;
 }
 
 extern CommandCost ClearTile_Station(TileIndex tile, DoCommandFlags flags);
@@ -148,13 +148,14 @@ extern CommandCost ClearTile_Station(TileIndex tile, DoCommandFlags flags);
  * @param tile the tile to check for suitability
  * @param axis the axis of the waypoint
  * @param waypoint Waypoint the waypoint to check for is already joined to. If we find another waypoint it can join to it will throw an error.
+ * @return The command cost, or rather error when something it wrong.
  */
 static CommandCost IsValidTileForWaypoint(TileIndex tile, Axis axis, StationID *waypoint)
 {
 	/* if waypoint is set, then we have special handling to allow building on top of already existing waypoints.
 	 * so waypoint points to StationID::Invalid() if we can build on any waypoint.
 	 * Or it points to a waypoint if we're only allowed to build on exactly that waypoint. */
-	if (waypoint != nullptr && IsTileType(tile, MP_STATION)) {
+	if (waypoint != nullptr && IsTileType(tile, TileType::Station)) {
 		if (!IsRailWaypoint(tile)) {
 			return ClearTile_Station(tile, DoCommandFlag::Auto); // get error message
 		} else {
@@ -167,7 +168,7 @@ static CommandCost IsValidTileForWaypoint(TileIndex tile, Axis axis, StationID *
 		}
 	}
 
-	if (GetAxisForNewRailWaypoint(tile) != axis) return CommandCost(STR_ERROR_NO_SUITABLE_RAILROAD_TRACK);
+	if (GetAxisForNewWaypoint(tile) != axis) return CommandCost(STR_ERROR_NO_SUITABLE_RAILROAD_TRACK);
 
 	Owner owner = GetTileOwner(tile);
 	CommandCost ret = CheckOwnership(owner);
@@ -176,20 +177,17 @@ static CommandCost IsValidTileForWaypoint(TileIndex tile, Axis axis, StationID *
 
 	Slope tileh = GetTileSlope(tile);
 	if (tileh != SLOPE_FLAT &&
-			(!_settings_game.construction.build_on_slopes || IsSteepSlope(tileh) || !(tileh & (0x3 << axis)) || !(tileh & ~(0x3 << axis)))) {
+			(!_settings_game.construction.build_on_slopes || IsSteepSlope(tileh) || !(tileh & (0x3 << to_underlying(axis))) || !(tileh & ~(0x3 << to_underlying(axis))))) {
 		return CommandCost(STR_ERROR_FLAT_LAND_REQUIRED);
 	}
 
 	return CommandCost();
 }
 
+extern void GetStationLayout(uint8_t *layout, uint numtracks, uint plat_len, const StationSpec *statspec);
 extern CommandCost FindJoiningWaypoint(StationID existing_station, StationID station_to_join, bool adjacent, TileArea ta, Waypoint **wp, bool is_road);
 extern CommandCost CanExpandRailStation(const BaseStation *st, TileArea &new_ta);
-extern CommandCost CalculateRoadStopCost(TileArea tile_area, DoCommandFlags flags, bool is_drive_through, StationType station_type, const RoadStopSpec *roadstopspec, Axis axis, DiagDirection ddir, StationID *est, RoadType rt, Money unit_cost);
-extern CommandCost IsRailStationBridgeAboveOk(TileIndex tile, const StationSpec *spec, StationType type, StationGfx layout);
-extern CommandCost IsBuoyBridgeAboveOk(TileIndex tile);
-
-extern CommandCost RemoveRoadWaypointStop(TileIndex tile, DoCommandFlags flags, int replacement_spec_index);
+extern CommandCost IsRailStationBridgeAboveOk(TileIndex tile, const StationSpec *statspec, StationType type, uint8_t layout);
 
 /**
  * Convert existing rail to waypoint. Eg build a waypoint station over
@@ -209,15 +207,15 @@ CommandCost CmdBuildRailWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 {
 	if (!IsValidAxis(axis)) return CMD_ERROR;
 	/* Check if the given station class is valid */
-	if (static_cast<uint>(spec_class) >= StationClass::GetClassCount()) return CMD_ERROR;
+	if (spec_class.base() >= StationClass::GetClassCount()) return CMD_ERROR;
 	const StationClass *cls = StationClass::Get(spec_class);
 	if (!IsWaypointClass(*cls)) return CMD_ERROR;
 	if (spec_index >= cls->GetSpecCount()) return CMD_ERROR;
 
 	/* The number of parts to build */
-	uint8_t count = axis == AXIS_X ? height : width;
+	uint8_t count = axis == Axis::X ? height : width;
 
-	if ((axis == AXIS_X ? width : height) != 1) return CMD_ERROR;
+	if ((axis == Axis::X ? width : height) != 1) return CMD_ERROR;
 	if (count == 0 || count > _settings_game.station.station_spread) return CMD_ERROR;
 
 	bool reuse = (station_to_join != NEW_STATION);
@@ -226,31 +224,40 @@ CommandCost CmdBuildRailWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 
 	if (distant_join && (!_settings_game.station.distant_join_stations || !Waypoint::IsValidID(station_to_join))) return CMD_ERROR;
 
-	TileArea new_location(start_tile, width, height);
-
-	/* only AddCost for non-existing waypoints */
-	CommandCost cost(EXPENSES_CONSTRUCTION);
-	for (TileIndex cur_tile : new_location) {
-		if (!IsRailWaypointTile(cur_tile)) cost.AddCost(_price[PR_BUILD_WAYPOINT_RAIL]);
+	const StationSpec *spec = StationClass::Get(spec_class)->GetSpec(spec_index);
+	TempBufferST<uint8_t> layout_ptr(count);
+	if (spec == nullptr) {
+		/* The layout must be 0 for the 'normal' waypoints by design. */
+		memset(layout_ptr, 0, count);
+	} else {
+		/* But for NewGRF waypoints we like to have their style. */
+		GetStationLayout(layout_ptr, count, 1, spec);
 	}
 
 	/* Make sure the area below consists of clear tiles. (OR tiles belonging to a certain rail station) */
 	StationID est = StationID::Invalid();
 
-	const StationSpec *spec = StationClass::Get(spec_class)->GetSpec(spec_index);
-	RailStationTileLayout stl{spec, count, 1};
-
 	/* Check whether the tiles we're building on are valid rail or not. */
 	TileIndexDiff offset = TileOffsByAxis(OtherAxis(axis));
-	for (auto [i, it, tile] = std::make_tuple(0, stl.begin(), start_tile); i < count; ++i, ++it, tile += offset) {
+	for (int i = 0; i < count; i++) {
+		TileIndex tile = start_tile + i * offset;
 		CommandCost ret = IsValidTileForWaypoint(tile, axis, &est);
 		if (ret.Failed()) return ret;
-
-		ret = IsRailStationBridgeAboveOk(tile, spec, StationType::RailWaypoint, *it + axis);
-		if (ret.Failed()) return ret;
+		StationGfx gfx = layout_ptr[i];
+		if (spec != nullptr) {
+			uint32_t platinfo = GetPlatformInfo(gfx, count, 1, i, 0, false);
+			/* As the station is not yet completely finished, the station does not yet exist. */
+			uint16_t callback = GetStationCallback(CBID_STATION_BUILD_TILE_LAYOUT, platinfo, 0, spec, nullptr, INVALID_TILE, INVALID_RAILTYPE);
+			if (callback != CALLBACK_FAILED && callback <= UINT8_MAX) gfx = (callback & ~1) + to_underlying(axis);
+		}
+		ret = IsRailStationBridgeAboveOk(tile, spec, StationType::RailWaypoint, layout_ptr[i]);
+		if (ret.Failed()) {
+			return ret.GetErrorMessage() == INVALID_STRING_ID ? CommandCost(STR_ERROR_MUST_DEMOLISH_BRIDGE_FIRST) : ret;
+		}
 	}
 
 	Waypoint *wp = nullptr;
+	TileArea new_location(start_tile, width, height);
 	CommandCost ret = FindJoiningWaypoint(est, station_to_join, adjacent, new_location, &wp, false);
 	if (ret.Failed()) return ret;
 
@@ -260,28 +267,28 @@ CommandCost CmdBuildRailWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 
 	if (wp != nullptr) {
 		/* Reuse an existing waypoint. */
+		if (HasBit(wp->waypoint_flags, WPF_ROAD)) return CMD_ERROR;
 		if (wp->owner != _current_company) return CommandCost(STR_ERROR_TOO_CLOSE_TO_ANOTHER_WAYPOINT);
 
 		/* Check if we want to expand an already existing waypoint. */
 		if (wp->train_station.tile != INVALID_TILE) {
-			ret = CanExpandRailStation(wp, new_location);
+			CommandCost ret = CanExpandRailStation(wp, new_location);
 			if (ret.Failed()) return ret;
 		}
 
-		ret = wp->rect.BeforeAddRect(start_tile, width, height, StationRect::ADD_TEST);
+		CommandCost ret = wp->rect.BeforeAddRect(start_tile, width, height, StationRect::ADD_TEST);
 		if (ret.Failed()) return ret;
 	} else {
 		/* Check if we can create a new waypoint. */
 		if (!Waypoint::CanAllocateItem()) return CommandCost(STR_ERROR_TOO_MANY_STATIONS_LOADING);
 	}
 
-	/* Check if we can allocate a custom spec to this waypoint. */
-	auto specindex = AllocateSpecToStation(spec, wp);
-	if (!specindex.has_value()) return CommandCost(STR_ERROR_TOO_MANY_STATION_SPECS);
+	/* Check if we can allocate a custom stationspec to this station */
+	if (AllocateSpecToStation(spec, wp, false) == -1) return CommandCost(STR_ERROR_TOO_MANY_STATION_SPECS);
 
 	if (flags.Test(DoCommandFlag::Execute)) {
 		if (wp == nullptr) {
-			wp = new Waypoint(start_tile);
+			wp = Waypoint::Create(start_tile);
 		} else if (!wp->IsInUse()) {
 			/* Move existing (recently deleted) waypoint to the new location */
 			wp->xy = start_tile;
@@ -289,11 +296,10 @@ CommandCost CmdBuildRailWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 		wp->owner = GetTileOwner(start_tile);
 
 		wp->rect.BeforeAddRect(start_tile, width, height, StationRect::ADD_TRY);
-		if (specindex.has_value()) AssignSpecToStation(spec, wp, *specindex);
 
 		wp->delete_ctr = 0;
 		wp->facilities.Set(StationFacility::Train);
-		wp->build_date = TimerGameCalendar::date;
+		wp->build_date = CalTime::CurDate();
 		wp->string_id = STR_SV_STNAME_WAYPOINT;
 		wp->train_station = new_location;
 
@@ -301,29 +307,46 @@ CommandCost CmdBuildRailWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 
 		wp->UpdateVirtCoord();
 
+		uint8_t map_spec_index = AllocateSpecToStation(spec, wp, true);
+
 		Company *c = Company::Get(wp->owner);
-		for (auto [i, it, tile] = std::make_tuple(0, stl.begin(), start_tile); i < count; ++i, ++it, tile += offset) {
+		for (int i = 0; i < count; i++) {
+			TileIndex tile = start_tile + i * offset;
 			uint8_t old_specindex = HasStationTileRail(tile) ? GetCustomStationSpecIndex(tile) : 0;
 			if (!HasStationTileRail(tile)) c->infrastructure.station++;
-			bool reserved = IsTileType(tile, MP_RAILWAY) ?
+			bool reserved = IsTileType(tile, TileType::Railway) ?
 					HasBit(GetRailReservationTrackBits(tile), AxisToTrack(axis)) :
 					HasStationReservation(tile);
-			MakeRailWaypoint(tile, wp->owner, wp->index, axis, *it, GetRailType(tile));
-			SetCustomStationSpecIndex(tile, *specindex);
+			MakeRailWaypoint(tile, wp->owner, wp->index, axis, layout_ptr[i], GetRailType(tile));
+			if (old_specindex != map_spec_index) DeallocateSpecFromStation(wp, old_specindex);
+			SetCustomStationSpecIndex(tile, map_spec_index);
+
+			if (spec != nullptr) {
+				uint32_t platinfo = GetPlatformInfo(layout_ptr[i] + to_underlying(axis), count, 1, i, 0, false);
+
+				/* As the station is not yet completely finished, the station does not yet exist. */
+				uint16_t callback = GetStationCallback(CBID_STATION_BUILD_TILE_LAYOUT, platinfo, 0, spec, nullptr, tile, INVALID_RAILTYPE);
+				if (callback != CALLBACK_FAILED) {
+					if (callback <= UINT8_MAX) {
+						SetStationGfx(tile, (callback & ~1) + to_underlying(axis));
+					} else {
+						ErrorUnknownCallbackResult(spec->grf_prop.grfid, CBID_STATION_BUILD_TILE_LAYOUT, callback);
+					}
+				}
+			}
 
 			SetRailStationTileFlags(tile, spec);
 
 			SetRailStationReservation(tile, reserved);
-			MarkTileDirtyByTile(tile);
+			MarkTileDirtyByTile(tile, VMDF_NOT_MAP_MODE);
 
-			DeallocateSpecFromStation(wp, old_specindex);
-			if (spec == nullptr) DeleteNewGRFInspectWindow(GSF_STATIONS, tile);
+			if (spec == nullptr) DeleteNewGRFInspectWindow(GrfSpecFeature::Stations, tile.base());
 			YapfNotifyTrackLayoutChange(tile, AxisToTrack(axis));
 		}
 		DirtyCompanyInfrastructureWindows(wp->owner);
 	}
 
-	return cost;
+	return CommandCost(ExpensesType::Construction, count * _price[Price::BuildWaypointRail]);
 }
 
 /**
@@ -342,18 +365,18 @@ CommandCost CmdBuildRailWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axis axis, uint8_t width, uint8_t height, RoadStopClassID spec_class, uint16_t spec_index, StationID station_to_join, bool adjacent)
 {
 	if (!IsValidAxis(axis)) return CMD_ERROR;
-	/* Check if the given station class is valid */
-	if (static_cast<uint>(spec_class) >= RoadStopClass::GetClassCount()) return CMD_ERROR;
+	/* Check if the given road stop class is valid */
+	if (spec_class.base() >= RoadStopClass::GetClassCount()) return CMD_ERROR;
 	const RoadStopClass *cls = RoadStopClass::Get(spec_class);
 	if (!IsWaypointClass(*cls)) return CMD_ERROR;
 	if (spec_index >= cls->GetSpecCount()) return CMD_ERROR;
 
-	const RoadStopSpec *roadstopspec = RoadStopClass::Get(spec_class)->GetSpec(spec_index);
+	const RoadStopSpec *spec = cls->GetSpec(spec_index);
 
 	/* The number of parts to build */
-	uint8_t count = axis == AXIS_X ? height : width;
+	uint8_t count = axis == Axis::X ? height : width;
 
-	if ((axis == AXIS_X ? width : height) != 1) return CMD_ERROR;
+	if ((axis == Axis::X ? width : height) != 1) return CMD_ERROR;
 	if (count == 0 || count > _settings_game.station.station_spread) return CMD_ERROR;
 
 	bool reuse = (station_to_join != NEW_STATION);
@@ -362,21 +385,26 @@ CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 
 	if (distant_join && (!_settings_game.station.distant_join_stations || !Waypoint::IsValidID(station_to_join))) return CMD_ERROR;
 
-	TileArea roadstop_area(start_tile, width, height);
+	/* Check if the first tile and the last tile are valid */
+	if (!IsValidTile(start_tile) || TileAddWrap(start_tile, width - 1, height - 1) == INVALID_TILE) return CMD_ERROR;
 
+	TileArea roadstop_area(start_tile, width, height);
 	/* Total road stop cost. */
 	Money unit_cost;
-	if (roadstopspec != nullptr) {
-		unit_cost = roadstopspec->GetBuildCost(PR_BUILD_STATION_TRUCK);
+	if (spec != nullptr) {
+		unit_cost = spec->GetBuildCost(Price::BuildStationTruck);
 	} else {
-		unit_cost = _price[PR_BUILD_STATION_TRUCK];
+		unit_cost = _price[Price::BuildStationTruck];
 	}
+	CommandCost cost(ExpensesType::Construction, roadstop_area.w * roadstop_area.h * unit_cost);
 	StationID est = StationID::Invalid();
-	CommandCost cost = CalculateRoadStopCost(roadstop_area, flags, true, StationType::RoadWaypoint, roadstopspec, axis, AxisToDiagDir(axis), &est, INVALID_ROADTYPE, unit_cost);
-	if (cost.Failed()) return cost;
+	extern CommandCost CheckFlatLandRoadStop(TileArea tile_area, const RoadStopSpec *spec, DoCommandFlags flags, DiagDirections invalid_dirs, bool is_drive_through, StationType station_type, Axis axis, StationID *station, RoadType rt, bool require_road);
+	CommandCost ret = CheckFlatLandRoadStop(roadstop_area, spec, flags, AxisToDiagDirs(axis), true, StationType::RoadWaypoint, axis, &est, INVALID_ROADTYPE, true);
+	if (ret.Failed()) return ret;
+	cost.AddCost(ret.GetCost());
 
 	Waypoint *wp = nullptr;
-	CommandCost ret = FindJoiningWaypoint(est, station_to_join, adjacent, roadstop_area, &wp, true);
+	ret = FindJoiningWaypoint(est, station_to_join, adjacent, roadstop_area, &wp, true);
 	if (ret.Failed()) return ret;
 
 	/* Check if there is an already existing, deleted, waypoint close to us that we can reuse. */
@@ -388,20 +416,19 @@ CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 		if (!HasBit(wp->waypoint_flags, WPF_ROAD)) return CMD_ERROR;
 		if (wp->owner != _current_company) return CommandCost(STR_ERROR_TOO_CLOSE_TO_ANOTHER_WAYPOINT);
 
-		ret = wp->rect.BeforeAddRect(start_tile, width, height, StationRect::ADD_TEST);
+		CommandCost ret = wp->rect.BeforeAddRect(start_tile, width, height, StationRect::ADD_TEST);
 		if (ret.Failed()) return ret;
 	} else {
-		/* Check if we can create a new waypoint. */
+		/* allocate and initialize new waypoint */
 		if (!Waypoint::CanAllocateItem()) return CommandCost(STR_ERROR_TOO_MANY_STATIONS_LOADING);
 	}
 
-	/* Check if we can allocate a custom spec to this waypoint. */
-	auto specindex = AllocateSpecToRoadStop(roadstopspec, wp);
-	if (!specindex.has_value()) return CommandCost(STR_ERROR_TOO_MANY_STATION_SPECS);
+	/* Check if we can allocate a custom stationspec to this station */
+	if (AllocateRoadStopSpecToStation(spec, wp, false) == -1) return CommandCost(STR_ERROR_TOO_MANY_STATION_SPECS);
 
 	if (flags.Test(DoCommandFlag::Execute)) {
 		if (wp == nullptr) {
-			wp = new Waypoint(start_tile);
+			wp = Waypoint::Create(start_tile);
 			SetBit(wp->waypoint_flags, WPF_ROAD);
 		} else if (!wp->IsInUse()) {
 			/* Move existing (recently deleted) waypoint to the new location */
@@ -410,33 +437,44 @@ CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 		wp->owner = _current_company;
 
 		wp->rect.BeforeAddRect(start_tile, width, height, StationRect::ADD_TRY);
-		if (specindex.has_value()) AssignSpecToRoadStop(roadstopspec, wp, *specindex);
 
-		if (roadstopspec != nullptr) {
+		if (spec != nullptr) {
 			/* Include this road stop spec's animation trigger bitmask
 			 * in the station's cached copy. */
-			wp->cached_roadstop_anim_triggers.Set(roadstopspec->animation.triggers);
+			wp->cached_roadstop_anim_triggers.Set(spec->animation.triggers);
 		}
 
 		wp->delete_ctr = 0;
 		wp->facilities.Set({StationFacility::BusStop, StationFacility::TruckStop});
-		wp->build_date = TimerGameCalendar::date;
+		wp->build_date = CalTime::CurDate();
 		wp->string_id = STR_SV_STNAME_WAYPOINT;
 
 		if (wp->town == nullptr) MakeDefaultName(wp);
 
 		wp->UpdateVirtCoord();
 
+		uint8_t map_spec_index = AllocateRoadStopSpecToStation(spec, wp, true);
+
 		/* Check every tile in the area. */
 		for (TileIndex cur_tile : roadstop_area) {
 			/* Get existing road types and owners before any tile clearing */
-			RoadType road_rt = MayHaveRoad(cur_tile) ? GetRoadType(cur_tile, RTT_ROAD) : INVALID_ROADTYPE;
-			RoadType tram_rt = MayHaveRoad(cur_tile) ? GetRoadType(cur_tile, RTT_TRAM) : INVALID_ROADTYPE;
-			Owner road_owner = road_rt != INVALID_ROADTYPE ? GetRoadOwner(cur_tile, RTT_ROAD) : _current_company;
-			Owner tram_owner = tram_rt != INVALID_ROADTYPE ? GetRoadOwner(cur_tile, RTT_TRAM) : _current_company;
+			RoadType road_rt = MayHaveRoad(cur_tile) ? GetRoadType(cur_tile, RoadTramType::Road) : INVALID_ROADTYPE;
+			RoadType tram_rt = MayHaveRoad(cur_tile) ? GetRoadType(cur_tile, RoadTramType::Tram) : INVALID_ROADTYPE;
+			Owner road_owner = road_rt != INVALID_ROADTYPE ? GetRoadOwner(cur_tile, RoadTramType::Road) : _current_company;
+			Owner tram_owner = tram_rt != INVALID_ROADTYPE ? GetRoadOwner(cur_tile, RoadTramType::Tram) : _current_company;
 
-			if (IsRoadWaypointTile(cur_tile)) {
-				RemoveRoadWaypointStop(cur_tile, flags, *specindex);
+			DisallowedRoadDirections drd = DRD_NONE;
+			if (road_rt != INVALID_ROADTYPE) {
+				if (IsNormalRoadTile(cur_tile)){
+					drd = GetDisallowedRoadDirections(cur_tile);
+				} else if (IsDriveThroughStopTile(cur_tile)) {
+					drd = GetDriveThroughStopDisallowedRoadDirections(cur_tile);
+				}
+			}
+
+			extern CommandCost RemoveRoadStop(TileIndex tile, DoCommandFlags flags, int replacement_spec_index);
+			if (IsTileType(cur_tile, TileType::Station) && IsAnyRoadStop(cur_tile)) {
+				RemoveRoadStop(cur_tile, flags, map_spec_index);
 			}
 
 			wp->road_waypoint_area.Add(cur_tile);
@@ -446,21 +484,24 @@ CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
 			/* Update company infrastructure counts. If the current tile is a normal road tile, remove the old
 			 * bits first. */
 			if (IsNormalRoadTile(cur_tile)) {
-				UpdateCompanyRoadInfrastructure(road_rt, road_owner, -(int)CountBits(GetRoadBits(cur_tile, RTT_ROAD)));
-				UpdateCompanyRoadInfrastructure(tram_rt, tram_owner, -(int)CountBits(GetRoadBits(cur_tile, RTT_TRAM)));
+				UpdateCompanyRoadInfrastructure(road_rt, road_owner, -static_cast<int>(CountBits(GetRoadBits(cur_tile, RoadTramType::Road))));
+				UpdateCompanyRoadInfrastructure(tram_rt, tram_owner, -static_cast<int>(CountBits(GetRoadBits(cur_tile, RoadTramType::Tram))));
 			}
 
 			UpdateCompanyRoadInfrastructure(road_rt, road_owner, ROAD_STOP_TRACKBIT_FACTOR);
 			UpdateCompanyRoadInfrastructure(tram_rt, tram_owner, ROAD_STOP_TRACKBIT_FACTOR);
 
 			MakeDriveThroughRoadStop(cur_tile, wp->owner, road_owner, tram_owner, wp->index, StationType::RoadWaypoint, road_rt, tram_rt, axis);
-			SetCustomRoadStopSpecIndex(cur_tile, *specindex);
-			if (roadstopspec != nullptr) wp->SetRoadStopRandomBits(cur_tile, 0);
+			SetDriveThroughStopDisallowedRoadDirections(cur_tile, drd);
+			SetCustomRoadStopSpecIndex(cur_tile, map_spec_index);
+			if (spec != nullptr) wp->SetRoadStopRandomBits(cur_tile, 0);
 
 			Company::Get(wp->owner)->infrastructure.station++;
 
 			MarkTileDirtyByTile(cur_tile);
+			UpdateRoadCachedOneWayStatesAroundTile(cur_tile);
 		}
+		NotifyRoadLayoutChanged(true);
 		DirtyCompanyInfrastructureWindows(wp->owner);
 	}
 	return cost;
@@ -474,8 +515,7 @@ CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
  */
 CommandCost CmdBuildBuoy(DoCommandFlags flags, TileIndex tile)
 {
-	if (tile == 0 || !HasTileWaterGround(tile)) return CommandCost(STR_ERROR_SITE_UNSUITABLE);
-	if (CommandCost ret = IsBuoyBridgeAboveOk(tile); ret.Failed()) return ret;
+	if (!HasTileWaterGround(tile)) return CommandCost(STR_ERROR_SITE_UNSUITABLE);
 
 	if (!IsTileFlat(tile)) return CommandCost(STR_ERROR_SITE_UNSUITABLE);
 
@@ -483,20 +523,20 @@ CommandCost CmdBuildBuoy(DoCommandFlags flags, TileIndex tile)
 	Waypoint *wp = FindDeletedWaypointCloseTo(tile, STR_SV_STNAME_BUOY, OWNER_NONE, false);
 	if (wp == nullptr && !Waypoint::CanAllocateItem()) return CommandCost(STR_ERROR_TOO_MANY_STATIONS_LOADING);
 
-	CommandCost cost(EXPENSES_CONSTRUCTION, _price[PR_BUILD_WAYPOINT_BUOY]);
+	CommandCost cost(ExpensesType::Construction, _price[Price::BuildWaypointBuoy]);
 	if (!IsWaterTile(tile)) {
-		CommandCost ret = Command<CMD_LANDSCAPE_CLEAR>::Do(flags | DoCommandFlag::Auto, tile);
+		CommandCost ret = Command<Commands::LandscapeClear>::Do(flags | DoCommandFlag::Auto, tile);
 		if (ret.Failed()) return ret;
 		cost.AddCost(ret.GetCost());
 	}
 
 	if (flags.Test(DoCommandFlag::Execute)) {
 		if (wp == nullptr) {
-			wp = new Waypoint(tile);
+			wp = Waypoint::Create(tile);
 		} else {
 			/* Move existing (recently deleted) buoy to the new location */
 			wp->xy = tile;
-			InvalidateWindowData(WC_WAYPOINT_VIEW, wp->index);
+			InvalidateWindowData(WindowClass::WaypointView, wp->index);
 		}
 		wp->rect.BeforeAddTile(tile, StationRect::ADD_TRY);
 
@@ -505,17 +545,18 @@ CommandCost CmdBuildBuoy(DoCommandFlags flags, TileIndex tile)
 		wp->facilities.Set(StationFacility::Dock);
 		wp->owner = OWNER_NONE;
 
-		wp->build_date = TimerGameCalendar::date;
+		wp->build_date = CalTime::CurDate();
 
 		if (wp->town == nullptr) MakeDefaultName(wp);
 
 		MakeBuoy(tile, wp->index, GetWaterClass(tile));
+		InvalidateWaterRegion(tile);
 		CheckForDockingTile(tile);
 		MarkTileDirtyByTile(tile);
 		ClearNeighbourNonFloodingStates(tile);
 
 		wp->UpdateVirtCoord();
-		InvalidateWindowData(WC_WAYPOINT_VIEW, wp->index);
+		InvalidateWindowData(WindowClass::WaypointView, wp->index);
 	}
 
 	return cost;
@@ -545,7 +586,7 @@ CommandCost RemoveBuoy(TileIndex tile, DoCommandFlags flags)
 	if (flags.Test(DoCommandFlag::Execute)) {
 		wp->facilities.Reset(StationFacility::Dock);
 
-		InvalidateWindowData(WC_WAYPOINT_VIEW, wp->index);
+		InvalidateWindowData(WindowClass::WaypointView, wp->index);
 
 		/* We have to set the water tile's state to the same state as before the
 		 * buoy was placed. Otherwise one could plant a buoy on a canal edge,
@@ -558,7 +599,7 @@ CommandCost RemoveBuoy(TileIndex tile, DoCommandFlags flags)
 		wp->delete_ctr = 0;
 	}
 
-	return CommandCost(EXPENSES_CONSTRUCTION, _price[PR_CLEAR_WAYPOINT_BUOY]);
+	return CommandCost(ExpensesType::Construction, _price[Price::ClearWaypointBuoy]);
 }
 
 /**
@@ -566,7 +607,7 @@ CommandCost RemoveBuoy(TileIndex tile, DoCommandFlags flags)
  * @param name The name to check.
  * @return True iff the name is unique.
  */
-static bool IsUniqueWaypointName(const std::string &name)
+static bool IsUniqueWaypointName(std::string_view name)
 {
 	for (const Waypoint *wp : Waypoint::Iterate()) {
 		if (!wp->name.empty() && wp->name == name) return false;
@@ -618,19 +659,19 @@ CommandCost CmdRenameWaypoint(DoCommandFlags flags, StationID waypoint_id, const
  * @param tile to move the waypoint name to
  * @return the cost of this operation or an error and the waypoint ID
  */
-std::tuple<CommandCost, StationID> CmdMoveWaypointName(DoCommandFlags flags, StationID waypoint_id, TileIndex tile)
+CommandCost CmdMoveWaypointName(DoCommandFlags flags, StationID waypoint_id, TileIndex tile)
 {
 	Waypoint *wp = Waypoint::GetIfValid(waypoint_id);
-	if (wp == nullptr) return { CMD_ERROR, StationID::Invalid() };
+	if (wp == nullptr) return CMD_ERROR;
 
 	if (wp->owner != OWNER_NONE) {
 		CommandCost ret = CheckOwnership(wp->owner);
-		if (ret.Failed()) return { ret, StationID::Invalid() };
+		if (ret.Failed()) return ret;
 	}
 
 	const StationRect *r = &wp->rect;
 	if (!r->PtInExtendedRect(TileX(tile), TileY(tile))) {
-		return { CommandCost(STR_ERROR_SITE_UNSUITABLE), StationID::Invalid() };
+		return CommandCost(STR_ERROR_SITE_UNSUITABLE);
 	}
 
 	bool other_station = false;
@@ -640,14 +681,14 @@ std::tuple<CommandCost, StationID> CmdMoveWaypointName(DoCommandFlags flags, Sta
 			if (st != wp && st->xy == tile) other_station = true;
 		}
 	});
-	if (other_station) return { CommandCost(STR_ERROR_SITE_UNSUITABLE), StationID::Invalid() };
+	if (other_station) return CommandCost(STR_ERROR_SITE_UNSUITABLE);
 
 	if (flags.Test(DoCommandFlag::Execute)) {
 		wp->MoveSign(tile);
 
 		wp->UpdateVirtCoord();
 	}
-	return { CommandCost(), waypoint_id };
+	return CommandCost();
 }
 
 /**
@@ -655,11 +696,81 @@ std::tuple<CommandCost, StationID> CmdMoveWaypointName(DoCommandFlags flags, Sta
  * @param result of the operation
  * @param waypoint_id ID of the changed waypoint
  */
-void CcMoveWaypointName(Commands, const CommandCost &result, StationID waypoint_id)
+void CcMoveWaypointName(const CommandCost &result, StationID waypoint_id, TileIndex tile)
 {
 	if (result.Failed()) return;
 
 	ResetObjectToPlace();
 	Waypoint *wp = Waypoint::Get(waypoint_id);
 	SetViewportCatchmentWaypoint(wp, false);
+}
+
+/**
+ * Set whether waypoint label is hidden
+ * @param flags type of operation
+ * @param waypoint_id id of waypoint
+ * @param hidden hidden state
+ * @return the cost of this operation or an error
+ */
+CommandCost CmdSetWaypointLabelHidden(DoCommandFlags flags, StationID waypoint_id, bool hidden)
+{
+	Waypoint *wp = Waypoint::GetIfValid(waypoint_id);
+	if (wp == nullptr) return CMD_ERROR;
+
+	if (wp->owner != OWNER_NONE) {
+		CommandCost ret = CheckOwnership(wp->owner);
+		if (ret.Failed()) return ret;
+	}
+
+	if (flags.Test(DoCommandFlag::Execute)) {
+		AssignBit(wp->waypoint_flags, WPF_HIDE_LABEL, hidden);
+
+		if (_display_opt.Test(DisplayOption::ShowWaypointNames) &&
+				!(_local_company != wp->owner && wp->owner != OWNER_NONE && !_display_opt.Test(DisplayOption::ShowCompetitorSigns))) {
+			wp->sign.MarkDirty(ZoomLevel::SpriteMax);
+		}
+
+		InvalidateWindowData(WindowClass::WaypointView, wp->index);
+	}
+	return CommandCost();
+}
+
+/**
+ * Exchange waypoint names
+ * @param flags operation to perform
+ * @param waypoint_id1 station ID to exchange name with
+ * @param waypoint_id2 station ID to exchange name with
+ * @return the cost of this operation or an error
+ */
+CommandCost CmdExchangeWaypointNames(DoCommandFlags flags, StationID waypoint_id1, StationID waypoint_id2)
+{
+	Waypoint *wp = Waypoint::GetIfValid(waypoint_id1);
+	if (wp == nullptr) return CMD_ERROR;
+
+	if (wp->owner != OWNER_NONE) {
+		CommandCost ret = CheckOwnership(wp->owner);
+		if (ret.Failed()) return ret;
+	}
+
+	Waypoint *wp2 = Waypoint::GetIfValid(waypoint_id2);
+	if (wp2 == nullptr) return CMD_ERROR;
+
+	if (wp2->owner != OWNER_NONE) {
+		CommandCost ret = CheckOwnership(wp2->owner);
+		if (ret.Failed()) return ret;
+	}
+
+	if (wp->town != wp2->town) return CommandCost(STR_ERROR_WAYPOINTS_NOT_IN_SAME_TOWN);
+	if (!wp->IsOfType(wp2)) return CommandCost(STR_ERROR_WAYPOINTS_NOT_COMPATIBLE);
+
+	if (flags.Test(DoCommandFlag::Execute)) {
+		wp->cached_name.clear();
+		wp2->cached_name.clear();
+		std::swap(wp->name, wp2->name);
+		std::swap(wp->town_cn, wp2->town_cn);
+		wp->UpdateVirtCoord();
+		wp2->UpdateVirtCoord();
+	}
+
+	return CommandCost();
 }

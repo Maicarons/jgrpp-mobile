@@ -9,6 +9,7 @@
 
 #include "../stdafx.h"
 #include "../debug.h"
+#include "../newgrf_extension.h"
 #include "../newgrf_station.h"
 #include "newgrf_bytereader.h"
 #include "newgrf_internal.h"
@@ -27,32 +28,33 @@ static const uint NUM_STATIONS_PER_GRF = UINT16_MAX - 1;
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_STATIONS_PER_GRF) {
 		GrfMsg(1, "StationChangeInfo: Station {} is invalid, max {}, ignoring", last, NUM_STATIONS_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate station specs if necessary */
 	if (_cur_gps.grffile->stations.size() < last) _cur_gps.grffile->stations.resize(last);
 
 	for (uint id = first; id < last; ++id) {
-		auto &statspec = _cur_gps.grffile->stations[id];
+		StationSpec *statspec = _cur_gps.grffile->stations[id].get();
 
 		/* Check that the station we are modifying is defined. */
 		if (statspec == nullptr && prop != 0x08) {
 			GrfMsg(2, "StationChangeInfo: Attempt to modify undefined station {}, ignoring", id);
-			return CIR_INVALID_ID;
+			return ChangeInfoResult::InvalidId;
 		}
 
 		switch (prop) {
 			case 0x08: { // Class ID
 				/* Property 0x08 is special; it is where the station is allocated */
 				if (statspec == nullptr) {
-					statspec = std::make_unique<StationSpec>();
+					_cur_gps.grffile->stations[id] = std::make_unique<StationSpec>();
+					statspec = _cur_gps.grffile->stations[id].get();
 				}
 
 				/* Swap classid because we read it in BE meaning WAYP or DFLT */
@@ -79,9 +81,9 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 						continue;
 					}
 
-					ReadSpriteLayoutSprite(buf, false, false, false, GSF_STATIONS, &dts->ground);
+					ReadSpriteLayoutSprite(buf, false, false, false, GrfSpecFeature::Stations, &dts->ground);
 					/* On error, bail out immediately. Temporary GRF data was already freed */
-					if (_cur_gps.skip_sprites < 0) return CIR_DISABLED;
+					if (_cur_gps.skip_sprites < 0) return ChangeInfoResult::Disabled;
 
 					std::vector<DrawTileSeqStruct> tmp_layout;
 					for (;;) {
@@ -97,9 +99,9 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 						dtss.extent.y = buf.ReadByte();
 						dtss.extent.z = buf.ReadByte();
 
-						ReadSpriteLayoutSprite(buf, false, true, false, GSF_STATIONS, &dtss.image);
+						ReadSpriteLayoutSprite(buf, false, true, false, GrfSpecFeature::Stations, &dtss.image);
 						/* On error, bail out immediately. Temporary GRF data was already freed */
-						if (_cur_gps.skip_sprites < 0) return CIR_DISABLED;
+						if (_cur_gps.skip_sprites < 0) return ChangeInfoResult::Disabled;
 					}
 					dts->seq = std::move(tmp_layout);
 				}
@@ -257,7 +259,7 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 					NewGRFSpriteLayout *dts = &statspec->renderdata.emplace_back();
 					uint num_building_sprites = buf.ReadByte();
 					/* On error, bail out immediately. Temporary GRF data was already freed */
-					if (ReadSpriteLayout(buf, num_building_sprites, false, GSF_STATIONS, true, false, dts)) return CIR_DISABLED;
+					if (ReadSpriteLayout(buf, num_building_sprites, false, GrfSpecFeature::Stations, true, false, dts)) return ChangeInfoResult::Disabled;
 				}
 
 				/* Number of layouts must be even, alternating X and Y */
@@ -268,11 +270,12 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 				break;
 			}
 
-			case 0x1B: // Minimum bridge height (not implemented)
-				buf.ReadWord();
-				buf.ReadWord();
-				buf.ReadWord();
-				buf.ReadWord();
+			case 0x1B: // Minimum height for a bridge above
+				statspec->internal_flags.Set(StationSpecIntlFlag::BridgeHeightsSet);
+				if (statspec->bridge_above_flags.size() < 8) statspec->bridge_above_flags.resize(8);
+				for (uint i = 0; i < 8; i++) {
+					statspec->bridge_above_flags[i].height = buf.ReadByte();
+				}
 				break;
 
 			case 0x1C: // Station Name
@@ -280,7 +283,7 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 				break;
 
 			case 0x1D: // Station Class name
-				AddStringForMapping(GRFStringID{buf.ReadWord()}, [statspec = statspec.get()](StringID str) { StationClass::Get(statspec->class_index)->name = str; });
+				AddStringForMapping(GRFStringID{buf.ReadWord()}, statspec, [](StringID str, StationSpec *statspec) { StationClass::Get(statspec->class_index)->name = str; });
 				break;
 
 			case 0x1E: { // Extended tile flags (replaces prop 11, 14 and 15)
@@ -291,29 +294,33 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 			}
 
 			case 0x1F: // Badge list
-				statspec->badges = ReadBadgeList(buf, GSF_STATIONS);
+				statspec->badges = ReadBadgeList(buf, GrfSpecFeature::Stations);
 				break;
 
+			case A0RPI_STATION_MIN_BRIDGE_HEIGHT:
 			case 0x20: { // Minimum bridge height (extended)
-				uint16_t tiles = buf.ReadExtendedByte();
-				if (statspec->bridgeable_info.size() < tiles) statspec->bridgeable_info.resize(tiles);
-				for (int j = 0; j != tiles; ++j) {
-					statspec->bridgeable_info[j].height = buf.ReadByte();
+				statspec->internal_flags.Set(StationSpecIntlFlag::BridgeHeightsSet);
+				size_t length = buf.ReadExtendedByte();
+				if (statspec->bridge_above_flags.size() < length) statspec->bridge_above_flags.resize(length);
+				for (size_t i = 0; i < length; i++) {
+					statspec->bridge_above_flags[i].height = buf.ReadByte();
 				}
 				break;
 			}
 
+			case A0RPI_STATION_DISALLOWED_BRIDGE_PILLARS:
 			case 0x21: { // Disallowed bridge pillars
-				uint16_t tiles = buf.ReadExtendedByte();
-				if (statspec->bridgeable_info.size() < tiles) statspec->bridgeable_info.resize(tiles);
-				for (int j = 0; j != tiles; ++j) {
-					statspec->bridgeable_info[j].disallowed_pillars = BridgePillarFlags{buf.ReadByte()};
+				statspec->internal_flags.Set(StationSpecIntlFlag::BridgeDisallowedPillarsSet);
+				size_t length = buf.ReadExtendedByte();
+				if (statspec->bridge_above_flags.size() < length) statspec->bridge_above_flags.resize(length);
+				for (size_t i = 0; i < length; i++) {
+					statspec->bridge_above_flags[i].disallowed_pillars = buf.ReadByte();
 				}
 				break;
 			}
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -321,5 +328,5 @@ static ChangeInfoResult StationChangeInfo(uint first, uint last, int prop, ByteR
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_STATIONS>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_STATIONS>::Activation(uint first, uint last, int prop, ByteReader &buf) { return StationChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Stations>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Stations>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return StationChangeInfo(first, last, prop, mapping_entry, buf); }

@@ -21,11 +21,11 @@ enum Action5BlockType : uint8_t {
 
 /** Information about a single action 5 type. */
 struct Action5Type {
-	Action5BlockType block_type; ///< How is this Action5 type processed?
-	SpriteID sprite_base;        ///< Load the sprites starting from this sprite.
-	uint16_t min_sprites;        ///< If the Action5 contains less sprites, the whole block will be ignored.
-	uint16_t max_sprites;        ///< If the Action5 contains more sprites, only the first max_sprites sprites will be used.
-	const std::string_view name; ///< Name for error messages.
+	Action5BlockType block_type;  ///< How is this Action5 type processed?
+	SpriteID sprite_base;         ///< Load the sprites starting from this sprite.
+	uint16_t min_sprites;         ///< If the Action5 contains less sprites, the whole block will be ignored.
+	uint16_t max_sprites;         ///< If the Action5 contains more sprites, only the first max_sprites sprites will be used.
+	const char *name;             ///< Name for error messages.
 };
 
 std::span<const Action5Type> GetAction5Types();

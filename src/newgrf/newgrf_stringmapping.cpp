@@ -24,11 +24,12 @@
  * Information for mapping static StringIDs.
  */
 struct StringIDMapping {
-	uint32_t grfid; ///< Source NewGRF.
-	GRFStringID source; ///< Source grf-local GRFStringID.
-	std::function<void(StringID)> func; ///< Function for mapping result.
+	const GRFFile *grf;          ///< Source NewGRF.
+	GRFStringID source;          ///< Source grf-local GRFStringID.
+	StringIDMappingHandler func; ///< Function for mapping result.
+	uintptr_t func_data;         ///< Data for func.
 
-	StringIDMapping(uint32_t grfid, GRFStringID source, std::function<void(StringID)> &&func) : grfid(grfid), source(source), func(std::move(func)) { }
+	StringIDMapping(const GRFFile *grf, GRFStringID source, uintptr_t func_data, StringIDMappingHandler func) : grf(grf), source(source), func(func), func_data(func_data) { }
 };
 
 /** Strings to be mapped during load. */
@@ -37,22 +38,18 @@ static std::vector<StringIDMapping> _string_to_grf_mapping;
 /**
  * Record a static StringID for getting translated later.
  * @param source Source grf-local GRFStringID.
- * @param func Function to call to set the mapping result.
- */
-void AddStringForMapping(GRFStringID source, std::function<void(StringID)> &&func)
-{
-	func(STR_UNDEFINED);
-	_string_to_grf_mapping.emplace_back(_cur_gps.grffile->grfid, source, std::move(func));
-}
-
-/**
- * Record a static StringID for getting translated later.
- * @param source Source grf-local GRFStringID.
  * @param target Destination for the mapping result.
  */
 void AddStringForMapping(GRFStringID source, StringID *target)
 {
-	AddStringForMapping(source, [target](StringID str) { *target = str; });
+	*target = STR_UNDEFINED;
+	_string_to_grf_mapping.emplace_back(_cur_gps.grffile, source, reinterpret_cast<uintptr_t>(target), nullptr);
+}
+
+void AddStringForMappingGeneric(GRFStringID source, uintptr_t data, StringIDMappingHandler func)
+{
+	func(STR_UNDEFINED, data);
+	_string_to_grf_mapping.emplace_back(_cur_gps.grffile, source, data, func);
 }
 
 /**
@@ -126,7 +123,8 @@ static StringID TTDPStringIDToOTTDStringIDMapping(GRFStringID str)
  * @param str GRF-local GRFStringID that we want to have the equivalent in OpenTTD.
  * @return The properly adjusted StringID.
  */
-StringID MapGRFStringID(uint32_t grfid, GRFStringID str)
+template <typename T>
+StringID MapGRFStringIDCommon(T grfid, GRFStringID str)
 {
 	if (IsInsideMM(str.base(), 0xD800, 0x10000)) {
 		/* General text provided by NewGRF.
@@ -153,13 +151,29 @@ StringID MapGRFStringID(uint32_t grfid, GRFStringID str)
 	}
 }
 
+StringID MapGRFStringID(uint32_t grfid, GRFStringID str)
+{
+	return MapGRFStringIDCommon(grfid, str);
+}
+
+/* This form should be preferred over the uint32_t grfid form, to avoid redundant GRFID to GRF lookups */
+StringID MapGRFStringID(const GRFFile *grf, GRFStringID str)
+{
+	return MapGRFStringIDCommon(grf, str);
+}
+
 /**
  * Finalise all string mappings.
  */
 void FinaliseStringMapping()
 {
 	for (StringIDMapping &it : _string_to_grf_mapping) {
-		it.func(MapGRFStringID(it.grfid, it.source));
+		StringID str = MapGRFStringID(it.grf, it.source);
+		if (it.func == nullptr) {
+			*reinterpret_cast<StringID *>(it.func_data) = str;
+		} else {
+			it.func(str, it.func_data);
+		}
 	}
 	_string_to_grf_mapping.clear();
 }

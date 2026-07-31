@@ -11,7 +11,9 @@
 #define SCRIPT_INSTANCE_HPP
 
 #include <variant>
+#include <list>
 #include <squirrel.h>
+#include "squirrel.hpp"
 #include "script_suspend.hpp"
 #include "script_log_types.hpp"
 
@@ -45,8 +47,9 @@ public:
 
 	/**
 	 * Create a new script.
+	 * @param api_name The name of the API (AI/GS).
 	 */
-	ScriptInstance(std::string_view api_name);
+	ScriptInstance(std::string_view api_name, ScriptType script_type);
 	virtual ~ScriptInstance();
 
 	/**
@@ -81,70 +84,82 @@ public:
 	/**
 	 * Run the GameLoop of a script.
 	 */
-	void GameLoop();
+	void GameLoop() noexcept;
 
 	/**
 	 * Let the VM collect any garbage.
 	 */
-	void CollectGarbage();
+	void CollectGarbage() noexcept;
 
 	/**
 	 * Get the storage of this script.
+	 * @return The storage associated with this script.
 	 */
 	class ScriptStorage &GetStorage();
 
 	/**
 	 * Get the log pointer of this script.
+	 * @return The logs associated with this script.
 	 */
 	ScriptLogTypes::LogData &GetLogData();
 
 	/**
 	 * Return a true/false reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturn(ScriptInstance &instance);
 
 	/**
 	 * Return a VehicleID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnVehicleID(ScriptInstance &instance);
 
 	/**
 	 * Return a SignID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnSignID(ScriptInstance &instance);
 
 	/**
 	 * Return a GroupID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnGroupID(ScriptInstance &instance);
 
 	/**
 	 * Return a GoalID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnGoalID(ScriptInstance &instance);
 
 	/**
 	 * Return a StoryPageID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnStoryPageID(ScriptInstance &instance);
 
 	/**
 	 * Return a StoryPageElementID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnStoryPageElementID(ScriptInstance &instance);
 
 	/**
 	 * Return a LeagueTableID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnLeagueTableID(ScriptInstance &instance);
 
 	/**
 	 * Return a LeagueTableElementID reply for a DoCommand.
+	 * @param instance The instance to return the reply to.
 	 */
 	static void DoCommandReturnLeagueTableElementID(ScriptInstance &instance);
 
 	/**
 	 * Get the controller attached to the instance.
+	 * @return The instance's controller.
 	 */
 	class ScriptController &GetController()
 	{
@@ -153,12 +168,14 @@ public:
 	}
 
 	/**
-	 * Return the "this script died" value
+	 * Return the "this script died" value.
+	 * @return \c true iff the script is dead.
 	 */
 	inline bool IsDead() const { return this->is_dead; }
 
 	/**
 	 * Return whether the script is alive.
+	 * @return \c true iff the script not dead and not dying (being shut down).
 	 */
 	inline bool IsAlive() const { return !this->IsDead() && !this->in_shutdown; }
 
@@ -218,16 +235,20 @@ public:
 	 */
 	SQInteger GetOpsTillSuspend();
 
+	void LimitOpsTillSuspend(SQInteger suspend);
+
+	uint32_t GetMaxOpsTillSuspend() const;
+
 	/**
 	 * DoCommand callback function for all commands executed by scripts.
 	 * @param result The result of the command.
-	 * @param tile The tile on which the command was executed.
-	 * @param data Command data as given to DoCommandPInternal.
-	 * @param result_data Extra data return from the command.
 	 * @param cmd cmd as given to DoCommandPInternal.
+	 * @param tile The tile on which the command was executed.
+	 * @param payload Command payload as given to DoCommandPInternal.
+	 * @param param param Callback parameter given to DoCommandPInternal.
 	 * @return true if we handled result.
 	 */
-	bool DoCommandCallback(const CommandCost &result, const CommandDataBuffer &data, CommandDataBuffer result_data, Commands cmd);
+	bool DoCommandCallback(const CommandCost &result, Commands cmd, TileIndex tile, const CommandPayloadBase &payload, CallbackParameter param);
 
 	/**
 	 * Insert an event for this script.
@@ -239,13 +260,17 @@ public:
 	 * Check if the instance is sleeping, which either happened because the
 	 *  script executed a DoCommand, executed this.Sleep() or it has been
 	 *  paused.
+	 * @return \c true iff the script is sleeping or paused.
 	 */
 	bool IsSleeping() { return this->suspend != 0; }
 
 	size_t GetAllocatedMemory() const;
 
+	void SetMemoryAllocationLimit(size_t limit) const;
+
 	/**
 	 * Indicate whether this instance is currently being destroyed.
+	 * @return \c true iff being shut down.
 	 */
 	inline bool InShutdown() const { return this->in_shutdown; }
 
@@ -279,8 +304,9 @@ protected:
 
 	/**
 	 * Get the callback handling DoCommands in case of networking.
+	 * @return The callback function to use to get results back to the script.
 	 */
-	virtual CommandCallbackData *GetDoCommandCallback() = 0;
+	virtual CommandCallback GetDoCommandCallback() = 0;
 
 	/**
 	 * Load the dummy script.
@@ -292,18 +318,22 @@ private:
 	std::unique_ptr<class ScriptController> controller; ///< The script main class.
 	std::unique_ptr<SQObject> instance; ///< Squirrel-pointer to the script main class.
 
-	bool is_started = false; ///< Is the scripts constructor executed?
-	bool is_dead = false; ///< True if the script has been stopped.
-	bool is_save_data_on_stack = false; ///< Is the save data still on the squirrel stack?
-	int suspend = 0; ///< The amount of ticks to suspend this script before it's allowed to continue.
-	bool is_paused = false; ///< Is the script paused? (a paused script will not be executed until unpaused)
-	bool in_shutdown = false; ///< Is this instance currently being destructed?
+	bool is_started = false;                        ///< Is the scripts constructor executed?
+	bool is_dead = false;                           ///< True if the script has been stopped.
+	bool is_save_data_on_stack = false;             ///< Is the save data still on the squirrel stack?
+	int suspend = 0;                                ///< The amount of ticks to suspend this script before it's allowed to continue.
+	bool is_paused = false;                         ///< Is the script paused? (a paused script will not be executed until unpaused)
+	bool in_shutdown = false;                       ///< Is this instance currently being destructed?
 	Script_SuspendCallbackProc *callback = nullptr; ///< Callback that should be called in the next tick the script runs.
-	size_t last_allocated_memory = 0; ///< Last known allocated memory value (for display for crashed scripts)
+	size_t last_allocated_memory = 0;               ///< Last known allocated memory value (for display for crashed scripts)
+	std::string_view api_name{};                    ///< Name of the API used for this squirrel.
+	ScriptType script_type{};                       ///< Script type.
+	bool allow_text_param_mismatch = false;         ///< Whether ScriptText parameter mismatches are allowed
 
 	/**
 	 * Call the script Load function if it exists and data was loaded
 	 *  from a savegame.
+	 * @return \c true iff the load succeeded.
 	 */
 	bool CallLoad();
 
@@ -321,19 +351,23 @@ private:
 	 * @param index The index on the squirrel stack of the element to save.
 	 * @param max_depth The maximum depth recursive arrays / tables will be stored
 	 *   with before an error is returned.
-	 * @param test If true, don't really store the data but only check if it is
-	 *   valid.
 	 * @return True if the saving was successful.
 	 */
-	static bool SaveObject(HSQUIRRELVM vm, SQInteger index, int max_depth, bool test);
+	static bool SaveObject(HSQUIRRELVM vm, SQInteger index, int max_depth);
 
 	/**
 	 * Load all objects from a savegame.
+	 * @param data The data from the savegame.
 	 * @return True if the loading was successful.
 	 */
 	static bool LoadObjects(ScriptData *data);
 
 	static bool LoadObjects(HSQUIRRELVM vm, ScriptData *data);
+
+public:
+	inline ScriptType GetScriptType() const { return this->script_type; }
+
+	inline bool IsTextParamMismatchAllowed() const { return this->allow_text_param_mismatch; }
 };
 
 #endif /* SCRIPT_INSTANCE_HPP */

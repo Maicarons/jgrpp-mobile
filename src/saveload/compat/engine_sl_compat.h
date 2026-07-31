@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _engine_desc. */
 const SaveLoadCompat _engine_sl_compat[] = {
 	SLC_VAR("intro_date"),
@@ -44,5 +46,7 @@ const SaveLoadCompat _engine_id_mapping_sl_compat[] = {
 	SLC_VAR("type"),
 	SLC_VAR("substitute_id"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_ENGINE_H */

@@ -5,38 +5,45 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file fileio_func.h Functions for Standard In/Out file operations */
+/** @file fileio_func.h Functions for standard in/out file operations. */
 
 #ifndef FILEIO_FUNC_H
 #define FILEIO_FUNC_H
 
+#include "core/alloc_type.hpp"
 #include "core/enum_type.hpp"
 #include "fileio_type.h"
+#include <string>
+#include <optional>
+#include <vector>
 
-std::optional<FileHandle> FioFOpenFile(std::string_view filename, std::string_view mode, Subdirectory subdir, size_t *filesize = nullptr);
+std::optional<FileHandle> FioFOpenFile(std::string_view filename, const char *mode, Subdirectory subdir, size_t *filesize = nullptr, std::string *output_filename = nullptr);
 bool FioCheckFileExists(std::string_view filename, Subdirectory subdir);
 std::string FioFindFullPath(Subdirectory subdir, std::string_view filename);
 std::string FioGetDirectory(Searchpath sp, Subdirectory subdir);
 std::string FioFindDirectory(Subdirectory subdir);
 void FioCreateDirectory(const std::string &name);
 bool FioRemove(const std::string &filename);
+bool FioRenameFile(const std::string &oldname, const std::string &newname);
 
-std::string_view FiosGetScreenshotDir();
+const char *FiosGetScreenshotDir();
 
 void SanitizeFilename(std::string &filename);
 void AppendPathSeparator(std::string &buf);
-void DeterminePaths(std::string_view exe, bool only_local_path);
-std::unique_ptr<char[]> ReadFileToMem(const std::string &filename, size_t &lenp, size_t maxsize);
+void DeterminePaths(const char *exe, bool only_local_path);
+std::optional<UniqueBuffer<uint8_t>> ReadFileToBuffer(const std::string &filename, size_t maxsize);
+std::optional<UniqueBuffer<uint8_t>> ReadFileToBuffer(FileHandle &fh, size_t maxsize);
 bool FileExists(std::string_view filename);
 bool ExtractTar(const std::string &tar_filename, Subdirectory subdir);
 
 extern std::string _personal_dir; ///< custom directory for personal settings, saves, newgrf, etc.
 extern std::vector<Searchpath> _valid_searchpaths;
+extern std::vector<Searchpath> _valid_searchpaths_excluding_cwd;
 
 /** Helper for scanning for files with a given name */
 class FileScanner {
 protected:
-	Subdirectory subdir; ///< The current sub directory we are searching through
+	Subdirectory subdir{}; ///< The current sub directory we are searching through
 public:
 	/** Destruct the proper one... */
 	virtual ~FileScanner() = default;
@@ -78,5 +85,26 @@ public:
 	/** Do the scan for Tars. */
 	static uint DoScan(TarScanner::Modes modes);
 };
+
+/* Implementation of opendir/readdir/closedir for Windows */
+#if defined(_WIN32)
+struct DIR;
+
+struct dirent { // XXX - only d_name implemented
+	wchar_t *d_name; // name of found file
+	/* little hack which will point to parent DIR struct which will
+	 * save us a call to GetFileAttributes if we want information
+	 * about the file (for example in function fio_bla) */
+	DIR *dir;
+};
+
+DIR *opendir(const wchar_t *path);
+struct dirent *readdir(DIR *d);
+int closedir(DIR *d);
+#else
+/* Use system-supplied opendir/readdir/closedir functions */
+# include <sys/types.h>
+# include <dirent.h>
+#endif /* defined(_WIN32) */
 
 #endif /* FILEIO_FUNC_H */

@@ -19,7 +19,8 @@
 #include "../fios.h"
 #include "../blitter/factory.hpp"
 #include "../company_func.h"
-#include "../saveload/saveload.h"
+#include "../core/random_func.hpp"
+#include "../sl/saveload.h"
 #include "../thread.h"
 #include "../window_func.h"
 #include <iostream>
@@ -32,12 +33,15 @@
 #	include <signal.h>
 #	define STDIN 0  /* file descriptor for standard input */
 
+std::atomic<bool> _dedicated_exit_requested;
+
 /* Signal handlers */
 static void DedicatedSignalHandler(int sig)
 {
-	if (_game_mode == GM_NORMAL && _settings_client.gui.autosave_on_exit) DoExitSave();
-	_exit_game = true;
+	_dedicated_exit_requested = true;
+#ifndef WITH_SIGACTION
 	signal(sig, DedicatedSignalHandler);
+#endif
 }
 #endif
 
@@ -94,15 +98,16 @@ static void CloseWindowsConsoleThread()
 
 static std::unique_ptr<uint8_t[]> _dedicated_video_mem;
 
-/* Whether a fork has been done. */
+/** Whether a fork has been done. */
 bool _dedicated_forks;
 
-extern bool SafeLoad(const std::string &filename, SaveLoadOperation fop, DetailedFileType dft, GameMode newgm, Subdirectory subdir, struct LoadFilter *lf = nullptr);
+extern bool SafeLoad(const std::string &filename, SaveLoadOperation fop, DetailedFileType dft, GameMode newgm, Subdirectory subdir,
+		struct LoadFilter *lf = nullptr, std::string *error_detail = nullptr);
 
 static FVideoDriver_Dedicated iFVideoDriver_Dedicated;
 
 
-std::optional<std::string_view> VideoDriver_Dedicated::Start(const StringList &)
+const char *VideoDriver_Dedicated::Start(const StringList &)
 {
 	this->UpdateAutoResolution();
 
@@ -130,7 +135,7 @@ std::optional<std::string_view> VideoDriver_Dedicated::Start(const StringList &)
 #endif
 
 	Debug(driver, 1, "Loading dedicated server");
-	return std::nullopt;
+	return nullptr;
 }
 
 void VideoDriver_Dedicated::Stop()
@@ -195,18 +200,31 @@ void VideoDriver_Dedicated::MainLoop()
 {
 	/* Signal handlers */
 #if defined(UNIX)
+#ifdef WITH_SIGACTION
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_flags = SA_RESTART;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = DedicatedSignalHandler;
+	sigaction(SIGTERM, &sa, nullptr);
+	sigaction(SIGINT, &sa, nullptr);
+	sigaction(SIGQUIT, &sa, nullptr);
+#else
 	signal(SIGTERM, DedicatedSignalHandler);
 	signal(SIGINT, DedicatedSignalHandler);
 	signal(SIGQUIT, DedicatedSignalHandler);
 #endif
+#endif
+
+	SetSelfAsGameThread();
 
 	/* Load the dedicated server stuff */
 	_is_network_server = true;
 	_network_dedicated = true;
 	_current_company = _local_company = COMPANY_SPECTATOR;
 
-	/* If SwitchMode is SM_LOAD_GAME / SM_START_HEIGHTMAP, it means that the user used the '-g' options */
-	if (_switch_mode != SM_LOAD_GAME && _switch_mode != SM_START_HEIGHTMAP) {
+	/* If SwitchMode is SwitchMode::LoadGame / SwitchMode::StartHeightmap, it means that the user used the '-g' options */
+	if (_switch_mode != SwitchMode::LoadGame && _switch_mode != SwitchMode::StartHeightmap) {
 		StartNewGameWithoutGUI(GENERATE_NEW_SEED);
 	}
 
@@ -220,5 +238,12 @@ void VideoDriver_Dedicated::MainLoop()
 
 		this->Tick();
 		this->SleepTillNextTick();
+
+#if defined(UNIX)
+		if (_dedicated_exit_requested) {
+			if (_game_mode == GameMode::Normal && _settings_client.gui.autosave_on_exit) DoExitSave();
+			_exit_game = true;
+		}
+#endif
 	}
 }

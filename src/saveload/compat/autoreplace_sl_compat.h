@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _engine_renew_desc. */
 const SaveLoadCompat _engine_renew_sl_compat[] = {
 	SLC_VAR("from"),
@@ -20,5 +22,7 @@ const SaveLoadCompat _engine_renew_sl_compat[] = {
 	SLC_VAR("group_id"),
 	SLC_VAR("replace_when_old"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_AUTOREPLACE_H */

@@ -13,11 +13,11 @@
 #include "linkgraph.h"
 #include "linkgraphschedule.h"
 
-typedef LinkGraph::BaseNode Node;
-typedef LinkGraph::BaseEdge Edge;
+typedef LinkGraph::Node Node;
+typedef LinkGraph::Edge Edge;
 
-typedef const LinkGraph::BaseNode ConstNode;
-typedef const LinkGraph::BaseEdge ConstEdge;
+typedef LinkGraph::ConstNode ConstNode;
+typedef LinkGraph::ConstEdge ConstEdge;
 
 
 #endif /* LINKGRAPH_BASE_H */

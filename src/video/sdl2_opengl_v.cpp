@@ -38,7 +38,11 @@
 
 static FVideoDriver_SDL_OpenGL iFVideoDriver_SDL_OpenGL;
 
-/** Platform-specific callback to get an OpenGL function pointer. */
+/**
+ * Platform-specific callback to get an OpenGL function pointer.
+ * @param proc The name of the function.
+ * @return The function pointer, or \c nullptr when it could not be found.
+ */
 static OGLProc GetOGLProcAddressCallback(const char *proc)
 {
 	return reinterpret_cast<OGLProc>(SDL_GL_GetProcAddress(proc));
@@ -49,13 +53,13 @@ bool VideoDriver_SDL_OpenGL::CreateMainWindow(uint w, uint h, uint flags)
 	return this->VideoDriver_SDL_Base::CreateMainWindow(w, h, flags | SDL_WINDOW_OPENGL);
 }
 
-std::optional<std::string_view> VideoDriver_SDL_OpenGL::Start(const StringList &param)
+const char *VideoDriver_SDL_OpenGL::Start(const StringList &param)
 {
-	auto error = VideoDriver_SDL_Base::Start(param);
-	if (error) return error;
+	const char *error = VideoDriver_SDL_Base::Start(param);
+	if (error != nullptr) return error;
 
 	error = this->AllocateContext();
-	if (error) {
+	if (error != nullptr) {
 		this->Stop();
 		return error;
 	}
@@ -77,7 +81,7 @@ std::optional<std::string_view> VideoDriver_SDL_OpenGL::Start(const StringList &
 	/* Main loop expects to start with the buffer unmapped. */
 	this->ReleaseVideoPointer();
 
-	return std::nullopt;
+	return nullptr;
 }
 
 void VideoDriver_SDL_OpenGL::Stop()
@@ -101,7 +105,7 @@ void VideoDriver_SDL_OpenGL::ToggleVsync(bool vsync)
 	SDL_GL_SetSwapInterval(vsync);
 }
 
-std::optional<std::string_view> VideoDriver_SDL_OpenGL::AllocateContext()
+const char *VideoDriver_SDL_OpenGL::AllocateContext()
 {
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
@@ -110,7 +114,7 @@ std::optional<std::string_view> VideoDriver_SDL_OpenGL::AllocateContext()
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	if (_debug_driver_level >= 8) {
+	if (GetDebugLevel(DebugLevelID::driver) >= 8) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 	}
 
@@ -146,7 +150,10 @@ bool VideoDriver_SDL_OpenGL::AllocateBackingStore(int w, int h, bool force)
 	SDL_GL_SwapWindow(this->sdl_window);
 	_screen.dst_ptr = this->GetVideoPointer();
 
-	CopyPalette(this->local_palette, true);
+	_cur_palette.first_dirty = 0;
+	_cur_palette.count_dirty = 256;
+	this->local_palette = _cur_palette;
+	_cur_palette.count_dirty = 0;
 
 	return res;
 }

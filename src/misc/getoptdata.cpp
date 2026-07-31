@@ -21,30 +21,30 @@
  */
 int GetOptData::GetOpt()
 {
-	std::string_view s = this->cont;
-	if (s.empty()) {
+	const char *s = this->cont;
+	if (s == nullptr) {
 		if (this->arguments.empty()) return -1; // No arguments left -> finished.
 
 		s = this->arguments[0];
-		if (s[0] != '-') return -1; // No leading '-' -> not an option -> finished.
+		if (*s != '-') return -1; // No leading '-' -> not an option -> finished.
 
 		this->arguments = this->arguments.subspan(1);
 
 		/* Is it a long option? */
 		for (auto &option : this->options) {
-			if (option.longname == s) { // Long options always use the entire argument.
-				this->cont = {};
+			if (option.longname != nullptr && !strcmp(option.longname, s)) { // Long options always use the entire argument.
+				this->cont = nullptr;
 				return this->GetOpt(option);
 			}
 		}
 
-		s.remove_prefix(1); // Skip leading '-'.
+		s++; // Skip leading '-'.
 	}
 
 	/* Is it a short option? */
 	for (auto &option : this->options) {
-		if (option.shortname != '\0' && s[0] == option.shortname) {
-			this->cont = s.substr(1);
+		if (option.shortname != '\0' && *s == option.shortname) {
+			this->cont = (s[1] != '\0') ? s + 1 : nullptr;
 			return this->GetOpt(option);
 		}
 	}
@@ -54,16 +54,16 @@ int GetOptData::GetOpt()
 
 int GetOptData::GetOpt(const OptionData &option)
 {
-	this->opt = {};
+	this->opt = nullptr;
 	switch (option.type) {
 		case ODF_NO_VALUE:
 			return option.id;
 
 		case ODF_HAS_VALUE:
 		case ODF_OPTIONAL_VALUE:
-			if (!this->cont.empty()) { // Remainder of the argument is the option value.
+			if (this->cont != nullptr) { // Remainder of the argument is the option value.
 				this->opt = this->cont;
-				this->cont = {};
+				this->cont = nullptr;
 				return option.id;
 			}
 			/* No more arguments, either return an error or a value-less option. */

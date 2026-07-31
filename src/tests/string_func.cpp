@@ -16,6 +16,7 @@
 #include "../core/string_builder.hpp"
 #include "../core/string_consumer.hpp"
 #include "../table/control_codes.h"
+#include <array>
 
 #include "table/strings.h"
 
@@ -47,6 +48,30 @@ TEST_CASE("StrCompareIgnoreCase - std::string")
 	CHECK(StrCompareIgnoreCase(std::string{"aa"}, std::string{"a"}) > 0);
 }
 
+TEST_CASE("StrCompareIgnoreCase - char pointer")
+{
+	/* Same string, with different cases. */
+	CHECK(StrCompareIgnoreCase("", "") == 0);
+	CHECK(StrCompareIgnoreCase("a", "a") == 0);
+	CHECK(StrCompareIgnoreCase("a", "A") == 0);
+	CHECK(StrCompareIgnoreCase("A", "a") == 0);
+	CHECK(StrCompareIgnoreCase("A", "A") == 0);
+
+	/* Not the same string. */
+	CHECK(StrCompareIgnoreCase("", "b") < 0);
+	CHECK(StrCompareIgnoreCase("a", "") > 0);
+
+	CHECK(StrCompareIgnoreCase("a", "b") < 0);
+	CHECK(StrCompareIgnoreCase("b", "a") > 0);
+	CHECK(StrCompareIgnoreCase("a", "B") < 0);
+	CHECK(StrCompareIgnoreCase("b", "A") > 0);
+	CHECK(StrCompareIgnoreCase("A", "b") < 0);
+	CHECK(StrCompareIgnoreCase("B", "a") > 0);
+
+	CHECK(StrCompareIgnoreCase("a", "aa") < 0);
+	CHECK(StrCompareIgnoreCase("aa", "a") > 0);
+}
+
 TEST_CASE("StrCompareIgnoreCase - std::string_view")
 {
 	/*
@@ -54,7 +79,7 @@ TEST_CASE("StrCompareIgnoreCase - std::string_view")
 	 * which does not guarantee the termination that would be required by
 	 * things such as stricmp/strcasecmp. So, just passing .data() into stricmp
 	 * or strcasecmp would fail if it does not account for the length of the
-	 * view. Thus, contrary to the string tests, this uses the same base
+	 * view. Thus, contrary to the string/char* tests, this uses the same base
 	 * string but gets different sections to trigger these corner cases.
 	 */
 	std::string_view base{"aaAbB"};
@@ -99,6 +124,24 @@ TEST_CASE("StrEqualsIgnoreCase - std::string")
 	CHECK(!StrEqualsIgnoreCase(std::string{"aa"}, std::string{"a"}));
 }
 
+TEST_CASE("StrEqualsIgnoreCase - char pointer")
+{
+	/* Same string, with different cases. */
+	CHECK(StrEqualsIgnoreCase("", ""));
+	CHECK(StrEqualsIgnoreCase("a", "a"));
+	CHECK(StrEqualsIgnoreCase("a", "A"));
+	CHECK(StrEqualsIgnoreCase("A", "a"));
+	CHECK(StrEqualsIgnoreCase("A", "A"));
+
+	/* Not the same string. */
+	CHECK(!StrEqualsIgnoreCase("", "b"));
+	CHECK(!StrEqualsIgnoreCase("a", ""));
+	CHECK(!StrEqualsIgnoreCase("a", "b"));
+	CHECK(!StrEqualsIgnoreCase("b", "a"));
+	CHECK(!StrEqualsIgnoreCase("a", "aa"));
+	CHECK(!StrEqualsIgnoreCase("aa", "a"));
+}
+
 TEST_CASE("StrEqualsIgnoreCase - std::string_view")
 {
 	/*
@@ -106,7 +149,7 @@ TEST_CASE("StrEqualsIgnoreCase - std::string_view")
 	 * which does not guarantee the termination that would be required by
 	 * things such as stricmp/strcasecmp. So, just passing .data() into stricmp
 	 * or strcasecmp would fail if it does not account for the length of the
-	 * view. Thus, contrary to the string tests, this uses the same base
+	 * view. Thus, contrary to the string/char* tests, this uses the same base
 	 * string but gets different sections to trigger these corner cases.
 	 */
 	std::string_view base{"aaAb"};
@@ -154,6 +197,31 @@ TEST_CASE("StrStartsWithIgnoreCase - std::string")
 	CHECK(!StrStartsWithIgnoreCase(std::string{"a"}, std::string{"aa"}));
 }
 
+TEST_CASE("StrStartsWithIgnoreCase - char pointer")
+{
+	/* Everything starts with an empty prefix. */
+	CHECK(StrStartsWithIgnoreCase("", ""));
+	CHECK(StrStartsWithIgnoreCase("a", ""));
+
+	/* Equals string, ignoring case. */
+	CHECK(StrStartsWithIgnoreCase("a", "a"));
+	CHECK(StrStartsWithIgnoreCase("a", "A"));
+	CHECK(StrStartsWithIgnoreCase("A", "a"));
+	CHECK(StrStartsWithIgnoreCase("A", "A"));
+
+	/* Starts with same, ignoring case. */
+	CHECK(StrStartsWithIgnoreCase("ab", "a"));
+	CHECK(StrStartsWithIgnoreCase("ab", "A"));
+	CHECK(StrStartsWithIgnoreCase("Ab", "a"));
+	CHECK(StrStartsWithIgnoreCase("Ab", "A"));
+
+	/* Does not start the same. */
+	CHECK(!StrStartsWithIgnoreCase("", "b"));
+	CHECK(!StrStartsWithIgnoreCase("a", "b"));
+	CHECK(!StrStartsWithIgnoreCase("b", "a"));
+	CHECK(!StrStartsWithIgnoreCase("a", "aa"));
+}
+
 TEST_CASE("StrStartsWithIgnoreCase - std::string_view")
 {
 	/*
@@ -161,7 +229,7 @@ TEST_CASE("StrStartsWithIgnoreCase - std::string_view")
 	 * which does not guarantee the termination that would be required by
 	 * things such as stricmp/strcasecmp. So, just passing .data() into stricmp
 	 * or strcasecmp would fail if it does not account for the length of the
-	 * view. Thus, contrary to the string tests, this uses the same base
+	 * view. Thus, contrary to the string/char* tests, this uses the same base
 	 * string but gets different sections to trigger these corner cases.
 	 */
 	std::string_view base{"aabAb"};
@@ -216,6 +284,31 @@ TEST_CASE("StrEndsWithIgnoreCase - std::string")
 	CHECK(!StrEndsWithIgnoreCase(std::string{"a"}, std::string{"aa"}));
 }
 
+TEST_CASE("StrEndsWithIgnoreCase - char pointer")
+{
+	/* Everything ends with an empty prefix. */
+	CHECK(StrEndsWithIgnoreCase("", ""));
+	CHECK(StrEndsWithIgnoreCase("a", ""));
+
+	/* Equals string, ignoring case. */
+	CHECK(StrEndsWithIgnoreCase("a", "a"));
+	CHECK(StrEndsWithIgnoreCase("a", "A"));
+	CHECK(StrEndsWithIgnoreCase("A", "a"));
+	CHECK(StrEndsWithIgnoreCase("A", "A"));
+
+	/* Ends with same, ignoring case. */
+	CHECK(StrEndsWithIgnoreCase("ba", "a"));
+	CHECK(StrEndsWithIgnoreCase("ba", "A"));
+	CHECK(StrEndsWithIgnoreCase("bA", "a"));
+	CHECK(StrEndsWithIgnoreCase("bA", "A"));
+
+	/* Does not end the same. */
+	CHECK(!StrEndsWithIgnoreCase("", "b"));
+	CHECK(!StrEndsWithIgnoreCase("a", "b"));
+	CHECK(!StrEndsWithIgnoreCase("b", "a"));
+	CHECK(!StrEndsWithIgnoreCase("a", "aa"));
+}
+
 TEST_CASE("StrEndsWithIgnoreCase - std::string_view")
 {
 	/*
@@ -223,7 +316,7 @@ TEST_CASE("StrEndsWithIgnoreCase - std::string_view")
 	 * which does not guarantee the termination that would be required by
 	 * things such as stricmp/strcasecmp. So, just passing .data() into stricmp
 	 * or strcasecmp would fail if it does not account for the length of the
-	 * view. Thus, contrary to the string tests, this uses the same base
+	 * view. Thus, contrary to the string/char* tests, this uses the same base
 	 * string but gets different sections to trigger these corner cases.
 	 */
 	std::string_view base{"aabAba"};
@@ -257,6 +350,8 @@ TEST_CASE("FormatArrayAsHex")
 	CHECK(FormatArrayAsHex(std::array<uint8_t, 0>{}) == "");
 	CHECK(FormatArrayAsHex(std::array<uint8_t, 1>{0x12}) == "12");
 	CHECK(FormatArrayAsHex(std::array<uint8_t, 4>{0x13, 0x38, 0x42, 0xAF}) == "133842AF");
+	CHECK(FormatArrayAsHex(std::array<uint8_t, 4>{0x13, 0x38, 0x42, 0xAF}, true) == "133842AF");
+	CHECK(FormatArrayAsHex(std::array<uint8_t, 4>{0x13, 0x38, 0x42, 0xAF}, false) == "133842af");
 }
 
 TEST_CASE("ConvertHexToBytes")
@@ -325,24 +420,26 @@ TEST_CASE("StrTrimView") {
 	}
 }
 
-extern void FixSCCEncoded(std::string &str, bool fix_code);
+namespace upstream_sl {
+	extern void FixSCCEncoded(std::string &str, bool fix_code);
+}
 
 /* Helper to call FixSCCEncoded and return the result in a new string. */
 static std::string FixSCCEncodedWrapper(const std::string &str, bool fix_code)
 {
 	std::string result = str;
-	FixSCCEncoded(result, fix_code);
+	upstream_sl::FixSCCEncoded(result, fix_code);
 	return result;
 }
 
 /* Helper to compose a string part from a unicode character */
-static void ComposePart(StringBuilder &builder, char32_t c)
+static void ComposePart(StringBuilder builder, char32_t c)
 {
 	builder.PutUtf8(c);
 }
 
 /* Helper to compose a string part from a string. */
-static void ComposePart(StringBuilder &builder, const std::string &value)
+static void ComposePart(StringBuilder builder, const std::string &value)
 {
 	builder += value;
 }
@@ -351,10 +448,10 @@ static void ComposePart(StringBuilder &builder, const std::string &value)
 template <typename... Args>
 static std::string Compose(Args &&... args)
 {
-	std::string result;
+	format_buffer result;
 	StringBuilder builder(result);
 	(ComposePart(builder, args), ...);
-	return result;
+	return result.to_string();
 }
 
 TEST_CASE("FixSCCEncoded")
@@ -393,13 +490,42 @@ TEST_CASE("FixSCCEncoded")
 	CHECK(FixSCCEncodedWrapper("\uE000777:\uE0008888:\"Foo\":\"BarBaz\"", false) == Compose(SCC_ENCODED, "777", SCC_RECORD_SEPARATOR, SCC_ENCODED, "8888", SCC_RECORD_SEPARATOR, SCC_ENCODED_STRING, "Foo", SCC_RECORD_SEPARATOR, SCC_ENCODED_STRING, "BarBaz"));
 }
 
-extern void FixSCCEncodedNegative(std::string &str);
+TEST_CASE("EncodedString::ReplaceParam - positive")
+{
+	/* Test that two encoded strings with different parameters are not the same. */
+	EncodedString string1 = GetEncodedString(STR_NULL, "Foo", 10, "Bar");
+	EncodedString string2 = GetEncodedString(STR_NULL, "Foo", 15, "Bar");
+	CHECK(string1 != string2);
+
+	/* Test that replacing parameter results in the same string. */
+	EncodedString string3 = string1.ReplaceParam(1, 15);
+	CHECK(string2 == string3);
+}
+
+TEST_CASE("EncodedString::ReplaceParam - negative")
+{
+	EncodedString string1 = GetEncodedString(STR_NULL, "Foo", -1, "Bar");
+	EncodedString string2 = GetEncodedString(STR_NULL, "Foo", -2, "Bar");
+	EncodedString string3 = GetEncodedString(STR_NULL, "Foo", 0xFFFF'FFFF'FFFF'FFFF, "Bar");
+	/* Test that two encoded strings with different parameters are not the same. */
+	CHECK(string1 != string2);
+	/* Test that signed values are stored as unsigned. */
+	CHECK(string1 == string3);
+
+	/* Test that replacing parameter results in the same string. */
+	EncodedString string4 = string1.ReplaceParam(1, -2);
+	CHECK(string2 == string4);
+}
+
+namespace upstream_sl {
+	extern void FixSCCEncodedNegative(std::string &str);
+}
 
 /* Helper to call FixSCCEncodedNegative and return the result in a new string. */
 static std::string FixSCCEncodedNegativeWrapper(const std::string &str)
 {
 	std::string result = str;
-	FixSCCEncodedNegative(result);
+	upstream_sl::FixSCCEncodedNegative(result);
 	return result;
 }
 
@@ -411,31 +537,4 @@ TEST_CASE("FixSCCEncodedNegative")
 	CHECK(FixSCCEncodedNegativeWrapper("") == "");
 	CHECK(FixSCCEncodedNegativeWrapper(positive) == positive);
 	CHECK(FixSCCEncodedNegativeWrapper(negative) == positive);
-}
-
-TEST_CASE("EncodedString::ReplaceParam - positive")
-{
-	/* Test that two encoded strings with different parameters are not the same. */
-	EncodedString string1 = GetEncodedString(STR_NULL, "Foo"sv, 10, "Bar"sv);
-	EncodedString string2 = GetEncodedString(STR_NULL, "Foo"sv, 15, "Bar"sv);
-	CHECK(string1 != string2);
-
-	/* Test that replacing parameter results in the same string. */
-	EncodedString string3 = string1.ReplaceParam(1, 15);
-	CHECK(string2 == string3);
-}
-
-TEST_CASE("EncodedString::ReplaceParam - negative")
-{
-	EncodedString string1 = GetEncodedString(STR_NULL, "Foo"sv, -1, "Bar"sv);
-	EncodedString string2 = GetEncodedString(STR_NULL, "Foo"sv, -2, "Bar"sv);
-	EncodedString string3 = GetEncodedString(STR_NULL, "Foo"sv, 0xFFFF'FFFF'FFFF'FFFF, "Bar"sv);
-	/* Test that two encoded strings with different parameters are not the same. */
-	CHECK(string1 != string2);
-	/* Test that signed values are stored as unsigned. */
-	CHECK(string1 == string3);
-
-	/* Test that replacing parameter results in the same string. */
-	EncodedString string4 = string1.ReplaceParam(1, -2);
-	CHECK(string2 == string4);
 }

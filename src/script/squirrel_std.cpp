@@ -5,13 +5,15 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file squirrel_std.cpp Implements the Squirrel Standard Function class */
+/** @file squirrel_std.cpp Implements the Squirrel Standard Function class. */
 
 #include "../stdafx.h"
 #include <squirrel.h>
 #include <sqstdmath.h>
 #include "../debug.h"
 #include "squirrel_std.hpp"
+#include "../core/alloc_func.hpp"
+#include "../core/math_func.hpp"
 #include "../string_func.h"
 
 #include "../safeguards.h"

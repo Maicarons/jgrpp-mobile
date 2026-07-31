@@ -14,6 +14,9 @@
 #include "newgrf_station.h"
 #include "waypoint_base.h"
 #include "viewport_kdtree.h"
+#include "tracerestrict.h"
+#include "newgrf_debug.h"
+#include "news_func.h"
 
 #include "safeguards.h"
 
@@ -27,8 +30,8 @@
  */
 void DrawWaypointSprite(int x, int y, StationClassID station_class, uint16_t station_type, RailType railtype)
 {
-	if (!DrawStationTile(x, y, railtype, AXIS_X, station_class, station_type)) {
-		StationPickerDrawSprite(x, y, StationType::RailWaypoint, railtype, INVALID_ROADTYPE, AXIS_X);
+	if (!DrawStationTile(x, y, railtype, Axis::X, station_class, station_type)) {
+		StationPickerDrawSprite(x, y, StationType::RailWaypoint, railtype, INVALID_ROADTYPE, to_underlying(Axis::X));
 	}
 }
 
@@ -45,7 +48,14 @@ TileArea Waypoint::GetTileArea(StationType type) const
 Waypoint::~Waypoint()
 {
 	if (CleaningPool()) return;
-	CloseWindowById(WC_WAYPOINT_VIEW, this->index);
+	CloseWindowById(WindowClass::WaypointView, this->index);
+	DeleteNewGRFInspectWindow(GrfSpecFeature::FakeStationStruct, this->index.base());
 	RemoveOrderFromAllVehicles(OT_GOTO_WAYPOINT, this->index);
-	if (this->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeWaypoint(this->index));
+	if (_viewport_sign_kdtree_valid && this->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeWaypoint(this->index));
+	TraceRestrictRemoveDestinationID(TROCAF_WAYPOINT, this->index);
+
+	/* Remove all news items */
+	DeleteStationNews(this->index);
+
+	if (ShouldShowBaseStationViewportLabel(this)) this->sign.MarkDirty(ZoomLevel::SpriteMax);
 }

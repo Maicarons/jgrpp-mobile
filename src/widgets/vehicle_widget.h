@@ -17,6 +17,8 @@ enum VehicleViewWidgets : WidgetID {
 	WID_VV_START_STOP,         ///< Start or stop this vehicle, and show information about the current state.
 	WID_VV_RENAME,             ///< Rename vehicle
 	WID_VV_LOCATION,           ///< Center the main view on this vehicle.
+	WID_VV_ROUTE_SETTINGS,     ///< Route settings.
+	WID_VV_SELECT_ROUTE_SETTINGS, ///< Route settings select widget.
 	WID_VV_ORDER_LOCATION,     ///< Center the main view on the order's target location.
 	WID_VV_GOTO_DEPOT,         ///< Order this vehicle to go to the depot.
 	WID_VV_REFIT,              ///< Open the refit window.
@@ -37,6 +39,7 @@ enum VehicleRefitWidgets : WidgetID {
 	WID_VR_VEHICLE_PANEL_DISPLAY, ///< Display with a representation of the vehicle to refit.
 	WID_VR_SHOW_HSCROLLBAR,       ///< Selection widget for the horizontal scrollbar.
 	WID_VR_HSCROLLBAR,            ///< Horizontal scrollbar or the vehicle display.
+	WID_VR_VEHICLE_DROPDOWN,      ///< Dropdown for the vehicle display.
 	WID_VR_SELECT_HEADER,         ///< Header with question about the cargo to carry.
 	WID_VR_MATRIX,                ///< Options to refit to.
 	WID_VR_SCROLLBAR,             ///< Scrollbar for the refit options.
@@ -59,10 +62,13 @@ enum VehicleDetailsWidgets : WidgetID {
 	WID_VD_DETAILS_TRAIN_VEHICLES,      ///< Show all parts of the train with their description.
 	WID_VD_DETAILS_CAPACITY_OF_EACH,    ///< Show the capacity of all train parts.
 	WID_VD_DETAILS_TOTAL_CARGO,         ///< Show the capacity and carried cargo amounts aggregated per cargo of the train.
+	WID_VD_DETAILS_PERFORMANCE,         ///< Show train performance statistics for empty and fully loaded.
+	WID_VD_EXTRA_ACTIONS,               ///< Extra actions drop-down.
 };
 
 /** Widgets of the #VehicleListWindow class. */
 enum VehicleListWidgets : WidgetID {
+	WID_VL_LIST,                     ///< List of the vehicles, this must be first, see: DirtyVehicleListWindowForVehicle
 	WID_VL_CAPTION,                  ///< Caption of window (for non shared orders windows).
 	WID_VL_CAPTION_SHARED_ORDERS,    ///< Caption of window (for shared orders windows).
 	WID_VL_CAPTION_SELECTION,        ///< Selection for caption.
@@ -71,9 +77,8 @@ enum VehicleListWidgets : WidgetID {
 	WID_VL_GROUP_BY_PULLDOWN,        ///< Group by dropdown list.
 	WID_VL_SORT_ORDER,               ///< Sort order.
 	WID_VL_SORT_BY_PULLDOWN,         ///< Sort by dropdown list.
-	WID_VL_FILTER_BY_CARGO,          ///< Cargo filter dropdown list.
-	WID_VL_FILTER_BY_CARGO_SEL,      ///< Cargo filter dropdown list panel selector.
-	WID_VL_LIST,                     ///< List of the vehicles.
+	WID_VL_FILTER_BY_CARGO,          ///< Cargo filter dropdown list
+	WID_VL_FILTER_BY_CARGO_SEL,      ///< Cargo filter dropdown list panel selector
 	WID_VL_SCROLLBAR,                ///< Scrollbar for the list.
 	WID_VL_HIDE_BUTTONS,             ///< Selection to hide the buttons.
 	WID_VL_AVAILABLE_VEHICLES,       ///< Available vehicles.

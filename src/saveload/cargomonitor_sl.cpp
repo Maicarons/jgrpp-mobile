@@ -16,6 +16,8 @@
 
 #include "../safeguards.h"
 
+namespace upstream_sl {
+
 /** Temporary storage of cargo monitoring data for loading or saving it. */
 struct TempStorage {
 	CargoMonitorID number;
@@ -81,7 +83,8 @@ struct CMDLChunkHandler : ChunkHandler {
 
 			if (fix) storage.number = FixupCargoMonitor(storage.number);
 
-			_cargo_deliveries.emplace(storage.number, storage.amount);
+			std::pair<CargoMonitorID, uint32_t> p(storage.number, storage.amount);
+			_cargo_deliveries.insert(p);
 		}
 	}
 };
@@ -124,7 +127,8 @@ struct CMPUChunkHandler : ChunkHandler {
 
 			if (fix) storage.number = FixupCargoMonitor(storage.number);
 
-			_cargo_pickups.emplace(storage.number, storage.amount);
+			std::pair<CargoMonitorID, uint32_t> p(storage.number, storage.amount);
+			_cargo_pickups.insert(p);
 		}
 	}
 };
@@ -138,3 +142,5 @@ static const ChunkHandlerRef cargomonitor_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _cargomonitor_chunk_handlers(cargomonitor_chunk_handlers);
+
+}

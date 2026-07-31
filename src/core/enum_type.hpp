@@ -5,16 +5,24 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file enum_type.hpp Type (helpers) for enums */
+/** @file enum_type.hpp Type (helpers) for enums. */
 
 #ifndef ENUM_TYPE_HPP
 #define ENUM_TYPE_HPP
 
 #include "base_bitset_type.hpp"
+#include <array>
 
-/** Implementation of std::to_underlying (from C++23) */
+/**
+ * Implementation of std::to_underlying (from C++23)
+ * @param e The enum to get the value of.
+ * @return The underlying value of the enum.
+ */
 template <typename enum_type>
 constexpr std::underlying_type_t<enum_type> to_underlying(enum_type e) { return static_cast<std::underlying_type_t<enum_type>>(e); }
+
+/** Implementation of std::is_scoped_enum_v (from C++23) */
+template <class T> constexpr bool is_scoped_enum_v = std::conjunction_v<std::is_enum<T>, std::negation<std::is_convertible<T, int>>>;
 
 /** Trait to enable prefix/postfix incrementing operators. */
 template <typename enum_type>
@@ -25,7 +33,11 @@ struct is_enum_incrementable {
 template <typename enum_type>
 constexpr bool is_enum_incrementable_v = is_enum_incrementable<enum_type>::value;
 
-/** Prefix increment. */
+/**
+ * Prefix increment.
+ * @param e The enum to increment.
+ * @return Reference to the incremented enum.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_incrementable_v<enum_type>, bool> = true>
 inline constexpr enum_type &operator ++(enum_type &e)
 {
@@ -33,7 +45,11 @@ inline constexpr enum_type &operator ++(enum_type &e)
 	return e;
 }
 
-/** Postfix increment, uses prefix increment. */
+/**
+ * Postfix increment, uses prefix increment.
+ * @param e The enum to increment.
+ * @return Copy of the original value.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_incrementable_v<enum_type>, bool> = true>
 inline constexpr enum_type operator ++(enum_type &e, int)
 {
@@ -42,7 +58,11 @@ inline constexpr enum_type operator ++(enum_type &e, int)
 	return e_org;
 }
 
-/** Prefix decrement. */
+/**
+ * Prefix decrement.
+ * @param e The enum to decrement.
+ * @return Reference to the decremented enum.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_incrementable_v<enum_type>, bool> = true>
 inline constexpr enum_type &operator --(enum_type &e)
 {
@@ -50,7 +70,11 @@ inline constexpr enum_type &operator --(enum_type &e)
 	return e;
 }
 
-/** Postfix decrement, uses prefix decrement. */
+/**
+ * Postfix decrement, uses prefix decrement.
+ * @param e The enum to decrement.
+ * @return Copy of the original value.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_incrementable_v<enum_type>, bool> = true>
 inline constexpr enum_type operator --(enum_type &e, int)
 {
@@ -65,6 +89,25 @@ inline constexpr enum_type operator --(enum_type &e, int)
 		static const bool value = true; \
 	};
 
+/** Trait to enable adding the underlying type. */
+template <typename enum_type>
+struct is_enum_add_underlying_type {
+	static constexpr bool value = false;
+};
+
+/** Postfix decrement, uses prefix decrement. */
+template <typename enum_type, std::enable_if_t<is_enum_add_underlying_type<enum_type>::value, bool> = true>
+inline constexpr enum_type operator + (enum_type e, std::underlying_type_t<enum_type> other)
+{
+	return static_cast<enum_type>(to_underlying(e) + other);
+}
+
+/** Operator that allows adding the underlying type. */
+#define DECLARE_ENUM_ADD_OPERATOR(enum_type) \
+	template <> struct is_enum_add_underlying_type<enum_type> { \
+		static const bool value = true; \
+	};
+
 /** Trait to enable prefix/postfix incrementing operators. */
 template <typename enum_type>
 struct is_enum_sequential {
@@ -74,7 +117,12 @@ struct is_enum_sequential {
 template <typename enum_type>
 constexpr bool is_enum_sequential_v = is_enum_sequential<enum_type>::value;
 
-/** Add integer. */
+/**
+ * Add integer.
+ * @param e The enum to add to.
+ * @param offset The amount to add to the enum.
+ * @return The new enum.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_sequential_v<enum_type>, bool> = true>
 inline constexpr enum_type operator+(enum_type e, int offset)
 {
@@ -88,7 +136,12 @@ inline constexpr enum_type &operator+=(enum_type &e, int offset)
 	return e;
 }
 
-/** Sub integer. */
+/**
+ * Subtract integer.
+ * @param e The enum to subtract from.
+ * @param offset The amount to subtract from the enum.
+ * @return The new enum.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_sequential_v<enum_type>, bool> = true>
 inline constexpr enum_type operator-(enum_type e, int offset)
 {
@@ -102,7 +155,12 @@ inline constexpr enum_type &operator-=(enum_type &e, int offset)
 	return e;
 }
 
-/** Distance */
+/**
+ * Distance of two enums.
+ * @param a The first enum.
+ * @param b The second enum.
+ * @return The value of the first enum minus the value of the second enum.
+ */
 template <typename enum_type, std::enable_if_t<is_enum_sequential_v<enum_type>, bool> = true>
 inline constexpr auto operator-(enum_type a, enum_type b)
 {
@@ -128,8 +186,12 @@ inline constexpr auto operator-(enum_type a, enum_type b)
 /** Operator that allows this enumeration to be added to any other enumeration. */
 #define DECLARE_ENUM_AS_ADDABLE(EnumType) \
 	template <typename OtherEnumType, typename = typename std::enable_if<std::is_enum_v<OtherEnumType>, OtherEnumType>::type> \
-	constexpr OtherEnumType operator + (OtherEnumType m1, EnumType m2) { \
+	constexpr OtherEnumType operator +(OtherEnumType m1, EnumType m2) { \
 		return static_cast<OtherEnumType>(to_underlying(m1) + to_underlying(m2)); \
+	} \
+	template <typename OtherEnumType, typename = typename std::enable_if<std::is_enum_v<OtherEnumType>, OtherEnumType>::type> \
+	constexpr OtherEnumType operator -(OtherEnumType m1, EnumType m2) { \
+		return static_cast<OtherEnumType>(to_underlying(m1) - to_underlying(m2)); \
 	}
 
 /**
@@ -152,10 +214,22 @@ template <typename T, class = typename std::enable_if_t<std::is_enum_v<T>>>
 template <typename T, class = typename std::enable_if_t<std::is_enum_v<T>>>
 [[debug_inline]] inline constexpr void ToggleFlag(T &x, const T y)
 {
-	if (HasFlag(x, y)) {
-		x &= ~y;
-	} else {
+	x ^= y;
+}
+
+/**
+ * Set or unset a value in a bitset enum.
+ * @param x The value to change.
+ * @param y The flag to apply.
+ * @param set Whether to set or unset the flag.
+ */
+template <typename T, class = typename std::enable_if_t<std::is_enum_v<T>>>
+[[debug_inline]] constexpr void SetFlagState(T &x, const T y, bool set)
+{
+	if (set) {
 		x |= y;
+	} else {
+		x &= ~y;
 	}
 }
 
@@ -177,7 +251,7 @@ template <typename Tenum, typename Tstorage, Tenum Tend_value = Tenum{std::numer
 class EnumBitSet : public BaseBitSet<EnumBitSet<Tenum, Tstorage, Tend_value>, Tenum, Tstorage, EnumBitSetMask<Tstorage, Tenum, Tend_value>::value> {
 	using BaseClass = BaseBitSet<EnumBitSet<Tenum, Tstorage, Tend_value>, Tenum, Tstorage, EnumBitSetMask<Tstorage, Tenum, Tend_value>::value>;
 public:
-	using EnumType = BaseClass::ValueType;
+	using EnumType = typename BaseClass::ValueType;
 
 	constexpr EnumBitSet() : BaseClass() {}
 	constexpr EnumBitSet(Tenum value) : BaseClass() { this->Set(value); }
@@ -194,9 +268,62 @@ public:
 		}
 	}
 
-	constexpr auto operator <=>(const EnumBitSet &) const noexcept = default;
+	constexpr bool operator==(const EnumBitSet &rhs) const { return this->base() == rhs.base(); }
+	constexpr auto operator<=>(const EnumBitSet &rhs) const { return this->base() <=> rhs.base(); }
 
-	static constexpr size_t DecayValueType(const BaseClass::ValueType &value) { return to_underlying(value); }
+	static constexpr size_t DecayValueType(const typename BaseClass::ValueType &value) { return to_underlying(value); }
 };
+
+/**
+ * List of policies which can be applied to EnumClassIndexContainer.
+ */
+enum class EnumClassIndexContainerPolicy {
+	AllowInteger, ///< Allow integer (size_t) indexing.
+};
+
+/**
+ * A sort-of mixin that implements 'at(pos)' and 'operator[](pos)' only for a specific enum class.
+ * This to prevent having to call 'to_underlying()' for many container accesses, whilst preventing accidental use of the wrong index type.
+ * @tparam Container A base container.
+ * @tparam Index The enum class to use for indexing.
+ * @tparam Policies Optional policies to apply.
+ */
+template <typename Container, typename Index, EnumClassIndexContainerPolicy... Policies>
+class EnumClassIndexContainer : public Container {
+	static constexpr bool INTEGER_ALLOWED = ((Policies == EnumClassIndexContainerPolicy::AllowInteger) || ...);
+
+public:
+	constexpr Container::reference at(size_t pos) { static_assert(INTEGER_ALLOWED); return this->Container::at(pos); }
+	constexpr Container::reference at(const Index &pos) { return this->Container::at(to_underlying(pos)); }
+
+	constexpr Container::const_reference at(size_t pos) const { static_assert(INTEGER_ALLOWED); return this->Container::at(pos); }
+	constexpr Container::const_reference at(const Index &pos) const { return this->Container::at(to_underlying(pos)); }
+
+	constexpr Container::reference operator[](size_t pos) { static_assert(INTEGER_ALLOWED); return this->Container::operator[](pos); }
+	constexpr Container::reference operator[](const Index &pos) { return this->Container::operator[](to_underlying(pos)); }
+
+	constexpr Container::const_reference operator[](size_t pos) const { static_assert(INTEGER_ALLOWED); return this->Container::operator[](pos); }
+	constexpr Container::const_reference operator[](const Index &pos) const { return this->Container::operator[](to_underlying(pos)); }
+};
+
+template <typename Index>
+constexpr size_t EnumIndexArraySize(auto size)
+{
+	if constexpr (std::is_same_v<Index, decltype(size)>) {
+		return to_underlying(size);
+	} else {
+		return size;
+	}
+}
+
+/**
+ * A typedef for EnumClassIndexContainer using std::array as the backing container type.
+ * @tparam T std::array value type.
+ * @tparam Index The enum class to use for indexing.
+ * @tparam N The std::array size.
+ * @tparam Policies Optional policies to apply.
+ */
+template <typename T, typename Index, auto N, EnumClassIndexContainerPolicy... Policies>
+using EnumIndexArray = EnumClassIndexContainer<std::array<T, EnumIndexArraySize<Index>(N)>, Index, Policies...>;
 
 #endif /* ENUM_TYPE_HPP */

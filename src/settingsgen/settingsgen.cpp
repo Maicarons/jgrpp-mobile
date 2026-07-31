@@ -8,15 +8,17 @@
 /** @file settingsgen.cpp Tool to create computer-readable settings. */
 
 #include "../stdafx.h"
-#include "../core/string_consumer.hpp"
 #include "../string_func.h"
 #include "../strings_type.h"
 #include "../misc/getoptdata.h"
 #include "../ini_type.h"
 #include "../error_func.h"
+#include "../core/mem_func.hpp"
 
-#include <filesystem>
-#include <fstream>
+#if !defined(_WIN32) || defined(__CYGWIN__)
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
 
 #include "../safeguards.h"
 
@@ -27,7 +29,7 @@
  */
 [[noreturn]] void FatalErrorI(const std::string &msg)
 {
-	fmt::print(stderr, "settingsgen: FATAL: {}\n", msg);
+	fmt_print_no_system_error(stderr, "settingsgen: FATAL: {}\n", msg);
 	exit(1);
 }
 
@@ -44,13 +46,14 @@ public:
 
 	/**
 	 * Add text to the output buffer.
-	 * @param text   Text to store.
-	 * @param length Length of the text in bytes.
+	 * @param text Text to store.
 	 * @return Number of bytes actually stored.
 	 */
-	size_t Add(std::string_view text)
+	size_t Add(const char *text, size_t length)
 	{
-		size_t store_size = text.copy(this->data + this->size, OUTPUT_BLOCK_SIZE - this->size);
+		size_t store_size = std::min(length, OUTPUT_BLOCK_SIZE - this->size);
+		assert(store_size <= OUTPUT_BLOCK_SIZE);
+		MemCpyT(this->data + this->size, text, store_size);
 		this->size += store_size;
 		return store_size;
 	}
@@ -95,19 +98,24 @@ public:
 
 	/**
 	 * Add text to the output storage.
-	 * @param text Text to store.
+	 * @param text   Text to store.
+	 * @param length Length of the text in bytes, \c 0 means 'length of the string'.
 	 */
-	void Add(std::string_view text)
+	void Add(const char *text, size_t length = 0)
 	{
-		if (!text.empty() && this->BufferHasRoom()) {
-			size_t stored_size = this->output_buffer[this->output_buffer.size() - 1].Add(text);
-			text.remove_prefix(stored_size);
+		if (length == 0) length = strlen(text);
+
+		if (length > 0 && this->BufferHasRoom()) {
+			size_t stored_size = this->output_buffer[this->output_buffer.size() - 1].Add(text, length);
+			length -= stored_size;
+			text += stored_size;
 		}
-		while (!text.empty()) {
+		while (length > 0) {
 			OutputBuffer &block = this->output_buffer.emplace_back();
 			block.Clear(); // Initialize the new block.
-			size_t stored_size = block.Add(text);
-			text.remove_prefix(stored_size);
+			size_t stored_size = block.Add(text, length);
+			length -= stored_size;
+			text += stored_size;
 		}
 	}
 
@@ -119,6 +127,17 @@ public:
 	{
 		for (const OutputBuffer &out_data : output_buffer) {
 			out_data.Write(out_fp);
+		}
+	}
+
+	/**
+	 * Append all stored output to another output store.
+	 * @param out OutputStore to append the \a data to.
+	 */
+	void AppendTo(OutputStore &out) const
+	{
+		for (const OutputBuffer &out_data : output_buffer) {
+			out.Add(out_data.data, out_data.size);
 		}
 	}
 
@@ -150,7 +169,7 @@ struct SettingsIniFile : IniLoadFile {
 	{
 	}
 
-	std::optional<FileHandle> OpenFile(std::string_view filename, Subdirectory, size_t *size) override
+	std::optional<FileHandle> OpenFile(const std::string &filename, Subdirectory, size_t *size) override
 	{
 		/* Open the text file in binary mode to prevent end-of-line translations
 		 * done by ftell() and friends, as defined by K&R. */
@@ -172,26 +191,28 @@ struct SettingsIniFile : IniLoadFile {
 
 OutputStore _stored_output; ///< Temporary storage of the output, until all processing is done.
 OutputStore _post_amble_output; ///< Similar to _stored_output, but for the post amble.
+OutputStore _table_list_output; ///< Temporary storage of table list entries.
 
-static const std::string_view PREAMBLE_GROUP_NAME  = "pre-amble"; ///< Name of the group containing the pre amble.
-static const std::string_view POSTAMBLE_GROUP_NAME = "post-amble"; ///< Name of the group containing the post amble.
-static const std::string_view TEMPLATES_GROUP_NAME = "templates"; ///< Name of the group containing the templates.
-static const std::string_view VALIDATION_GROUP_NAME = "validation"; ///< Name of the group containing the validation statements.
-static const std::string_view DEFAULTS_GROUP_NAME  = "defaults"; ///< Name of the group containing default values for the template variables.
+static const char *PREAMBLE_GROUP_NAME  = "pre-amble"; ///< Name of the group containing the pre amble.
+static const char *TABLESTART_GROUP_NAME  = "table-start"; ///< Name of the group containing the table start declaration.
+static const char *POSTAMBLE_GROUP_NAME = "post-amble"; ///< Name of the group containing the post amble.
+static const char *TEMPLATES_GROUP_NAME = "templates"; ///< Name of the group containing the templates.
+static const char *VALIDATION_GROUP_NAME = "validation"; ///< Name of the group containing the validation statements.
+static const char *DEFAULTS_GROUP_NAME  = "defaults"; ///< Name of the group containing default values for the template variables.
 
 /**
  * Dump a #IGT_SEQUENCE group into #_stored_output.
  * @param ifile      Loaded INI data.
  * @param group_name Name of the group to copy.
  */
-static void DumpGroup(const IniLoadFile &ifile, std::string_view group_name)
+static void DumpGroup(const IniLoadFile &ifile, const char * const group_name)
 {
 	const IniGroup *grp = ifile.GetGroup(group_name);
 	if (grp != nullptr && grp->type == IGT_SEQUENCE) {
 		for (const IniItem &item : grp->items) {
 			if (!item.name.empty()) {
-				_stored_output.Add(item.name);
-				_stored_output.Add("\n");
+				_stored_output.Add(item.name.c_str());
+				_stored_output.Add("\n", 1);
 			}
 		}
 	}
@@ -202,14 +223,41 @@ static void DumpGroup(const IniLoadFile &ifile, std::string_view group_name)
  * @param name Name of the item to find.
  * @param grp  Group currently being expanded (searched first).
  * @param defaults Fallback group to search, \c nullptr skips the search.
- * @return Text of the item if found, else \c std::nullopt.
+ * @return Text of the item if found, else \c nullptr.
  */
-static std::optional<std::string_view> FindItemValue(std::string_view name, const IniGroup *grp, const IniGroup *defaults)
+static const char *FindItemValue(const char *name, const IniGroup *grp, const IniGroup *defaults)
 {
 	const IniItem *item = grp->GetItem(name);
 	if (item == nullptr && defaults != nullptr) item = defaults->GetItem(name);
-	if (item == nullptr) return std::nullopt;
-	return item->value;
+	if (item == nullptr || !item->value.has_value()) return nullptr;
+	return item->value->c_str();
+}
+
+static int DumpConditionStart(const IniGroup *grp, const IniGroup *default_grp, OutputStore &output)
+{
+	/* Prefix with #if/#ifdef/#ifndef */
+	static const auto pp_lines = {"if", "ifdef", "ifndef"};
+	int count = 0;
+	for (const auto &name : pp_lines) {
+		const char *condition = FindItemValue(name, grp, default_grp);
+		if (condition != nullptr) {
+			output.Add("#", 1);
+			output.Add(name);
+			output.Add(" ", 1);
+			output.Add(condition);
+			output.Add("\n", 1);
+			count++;
+		}
+	}
+	return count;
+}
+
+static void DumpConditionEnd(int count, OutputStore &output)
+{
+	while (count > 0) {
+		output.Add("#endif\n");
+		count--;
+	}
 }
 
 /**
@@ -221,47 +269,46 @@ static std::optional<std::string_view> FindItemValue(std::string_view name, cons
  */
 static void DumpLine(const IniItem *item, const IniGroup *grp, const IniGroup *default_grp, OutputStore &output)
 {
-	/* Prefix with #if/#ifdef/#ifndef */
-	static const auto pp_lines = {"if", "ifdef", "ifndef"};
-	int count = 0;
-	for (const auto &name : pp_lines) {
-		auto condition = FindItemValue(name, grp, default_grp);
-		if (condition.has_value()) {
-			output.Add("#");
-			output.Add(name);
-			output.Add(" ");
-			output.Add(*condition);
-			output.Add("\n");
-			count++;
-		}
-	}
+	static const int MAX_VAR_LENGTH = 64;
 
 	/* Output text of the template, except template variables of the form '$[_a-z0-9]+' which get replaced by their value. */
-	static const std::string_view variable_name_characters = "_abcdefghijklmnopqrstuvwxyz0123456789";
-	StringConsumer consumer{*item->value};
-	while (consumer.AnyBytesLeft()) {
-		char c = consumer.ReadChar();
-		if (c != '$' || consumer.ReadIf("$")) {
-			/* No $ or $$ (literal $). */
-			output.Add(std::string_view{&c, 1});
+	const char *txt = item->value->c_str();
+	while (*txt != '\0') {
+		if (*txt != '$') {
+			output.Add(txt, 1);
+			txt++;
+			continue;
+		}
+		txt++;
+		if (*txt == '$') { // Literal $
+			output.Add(txt, 1);
+			txt++;
 			continue;
 		}
 
-		std::string_view variable = consumer.ReadUntilCharNotIn(variable_name_characters);
-		if (!variable.empty()) {
+		/* Read variable. */
+		char variable[MAX_VAR_LENGTH];
+		int i = 0;
+		while (i < MAX_VAR_LENGTH - 1) {
+			if (!(txt[i] == '_' || (txt[i] >= 'a' && txt[i] <= 'z') || (txt[i] >= '0' && txt[i] <= '9'))) break;
+			variable[i] = txt[i];
+			i++;
+		}
+		variable[i] = '\0';
+		txt += i;
+
+		if (i > 0) {
 			/* Find the text to output. */
-			auto valitem = FindItemValue(variable, grp, default_grp);
-			if (valitem.has_value()) output.Add(*valitem);
+			const char *valitem = FindItemValue(variable, grp, default_grp);
+			if (valitem != nullptr) output.Add(valitem);
 		} else {
-			output.Add("$");
+			output.Add("$", 1);
 		}
 	}
-	output.Add("\n"); // \n after the expanded template.
-	while (count > 0) {
-		output.Add("#endif\n");
-		count--;
-	}
+	output.Add("\n", 1); // \n after the expanded template.
 }
+
+static uint _setting_seq = 0;
 
 /**
  * Output all non-special sections through the template / template variable expansion system.
@@ -269,12 +316,14 @@ static void DumpLine(const IniItem *item, const IniGroup *grp, const IniGroup *d
  */
 static void DumpSections(const IniLoadFile &ifile)
 {
-	static const auto special_group_names = {PREAMBLE_GROUP_NAME, POSTAMBLE_GROUP_NAME, DEFAULTS_GROUP_NAME, TEMPLATES_GROUP_NAME, VALIDATION_GROUP_NAME};
+	static const auto special_group_names = {PREAMBLE_GROUP_NAME, TABLESTART_GROUP_NAME, POSTAMBLE_GROUP_NAME, DEFAULTS_GROUP_NAME, TEMPLATES_GROUP_NAME, VALIDATION_GROUP_NAME};
 
 	const IniGroup *default_grp = ifile.GetGroup(DEFAULTS_GROUP_NAME);
 	const IniGroup *templates_grp = ifile.GetGroup(TEMPLATES_GROUP_NAME);
 	const IniGroup *validation_grp = ifile.GetGroup(VALIDATION_GROUP_NAME);
 	if (templates_grp == nullptr) return;
+
+	format_buffer_sized<64> setting_buf;
 
 	/* Output every group, using its name as template name. */
 	for (const IniGroup &grp : ifile.groups) {
@@ -285,12 +334,28 @@ static void DumpSections(const IniLoadFile &ifile)
 		if (template_item == nullptr || !template_item->value.has_value()) {
 			FatalError("Cannot find template {}", grp.name);
 		}
+
+		const uint setting_id = _setting_seq++;
+
+		int count = DumpConditionStart(&grp, default_grp, _stored_output);
+		setting_buf.clear();
+		setting_buf.format("SDEF(_s{}) ", setting_id);
+		_stored_output.Add(setting_buf.data(), setting_buf.size());
 		DumpLine(template_item, &grp, default_grp, _stored_output);
+		DumpConditionEnd(count, _stored_output);
+
+		count = DumpConditionStart(&grp, default_grp, _table_list_output);
+		setting_buf.clear();
+		setting_buf.format("&sdef::_s{},\n", setting_id);
+		_table_list_output.Add(setting_buf.data(), setting_buf.size());
+		DumpConditionEnd(count, _table_list_output);
 
 		if (validation_grp != nullptr) {
 			const IniItem *validation_item = validation_grp->GetItem(grp.name); // Find template value.
 			if (validation_item != nullptr && validation_item->value.has_value()) {
+				count = DumpConditionStart(&grp, default_grp, _post_amble_output);
 				DumpLine(validation_item, &grp, default_grp, _post_amble_output);
+				DumpConditionEnd(count, _post_amble_output);
 			}
 		}
 	}
@@ -301,13 +366,13 @@ static void DumpSections(const IniLoadFile &ifile)
  * @param fname Filename of file to append.
  * @param out_fp Output stream to write to.
  */
-static void AppendFile(std::optional<std::string_view> fname, FILE *out_fp)
+static void AppendFile(const char *fname, FILE *out_fp)
 {
-	if (!fname.has_value()) return;
+	if (fname == nullptr) return;
 
-	auto in_fp = FileHandle::Open(*fname, "r");
+	auto in_fp = FileHandle::Open(fname, "r");
 	if (!in_fp.has_value()) {
-		FatalError("Cannot open file {} for copying", *fname);
+		FatalError("Cannot open file {} for copying", fname);
 	}
 
 	char buffer[4096];
@@ -322,22 +387,33 @@ static void AppendFile(std::optional<std::string_view> fname, FILE *out_fp)
 
 /**
  * Compare two files for identity.
- * @param n1 First file.
- * @param n2 Second file.
+ * @param path1 First file.
+ * @param path2 Second file.
  * @return True if both files are identical.
  */
-static bool CompareFiles(std::filesystem::path path1, std::filesystem::path path2)
+static bool CompareFiles(const char *n1, const char *n2)
 {
-	/* Check for equal size, but ignore the error code for cases when a file does not exist. */
-	std::error_code error_code;
-	if (std::filesystem::file_size(path1, error_code) != std::filesystem::file_size(path2, error_code)) return false;
+	auto f2 = FileHandle::Open(n2, "rb");
+	if (!f2.has_value()) return false;
 
-	std::ifstream stream1(path1, std::ifstream::binary);
-	std::ifstream stream2(path2, std::ifstream::binary);
+	auto f1 = FileHandle::Open(n1, "rb");
+	if (!f1.has_value()) {
+		FatalError("can't open {}", n1);
+	}
 
-	return std::equal(std::istreambuf_iterator<char>(stream1.rdbuf()),
-			std::istreambuf_iterator<char>(),
-			std::istreambuf_iterator<char>(stream2.rdbuf()));
+	size_t l1, l2;
+	do {
+		char b1[4096];
+		char b2[4096];
+		l1 = fread(b1, 1, sizeof(b1), *f1);
+		l2 = fread(b2, 1, sizeof(b2), *f2);
+
+		if (l1 != l2 || memcmp(b1, b2, l1) != 0) {
+			return false;
+		}
+	} while (l1 != 0);
+
+	return true;
 }
 
 /** Options of settingsgen. */
@@ -367,17 +443,24 @@ static const OptionData _opts[] = {
  *
  * Last but not least, the [post-amble] group is copied verbatim.
  *
- * @param fname  Ini file to process. @return Exit status of the processing.
+ * @param fname Ini file to process.
  */
-static void ProcessIniFile(std::string_view fname)
+static void ProcessIniFile(const char *fname)
 {
-	static const IniLoadFile::IniGroupNameList seq_groups = {PREAMBLE_GROUP_NAME, POSTAMBLE_GROUP_NAME};
+	static const IniLoadFile::IniGroupNameList seq_groups = {PREAMBLE_GROUP_NAME, TABLESTART_GROUP_NAME, POSTAMBLE_GROUP_NAME};
 
 	SettingsIniFile ini{{}, seq_groups};
-	ini.LoadFromDisk(fname, NO_DIRECTORY);
+	ini.LoadFromDisk(fname, Subdirectory::None);
+
+	_table_list_output.Clear();
 
 	DumpGroup(ini, PREAMBLE_GROUP_NAME);
+	_stored_output.Add("namespace sdef {\n");
 	DumpSections(ini);
+	_stored_output.Add("};\n");
+	DumpGroup(ini, TABLESTART_GROUP_NAME);
+	_table_list_output.AppendTo(_stored_output);
+	_table_list_output.Clear();
 	DumpGroup(ini, POSTAMBLE_GROUP_NAME);
 }
 
@@ -385,23 +468,22 @@ static void ProcessIniFile(std::string_view fname)
  * And the main program (what else?)
  * @param argc Number of command-line arguments including the program name itself.
  * @param argv Vector of the command-line arguments.
+ * @return The exit code of the application.
  */
 int CDECL main(int argc, char *argv[])
 {
-	std::optional<std::string_view> output_file;
-	std::optional<std::string_view> before_file;
-	std::optional<std::string_view> after_file;
+	const char *output_file = nullptr;
+	const char *before_file = nullptr;
+	const char *after_file = nullptr;
 
-	std::vector<std::string_view> params;
-	for (int i = 1; i < argc; ++i) params.emplace_back(argv[i]);
-	GetOptData mgo(params, _opts);
+	GetOptData mgo(std::span(argv + 1, argc - 1), _opts);
 	for (;;) {
 		int i = mgo.GetOpt();
 		if (i == -1) break;
 
 		switch (i) {
 			case 'h':
-				fmt::print("settingsgen\n"
+				puts("settingsgen\n"
 						"Usage: settingsgen [options] ini-file...\n"
 						"with options:\n"
 						"   -h, -?, --help          Print this help message and exit\n"
@@ -423,7 +505,7 @@ int CDECL main(int argc, char *argv[])
 				break;
 
 			case -2:
-				fmt::print(stderr, "Invalid arguments\n");
+				fprintf(stderr, "Invalid arguments\n");
 				return 1;
 		}
 	}
@@ -434,13 +516,13 @@ int CDECL main(int argc, char *argv[])
 	for (auto &argument : mgo.arguments) ProcessIniFile(argument);
 
 	/* Write output. */
-	if (!output_file.has_value()) {
+	if (output_file == nullptr) {
 		AppendFile(before_file, stdout);
 		_stored_output.Write(stdout);
 		_post_amble_output.Write(stdout);
 		AppendFile(after_file, stdout);
 	} else {
-		static const std::string_view tmp_output = "tmp2.xxx";
+		static const char * const tmp_output = "tmp2.xxx";
 
 		auto fp = FileHandle::Open(tmp_output, "w");
 		if (!fp.has_value()) {
@@ -452,14 +534,17 @@ int CDECL main(int argc, char *argv[])
 		AppendFile(after_file, *fp);
 		fp.reset();
 
-		std::error_code error_code;
-		if (CompareFiles(tmp_output, *output_file)) {
+		if (CompareFiles(tmp_output, output_file)) {
 			/* Files are equal. tmp2.xxx is not needed. */
-			std::filesystem::remove(tmp_output, error_code);
+			unlink(tmp_output);
 		} else {
 			/* Rename tmp2.xxx to output file. */
-			std::filesystem::rename(tmp_output, *output_file, error_code);
-			if (error_code) FatalError("rename({}, {}) failed: {}", tmp_output, *output_file, error_code.message());
+#if defined(_WIN32)
+			unlink(output_file);
+#endif
+			if (rename(tmp_output, output_file) == -1) {
+				FatalError("rename({}, {}) failed: {}", tmp_output, output_file, StrErrorDumper().GetLast());
+			}
 		}
 	}
 	return 0;
@@ -471,9 +556,9 @@ int CDECL main(int argc, char *argv[])
  * @param mode Mode to open file.
  * @return FileHandle, or std::nullopt on failure.
  */
-std::optional<FileHandle> FileHandle::Open(const std::string &filename, std::string_view mode)
+std::optional<FileHandle> FileHandle::Open(const char *filename, const char *mode)
 {
-	auto f = fopen(filename.c_str(), std::string{mode}.c_str());
+	auto f = fopen(filename, mode);
 	if (f == nullptr) return std::nullopt;
 	return FileHandle(f);
 }

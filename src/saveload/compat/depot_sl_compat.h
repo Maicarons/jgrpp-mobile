@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _depot_desc. */
 const SaveLoadCompat _depot_sl_compat[] = {
 	SLC_VAR("xy"),
@@ -21,5 +23,7 @@ const SaveLoadCompat _depot_sl_compat[] = {
 	SLC_VAR("name"),
 	SLC_VAR("build_date"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_DEPOT_H */

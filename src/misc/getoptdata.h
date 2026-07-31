@@ -19,25 +19,25 @@ enum OptionDataType : uint8_t {
 
 /** Data of an option. */
 struct OptionData {
-	OptionDataType type; ///< The type of option.
-	char id; ///< Unique identification of this option data, often the same as #shortname.
-	char shortname = '\0'; ///< Short option letter if available, else use \c '\0'.
-	std::string_view longname{}; ///< Long option name including '-'/'--' prefix, leave empty if not available.
+	OptionDataType type;            ///< The type of option.
+	char id;                        ///< Unique identification of this option data, often the same as #shortname.
+	char shortname = '\0';          ///< Short option letter if available, else use \c '\0'.
+	const char *longname = nullptr; ///< Long option name including '-'/'--' prefix, use \c nullptr if not available.
 };
 
 /** Data storage for parsing command line options. */
 struct GetOptData {
 	using OptionSpan = std::span<const OptionData>;
-	using ArgumentSpan = std::span<std::string_view>;
+	using ArgumentSpan = std::span<char * const>;
 
 	ArgumentSpan arguments; ///< Remaining command line arguments.
 	const OptionSpan options; ///< Command line option descriptions.
-	std::string_view opt; ///< Option value, if available (else empty).
-	std::string_view cont; ///< Next call to #GetOpt should start here (in the middle of an argument).
+	const char *opt = nullptr; ///< Option value, if available (else \c nullptr).
+	const char *cont = nullptr; ///< Next call to #GetOpt should start here (in the middle of an argument).
 
 	/**
 	 * Constructor of the data store.
-	 * @param argument The command line arguments, excluding the program name.
+	 * @param arguments The command line arguments, excluding the program name.
 	 * @param options Command line option descriptions.
 	 */
 	GetOptData(ArgumentSpan arguments, OptionSpan options) : arguments(arguments), options(options) {}

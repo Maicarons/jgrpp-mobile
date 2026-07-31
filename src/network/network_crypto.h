@@ -74,6 +74,7 @@ public:
 
 	/**
 	 * Reply to the request with the given password.
+	 * @param password The requested password from the user.
 	 */
 	virtual void Reply(const std::string &password) = 0;
 };
@@ -88,7 +89,7 @@ protected:
 	std::string password; ///< The entered password.
 public:
 
-	virtual void Reply(const std::string &password) override;
+	void Reply(const std::string &password) override;
 
 	/**
 	 * Callback to trigger sending the response for the password request.
@@ -245,10 +246,10 @@ public:
 	/**
 	 * Read the request to enable encryption from the server.
 	 * @param p The request from the server.
+	 * @return \c true when enough bytes could be read for the nonce, otherwise \c false.
 	 */
 	virtual bool ReceiveEnableEncryption(struct Packet &p) = 0;
 
-	static void EnsureValidSecretKeyAndUpdatePublicKey(std::string &secret_key, std::string &public_key);
 	static std::unique_ptr<NetworkAuthenticationClientHandler> Create(std::shared_ptr<NetworkAuthenticationPasswordRequestHandler> password_handler, std::string &secret_key, std::string &public_key);
 };
 

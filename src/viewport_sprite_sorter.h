@@ -7,42 +7,91 @@
 
 /** @file viewport_sprite_sorter.h Types related to sprite sorting. */
 
-#include "gfx_type.h"
-
 #ifndef VIEWPORT_SPRITE_SORTER_H
 #define VIEWPORT_SPRITE_SORTER_H
 
+#include "core/bitmath_func.hpp"
+#include "gfx_type.h"
+#include <vector>
+
 /** Parent sprite that should be drawn */
-struct ParentSpriteToDraw {
+struct alignas(16) ParentSpriteToDraw {
 	/* Block of 16B loadable in xmm register */
-	int32_t xmin;                     ///< minimal world X coordinate of bounding box
-	int32_t ymin;                     ///< minimal world Y coordinate of bounding box
-	int32_t zmin;                     ///< minimal world Z coordinate of bounding box
-	int32_t x;                        ///< screen X coordinate of sprite
+	int32_t xmin;                   ///< minimal world X coordinate of bounding box
+	int32_t ymin;                   ///< minimal world Y coordinate of bounding box
+	int32_t zmin;                   ///< minimal world Z coordinate of bounding box
+	int32_t x;                      ///< screen X coordinate of sprite
 
 	/* Second block of 16B loadable in xmm register */
-	int32_t xmax;                     ///< maximal world X coordinate of bounding box
-	int32_t ymax;                     ///< maximal world Y coordinate of bounding box
-	int32_t zmax;                     ///< maximal world Z coordinate of bounding box
-	int32_t y;                        ///< screen Y coordinate of sprite
+	int32_t xmax;                   ///< maximal world X coordinate of bounding box
+	int32_t ymax;                   ///< maximal world Y coordinate of bounding box
+	int32_t zmax;                   ///< maximal world Z coordinate of bounding box
+	int32_t y;                      ///< screen Y coordinate of sprite
 
 	SpriteID image;                 ///< sprite to draw
 	PaletteID pal;                  ///< palette to use
-	const SubSprite *sub;           ///< only draw a rectangular part of the sprite
+#ifdef POINTER_IS_64BIT
+	int32_t sub_idx;                ///< only draw a rectangular part of the sprite (store the actual pointer elsewhere to save space in this struct)
+#else
+	const SubSprite *sub_ptr;       ///< only draw a rectangular part of the sprite
+#endif
+	uint8_t special_flags;          ///< special flags
 
-	int32_t left;                     ///< minimal screen X coordinate of sprite (= x + sprite->x_offs), reference point for child sprites
-	int32_t top;                      ///< minimal screen Y coordinate of sprite (= y + sprite->y_offs), reference point for child sprites
+	/* 3 bytes spare! */
 
-	int32_t first_child;              ///< the first child to draw.
-	uint32_t order;                   ///< Used during sprite sorting
+	int32_t left;                   ///< minimal screen X coordinate of sprite (= x + sprite->x_offs), reference point for child sprites
+	int32_t top;                    ///< minimal screen Y coordinate of sprite (= y + sprite->y_offs), reference point for child sprites
+
+	int32_t first_child;            ///< the first child to draw.
+	uint16_t width;                 ///< sprite width
+	uint16_t height;                ///< sprite height, bit 15: comparison_done: used during sprite sorting: true if sprite has been compared with all other sprites
+
+	bool IsComparisonDone() const { return HasBit(this->height, 15); }
+	void SetComparisonDone(bool done) { AssignBit(this->height, 15, done); }
 };
+static_assert((sizeof(ParentSpriteToDraw) % 16) == 0);
+static_assert(sizeof(ParentSpriteToDraw) <= 64);
 
 typedef std::vector<ParentSpriteToDraw*> ParentSpriteToSortVector;
+
+#ifdef POINTER_IS_64BIT
+struct ParentSpriteToDrawSubSpriteHolder {
+	std::vector<const SubSprite *> subsprites;
+
+	const SubSprite *Get(const ParentSpriteToDraw *ps) const
+	{
+		return ps->sub_idx >= 0 ? this->subsprites[ps->sub_idx] : nullptr;
+	}
+
+	void Set(ParentSpriteToDraw *ps, const SubSprite *sub)
+	{
+		if (sub == nullptr) {
+			ps->sub_idx = -1;
+		} else {
+			ps->sub_idx = (int32_t)this->subsprites.size();
+			this->subsprites.push_back(sub);
+		}
+	}
+
+	void Clear()
+	{
+		this->subsprites.clear();
+	}
+};
+#else
+struct ParentSpriteToDrawSubSpriteHolder {
+	const SubSprite *Get(const ParentSpriteToDraw *ps) const { return ps->sub_ptr; }
+	void Set(ParentSpriteToDraw *ps, const SubSprite *sub) { ps->sub_ptr = sub; }
+	void Clear() {}
+};
+#endif
 
 /** Type for method for checking whether a viewport sprite sorter exists. */
 typedef bool (*VpSorterChecker)();
 /** Type for the actual viewport sprite sorter. */
 typedef void (*VpSpriteSorter)(ParentSpriteToSortVector *psd);
+
+bool ViewportSortParentSpritesSpecial(ParentSpriteToDraw *ps, ParentSpriteToDraw *ps2, ParentSpriteToDraw **psd, ParentSpriteToDraw **psd2);
 
 #ifdef WITH_SSE
 bool ViewportSortParentSpritesSSE41Checker();

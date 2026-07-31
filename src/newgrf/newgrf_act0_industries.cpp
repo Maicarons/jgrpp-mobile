@@ -19,9 +19,10 @@
 #include "newgrf_stringmapping.h"
 
 #include "table/strings.h"
-#include "../table/build_industry.h"
 
 #include "../safeguards.h"
+
+extern const IndustrySpec _origin_industry_specs[NEW_INDUSTRYOFFSET];
 
 /**
  * Ignore an industry tile property
@@ -31,7 +32,7 @@
  */
 static ChangeInfoResult IgnoreIndustryTileProperty(int prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	switch (prop) {
 		case 0x09:
@@ -55,7 +56,7 @@ static ChangeInfoResult IgnoreIndustryTileProperty(int prop, ByteReader &buf)
 			break;
 
 		default:
-			ret = CIR_UNKNOWN;
+			ret = HandleAction0PropertyDefault(buf, prop);
 			break;
 	}
 	return ret;
@@ -66,23 +67,24 @@ static ChangeInfoResult IgnoreIndustryTileProperty(int prop, ByteReader &buf)
  * @param first Local ID of the first industry tile.
  * @param last Local ID of the last industry tile.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult IndustrytilesChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult IndustrytilesChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_INDUSTRYTILES_PER_GRF) {
 		GrfMsg(1, "IndustryTilesChangeInfo: Too many industry tiles loaded ({}), max ({}). Ignoring.", last, NUM_INDUSTRYTILES_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate industry tile specs if they haven't been allocated already. */
 	if (_cur_gps.grffile->indtspec.size() < last) _cur_gps.grffile->indtspec.resize(last);
 
 	for (uint id = first; id < last; ++id) {
-		auto &tsp = _cur_gps.grffile->indtspec[id];
+		IndustryTileSpec *tsp = _cur_gps.grffile->indtspec[id].get();
 
 		if (prop != 0x08 && tsp == nullptr) {
 			ChangeInfoResult cir = IgnoreIndustryTileProperty(prop, buf);
@@ -101,7 +103,8 @@ static ChangeInfoResult IndustrytilesChangeInfo(uint first, uint last, int prop,
 
 				/* Allocate space for this industry. */
 				if (tsp == nullptr) {
-					tsp = std::make_unique<IndustryTileSpec>(_industry_tile_specs[subs_id]);
+					_cur_gps.grffile->indtspec[id] = std::make_unique<IndustryTileSpec>(_industry_tile_specs[subs_id]);
+					tsp = _cur_gps.grffile->indtspec[id].get();
 
 					tsp->enabled = true;
 
@@ -172,7 +175,7 @@ static ChangeInfoResult IndustrytilesChangeInfo(uint first, uint last, int prop,
 				if (num_cargoes > std::size(tsp->acceptance)) {
 					GRFError *error = DisableGrf(STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG);
 					error->param_value[1] = prop;
-					return CIR_DISABLED;
+					return ChangeInfoResult::Disabled;
 				}
 				for (uint i = 0; i < std::size(tsp->acceptance); i++) {
 					if (i < num_cargoes) {
@@ -189,11 +192,11 @@ static ChangeInfoResult IndustrytilesChangeInfo(uint first, uint last, int prop,
 			}
 
 			case 0x14: // Badge list
-				tsp->badges = ReadBadgeList(buf, GSF_INDUSTRYTILES);
+				tsp->badges = ReadBadgeList(buf, GrfSpecFeature::IndustryTiles);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -209,7 +212,7 @@ static ChangeInfoResult IndustrytilesChangeInfo(uint first, uint last, int prop,
  */
 static ChangeInfoResult IgnoreIndustryProperty(int prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	switch (prop) {
 		case 0x09:
@@ -290,7 +293,7 @@ static ChangeInfoResult IgnoreIndustryProperty(int prop, ByteReader &buf)
 			break;
 
 		default:
-			ret = CIR_UNKNOWN;
+			ret = HandleAction0PropertyDefault(buf, prop);
 			break;
 	}
 	return ret;
@@ -331,23 +334,24 @@ static bool ValidateIndustryLayout(const IndustryTileLayout &layout)
  * @param first Local ID of the first industry.
  * @param last Local ID of the last industry.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_INDUSTRYTYPES_PER_GRF) {
 		GrfMsg(1, "IndustriesChangeInfo: Too many industries loaded ({}), max ({}). Ignoring.", last, NUM_INDUSTRYTYPES_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate industry specs if they haven't been allocated already. */
 	if (_cur_gps.grffile->industryspec.size() < last) _cur_gps.grffile->industryspec.resize(last);
 
 	for (uint id = first; id < last; ++id) {
-		auto &indsp = _cur_gps.grffile->industryspec[id];
+		IndustrySpec *indsp = _cur_gps.grffile->industryspec[id].get();
 
 		if (prop != 0x08 && indsp == nullptr) {
 			ChangeInfoResult cir = IgnoreIndustryProperty(prop, buf);
@@ -373,7 +377,8 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 				 * Only need to do it once. If ever it is called again, it should not
 				 * do anything */
 				if (indsp == nullptr) {
-					indsp = std::make_unique<IndustrySpec>(_origin_industry_specs[subs_id]);
+					_cur_gps.grffile->industryspec[id] = std::make_unique<IndustrySpec>(_origin_industry_specs[subs_id]);
+					indsp = _cur_gps.grffile->industryspec[id].get();
 
 					indsp->enabled = true;
 					indsp->grf_prop.local_id = id;
@@ -381,7 +386,7 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 					indsp->grf_prop.SetGRFFile(_cur_gps.grffile);
 					/* If the grf industry needs to check its surrounding upon creation, it should
 					 * rely on callbacks, not on the original placement functions */
-					indsp->check_proc = CHECK_NOTHING;
+					indsp->check_proc = IndustryCheck::None;
 				}
 				break;
 			}
@@ -430,12 +435,12 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 							if (type >= lengthof(_origin_industry_specs)) {
 								GrfMsg(1, "IndustriesChangeInfo: Invalid original industry number for layout import, industry {}", id);
 								DisableGrf(STR_NEWGRF_ERROR_INVALID_ID);
-								return CIR_DISABLED;
+								return ChangeInfoResult::Disabled;
 							}
 							if (laynbr >= _origin_industry_specs[type].layouts.size()) {
 								GrfMsg(1, "IndustriesChangeInfo: Invalid original industry layout index for layout import, industry {}", id);
 								DisableGrf(STR_NEWGRF_ERROR_INVALID_ID);
-								return CIR_DISABLED;
+								return ChangeInfoResult::Disabled;
 							}
 							layout = _origin_industry_specs[type].layouts[laynbr];
 							break;
@@ -527,7 +532,7 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 					indsp->accepts_cargo[j] = GetCargoTranslation(buf.ReadByte(), _cur_gps.grffile);
 					indsp->accepts_cargo_label[j] = CT_INVALID;
 				}
-				buf.ReadByte(); // Unnused, eat it up
+				buf.ReadByte(); // Unused, eat it up
 				break;
 
 			case 0x12: // Production multipliers
@@ -620,9 +625,9 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 				if (num_cargoes > std::size(indsp->produced_cargo)) {
 					GRFError *error = DisableGrf(STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG);
 					error->param_value[1] = prop;
-					return CIR_DISABLED;
+					return ChangeInfoResult::Disabled;
 				}
-				for (size_t i = 0; i < std::size(indsp->produced_cargo); i++) {
+				for (uint i = 0; i < std::size(indsp->produced_cargo); i++) {
 					if (i < num_cargoes) {
 						CargoType cargo = GetCargoTranslation(buf.ReadByte(), _cur_gps.grffile);
 						indsp->produced_cargo[i] = cargo;
@@ -639,9 +644,9 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 				if (num_cargoes > std::size(indsp->accepts_cargo)) {
 					GRFError *error = DisableGrf(STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG);
 					error->param_value[1] = prop;
-					return CIR_DISABLED;
+					return ChangeInfoResult::Disabled;
 				}
-				for (size_t i = 0; i < std::size(indsp->accepts_cargo); i++) {
+				for (uint i = 0; i < std::size(indsp->accepts_cargo); i++) {
 					if (i < num_cargoes) {
 						CargoType cargo = GetCargoTranslation(buf.ReadByte(), _cur_gps.grffile);
 						indsp->accepts_cargo[i] = cargo;
@@ -655,12 +660,12 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 
 			case 0x27: { // variable length production rates
 				uint8_t num_cargoes = buf.ReadByte();
-				if (num_cargoes > lengthof(indsp->production_rate)) {
+				if (num_cargoes > std::size(indsp->production_rate)) {
 					GRFError *error = DisableGrf(STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG);
 					error->param_value[1] = prop;
-					return CIR_DISABLED;
+					return ChangeInfoResult::Disabled;
 				}
-				for (uint i = 0; i < lengthof(indsp->production_rate); i++) {
+				for (uint i = 0; i < std::size(indsp->production_rate); i++) {
 					if (i < num_cargoes) {
 						indsp->production_rate[i] = buf.ReadByte();
 					} else {
@@ -676,10 +681,10 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 				if (num_inputs > std::size(indsp->accepts_cargo) || num_outputs > std::size(indsp->produced_cargo)) {
 					GRFError *error = DisableGrf(STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG);
 					error->param_value[1] = prop;
-					return CIR_DISABLED;
+					return ChangeInfoResult::Disabled;
 				}
-				for (size_t i = 0; i < std::size(indsp->accepts_cargo); i++) {
-					for (size_t j = 0; j < std::size(indsp->produced_cargo); j++) {
+				for (uint i = 0; i < std::size(indsp->accepts_cargo); i++) {
+					for (uint j = 0; j < std::size(indsp->produced_cargo); j++) {
 						uint16_t mult = 0;
 						if (i < num_inputs && j < num_outputs) mult = buf.ReadWord();
 						indsp->input_cargo_multiplier[i][j] = mult;
@@ -689,11 +694,11 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 			}
 
 			case 0x29: // Badge list
-				indsp->badges = ReadBadgeList(buf, GSF_INDUSTRIES);
+				indsp->badges = ReadBadgeList(buf, GrfSpecFeature::Industries);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -701,8 +706,8 @@ static ChangeInfoResult IndustriesChangeInfo(uint first, uint last, int prop, By
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_INDUSTRYTILES>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_INDUSTRYTILES>::Activation(uint first, uint last, int prop, ByteReader &buf) { return IndustrytilesChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::IndustryTiles>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::IndustryTiles>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return IndustrytilesChangeInfo(first, last, prop, mapping_entry, buf); }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_INDUSTRIES>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_INDUSTRIES>::Activation(uint first, uint last, int prop, ByteReader &buf) { return IndustriesChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Industries>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Industries>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return IndustriesChangeInfo(first, last, prop, mapping_entry, buf); }

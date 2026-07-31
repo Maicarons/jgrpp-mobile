@@ -29,7 +29,7 @@ struct CanalScopeResolver : public ScopeResolver {
 	}
 
 	uint32_t GetRandomBits() const override;
-	uint32_t GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const override;
+	uint32_t GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const override;
 };
 
 /** Resolver object for canals. */
@@ -40,7 +40,7 @@ struct CanalResolverObject : public ResolverObject {
 	CanalResolverObject(CanalFeature feature, TileIndex tile,
 			CallbackID callback = CBID_NO_CALLBACK, uint32_t callback_param1 = 0, uint32_t callback_param2 = 0);
 
-	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, uint8_t relative = 0) override
+	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, VarSpriteGroupScopeOffset relative = 0) override
 	{
 		switch (scope) {
 			case VSG_SCOPE_SELF: return &this->canal_scope;
@@ -55,17 +55,17 @@ struct CanalResolverObject : public ResolverObject {
 /* virtual */ uint32_t CanalScopeResolver::GetRandomBits() const
 {
 	/* Return random bits only for water tiles, not station tiles */
-	return IsTileType(this->tile, MP_WATER) ? GetWaterTileRandomBits(this->tile) : 0;
+	return IsTileType(this->tile, TileType::Water) ? GetWaterTileRandomBits(this->tile) : 0;
 }
 
-/* virtual */ uint32_t CanalScopeResolver::GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const
+/* virtual */ uint32_t CanalScopeResolver::GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const
 {
 	switch (variable) {
 		/* Height of tile */
 		case 0x80: {
 			int z = GetTileZ(this->tile);
 			/* Return consistent height within locks */
-			if (IsTileType(this->tile, MP_WATER) && IsLock(this->tile) && GetLockPart(this->tile) == LockPart::Upper) z--;
+			if (IsTileType(this->tile, TileType::Water) && IsLock(this->tile) && GetLockPart(this->tile) == LockPart::Upper) z--;
 			return z;
 		}
 
@@ -84,30 +84,30 @@ struct CanalResolverObject : public ResolverObject {
 		 */
 		case 0x82: {
 			uint32_t connectivity =
-				  (!IsWateredTile(TileAddXY(tile, -1,  0), DIR_SW) << 0)  // NE
-				+ (!IsWateredTile(TileAddXY(tile,  0,  1), DIR_NW) << 1)  // SE
-				+ (!IsWateredTile(TileAddXY(tile,  1,  0), DIR_NE) << 2)  // SW
-				+ (!IsWateredTile(TileAddXY(tile,  0, -1), DIR_SE) << 3)  // NW
-				+ (!IsWateredTile(TileAddXY(tile, -1,  1), DIR_W)  << 4)  // E
-				+ (!IsWateredTile(TileAddXY(tile,  1,  1), DIR_N)  << 5)  // S
-				+ (!IsWateredTile(TileAddXY(tile,  1, -1), DIR_E)  << 6)  // W
-				+ (!IsWateredTile(TileAddXY(tile, -1, -1), DIR_S)  << 7); // N
+				  (!IsWateredTile(TileAddXY(tile, -1,  0), Direction::SW) << 0)  // NE
+				+ (!IsWateredTile(TileAddXY(tile,  0,  1), Direction::NW) << 1)  // SE
+				+ (!IsWateredTile(TileAddXY(tile,  1,  0), Direction::NE) << 2)  // SW
+				+ (!IsWateredTile(TileAddXY(tile,  0, -1), Direction::SE) << 3)  // NW
+				+ (!IsWateredTile(TileAddXY(tile, -1,  1), Direction::W)  << 4)  // E
+				+ (!IsWateredTile(TileAddXY(tile,  1,  1), Direction::N)  << 5)  // S
+				+ (!IsWateredTile(TileAddXY(tile,  1, -1), Direction::E)  << 6)  // W
+				+ (!IsWateredTile(TileAddXY(tile, -1, -1), Direction::S)  << 7); // N
 			return connectivity;
 		}
 
 		/* Random data for river or canal tiles, otherwise zero */
-		case 0x83: return IsTileType(this->tile, MP_WATER) ? GetWaterTileRandomBits(this->tile) : 0;
+		case 0x83: return IsTileType(this->tile, TileType::Water) ? GetWaterTileRandomBits(this->tile) : 0;
 	}
 
 	Debug(grf, 1, "Unhandled canal variable 0x{:02X}", variable);
 
-	available = false;
+	extra.available = false;
 	return UINT_MAX;
 }
 
 GrfSpecFeature CanalResolverObject::GetFeature() const
 {
-	return GSF_CANALS;
+	return GrfSpecFeature::Canals;
 }
 
 uint32_t CanalResolverObject::GetDebugID() const
@@ -139,7 +139,7 @@ CanalResolverObject::CanalResolverObject(CanalFeature feature, TileIndex tile,
 SpriteID GetCanalSprite(CanalFeature feature, TileIndex tile)
 {
 	CanalResolverObject object(feature, tile);
-	const auto *group = object.Resolve<ResultSpriteGroup>();
+	const ResultSpriteGroup *group = object.Resolve<ResultSpriteGroup>();
 	if (group == nullptr || group->num_sprites == 0) return 0;
 
 	return group->sprite;
@@ -152,13 +152,12 @@ SpriteID GetCanalSprite(CanalFeature feature, TileIndex tile)
  * @param param2   Callback parameter 2.
  * @param feature  For which feature to run the callback.
  * @param tile     Tile index of canal.
- * @param[out] regs100 Additional result values from registers 100+
  * @return Callback result or #CALLBACK_FAILED if the callback failed.
  */
-static uint16_t GetCanalCallback(CallbackID callback, uint32_t param1, uint32_t param2, CanalFeature feature, TileIndex tile, std::span<int32_t> regs100 = {})
+static uint16_t GetCanalCallback(CallbackID callback, uint32_t param1, uint32_t param2, CanalFeature feature, TileIndex tile)
 {
 	CanalResolverObject object(feature, tile, callback, param1, param2);
-	return object.ResolveCallback(regs100);
+	return object.ResolveCallback();
 }
 
 /**

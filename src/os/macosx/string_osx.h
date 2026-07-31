@@ -12,6 +12,7 @@
 
 #include "../../gfx_layout.h"
 #include "../../string_base.h"
+#include <vector>
 
 /** String iterator using CoreText as a backend. */
 class OSXStringIterator : public StringIterator {

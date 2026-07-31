@@ -5,18 +5,13 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file timer_game_tick.cpp
- * This file implements the timer logic for the tick-based game-timer.
- */
+/** @file timer_game_tick.cpp This file implements the timer logic for the tick-based game-timer. */
 
 #include "../stdafx.h"
 #include "timer.h"
 #include "timer_game_tick.h"
 
 #include "../safeguards.h"
-
-TimerGameTick::TickCounter TimerGameTick::counter = 0;
 
 template <>
 void IntervalTimer<TimerGameTick>::Elapsed(TimerGameTick::TElapsed delta)
@@ -51,22 +46,18 @@ void TimeoutTimer<TimerGameTick>::Elapsed(TimerGameTick::TElapsed delta)
 }
 
 template <>
-bool TimerManager<TimerGameTick>::Elapsed(TimerGameTick::TElapsed delta)
+void TimerManager<TimerGameTick>::Elapsed(TimerGameTick::TElapsed delta)
 {
-	TimerGameTick::counter++;
-
-	for (auto timer : TimerManager<TimerGameTick>::GetTimers()) {
+	for (auto timer : TimerManager<TimerGameTick>::GetTimerVector()) {
 		timer->Elapsed(delta);
 	}
-
-	return true;
 }
 
 #ifdef WITH_ASSERT
 template <>
 void TimerManager<TimerGameTick>::Validate(TimerGameTick::TPeriod period)
 {
-	if (period.priority == TimerGameTick::Priority::NONE) return;
+	if (period.priority == TimerGameTick::Priority::None) return;
 
 	/* Validate we didn't make a developer error and scheduled more than one
 	 * entry on the same priority. There can only be one timer on

@@ -8,6 +8,7 @@
 /** @file 32bpp_base.cpp Implementation of base for 32 bpp blitters. */
 
 #include "../stdafx.h"
+#include "../debug.h"
 #include "32bpp_base.hpp"
 #include "common.hpp"
 
@@ -23,12 +24,57 @@ void Blitter_32bppBase::SetPixel(void *video, int x, int y, PixelColour colour)
 	*((Colour *)video + x + y * _screen.pitch) = LookupColourInPalette(colour.p);
 }
 
+void Blitter_32bppBase::SetPixel32(void *video, int x, int y, PixelColour colour, uint32_t colour32)
+{
+	*((Colour *)video + x + y * _screen.pitch) = colour32;
+}
+
 void Blitter_32bppBase::DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash)
 {
 	const Colour c = LookupColourInPalette(colour.p);
 	this->DrawLineGeneric(x, y, x2, y2, screen_width, screen_height, width, dash, [=](int x, int y) {
 		*((Colour *)video + x + y * _screen.pitch) = c;
 	});
+}
+
+void Blitter_32bppBase::SetRect(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch)
+{
+	Colour *dst = (Colour *)video + x + y * _screen.pitch;
+	do {
+		uint w = width;
+		do {
+			*dst = LookupColourInPalette(*colours);
+			dst++;
+			colours++;
+		} while (--w);
+		dst += _screen.pitch - width;
+		colours += pitch - width;
+	} while (--lines);
+}
+
+void Blitter_32bppBase::SetRect32(void *video, int x, int y, const uint32_t *colours, uint lines, uint width, uint pitch)
+{
+	uint32_t *dst = (uint32_t *)video + x + y * _screen.pitch;
+	do {
+		memcpy(dst, colours, width * sizeof(uint32_t));
+		dst += _screen.pitch;
+		colours += pitch;
+	} while (--lines);
+}
+
+void Blitter_32bppBase::SetRectNoD7(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch)
+{
+	Colour *dst = (Colour *)video + x + y * _screen.pitch;
+	do {
+		uint w = width;
+		do {
+			if (*colours != 0xD7) *dst = LookupColourInPalette(*colours);
+			dst++;
+			colours++;
+		} while (--w);
+		dst += _screen.pitch - width;
+		colours += pitch - width;
+	} while (--lines);
 }
 
 void Blitter_32bppBase::DrawRect(void *video, int width, int height, PixelColour colour)
@@ -45,13 +91,18 @@ void Blitter_32bppBase::DrawRect(void *video, int width, int height, PixelColour
 	} while (--height);
 }
 
+void Blitter_32bppBase::DrawRectAt(void *video, int x, int y, int width, int height, PixelColour colour)
+{
+	this->Blitter_32bppBase::DrawRect((Colour *)video + x + y * _screen.pitch, width, height, colour);
+}
+
 void Blitter_32bppBase::CopyFromBuffer(void *video, const void *src, int width, int height)
 {
 	uint32_t *dst = (uint32_t *)video;
 	const uint32_t *usrc = (const uint32_t *)src;
 
 	for (; height > 0; height--) {
-		std::copy_n(usrc, width, dst);
+		memcpy(dst, usrc, width * sizeof(uint32_t));
 		usrc += width;
 		dst += _screen.pitch;
 	}
@@ -63,7 +114,7 @@ void Blitter_32bppBase::CopyToBuffer(const void *video, void *dst, int width, in
 	const uint32_t *src = (const uint32_t *)video;
 
 	for (; height > 0; height--) {
-		std::copy_n(src, width, udst);
+		memcpy(udst, src, width * sizeof(uint32_t));
 		src += _screen.pitch;
 		udst += width;
 	}
@@ -75,13 +126,13 @@ void Blitter_32bppBase::CopyImageToBuffer(const void *video, void *dst, int widt
 	const uint32_t *src = (const uint32_t *)video;
 
 	for (; height > 0; height--) {
-		std::copy_n(src, width, udst);
+		memcpy(udst, src, width * sizeof(uint32_t));
 		src += _screen.pitch;
 		udst += dst_pitch;
 	}
 }
 
-void Blitter_32bppBase::ScrollBuffer(void *video, int &left, int &top, int &width, int &height, int scroll_x, int scroll_y)
+void Blitter_32bppBase::ScrollBuffer(void *video, int left, int top, int width, int height, int scroll_x, int scroll_y)
 {
 	const uint32_t *src;
 	uint32_t *dst;
@@ -94,7 +145,7 @@ void Blitter_32bppBase::ScrollBuffer(void *video, int &left, int &top, int &widt
 		/* Decrease height and increase top */
 		top += scroll_y;
 		height -= scroll_y;
-		assert(height > 0);
+		assert_msg(height > 0, "{}, {}, {}, {}, {}, {}", left, top, width, height, scroll_x, scroll_y);
 
 		/* Adjust left & width */
 		if (scroll_x >= 0) {
@@ -106,7 +157,11 @@ void Blitter_32bppBase::ScrollBuffer(void *video, int &left, int &top, int &widt
 			width += scroll_x;
 		}
 
-		Blitter::MovePixels(src, dst, width, height, -_screen.pitch);
+		for (int h = height; h > 0; h--) {
+			memcpy(dst, src, width * sizeof(uint32_t));
+			src -= _screen.pitch;
+			dst -= _screen.pitch;
+		}
 	} else {
 		/* Calculate pointers */
 		dst = (uint32_t *)video + left + top * _screen.pitch;
@@ -114,7 +169,7 @@ void Blitter_32bppBase::ScrollBuffer(void *video, int &left, int &top, int &widt
 
 		/* Decrease height. (scroll_y is <=0). */
 		height += scroll_y;
-		assert(height > 0);
+		assert_msg(height > 0, "{}, {}, {}, {}, {}, {}", left, top, width, height, scroll_x, scroll_y);
 
 		/* Adjust left & width */
 		if (scroll_x >= 0) {
@@ -126,7 +181,13 @@ void Blitter_32bppBase::ScrollBuffer(void *video, int &left, int &top, int &widt
 			width += scroll_x;
 		}
 
-		Blitter::MovePixels(src, dst, width, height, _screen.pitch);
+		/* the y-displacement may be 0 therefore we have to use memmove,
+		 * because source and destination may overlap */
+		for (int h = height; h > 0; h--) {
+			memmove(dst, src, width * sizeof(uint32_t));
+			src += _screen.pitch;
+			dst += _screen.pitch;
+		}
 	}
 }
 

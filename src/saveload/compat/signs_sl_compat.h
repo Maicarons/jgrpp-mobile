@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _sign_desc. */
 const SaveLoadCompat _sign_sl_compat[] = {
 	SLC_VAR("name"),
@@ -20,5 +22,7 @@ const SaveLoadCompat _sign_sl_compat[] = {
 	SLC_VAR("owner"),
 	SLC_VAR("z"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_SIGNS_H */

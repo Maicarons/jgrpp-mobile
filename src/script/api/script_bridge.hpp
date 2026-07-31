@@ -12,6 +12,7 @@
 
 #include "script_vehicle.hpp"
 #include "../../bridge.h"
+#include <optional>
 
 /**
  * Class that handles all bridge related functions.

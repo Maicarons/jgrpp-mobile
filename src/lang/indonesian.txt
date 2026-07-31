@@ -1273,8 +1273,8 @@ STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HELPTEXT                  :Menetapkan ting
 STR_CONFIG_SETTING_RECESSIONS                                   :Resesi : {STRING}
 STR_CONFIG_SETTING_RECESSIONS_HELPTEXT                          :Jika diaktifkan, resesi dapat terjadi secara berkala. Selama resesi, seluruh produksi jauh lebih rendah (akan kembali ke tingkat sebelumnya setelah resesi selesai)
 
-STR_CONFIG_SETTING_TRAIN_REVERSING                              :Melarang pemutaran kereta di stasiun: {STRING}
-STR_CONFIG_SETTING_TRAIN_REVERSING_HELPTEXT                     :Jika diaktifkan, kereta tidak akan berputar selain di stasiun ujung, termasuk jika ada jalan yang lebih pendek kalau berbalik
+
+###length 3
 
 STR_CONFIG_SETTING_DISASTERS                                    :Bencana: {STRING}
 STR_CONFIG_SETTING_DISASTERS_HELPTEXT                           :Mengaktifkan bencana yang mungkin dapat menghalangi atau menghancurkan kendaraan / infrastruktur
@@ -1469,6 +1469,8 @@ STR_CONFIG_SETTING_MINUTES_PER_YEAR_FROZEN                      :0 (kalender dib
 STR_CONFIG_SETTING_TOWN_CARGO_SCALE                             :Tingkatkan produksi kargo kota: {STRING}
 STR_CONFIG_SETTING_TOWN_CARGO_SCALE_HELPTEXT                    :Tingkatkan produksi kargo di kota-kota sebesar persentase ini.
 
+###setting-zero-is-special
+
 STR_CONFIG_SETTING_AUTORENEW_VEHICLE                            :Perbarui otomatis kendaraan yang telah tua: {STRING}
 STR_CONFIG_SETTING_AUTORENEW_VEHICLE_HELPTEXT                   :Jika dinyalakan, kendaraan mendekati akhir usianya akan secara otomatis diperbarui jika masih tersedia kendaraan itu
 
@@ -1537,6 +1539,8 @@ STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_SMOOTH             :Sangat Halus
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_SMOOTH                  :Halus
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_ROUGH                   :Kasar
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_ROUGH              :Sangat Kasar
+
+###length 4
 
 STR_CONFIG_SETTING_VARIETY                                      :Distribusi variasi: {STRING}
 STR_CONFIG_SETTING_VARIETY_HELPTEXT                             :(hanya TerraGenesis) Menentukan apakah bentang darat berisi area bergunung dan rata. Karena ini hanya akan mengakibatkan bentang darat yang lebih rata, pengaturan yang lain seharusnya ditetap 'bergunung'
@@ -1693,12 +1697,7 @@ STR_CONFIG_SETTING_TIMETABLE_SHOW_ARRIVAL_DEPARTURE_HELPTEXT    :Tampilkan waktu
 STR_CONFIG_SETTING_QUICKGOTO                                    :Buat pemberhentian kendaraan secara cepat: {STRING}
 STR_CONFIG_SETTING_QUICKGOTO_HELPTEXT                           :Pra-pilih kursor 'pergi ke' ketika jendela perintah dibuka
 
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE                            :Jenis rel saat baru bermain/memuat permainan: {STRING}
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_HELPTEXT                   :Jenis rel yang dipilih setelah memulai atau pemuatan permainan. 'tersedia pertama' pilihkan jenis rel paling tua, 'tersedia terakhir' pilihkan jenis rel paling baru, dan 'sering dipakai' pilihkan jenis yang sekarang paling sering dipakai
 ###length 3
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_FIRST                      :Tersedia pertama
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_LAST                       :Tersedia terakhir
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_MOST_USED                  :Sering dipakai
 
 STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION                       :Tampilkan rel yang akan terpakai: {STRING}
 STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION_HELPTEXT              :Beri warna yang berbeda untuk jalur-jalur yang dicadangkan untuk menolong ketika terdapat kereta yang menolak masuk ke blok menurut jalurnya
@@ -1799,6 +1798,7 @@ STR_CONFIG_SETTING_NOSERVICE_HELPTEXT                           :Jika diaktifkan
 
 STR_CONFIG_SETTING_WAGONSPEEDLIMITS                             :Aktifkan batas kecepatan gerbong: {STRING}
 STR_CONFIG_SETTING_WAGONSPEEDLIMITS_HELPTEXT                    :Jika diaktifkan, batas kecepatan gerbong juga digunakan untuk menentukan kecepatan maksimum kereta
+
 
 STR_CONFIG_SETTING_DISABLE_ELRAILS                              :Non-aktifkan rel listrik: {STRING}
 STR_CONFIG_SETTING_DISABLE_ELRAILS_HELPTEXT                     :Mengaktifkan setelan ini mematikan kebutuhan kereta listrik untuk berjalan di rel elektris
@@ -2111,12 +2111,13 @@ STR_CONFIG_ERROR_INVALID_BASE_GRAPHICS_NOT_FOUND                :{WHITE}... meng
 STR_CONFIG_ERROR_INVALID_BASE_SOUNDS_NOT_FOUND                  :{WHITE}... mengabaikan set suara dasar '{STRING}': tidak ditemukan
 STR_CONFIG_ERROR_INVALID_BASE_MUSIC_NOT_FOUND                   :{WHITE}... mengabaikan set musik dasar '{STRING}': tidak ditemukan
 
-# Video initalization errors
+# Video initialization errors
 STR_VIDEO_DRIVER_ERROR                                          :{WHITE}Kesalahan dengan pengaturan video...
 STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... tidak ditemukan GPU yang kompatibel. Akselerasi perangkat keras dinonaktifkan
 STR_VIDEO_DRIVER_ERROR_HARDWARE_ACCELERATION_CRASH              :{WHITE}... Driver GPU membuat game crash. Akselerasi perangkat keras dinonaktifkan
 
 # Intro window
+STR_INTRO_CAPTION                                               :{WHITE}OpenTTD {REV}
 
 STR_INTRO_NEW_GAME                                              :{BLACK}Permainan Baru
 STR_INTRO_LOAD_GAME                                             :{BLACK}Buka Permainan
@@ -2359,15 +2360,13 @@ STR_NETWORK_CONNECTING_WAITING                                  :{BLACK}{NUM} kl
 STR_NETWORK_CONNECTING_DOWNLOADING_1                            :{BLACK}{BYTES} sudah terunduh
 STR_NETWORK_CONNECTING_DOWNLOADING_2                            :{BLACK}{BYTES} / {BYTES} sudah terunduh
 
-###length 8
+###length 6
 STR_NETWORK_CONNECTING_1                                        :{BLACK}(1/6) Menghubungkan...
 STR_NETWORK_CONNECTING_2                                        :{BLACK}(2/6) Meminta kewenangan...
 STR_NETWORK_CONNECTING_3                                        :{BLACK}(3/6) Menunggu...
 STR_NETWORK_CONNECTING_4                                        :{BLACK}(4/6) Mengunduh peta...
 STR_NETWORK_CONNECTING_5                                        :{BLACK}(5/6) Memroses data...
 STR_NETWORK_CONNECTING_6                                        :{BLACK}(6/6) Mendaftarkan...
-STR_NETWORK_CONNECTING_SPECIAL_1                                :{BLACK}Mengambil informasi permainan...
-STR_NETWORK_CONNECTING_SPECIAL_2                                :{BLACK}Mengambil informasi perusahaan...
 
 STR_NETWORK_CONNECTION_DISCONNECT                               :{BLACK}Putuskan
 
@@ -2710,6 +2709,8 @@ STR_STATION_BUILD_PLATFORM_LENGTH                               :{BLACK}Panjang 
 STR_STATION_BUILD_PLATFORM_LENGTH_TOOLTIP                       :{BLACK}Pilih panjang stasiun kereta
 STR_STATION_BUILD_DRAG_DROP                                     :{BLACK}Drag & Drop
 STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Membangun stasiun dengan Drag & Drop
+
+
 
 
 
@@ -3488,6 +3489,7 @@ STR_EDIT_SIGN_SIGN_OSKTITLE                                     :{BLACK}Masukkan
 # Town directory window
 STR_TOWN_DIRECTORY_NONE                                         :{ORANGE}- Tidak Ada -
 STR_TOWN_DIRECTORY_TOWN                                         :{ORANGE}{TOWN}{BLACK} ({COMMA})
+STR_TOWN_DIRECTORY_CITY                                         :{ORANGE}{TOWN}{YELLOW} (Kota){BLACK} ({COMMA})
 STR_TOWN_DIRECTORY_LIST_TOOLTIP                                 :{BLACK}Nama-nama kota - Klik pada nama untuk mengarahkan pandangan utama pada kota. Ctrl+Click akan membuka viewport baru pada lokasi kota
 STR_TOWN_POPULATION                                             :{BLACK}Populasi Dunia: {COMMA}
 
@@ -3945,6 +3947,8 @@ STR_PURCHASE_INFO_MAX_TE                                        :{BLACK}Traksi M
 STR_PURCHASE_INFO_AIRCRAFT_RANGE                                :{BLACK}Jangkauan: {GOLD}{COMMA} kotak
 STR_PURCHASE_INFO_AIRCRAFT_TYPE                                 :{BLACK}Jenis pesawat: {GOLD}{STRING}
 
+# Vehicle sort details
+
 ###length 3
 STR_CARGO_TYPE_FILTER_ALL                                       :Semua jenis kargo
 STR_CARGO_TYPE_FILTER_FREIGHT                                   :Kargo
@@ -4105,6 +4109,7 @@ STR_DEPOT_SELL_CONFIRMATION_TEXT                                :{YELLOW}Anda ak
 # Engine preview window
 STR_ENGINE_PREVIEW_CAPTION                                      :{WHITE}Pesan dari pabrik kendaraan
 STR_ENGINE_PREVIEW_MESSAGE                                      :{GOLD}Kami telah mendesain {STRING} baru - apakah anda tertarik mempergunakan kendaraan ini secara eksklusif , sehingga kami dapat melihat bagaimana kemampuannya sebelum dijual secara masal?
+
 
 STR_ENGINE_PREVIEW_RAILROAD_LOCOMOTIVE                          :lokomotif kereta
 STR_ENGINE_PREVIEW_ELRAIL_LOCOMOTIVE                            :lokomotif rel kereta listrik
@@ -4276,7 +4281,6 @@ STR_VEHICLE_INFO_PROFIT_THIS_YEAR_LAST_YEAR                     :{BLACK}Keuntung
 STR_VEHICLE_INFO_PROFIT_THIS_YEAR_LAST_YEAR_MIN_PERFORMANCE     :{BLACK}Keuntungan tahun ini: {LTBLUE}{CURRENCY_LONG} (tahun kemarin: {CURRENCY_LONG}) {BLACK}Performa minimum: {LTBLUE}{POWER_TO_WEIGHT}
 STR_VEHICLE_INFO_PROFIT_THIS_PERIOD_LAST_PERIOD                 :{BLACK}Laba saat ini: {LTBLUE}{CURRENCY_LONG} (kurun waktu sebelumnya: {CURRENCY_LONG})
 STR_VEHICLE_INFO_PROFIT_THIS_PERIOD_LAST_PERIOD_MIN_PERFORMANCE :{BLACK}Laba sat ini: {LTBLUE}{CURRENCY_LONG} (kurun waktu sebelumnya: {CURRENCY_LONG}) {BLACK}Performa minimum: {LTBLUE}{POWER_TO_WEIGHT}
-STR_VEHICLE_INFO_RELIABILITY_BREAKDOWNS                         :{BLACK}Reliabilitas: {LTBLUE}{COMMA}%  {BLACK}Mogok sejak perbaikan terakhir : {LTBLUE}{COMMA} kali
 
 STR_VEHICLE_INFO_BUILT_VALUE                                    :{LTBLUE}{ENGINE} {BLACK}Dibuat: {LTBLUE}{NUM}{BLACK} Nilai: {LTBLUE}{CURRENCY_LONG}
 STR_VEHICLE_INFO_NO_CAPACITY                                    :{BLACK}Kapasitas: {LTBLUE}Tidak ada{STRING}
@@ -4407,7 +4411,7 @@ STR_ORDER_DROP_HALT_DEPOT                                       :Berhenti
 STR_ORDER_CONDITIONAL_VARIABLE_TOOLTIP                          :{BLACK}Kondisi yang diperiksa
 
 # Conditional order variables, must follow order of OrderConditionVariable enum
-###length 8
+###length 9
 STR_ORDER_CONDITIONAL_LOAD_PERCENTAGE                           :% muatan
 STR_ORDER_CONDITIONAL_RELIABILITY                               :Kehandalan
 STR_ORDER_CONDITIONAL_MAX_SPEED                                 :Kecepatan maks.
@@ -4528,6 +4532,7 @@ STR_TIMETABLE_TOOLTIP                                           :{BLACK}Daftar J
 STR_TIMETABLE_NO_TRAVEL                                         :Tidak berjalan
 STR_TIMETABLE_NOT_TIMETABLEABLE                                 :Perjalanan (otomatis; akan dijadwalkan pada perintah manual berikutnya)
 STR_TIMETABLE_TRAVEL_NOT_TIMETABLED                             :Perjalanan belum terjadwal
+STR_TIMETABLE_TRAVEL_NOT_TIMETABLED_SPEED                       :Bergerak dengan kecepatan maks. {VELOCITY} (not timetabled)
 STR_TIMETABLE_TRAVEL_FOR                                        :Berjalan selama {STRING}
 STR_TIMETABLE_TRAVEL_FOR_SPEED                                  :Bergerak {STRING} dengan maks. kecepatan {VELOCITY}
 STR_TIMETABLE_TRAVEL_FOR_ESTIMATED                              :Berjalan (untuk {STRING}, tidak berjadwal)
@@ -4793,7 +4798,6 @@ STR_ERROR_CAN_T_GENERATE_TOWN                                   :{WHITE}Tidak da
 STR_ERROR_CAN_T_RENAME_TOWN                                     :{WHITE}Tidak dapat mengubah nama kota...
 STR_ERROR_CAN_T_FOUND_TOWN_HERE                                 :{WHITE}Tidak dapat membangun kota disini
 STR_ERROR_CAN_T_EXPAND_TOWN                                     :{WHITE}Tidak dapat memperluas kota...
-STR_ERROR_TOO_CLOSE_TO_EDGE_OF_MAP_SUB                          :{WHITE}... terlalu dekat dengan batas tepi peta
 STR_ERROR_TOO_CLOSE_TO_ANOTHER_TOWN                             :{WHITE}... terlalu dekat dengan kota lain
 STR_ERROR_TOO_MANY_TOWNS                                        :{WHITE}... terlalu banyak kota
 STR_ERROR_NO_SPACE_FOR_TOWN                                     :{WHITE}... tidak ada lagi ruang tersisa dalam peta

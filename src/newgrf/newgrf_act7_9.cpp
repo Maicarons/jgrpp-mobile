@@ -23,6 +23,7 @@
 
 /** 32 * 8 = 256 flags. Apparently TTDPatch uses this many.. */
 static std::array<uint32_t, 8> _ttdpatch_flags;
+static std::array<uint32_t, 8> _observed_ttdpatch_flags;
 
 /** Initialize the TTDPatch flags */
 void InitializePatchFlags()
@@ -109,8 +110,17 @@ void InitializePatchFlags()
 	                   |                                                       (1U << 0x1F); // any switch is on
 
 	_ttdpatch_flags[4] =                                                       (1U << 0x00)  // larger persistent storage
-	                   |             ((_settings_game.economy.inflation ? 1U : 0U) << 0x01)  // inflation is on
+	                   | ((_settings_game.economy.inflation && !_settings_game.economy.disable_inflation_newgrf_flag ? 1U : 0U) << 0x01) // inflation is on
 	                   |                                                       (1U << 0x02); // extended string range
+	_observed_ttdpatch_flags.fill(0);
+}
+
+bool HasTTDPatchFlagBeenObserved(uint flag)
+{
+	uint index = flag / 0x20;
+	flag %= 0x20;
+	if (index >= (uint32_t)_ttdpatch_flags.size()) return false;
+	return HasBit(_observed_ttdpatch_flags[index], flag);
 }
 
 uint32_t GetParamVal(uint8_t param, uint32_t *cond_val)
@@ -119,15 +129,14 @@ uint32_t GetParamVal(uint8_t param, uint32_t *cond_val)
 	uint32_t value;
 	if (GetGlobalVariable(param - 0x80, &value, _cur_gps.grffile)) return value;
 
-
 	/* Non-common variable */
 	switch (param) {
 		case 0x84: { // GRF loading stage
 			uint32_t res = 0;
 
-			if (_cur_gps.stage > GLS_INIT) SetBit(res, 0);
-			if (_cur_gps.stage == GLS_RESERVE) SetBit(res, 8);
-			if (_cur_gps.stage == GLS_ACTIVATION) SetBit(res, 9);
+			if (_cur_gps.stage > GrfLoadingStage::Init) SetBit(res, 0);
+			if (_cur_gps.stage == GrfLoadingStage::Reserve) SetBit(res, 8);
+			if (_cur_gps.stage == GrfLoadingStage::Activation) SetBit(res, 9);
 			return res;
 		}
 
@@ -137,8 +146,14 @@ uint32_t GetParamVal(uint8_t param, uint32_t *cond_val)
 				return 0;
 			} else {
 				uint32_t index = *cond_val / 0x20;
-				uint32_t param_val = index < std::size(_ttdpatch_flags) ? _ttdpatch_flags[index] : 0;
 				*cond_val %= 0x20;
+				uint32_t param_val = 0;
+				if (index < (uint32_t)_ttdpatch_flags.size()) {
+					param_val = _ttdpatch_flags[index];
+					if (!_cur_gps.grfconfig->flags.Any({GRFConfigFlag::Static, GRFConfigFlag::System})) {
+						SetBit(_observed_ttdpatch_flags[index], *cond_val);
+					}
+				}
 				return param_val;
 			}
 
@@ -250,28 +265,35 @@ static void SkipIf(ByteReader &buf)
 		switch (condtype) {
 			/* Tests 0x06 to 0x0A are only for param 0x88, GRFID checks */
 			case 0x06: // Is GRFID active?
-				result = c->status == GCS_ACTIVATED;
+				result = c->status == GRFStatus::Activated;
 				break;
 
 			case 0x07: // Is GRFID non-active?
-				result = c->status != GCS_ACTIVATED;
+				result = c->status != GRFStatus::Activated;
 				break;
 
 			case 0x08: // GRFID is not but will be active?
-				result = c->status == GCS_INITIALISED;
+				result = c->status == GRFStatus::Initialised;
 				break;
 
 			case 0x09: // GRFID is or will be active?
-				result = c->status == GCS_ACTIVATED || c->status == GCS_INITIALISED;
+				result = c->status == GRFStatus::Activated || c->status == GRFStatus::Initialised;
 				break;
 
 			case 0x0A: // GRFID is not nor will be active
 				/* This is the only condtype that doesn't get ignored if the GRFID is not found */
-				result = c == nullptr || c->status == GCS_DISABLED || c->status == GCS_NOT_FOUND;
+				result = c == nullptr || c->status == GRFStatus::Disabled || c->status == GRFStatus::NotFound;
 				break;
 
 			default: GrfMsg(1, "SkipIf: Unsupported GRF condition type {:02X}. Ignoring", condtype); return;
 		}
+	} else if (param == 0x91 && (condtype == 0x02 || condtype == 0x03) && cond_val > 0) {
+		const std::vector<uint32_t> &values = _cur_gps.grffile->var91_values;
+		/* condtype 0x02: skip if test result found
+		 * condtype 0x03: skip if test result not found
+		 */
+		bool found = std::find(values.begin(), values.end(), cond_val) != values.end();
+		result = (found == (condtype == 0x02));
 	} else {
 		/* Tests that use 'param' and are not GRF ID checks.  */
 		uint32_t param_val = GetParamVal(param, &cond_val); // cond_val is modified for param == 0x85
@@ -332,22 +354,34 @@ static void SkipIf(ByteReader &buf)
 		_cur_gps.skip_sprites = -1;
 
 		/* If an action 8 hasn't been encountered yet, disable the grf. */
-		if (_cur_gps.grfconfig->status != (_cur_gps.stage < GLS_RESERVE ? GCS_INITIALISED : GCS_ACTIVATED)) {
+		if (_cur_gps.grfconfig->status != (_cur_gps.stage < GrfLoadingStage::Reserve ? GRFStatus::Initialised : GRFStatus::Activated)) {
 			DisableGrf();
 		}
 	}
 }
 
+/** @copybrief GrfActionHandler::FileScan */
 template <> void GrfActionHandler<0x07>::FileScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::SafetyScan */
 template <> void GrfActionHandler<0x07>::SafetyScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::LabelScan */
 template <> void GrfActionHandler<0x07>::LabelScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::Init */
 template <> void GrfActionHandler<0x07>::Init(ByteReader &) { }
+/** @copydoc GrfActionHandler::Reserve */
 template <> void GrfActionHandler<0x07>::Reserve(ByteReader &buf) { SkipIf(buf); }
+/** @copydoc GrfActionHandler::Activation */
 template <> void GrfActionHandler<0x07>::Activation(ByteReader &buf) { SkipIf(buf); }
 
+/** @copybrief GrfActionHandler::FileScan */
 template <> void GrfActionHandler<0x09>::FileScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::SafetyScan */
 template <> void GrfActionHandler<0x09>::SafetyScan(ByteReader &) { }
+/** @copybrief GrfActionHandler::LabelScan */
 template <> void GrfActionHandler<0x09>::LabelScan(ByteReader &) { }
+/** @copydoc GrfActionHandler::Init */
 template <> void GrfActionHandler<0x09>::Init(ByteReader &buf) { SkipIf(buf); }
+/** @copydoc GrfActionHandler::Reserve */
 template <> void GrfActionHandler<0x09>::Reserve(ByteReader &buf) { SkipIf(buf); }
+/** @copydoc GrfActionHandler::Activation */
 template <> void GrfActionHandler<0x09>::Activation(ByteReader &buf) { SkipIf(buf); }

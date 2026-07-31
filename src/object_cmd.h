@@ -13,10 +13,8 @@
 #include "command_type.h"
 #include "object_type.h"
 
-CommandCost CmdBuildObject(DoCommandFlags flags, TileIndex tile, ObjectType type, uint8_t view);
-CommandCost CmdBuildObjectArea(DoCommandFlags flags, TileIndex tile, TileIndex start_tile, ObjectType type, uint8_t view, bool diagonal);
-
-DEF_CMD_TRAIT(CMD_BUILD_OBJECT, CmdBuildObject, CommandFlags({CommandFlag::Deity, CommandFlag::NoWater, CommandFlag::Auto}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_OBJECT_AREA, CmdBuildObjectArea, CommandFlags({CommandFlag::Deity, CommandFlag::NoWater, CommandFlag::NoTest, CommandFlag::Auto}), CommandType::LandscapeConstruction)
+DEF_CMD_TUPLE(Commands::BuildObject,      CmdBuildObject,        CMD_DEITY | CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<ObjectType, uint8_t>)
+DEF_CMD_TUPLE(Commands::BuildObjectArea,  CmdBuildObjectArea,  CMD_NO_WATER | CMD_AUTO | CMD_NO_TEST, CommandType::LandscapeConstruction, CmdDataT<TileIndex, ObjectType, uint8_t, bool>)
+DEF_CMD_TUPLE(Commands::PurchaseLandArea, CmdPurchaseLandArea, CMD_NO_WATER | CMD_AUTO | CMD_NO_TEST, CommandType::LandscapeConstruction, CmdDataT<TileIndex, bool>)
 
 #endif /* OBJECT_CMD_H */

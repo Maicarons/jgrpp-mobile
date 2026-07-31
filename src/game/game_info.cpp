@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file game_info.cpp Implementation of GameInfo */
+/** @file game_info.cpp Implementation of GameInfo. */
 
 #include "../stdafx.h"
 
@@ -13,19 +13,25 @@
 #include "game_info.hpp"
 #include "game_scanner.hpp"
 #include "../debug.h"
+#include <algorithm>
+#include <initializer_list>
 
 #include "../safeguards.h"
 
 /**
  * Check if the API version provided by the Game is supported.
  * @param api_version The API version as provided by the Game.
+ * @return \c true if the given version is supported by this version of OpenTTD.
  */
 static bool CheckAPIVersion(const std::string &api_version)
 {
 	return std::ranges::find(GameInfo::ApiVersions, api_version) != std::end(GameInfo::ApiVersions);
 }
 
-template <> SQInteger PushClassName<GameInfo, ScriptType::GS>(HSQUIRRELVM vm) { sq_pushstring(vm, "GSInfo"); return 1; }
+#if defined(_WIN32)
+#undef GetClassName
+#endif /* _WIN32 */
+template <> const char *GetClassName<GameInfo, ScriptType::GS>() { return "GSInfo"; }
 
 /* static */ void GameInfo::RegisterAPI(Squirrel &engine)
 {

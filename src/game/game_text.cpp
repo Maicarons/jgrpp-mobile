@@ -21,6 +21,8 @@
 #include "table/strings.h"
 #include "../table/strgen_tables.h"
 
+#include <memory>
+
 #include "../safeguards.h"
 
 void CDECL StrgenWarningI(const std::string &msg)
@@ -49,7 +51,7 @@ void CDECL StrgenFatalI(const std::string &msg)
 LanguageStrings ReadRawLanguageStrings(const std::string &file)
 {
 	size_t to_read;
-	auto fh = FioFOpenFile(file, "rb", GAME_DIR, &to_read);
+	auto fh = FioFOpenFile(file, "rb", Subdirectory::Gs, &to_read);
 	if (!fh.has_value()) return LanguageStrings();
 
 	auto pos = file.rfind(PATHSEPCHAR);
@@ -94,10 +96,14 @@ struct StringListReader : StringReader {
 	{
 	}
 
-	std::optional<std::string> ReadLine() override
+	char *ReadLine(char *buffer, const char *last) override
 	{
-		if (this->p == this->end) return std::nullopt;
-		return *this->p++;
+		if (this->p == this->end) return nullptr;
+
+		strecpy(buffer, this->p->c_str(), last);
+		this->p++;
+
+		return buffer;
 	}
 };
 
@@ -146,7 +152,7 @@ struct StringNameWriter : HeaderWriter {
 	{
 	}
 
-	void WriteStringID(const std::string &name, size_t stringid) override
+	void WriteStringID(const std::string &name, uint stringid) override
 	{
 		if (stringid == this->strings.size()) this->strings.emplace_back(name);
 	}
@@ -162,15 +168,20 @@ struct StringNameWriter : HeaderWriter {
  */
 class LanguageScanner : protected FileScanner {
 private:
-	std::weak_ptr<GameStrings> gs;
-	std::string exclude;
+	std::weak_ptr<GameStrings> gs; ///< The (already) loaded game strings.
+	std::string exclude; ///< The file name to exclude during scanning.
 
 public:
-	/** Initialise */
+	/**
+	 * Initialise the scanner.
+	 * @param gs The (already) loaded game strings to add to.
+	 * @param exclude The file name to exclude during sanning.
+	 */
 	LanguageScanner(std::weak_ptr<GameStrings> gs, const std::string &exclude) : gs(gs), exclude(exclude) {}
 
 	/**
-	 * Scan.
+	 * Actually run the scan.
+	 * @param directory The directory to scan in.
 	 */
 	void Scan(const std::string &directory)
 	{
@@ -207,7 +218,7 @@ static std::shared_ptr<GameStrings> LoadTranslations()
 	basename.erase(e + 1);
 
 	std::string filename = basename + "lang" PATHSEP "english.txt";
-	if (!FioCheckFileExists(filename, GAME_DIR)) return nullptr;
+	if (!FioCheckFileExists(filename.c_str(), Subdirectory::Gs)) return nullptr;
 
 	auto ls = ReadRawLanguageStrings(filename);
 	if (!ls.IsValid()) return nullptr;
@@ -222,10 +233,10 @@ static std::shared_ptr<GameStrings> LoadTranslations()
 
 		const std::string tar_filename = info->GetTarFile();
 		TarList::iterator iter;
-		if (!tar_filename.empty() && (iter = _tar_list[GAME_DIR].find(tar_filename)) != _tar_list[GAME_DIR].end()) {
+		if (!tar_filename.empty() && (iter = _tar_list[Subdirectory::Gs].find(tar_filename)) != _tar_list[Subdirectory::Gs].end()) {
 			/* The main script is in a tar file, so find all files that
 			 * are in the same tar and add them to the langfile scanner. */
-			for (const auto &[name, entry] : _tar_filelist[GAME_DIR]) {
+			for (const auto &[name, entry] : _tar_filelist[Subdirectory::Gs]) {
 				/* Not in the same tar. */
 				if (entry.tar_filename != iter->first) continue;
 
@@ -257,7 +268,7 @@ static StringParam::ParamType GetParamType(const CmdStruct *cs)
 static void ExtractStringParams(const StringData &data, StringParamsList &params)
 {
 	for (size_t i = 0; i < data.max_strings; i++) {
-		const LangString *ls = data.strings[i].get();
+		const LangString *ls = data.strings[i];
 
 		if (ls != nullptr) {
 			StringParams &param = params.emplace_back();
@@ -382,7 +393,19 @@ void ReconsiderGameScriptLanguage()
 {
 	if (_current_gamestrings_data == nullptr) return;
 
-	std::string language = FS2OTTD(_current_language->file.stem().native());
+	char temp[MAX_PATH];
+	strecpy(temp, _current_language->file.c_str(), lastof(temp));
+
+	/* Remove the extension */
+	char *l = strrchr(temp, '.');
+	assert(l != nullptr);
+	*l = '\0';
+
+	/* Skip the path */
+	char *language = strrchr(temp, PATHSEPCHAR);
+	assert(language != nullptr);
+	language++;
+
 	for (auto &p : _current_gamestrings_data->compiled_strings) {
 		if (p.language == language) {
 			_current_gamestrings_data->cur_language = &p;

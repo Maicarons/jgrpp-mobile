@@ -12,16 +12,19 @@
 
 #include "core/enum_type.hpp"
 #include "company_type.h"
+#include "date_type.h"
 #include "engine_type.h"
 #include "industry_type.h"
 #include "gfx_type.h"
 #include "sound_type.h"
 #include "station_type.h"
 #include "strings_type.h"
-#include "timer/timer_game_calendar.h"
-#include "timer/timer_game_economy.h"
+#include "tile_type.h"
 #include "town_type.h"
 #include "vehicle_type.h"
+#include <list>
+#include <variant>
+#include <vector>
 
 /**
  * Type of news.
@@ -41,6 +44,7 @@ enum class NewsType : uint8_t {
 	Advice, ///< Bits of news about vehicles of the company
 	NewVehicles, ///< New vehicle has become available
 	Acceptance, ///< A type of cargo is (no longer) accepted
+	CargoFlow, ///< Cargo flow warnings (overflowing cargo)
 	Subsidies, ///< News about subsidies (announcements, expirations, acceptance)
 	General, ///< General news (from towns)
 
@@ -59,7 +63,7 @@ enum class AdviceType : uint8_t {
 	VehicleUnprofitable, ///< The vehicle is costing you money.
 	VehicleWaiting, ///< The vehicle is waiting in the depot.
 
-	Invalid
+	Invalid, ///< Invalid marker.
 };
 
 /**
@@ -108,8 +112,8 @@ enum class NewsDisplay : uint8_t {
  */
 struct NewsTypeData {
 	const std::string_view name; ///< Name
-	const uint8_t age;             ///< Maximum age of news items (in days)
-	const SoundFx sound;        ///< Sound
+	const uint8_t age;           ///< Maximum age of news items (in days)
+	const SoundFx sound;         ///< Sound
 
 	/**
 	 * Construct this entry.
@@ -117,7 +121,7 @@ struct NewsTypeData {
 	 * @param age The maximum age for these messages.
 	 * @param sound The sound to play.
 	 */
-	NewsTypeData(std::string_view name, uint8_t age, SoundFx sound) :
+	constexpr NewsTypeData(std::string_view name, uint8_t age, SoundFx sound) :
 		name(name),
 		age(age),
 		sound(sound)
@@ -135,13 +139,13 @@ struct NewsAllocatedData {
 
 /** Information about a single item of news. */
 struct NewsItem {
-	EncodedString headline; ///< Headline of news.
-	TimerGameCalendar::Date date; ///< Calendar date to show for the news
-	TimerGameEconomy::Date economy_date; ///< Economy date of the news item, never shown but used to calculate age
-	NewsType type;                ///< Type of the news
-	AdviceType advice_type; ///< The type of advice, to be able to remove specific advices later on.
-	NewsStyle style; /// Window style for the news.
-	NewsFlags flags;               ///< NewsFlags bits @see NewsFlag
+	EncodedString headline;      ///< Headline of news.
+	CalTime::Date date;          ///< Date of the news
+	uint64_t creation_tick;      ///< Tick when news was created
+	NewsType type;               ///< Type of the news
+	AdviceType advice_type;      ///< The type of advice, to be able to remove specific advices later on.
+	NewsStyle style;             ///< Window style for the news.
+	NewsFlags flags;             ///< NewsFlags bits @see NewsFlag
 
 	NewsReference ref1; ///< Reference 1 to some object: Used for a possible viewport, scrolling after clicking on the news, and for deleting the news when the object is deleted.
 	NewsReference ref2; ///< Reference 2 to some object: Used for scrolling after clicking on the news, and for deleting the news when the object is deleted.

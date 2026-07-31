@@ -20,23 +20,33 @@
 class NetworkSurveyHandler : public HTTPCallback {
 protected:
 	void OnFailure() override;
-	void OnReceiveData(std::unique_ptr<char[]> data, size_t length) override;
+	void OnReceiveData(UniqueBuffer<char> data) override;
 	bool IsCancelled() const override { return false; }
 
 public:
+	/** Reason why the survey data is being sent. */
 	enum class Reason : uint8_t {
-		PREVIEW, ///< User is previewing the survey result.
-		LEAVE, ///< User is leaving the game (but not exiting the application).
-		EXIT, ///< User is exiting the application.
-		CRASH, ///< Game crashed.
+		Preview, ///< User is previewing the survey result.
+		Leave, ///< User is leaving the game (but not exiting the application).
+		Exit, ///< User is exiting the application.
+		Crash, ///< Game crashed.
 	};
 
 	void Transmit(Reason reason, bool blocking = false);
 	std::string CreatePayload(Reason reason, bool for_preview = false);
 
+	/**
+	 * Check whether a survey is possible.
+	 * @return \c true.
+	 */
 	constexpr static bool IsSurveyPossible()
 	{
+#if !defined(SURVEY_KEY)
+		/* Without a survey key, we cannot send a payload; so we disable the survey. */
+		return false;
+#else
 		return true;
+#endif /* SURVEY_KEY */
 	}
 
 private:
@@ -45,6 +55,7 @@ private:
 	std::condition_variable transmitted_cv; ///< Condition variable to inform changes to transmitted.
 };
 
+/** The handler for sending surveys for statistics. */
 extern NetworkSurveyHandler _survey;
 
 #endif /* NETWORK_SURVEY_H */

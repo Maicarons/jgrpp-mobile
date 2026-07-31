@@ -12,19 +12,19 @@
 #include "script_error.hpp"
 #include "../../command_type.h"
 #include "../../settings_type.h"
-#include "../../network/network.h"
 #include "../../misc_cmd.h"
+#include "../../network/network.h"
 
 #include "../../safeguards.h"
 
 /* static */ bool ScriptGame::Pause()
 {
-	return ScriptObject::Command<CMD_PAUSE>::Do(PauseMode::GameScript, true);
+	return ScriptObject::Command<Commands::Pause>::Do(PauseMode::GameScript, true);
 }
 
 /* static */ bool ScriptGame::Unpause()
 {
-	return ScriptObject::Command<CMD_PAUSE>::Do(PauseMode::GameScript, false);
+	return ScriptObject::Command<Commands::Pause>::Do(PauseMode::GameScript, false);
 }
 
 /* static */ bool ScriptGame::IsPaused()

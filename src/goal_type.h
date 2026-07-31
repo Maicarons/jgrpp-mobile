@@ -5,12 +5,13 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file goal_type.h basic types related to goals */
+/** @file goal_type.h Basic types related to goals. */
 
 #ifndef GOAL_TYPE_H
 #define GOAL_TYPE_H
 
-#include "core/pool_type.hpp"
+#include "core/enum_type.hpp"
+#include "core/pool_id_type.hpp"
 
 static const uint32_t GOAL_QUESTION_BUTTON_COUNT = 18; ///< Amount of buttons available.
 
@@ -35,7 +36,8 @@ enum GoalType : uint8_t {
 typedef uint32_t GoalTypeID; ///< Contains either tile, industry ID, town ID, company ID, or story page ID
 
 /** ID of a goal */
-using GoalID = PoolID<uint16_t, struct GoalIDTag, 64000, 0xFFFF>;
+struct GoalIDTag : public PoolIDTraits<uint16_t, 64000, 0xFFFF> {};
+using GoalID = PoolID<GoalIDTag>;
 
 struct Goal;
 

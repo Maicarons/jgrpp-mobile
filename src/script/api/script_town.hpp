@@ -14,6 +14,7 @@
 #include "script_company.hpp"
 #include "../../town.h"
 #include "../../town_type.h"
+#include <optional>
 
 /**
  * Class that handles all town related functions.

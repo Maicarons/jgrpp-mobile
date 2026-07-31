@@ -11,8 +11,16 @@
 #define LINKGRAPHSCHEDULE_H
 
 #include "linkgraph.h"
+#include "../thread.h"
+#include "../3rdparty/cpp-ring-buffer/ring_buffer.hpp"
+#include <memory>
+#include <vector>
 
 class LinkGraphJob;
+
+namespace upstream_sl {
+	SaveLoadTable GetLinkGraphScheduleDesc();
+}
 
 /**
  * A handler doing "something" on a link graph component. It must not keep any
@@ -37,9 +45,10 @@ class LinkGraphSchedule {
 private:
 	LinkGraphSchedule();
 	~LinkGraphSchedule();
-	typedef std::list<LinkGraph *> GraphList;
-	typedef std::list<LinkGraphJob *> JobList;
-	friend SaveLoadTable GetLinkGraphScheduleDesc();
+	typedef jgr::ring_buffer<LinkGraph *> GraphList;
+	typedef jgr::ring_buffer<std::unique_ptr<LinkGraphJob>> JobList;
+	friend NamedSaveLoadTable GetLinkGraphScheduleDesc();
+	friend upstream_sl::SaveLoadTable upstream_sl::GetLinkGraphScheduleDesc();
 
 protected:
 	std::array<std::unique_ptr<ComponentHandler>, 6> handlers{}; ///< Handlers to be run for each job.
@@ -58,7 +67,7 @@ public:
 	bool IsJoinWithUnfinishedJobDue() const;
 	void JoinNext();
 	void SpawnAll();
-	void ShiftDates(TimerGameEconomy::Date interval);
+	void ShiftDates(EconTime::DateDelta interval);
 
 	/**
 	 * Queue a link graph for execution.
@@ -74,7 +83,44 @@ public:
 	 * Remove a link graph from the execution queue.
 	 * @param lg Link graph to be removed.
 	 */
-	void Dequeue(LinkGraph *lg) { this->schedule.remove(lg); }
+	void Dequeue(LinkGraph *lg)
+	{
+		for (auto iter = this->schedule.begin(); iter != this->schedule.end();) {
+			if (*iter == lg) {
+				iter = this->schedule.erase(iter);
+			} else {
+				++iter;
+			}
+		}
+	}
+};
+
+class LinkGraphJobGroup : public std::enable_shared_from_this<LinkGraphJobGroup> {
+	friend LinkGraphJob;
+
+private:
+	std::thread thread;                      ///< Thread the job group is running in or nullptr if it's running in the main thread.
+	const std::vector<LinkGraphJob *> jobs;  ///< The set of jobs in this job set
+
+private:
+	struct constructor_token { };
+	static void Run(void *group);
+	void SpawnThread();
+	void JoinThread();
+
+public:
+	LinkGraphJobGroup(constructor_token token, std::vector<LinkGraphJob *> jobs);
+
+	struct JobInfo {
+		LinkGraphJob * job;
+		uint cost_estimate;
+
+		JobInfo(LinkGraphJob *job);
+		JobInfo(LinkGraphJob *job, uint cost_estimate) :
+				job(job), cost_estimate(cost_estimate) { }
+	};
+
+	static void ExecuteJobSet(std::vector<JobInfo> jobs);
 };
 
 void StateGameLoop_LinkGraphPauseControl();

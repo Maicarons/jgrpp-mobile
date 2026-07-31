@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file linkgraph_sl.cpp Code handling saving and loading of link graphs */
+/** @file linkgraph_sl.cpp Code handling saving and loading of link graphs. */
 
 #include "../stdafx.h"
 
@@ -16,10 +16,10 @@
 #include "../linkgraph/linkgraphjob.h"
 #include "../linkgraph/linkgraphschedule.h"
 #include "../network/network.h"
-#include "../settings_internal.h"
-#include "../settings_table.h"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 typedef LinkGraph::BaseNode Node;
 typedef LinkGraph::BaseEdge Edge;
@@ -27,6 +27,8 @@ typedef LinkGraph::BaseEdge Edge;
 static uint16_t _num_nodes;
 static LinkGraph *_linkgraph; ///< Contains the current linkgraph being saved/loaded.
 static NodeID _linkgraph_from; ///< Contains the current "from" node being saved/loaded.
+static NodeID _edge_dest_node;
+static NodeID _edge_next_edge;
 
 class SlLinkgraphEdge : public DefaultSaveLoadHandler<SlLinkgraphEdge, Node> {
 public:
@@ -36,58 +38,45 @@ public:
 		SLE_CONDVAR(Edge, travel_time_sum,          SLE_UINT64, SLV_LINKGRAPH_TRAVEL_TIME, SL_MAX_VERSION),
 		    SLE_VAR(Edge, last_unrestricted_update, SLE_INT32),
 		SLE_CONDVAR(Edge, last_restricted_update,   SLE_INT32, SLV_187, SL_MAX_VERSION),
-		    SLE_VAR(Edge, dest_node,                SLE_UINT16),
-		SLE_CONDVARNAME(Edge, dest_node, "next_edge", SLE_UINT16, SL_MIN_VERSION, SLV_LINKGRAPH_EDGES),
+		   SLEG_VAR("dest_node", _edge_dest_node,   SLE_UINT16),
+		SLEG_CONDVAR("next_edge", _edge_next_edge,   SLE_UINT16, SL_MIN_VERSION, SLV_LINKGRAPH_EDGES),
 	};
 	static inline const SaveLoadCompatTable compat_description = _linkgraph_edge_sl_compat;
 
 	void Save(Node *bn) const override
 	{
-		SlSetStructListLength(bn->edges.size());
-		for (Edge &e : bn->edges) {
-			SlObject(&e, this->GetDescription());
-		}
+		NOT_REACHED();
 	}
 
 	void Load(Node *bn) const override
 	{
+		uint16_t max_size = _linkgraph->Size();
+
+		if (IsSavegameVersionBefore(SLV_191)) {
+			NOT_REACHED();
+		}
+
 		if (IsSavegameVersionBefore(SLV_LINKGRAPH_EDGES)) {
-			uint16_t max_size = _linkgraph->Size();
-			std::vector<Edge> edges(max_size);
+			size_t used_size = IsSavegameVersionBefore(SLV_SAVELOAD_LIST_LENGTH) ? max_size : SlGetStructListLength(UINT16_MAX);
 
-			if (IsSavegameVersionBefore(SLV_191)) {
-				/* We used to save the full matrix ... */
-				for (NodeID to = 0; to < max_size; ++to) {
-					SlObject(&edges[to], this->GetLoadDescription());
-				}
-			} else {
-				size_t used_size = IsSavegameVersionBefore(SLV_SAVELOAD_LIST_LENGTH) ? max_size : SlGetStructListLength(UINT16_MAX);
+			/* ... but as that wasted a lot of space we save a sparse matrix now. */
+			for (NodeID to = _linkgraph_from; to != INVALID_NODE; to = _edge_next_edge) {
+				if (used_size == 0) SlErrorCorrupt("Link graph structure overflow");
+				used_size--;
 
-				/* ... but as that wasted a lot of space we save a sparse matrix now. */
-				for (NodeID to = _linkgraph_from; to != INVALID_NODE; to = edges[to].dest_node) {
-					if (used_size == 0) SlErrorCorrupt("Link graph structure overflow");
-					used_size--;
-
-					if (to >= max_size) SlErrorCorrupt("Link graph structure overflow");
-					SlObject(&edges[to], this->GetLoadDescription());
-				}
-
-				if (!IsSavegameVersionBefore(SLV_SAVELOAD_LIST_LENGTH) && used_size > 0) SlErrorCorrupt("Corrupted link graph");
+				if (to >= max_size) SlErrorCorrupt("Link graph structure overflow");
+				SlObject(&_linkgraph->edges[std::make_pair(_linkgraph_from, to)], this->GetLoadDescription());
 			}
 
-			/* Build edge list from edge matrix. */
-			for (NodeID to = edges[_linkgraph_from].dest_node; to != INVALID_NODE; to = edges[to].dest_node) {
-				auto &edge = bn->edges.emplace_back(edges[to]);
-				edge.dest_node = to;
-			}
-			/* Sort by destination. */
-			std::sort(bn->edges.begin(), bn->edges.end());
+			if (!IsSavegameVersionBefore(SLV_SAVELOAD_LIST_LENGTH) && used_size > 0) SlErrorCorrupt("Corrupted link graph");
 		} else {
 			/* Edge data is now a simple vector and not any kind of matrix. */
 			size_t size = SlGetStructListLength(UINT16_MAX);
 			for (size_t i = 0; i < size; i++) {
-				auto &edge = bn->edges.emplace_back();
+				Edge edge;
 				SlObject(&edge, this->GetLoadDescription());
+				if (_edge_dest_node >= max_size) SlErrorCorrupt("Link graph structure overflow");
+				_linkgraph->edges[std::make_pair(_linkgraph_from, _edge_dest_node)] = edge;
 			}
 		}
 	}
@@ -136,7 +125,7 @@ public:
 SaveLoadTable GetLinkGraphDesc()
 {
 	static const SaveLoad link_graph_desc[] = {
-		 SLE_VAR(LinkGraph, last_compression, SLE_INT32),
+		 SLE_VAR(LinkGraph, last_compression, SLE_VAR_I64 | SLE_FILE_I32),
 		SLEG_CONDVAR("num_nodes", _num_nodes, SLE_UINT16, SL_MIN_VERSION, SLV_SAVELOAD_LIST_LENGTH),
 		 SLE_VAR(LinkGraph, cargo,            SLE_UINT8),
 		SLEG_STRUCTLIST("nodes", SlLinkgraphNode),
@@ -153,7 +142,7 @@ SaveLoadTable GetLinkGraphDesc()
  */
 class SlLinkgraphJobProxy : public DefaultSaveLoadHandler<SlLinkgraphJobProxy, LinkGraphJob> {
 public:
-	static inline const SaveLoad description[] = {{}}; // Needed to keep DefaultSaveLoadHandler happy.
+	static inline const SaveLoad description[] = {{}}; ///< Needed to keep DefaultSaveLoadHandler happy.
 	SaveLoadTable GetDescription() const override { return GetLinkGraphDesc(); }
 	static inline const SaveLoadCompatTable compat_description = _linkgraph_sl_compat;
 
@@ -179,37 +168,24 @@ public:
  */
 SaveLoadTable GetLinkGraphJobDesc()
 {
-	static std::vector<SaveLoad> saveloads;
-
 	static const SaveLoad job_desc[] = {
-		SLE_VAR(LinkGraphJob, join_date,        SLE_INT32),
+		SLE_VAR2(LinkGraphJob, "linkgraph.recalc_interval",       settings.recalc_interval,       SLE_UINT16),
+		SLE_VAR2(LinkGraphJob, "linkgraph.recalc_time",           settings.recalc_time,           SLE_UINT16),
+		SLE_VAR2(LinkGraphJob, "linkgraph.distribution_pax",      settings.distribution_pax,      SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.distribution_mail",     settings.distribution_mail,     SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.distribution_armoured", settings.distribution_armoured, SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.distribution_default",  settings.distribution_default,  SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.accuracy",              settings.accuracy,              SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.demand_distance",       settings.demand_distance,       SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.demand_size",           settings.demand_size,           SLE_UINT8),
+		SLE_VAR2(LinkGraphJob, "linkgraph.short_path_saturation", settings.short_path_saturation, SLE_UINT8),
+
+		SLE_VAR2(LinkGraphJob, "join_date",                       join_tick,                      SLE_FILE_I32 | SLE_VAR_U64),
 		SLE_VAR(LinkGraphJob, link_graph.index, SLE_UINT16),
 		SLEG_STRUCT("linkgraph", SlLinkgraphJobProxy),
 	};
 
-	/* The member offset arithmetic below is only valid if the types in question
-	 * are standard layout types. Otherwise, it would be undefined behaviour. */
-	static_assert(std::is_standard_layout<LinkGraphSettings>::value, "LinkGraphSettings needs to be a standard layout type");
-
-	/* We store the offset of each member of the #LinkGraphSettings in the
-	 * extra data of the saveload struct. Use it together with the address
-	 * of the settings struct inside the job to find the final memory address. */
-	static SaveLoadAddrProc * const proc = [](void *b, size_t extra) -> void * { return const_cast<void *>(static_cast<const void *>(reinterpret_cast<const char *>(std::addressof(static_cast<LinkGraphJob *>(b)->settings)) + extra)); };
-
-	/* Build the SaveLoad array on first call and don't touch it later on */
-	if (saveloads.empty()) {
-		GetSaveLoadFromSettingTable(_linkgraph_settings, saveloads);
-
-		for (auto &sl : saveloads) {
-			sl.address_proc = proc;
-		}
-
-		for (auto &sld : job_desc) {
-			saveloads.push_back(sld);
-		}
-	}
-
-	return saveloads;
+	return job_desc;
 }
 
 /**
@@ -219,40 +195,10 @@ SaveLoadTable GetLinkGraphJobDesc()
 SaveLoadTable GetLinkGraphScheduleDesc()
 {
 	static const SaveLoad schedule_desc[] = {
-		SLE_REFLIST(LinkGraphSchedule, schedule, REF_LINK_GRAPH),
-		SLE_REFLIST(LinkGraphSchedule, running,  REF_LINK_GRAPH_JOB),
+		SLE_REFRING(LinkGraphSchedule, schedule, REF_LINK_GRAPH),
+		SLE_REFRING(LinkGraphSchedule, running,  REF_LINK_GRAPH_JOB),
 	};
 	return schedule_desc;
-}
-
-/**
- * Spawn the threads for running link graph calculations.
- * Has to be done after loading as the cargo classes might have changed.
- */
-void AfterLoadLinkGraphs()
-{
-	if (IsSavegameVersionBefore(SLV_191)) {
-		for (LinkGraph *lg : LinkGraph::Iterate()) {
-			for (NodeID node_id = 0; node_id < lg->Size(); ++node_id) {
-				const Station *st = Station::GetIfValid((*lg)[node_id].station);
-				if (st != nullptr) (*lg)[node_id].UpdateLocation(st->xy);
-			}
-		}
-
-		for (LinkGraphJob *lgj : LinkGraphJob::Iterate()) {
-			LinkGraph *lg = &(const_cast<LinkGraph &>(lgj->Graph()));
-			for (NodeID node_id = 0; node_id < lg->Size(); ++node_id) {
-				const Station *st = Station::GetIfValid((*lg)[node_id].station);
-				if (st != nullptr) (*lg)[node_id].UpdateLocation(st->xy);
-			}
-		}
-	}
-
-	LinkGraphSchedule::instance.SpawnAll();
-
-	if (!_networking || _network_server) {
-		AfterLoad_LinkGraphPauseControl();
-	}
 }
 
 /**
@@ -277,7 +223,7 @@ struct LGRPChunkHandler : ChunkHandler {
 
 		int index;
 		while ((index = SlIterateArray()) != -1) {
-			LinkGraph *lg = new (LinkGraphID(index)) LinkGraph();
+			LinkGraph *lg = LinkGraph::CreateAtIndex(LinkGraphID(index));
 			SlObject(lg, slt);
 		}
 	}
@@ -305,8 +251,10 @@ struct LGRJChunkHandler : ChunkHandler {
 
 		int index;
 		while ((index = SlIterateArray()) != -1) {
-			LinkGraphJob *lgj = new (LinkGraphJobID(index)) LinkGraphJob();
+			LinkGraphJob *lgj = LinkGraphJob::CreateAtIndex(LinkGraphJobID(index));
 			SlObject(lgj, slt);
+
+			GetLinkGraphJobDayLengthScaleAfterLoad(lgj);
 		}
 	}
 };
@@ -350,3 +298,5 @@ static const ChunkHandlerRef linkgraph_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _linkgraph_chunk_handlers(linkgraph_chunk_handlers);
+
+}

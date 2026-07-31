@@ -27,6 +27,7 @@
 #include "32bpp_anim.hpp"
 #include "32bpp_anim_sse2.hpp"
 #include "32bpp_sse4.hpp"
+#include "../cpu.h"
 
 #undef MARGIN_NORMAL_THRESHOLD
 #define MARGIN_NORMAL_THRESHOLD 4
@@ -36,6 +37,12 @@ class Blitter_32bppSSE4_Anim final : public Blitter_32bppSSE2_Anim, public Blitt
 private:
 
 public:
+	Blitter_32bppSSE4_Anim()
+	{
+		this->Blitter_32bppSSE2_Anim::SetSupportsMissingZoomLevels(true);
+		this->Blitter_32bppSSE4::SetSupportsMissingZoomLevels(true);
+	}
+
 	template <BlitterMode mode, Blitter_32bppSSE_Base::ReadMode read_mode, Blitter_32bppSSE_Base::BlockType bt_last, bool translucent, bool animated>
 	void Draw(const Blitter::BlitterParams *bp, ZoomLevel zoom);
 	void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) override;
@@ -44,7 +51,7 @@ public:
 	{
 		return Blitter_32bppSSE_Base::Encode(sprite_type, sprite, allocator);
 	}
-	std::string_view GetName() override { return "32bpp-sse4-anim"; }
+	const char *GetName() const override { return "32bpp-sse4-anim"; }
 	using Blitter_32bppSSE2_Anim::LookupColourInPalette;
 };
 

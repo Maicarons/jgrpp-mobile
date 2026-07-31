@@ -9,6 +9,8 @@
 
 #include "../stdafx.h"
 #include "../core/endian_func.hpp"
+#include "../core/alloc_func.hpp"
+#include "../core/mem_func.hpp"
 #include "../core/math_func.hpp"
 #include "../error_func.h"
 #include "../string_func.h"
@@ -16,6 +18,8 @@
 #include "../table/control_codes.h"
 
 #include "strgen.h"
+
+#include <bit>
 
 #include "../table/strgen_tables.h"
 
@@ -37,25 +41,21 @@ static ParsedCommandString ParseCommandString(StringConsumer &consumer);
 static size_t TranslateArgumentIdx(size_t arg, size_t offset = 0);
 
 /**
- * Create a new case.
- * @param caseidx The index of the case.
- * @param string  The translation of the case.
- */
-Case::Case(uint8_t caseidx, std::string_view string) :
-		caseidx(caseidx), string(string)
-{
-}
-
-/**
  * Create a new string.
  * @param name    The name of the string.
  * @param english The english "translation" of the string.
  * @param index   The index in the string table.
  * @param line    The line this string was found on.
  */
-LangString::LangString(std::string_view name, std::string_view english, size_t index, size_t line) :
+LangString::LangString(std::string_view name, std::string_view english, int index, uint line) :
 		name(name), english(english), index(index), line(line)
 {
+}
+
+void LangString::ReplaceDefinition(std::string_view english, uint line)
+{
+	this->english = english;
+	this->line = line;
 }
 
 /** Free all data related to the translation. */
@@ -69,7 +69,7 @@ void LangString::FreeTranslation()
  * Create a new string data container.
  * @param tabs The maximum number of strings.
  */
-StringData::StringData(size_t tabs) : tabs(tabs), max_strings(tabs * TAB_SIZE)
+StringData::StringData(uint tabs) : tabs(tabs), max_strings(tabs * TAB_SIZE)
 {
 	this->strings.resize(max_strings);
 	this->next_string_id = 0;
@@ -78,21 +78,10 @@ StringData::StringData(size_t tabs) : tabs(tabs), max_strings(tabs * TAB_SIZE)
 /** Free all data related to the translation. */
 void StringData::FreeTranslation()
 {
-	for (size_t i = 0; i < this->max_strings; i++) {
-		LangString *ls = this->strings[i].get();
+	for (uint i = 0; i < this->max_strings; i++) {
+		LangString *ls = this->strings[i];
 		if (ls != nullptr) ls->FreeTranslation();
 	}
-}
-
-/**
- * Add a newly created LangString.
- * @param s  The name of the string.
- * @param ls The string to add.
- */
-void StringData::Add(std::shared_ptr<LangString> ls)
-{
-	this->name_to_string[ls->name] = ls;
-	this->strings[ls->index] = std::move(ls);
 }
 
 /**
@@ -105,7 +94,7 @@ LangString *StringData::Find(std::string_view s)
 	auto it = this->name_to_string.find(s);
 	if (it == this->name_to_string.end()) return nullptr;
 
-	return it->second.get();
+	return it->second;
 }
 
 /**
@@ -131,8 +120,8 @@ uint32_t StringData::Version() const
 {
 	uint32_t hash = 0;
 
-	for (size_t i = 0; i < this->max_strings; i++) {
-		const LangString *ls = this->strings[i].get();
+	for (uint i = 0; i < this->max_strings; i++) {
+		const LangString *ls = this->strings[i];
 
 		if (ls != nullptr) {
 			hash ^= i * 0x717239;
@@ -156,10 +145,11 @@ uint32_t StringData::Version() const
 /**
  * Count the number of tab elements that are in use.
  * @param tab The tab to count the elements of.
+ * @return The number of elements in this tab.
  */
-size_t StringData::CountInUse(size_t tab) const
+uint StringData::CountInUse(uint tab) const
 {
-	size_t count = TAB_SIZE;
+	uint count = TAB_SIZE;
 	while (count > 0 && this->strings[(tab * TAB_SIZE) + count - 1] == nullptr) --count;
 	return count;
 }
@@ -204,7 +194,7 @@ std::optional<std::string_view> ParseWord(StringConsumer &consumer)
 
 /* This is encoded like
  *  CommandByte <ARG#> <NUM> {Length of each string} {each string} */
-static void EmitWordList(StringBuilder &builder, const std::vector<std::string> &words)
+static void EmitWordList(StringBuilder builder, std::span<const std::string> words)
 {
 	builder.PutUint8(static_cast<uint8_t>(words.size()));
 	for (size_t i = 0; i < words.size(); i++) {
@@ -313,8 +303,9 @@ void EmitGender(StringBuilder &builder, std::string_view param, char32_t)
 
 static const CmdStruct *FindCmd(std::string_view s)
 {
-	auto it = std::ranges::find(_cmd_structs, s, &CmdStruct::cmd);
-	if (it != std::end(_cmd_structs)) return &*it;
+	for (const auto &cs : _cmd_structs) {
+		if (cs.cmd == s) return &cs;
+	}
 	return nullptr;
 }
 
@@ -375,8 +366,8 @@ static ParsedCommandString ParseCommandString(StringConsumer &consumer)
  * @param master      Are we reading the master file?
  * @param translation Are we reading a translation?
  */
-StringReader::StringReader(StringData &data, const std::string &file, bool master, bool translation) :
-		data(data), file(file), master(master), translation(translation)
+StringReader::StringReader(StringData &data, std::string file, bool master, bool translation) :
+		data(data), file(std::move(file)), master(master), translation(translation)
 {
 }
 
@@ -522,26 +513,62 @@ void StringReader::HandleString(std::string_view src)
 		}
 
 		if (ent != nullptr) {
+			if (this->data.override_mode) {
+				ent->ReplaceDefinition(value, _strgen.cur_line);
+				return;
+			}
 			StrgenError("String name '{}' is used multiple times", str_name);
+			return;
+		} else if (this->data.override_mode) {
+			StrgenError("String '{}' marked as overriding, but does not override", str_name);
 			return;
 		}
 
-		if (this->data.strings[this->data.next_string_id] != nullptr) {
-			StrgenError("String ID 0x{:X} for '{}' already in use by '{}'", this->data.next_string_id, str_name, this->data.strings[this->data.next_string_id]->name);
-			return;
+		if (this->data.next_string_id >= 0 && (this->data.insert_after != nullptr || this->data.insert_before != nullptr)) {
+			StrgenError("Cannot use insert_after/insert_before and id at the same time: '{}'", str_name);
 		}
 
 		/* Allocate a new LangString */
-		this->data.Add(std::make_unique<LangString>(str_name, value, this->data.next_string_id++, _strgen.cur_line));
+		std::unique_ptr<LangString> ls = std::make_unique<LangString>(str_name, value, this->data.next_string_id, _strgen.cur_line);
+		if (this->data.no_translate_mode) ls->no_translate_mode = true;
+		this->data.next_string_id = -1;
+		this->data.name_to_string[ls->name] = ls.get();
+
+		if (this->data.default_translation != nullptr) {
+			ls->default_translation = this->data.default_translation;
+			this->data.default_translation = nullptr;
+		}
+
+		if (this->data.insert_after != nullptr) {
+			LangString *cur = ls.get();
+			this->data.insert_after->chain_after = std::move(ls);
+			this->data.insert_after = cur;
+		} else if (this->data.insert_before != nullptr) {
+			LangString *cur = ls.get();
+			this->data.insert_before->chain_before = std::move(ls);
+			this->data.insert_before = nullptr;
+			this->data.insert_after = cur;
+		} else {
+			this->data.string_store.push_back(std::move(ls));
+		}
 	} else {
 		if (ent == nullptr) {
 			StrgenWarning("String name '{}' does not exist in master file", str_name);
 			return;
 		}
 
-		if (!ent->translated.empty() && !casep.has_value()) {
-			StrgenError("String name '{}' is used multiple times", str_name);
+		if (ent->no_translate_mode && _strgen.translation) {
+			StrgenError("String name '{}' is marked as no-translate", str_name);
 			return;
+		}
+
+		if (!ent->translated.empty() && !casep.has_value()) {
+			if (this->data.override_mode) {
+				ent->translated.clear();
+			} else {
+				StrgenError("String name '{}' is used multiple times", str_name);
+				return;
+			}
 		}
 
 		/* make sure that the commands match */
@@ -575,6 +602,7 @@ void StringReader::HandlePragma(std::string_view str, LanguagePackHeader &lang)
 
 void StringReader::ParseFile()
 {
+	char buf[2048];
 	_strgen.warnings = _strgen.errors = 0;
 
 	_strgen.translation = this->translation;
@@ -584,17 +612,44 @@ void StringReader::ParseFile()
 	_strgen.lang = {};
 
 	_strgen.cur_line = 1;
-	while (this->data.next_string_id < this->data.max_strings) {
-		std::optional<std::string> line = this->ReadLine();
-		if (!line.has_value()) return;
-
-		this->HandleString(StrTrimView(line.value(), StringConsumer::WHITESPACE_OR_NEWLINE));
+	while (this->ReadLine(buf, lastof(buf)) != nullptr) {
+		this->HandleString(StrTrimView(buf, StringConsumer::WHITESPACE_OR_NEWLINE));
 		_strgen.cur_line++;
 	}
 
-	if (this->data.next_string_id == this->data.max_strings) {
-		StrgenError("Too many strings, maximum allowed is {}", this->data.max_strings);
+	if (this->master) {
+		/* Allocate IDs */
+		size_t next_id = 0;
+		for (const std::unique_ptr<LangString> &item : this->data.string_store) {
+			this->AssignIDs(next_id, item.get());
+		}
 	}
+}
+
+void StringReader::AssignIDs(size_t &next_id, LangString *ls)
+{
+	do {
+		if (ls->chain_before) this->AssignIDs(next_id, ls->chain_before.get());
+
+		if (ls->index >= 0) {
+			next_id = ls->index;
+		} else {
+			ls->index = (int)next_id;
+		}
+
+		if ((uint)ls->index >= this->data.max_strings) {
+			StrgenError("Too many strings, maximum allowed is {}", this->data.max_strings);
+			return;
+		} else if (this->data.strings[ls->index] != nullptr) {
+			StrgenError("String ID 0x{:X} for '{}' already in use by '{}'", ls->index, ls->name, this->data.strings[ls->index]->name);
+			return;
+		} else {
+			this->data.strings[ls->index] = ls;
+		}
+
+		next_id++;
+		ls = ls->chain_after.get();
+	} while (ls != nullptr);
 }
 
 /**
@@ -603,8 +658,8 @@ void StringReader::ParseFile()
  */
 void HeaderWriter::WriteHeader(const StringData &data)
 {
-	size_t last = 0;
-	for (size_t i = 0; i < data.max_strings; i++) {
+	uint last = 0;
+	for (uint i = 0; i < data.max_strings; i++) {
 		if (data.strings[i] != nullptr) {
 			this->WriteStringID(data.strings[i]->name, i);
 			last = i;
@@ -648,7 +703,7 @@ static void PutArgidxCommand(StringBuilder &builder)
 
 static std::string PutCommandString(std::string_view str)
 {
-	std::string result;
+	format_buffer result;
 	StringBuilder builder(result);
 	StringConsumer consumer(str);
 	_cur_argidx = 0;
@@ -684,7 +739,7 @@ static std::string PutCommandString(std::string_view str)
 
 		cmd->proc(builder, cs.param, cmd->value);
 	}
-	return result;
+	return result.to_string();
 }
 
 /**
@@ -712,16 +767,18 @@ void LanguageWriter::WriteLength(size_t length)
  */
 void LanguageWriter::WriteLang(const StringData &data)
 {
-	std::vector<size_t> in_use;
-	for (size_t tab = 0; tab < data.tabs; tab++) {
-		size_t n = data.CountInUse(tab);
+	TempBufferST<uint> in_use(data.tabs);
+	for (uint tab = 0; tab < data.tabs; tab++) {
+		uint n = data.CountInUse(tab);
 
-		in_use.push_back(n);
+		in_use[tab] = n;
 		_strgen.lang.offsets[tab] = TO_LE16(static_cast<uint16_t>(n));
 
-		for (size_t j = 0; j != in_use[tab]; j++) {
-			const LangString *ls = data.strings[(tab * TAB_SIZE) + j].get();
-			if (ls != nullptr && ls->translated.empty()) _strgen.lang.missing++;
+		for (uint j = 0; j != in_use[tab]; j++) {
+			const LangString *ls = data.strings[(tab * TAB_SIZE) + j];
+			if (ls != nullptr && ls->translated.empty() && ls->default_translation == nullptr && !ls->no_translate_mode) {
+				_strgen.lang.missing++;
+			}
 		}
 	}
 
@@ -733,8 +790,8 @@ void LanguageWriter::WriteLang(const StringData &data)
 	this->WriteHeader(&_strgen.lang);
 
 	for (size_t tab = 0; tab < data.tabs; tab++) {
-		for (size_t j = 0; j != in_use[tab]; j++) {
-			const LangString *ls = data.strings[(tab * TAB_SIZE) + j].get();
+		for (uint j = 0; j != in_use[tab]; j++) {
+			const LangString *ls = data.strings[(tab * TAB_SIZE) + j];
 
 			/* For undefined strings, just set that it's an empty string */
 			if (ls == nullptr) {
@@ -742,7 +799,7 @@ void LanguageWriter::WriteLang(const StringData &data)
 				continue;
 			}
 
-			std::string output;
+			format_buffer output;
 			StringBuilder builder(output);
 			_cur_ident = ls->name;
 			_strgen.cur_line = ls->line;
@@ -760,8 +817,16 @@ void LanguageWriter::WriteLang(const StringData &data)
 			/* Extract the strings and stuff from the english command string */
 			_cur_pcs = ExtractCommandString(ls->english, false);
 
-			_translated = !ls->translated_cases.empty() || !ls->translated.empty();
-			const std::string &cmdp = _translated ? ls->translated : ls->english;
+			const std::string *cmdpp = nullptr;
+			if (!ls->translated_cases.empty() || !ls->translated.empty()) {
+				cmdpp = &ls->translated;
+			} else {
+				cmdpp = &ls->english;
+				if (ls->default_translation != nullptr && !ls->default_translation->translated.empty()) {
+					cmdpp = &ls->default_translation->translated;
+				}
+			}
+			const std::string &cmdp = *cmdpp;
 
 			if (!ls->translated_cases.empty()) {
 				/* Need to output a case-switch.

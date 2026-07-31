@@ -13,8 +13,8 @@
 #include "../core/alloc_type.hpp"
 #include "../core/enum_type.hpp"
 #include "../gfx_type.h"
-#include "../spritecache_type.h"
 #include "sprite_file_type.hpp"
+#include <array>
 
 struct Sprite;
 
@@ -23,22 +23,35 @@ enum class SpriteComponent : uint8_t {
 	RGB     = 0, ///< Sprite has RGB.
 	Alpha   = 1, ///< Sprite has alpha.
 	Palette = 2, ///< Sprite has palette data.
-	End,
+	End, ///< End marker.
 };
 using SpriteComponents = EnumBitSet<SpriteComponent, uint8_t, SpriteComponent::End>;
+
+struct SpriteLoaderResult {
+	LowZoomLevels loaded_sprites{};  ///< Bit mask of the zoom levels successfully loaded or 0 if no sprite could be loaded.
+	LowZoomLevels avail_8bpp{};
+	LowZoomLevels avail_32bpp{};
+
+	void Apply(const SpriteLoaderResult &other)
+	{
+		this->loaded_sprites |= other.loaded_sprites;
+		this->avail_8bpp |= other.avail_8bpp;
+		this->avail_32bpp |= other.avail_32bpp;
+	}
+};
 
 /**
  * Map zoom level to data.
  */
 template <class T>
 class SpriteCollMap {
-	std::array<T, to_underlying(ZoomLevel::End)> data{};
+	EnumIndexArray<T, ZoomLevel, ZoomLevel::SpriteEnd> data{};
 public:
-	inline constexpr T &operator[](const ZoomLevel &zoom) { return this->data[to_underlying(zoom)]; }
-	inline constexpr const T &operator[](const ZoomLevel &zoom) const { return this->data[to_underlying(zoom)]; }
+	inline constexpr T &operator[](const ZoomLevel &zoom) { return this->data[zoom]; }
+	inline constexpr const T &operator[](const ZoomLevel &zoom) const { return this->data[zoom]; }
 
-	T &Root() { return this->data[to_underlying(ZoomLevel::Min)]; }
-	const T &Root() const { return this->data[to_underlying(ZoomLevel::Min)]; }
+	T &Root() { return this->data[ZoomLevel::Min]; }
+	const T &Root() const { return this->data[ZoomLevel::Min]; }
 };
 
 /** Interface for the loader of our sprites. */
@@ -60,10 +73,10 @@ public:
 	 * This to prevent thousands of malloc + frees just to load a sprite.
 	 */
 	struct Sprite {
-		uint16_t height;                   ///< Height of the sprite
-		uint16_t width;                    ///< Width of the sprite
-		int16_t x_offs;                    ///< The x-offset of where the sprite will be drawn
-		int16_t y_offs;                    ///< The y-offset of where the sprite will be drawn
+		uint16_t height;                 ///< Height of the sprite
+		uint16_t width;                  ///< Width of the sprite
+		int16_t x_offs;                  ///< The x-offset of where the sprite will be drawn
+		int16_t y_offs;                  ///< The y-offset of where the sprite will be drawn
 		SpriteComponents colours;   ///< The colour components of the sprite with useful information.
 		SpriteLoader::CommonPixel *data; ///< The sprite itself
 
@@ -91,11 +104,9 @@ public:
 	 * @param sprite_type The type of sprite we're trying to load.
 	 * @param load_32bpp  True if 32bpp sprites should be loaded, false for a 8bpp sprite.
 	 * @param control_flags Control flags, see SpriteCacheCtrlFlags.
-	 * @param[out] avail_8bpp Available 8bpp sprites.
-	 * @param[out] avail_32bpp Available 32bpp sprites.
-	 * @return Available sprites matching \a load_32bpp.
+	 * @return SpriteLoaderResult. loaded_sprites field is a bit mask of the zoom levels successfully loaded or 0 if no sprite could be loaded.
 	 */
-	virtual ZoomLevels LoadSprite(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, SpriteCacheCtrlFlags control_flags, ZoomLevels &avail_8bpp, ZoomLevels &avail_32bpp) = 0;
+	virtual SpriteLoaderResult LoadSprite(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, uint count, uint16_t control_flags, LowZoomLevels zoom_levels) = 0;
 
 	virtual ~SpriteLoader() = default;
 };
@@ -128,17 +139,55 @@ protected:
 
 /** Interface for something that can encode a sprite. */
 class SpriteEncoder {
+	bool supports_missing_zoom_levels = false;
+	bool supports_32bpp = false;
+	bool no_data_required = false;
+
+protected:
+	inline void SetSupportsMissingZoomLevels(bool supported)
+	{
+		this->supports_missing_zoom_levels = supported;
+	}
+
+	inline void SetIs32BppSupported(bool supported)
+	{
+		this->supports_32bpp = supported;
+	}
+
+	inline void SetNoSpriteDataRequired(bool not_required)
+	{
+		this->no_data_required = not_required;
+	}
+
 public:
 
 	virtual ~SpriteEncoder() = default;
 
+	inline bool SupportsMissingZoomLevels() const
+	{
+		return this->supports_missing_zoom_levels;
+	}
+
+	inline bool NoSpriteDataRequired() const
+	{
+		return this->no_data_required;
+	}
+
 	/**
 	 * Can the sprite encoder make use of RGBA sprites?
+	 * @return \c true iff RGBA sprites are supported.
 	 */
-	virtual bool Is32BppSupported() = 0;
+	inline bool Is32BppSupported() const
+	{
+		return this->supports_32bpp;
+	}
 
 	/**
 	 * Convert a sprite from the loader to our own format.
+	 * @param sprite_type The type of sprite to load.
+	 * @param sprite The sprites to load.
+	 * @param allocator The allocator for the sprite's memory.
+	 * @return The encoded sprite.
 	 */
 	virtual Sprite *Encode(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator) = 0;
 

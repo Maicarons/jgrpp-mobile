@@ -33,17 +33,18 @@ enum AircraftSubType : uint8_t {
 };
 
 /** Flags for air vehicles; shared with disaster vehicles. */
-enum AirVehicleFlags : uint8_t {
-	VAF_DEST_TOO_FAR             = 0, ///< Next destination is too far away.
+enum class VehicleAirFlag : uint8_t {
+	DestinationTooFar = 0, ///< Next destination is too far away.
 
 	/* The next two flags are to prevent stair climbing of the aircraft. The idea is that the aircraft
 	 * will ascend or descend multiple flight levels at a time instead of following the contours of the
 	 * landscape at a fixed altitude. This only has effect when there are more than 15 height levels. */
-	VAF_IN_MAX_HEIGHT_CORRECTION = 1, ///< The vehicle is currently lowering its altitude because it hit the upper bound.
-	VAF_IN_MIN_HEIGHT_CORRECTION = 2, ///< The vehicle is currently raising its altitude because it hit the lower bound.
+	InMaximumHeightCorrection = 1, ///< The vehicle is currently lowering its altitude because it hit the upper bound.
+	InMinimumHeightCorrection = 2, ///< The vehicle is currently raising its altitude because it hit the lower bound.
 
-	VAF_HELI_DIRECT_DESCENT      = 3, ///< The helicopter is descending directly at its destination (helipad or in front of hangar)
+	HelicopterDirectDescent = 3, ///< The helicopter is descending directly at its destination (helipad or in front of hangar)
 };
+using VehicleAirFlags = EnumBitSet<VehicleAirFlag, uint8_t>;
 
 static const int ROTOR_Z_OFFSET         = 5;    ///< Z Offset between helicopter- and rotorsprite.
 
@@ -55,6 +56,7 @@ void UpdateAircraftCache(Aircraft *v, bool update_range = false);
 void AircraftLeaveHangar(Aircraft *v, Direction exit_dir);
 void AircraftNextAirportPos_and_Order(Aircraft *v);
 void SetAircraftPosition(Aircraft *v, int x, int y, int z);
+void FindBreakdownDestination(Aircraft *v);
 
 void GetAircraftFlightLevelBounds(const Vehicle *v, int *min, int *max);
 template <class T>
@@ -63,35 +65,38 @@ int GetAircraftFlightLevel(T *v, bool takeoff = false);
 /** Variables that are cached to improve performance and such. */
 struct AircraftCache {
 	uint32_t cached_max_range_sqr = 0; ///< Cached squared maximum range.
-	uint16_t cached_max_range = 0; ///< Cached maximum range.
+	uint16_t cached_max_range = 0;     ///< Cached maximum range.
+	uint8_t image_movement_state = 0;  ///< Cached image aircraft movement state
+
+	bool operator==(const AircraftCache &) const = default;
 };
 
 /**
  * Aircraft, helicopters, rotors and their shadows belong to this class.
  */
-struct Aircraft final : public SpecializedVehicle<Aircraft, VEH_AIRCRAFT> {
-	uint16_t crashed_counter = 0; ///< Timer for handling crash animations.
-	uint8_t pos = 0; ///< Next desired position of the aircraft.
-	uint8_t previous_pos = 0; ///< Previous desired position of the aircraft.
+struct Aircraft final : public SpecializedVehicle<Aircraft, VehicleType::Aircraft, Vehicle> {
+	uint16_t crashed_counter = 0;                   ///< Timer for handling crash animations.
+	uint8_t pos = 0;                                ///< Next desired position of the aircraft.
+	uint8_t previous_pos = 0;                       ///< Previous desired position of the aircraft.
 	StationID targetairport = StationID::Invalid(); ///< Airport to go to next.
-	uint8_t state = 0; ///< State of the airport. @see AirportMovementStates
-	Direction last_direction = INVALID_DIR;
-	uint8_t number_consecutive_turns = 0; ///< Protection to prevent the aircraft of making a lot of turns in order to reach a specific point.
-	uint8_t turn_counter = 0; ///< Ticks between each turn to prevent > 45 degree turns.
-	uint8_t flags = 0; ///< Aircraft flags. @see AirVehicleFlags
+	uint8_t state = 0;                              ///< State of the airport. @see AirportMovementStates
+	Direction last_direction = Direction::Invalid;
+	uint8_t number_consecutive_turns = 0;           ///< Protection to prevent the aircraft of making a lot of turns in order to reach a specific point.
+	uint8_t turn_counter = 0;                       ///< Ticks between each turn to prevent > 45 degree turns.
+	VehicleAirFlags flags{};                        ///< Aircraft flags. @see VehicleAirFlags
 
 	AircraftCache acache{};
 
-	/** We don't want GCC to zero our struct! It already is zeroed and has an index! */
-	Aircraft() : SpecializedVehicleBase() {}
+	Aircraft(VehicleID index) : SpecializedVehicleBase(index) {}
 	/** We want to 'destruct' the right class. */
-	virtual ~Aircraft() { this->PreDestructor(); }
+	~Aircraft() override { this->PreDestructor(); }
 
 	void MarkDirty() override;
 	void UpdateDeltaXY() override;
-	ExpensesType GetExpenseType(bool income) const override { return income ? EXPENSES_AIRCRAFT_REVENUE : EXPENSES_AIRCRAFT_RUN; }
+	ExpensesType GetExpenseType(bool income) const override { return income ? ExpensesType::AircraftRevenue : ExpensesType::AircraftRun; }
 	bool IsPrimaryVehicle() const override                  { return this->IsNormalAircraft(); }
 	void GetImage(Direction direction, EngineImageType image_type, VehicleSpriteSeq *result) const override;
+	Direction GetMapImageDirection() const { return this->First()->direction; }
 	int GetDisplaySpeed() const override    { return this->cur_speed; }
 	int GetDisplayMaxSpeed() const override { return this->vcache.cached_max_speed; }
 	int GetSpeedOldUnits() const            { return this->vcache.cached_max_speed * 10 / 128; }
@@ -105,12 +110,12 @@ struct Aircraft final : public SpecializedVehicle<Aircraft, VEH_AIRCRAFT> {
 	}
 
 	bool Tick() override;
-	void OnNewCalendarDay() override;
-	void OnNewEconomyDay() override;
+	void OnNewDay() override;
+	void OnPeriodic() override;
 	uint Crash(bool flooded = false) override;
 	TileIndex GetOrderStationLocation(StationID station) override;
 	TileIndex GetCargoTile() const override { return this->First()->tile; }
-	ClosestDepot FindClosestDepot() override;
+	ClosestDepot FindClosestDepot() const override;
 
 	/**
 	 * Check if the aircraft type is a normal flying device; eg
@@ -140,5 +145,7 @@ void GetRotorImage(const Aircraft *v, EngineImageType image_type, VehicleSpriteS
 
 Station *GetTargetAirportIfValid(const Aircraft *v);
 void HandleMissingAircraftOrders(Aircraft *v);
+
+const char *AirportMovementStateToString(uint8_t state);
 
 #endif /* AIRCRAFT_H */

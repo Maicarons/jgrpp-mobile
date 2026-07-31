@@ -26,8 +26,11 @@ enum HighLightStyle : uint16_t {
 	HT_RAIL      = 0x080, ///< autorail (one piece), lower bits: direction
 	HT_VEHICLE   = 0x100, ///< vehicle is accepted as target as well (bitmask)
 	HT_DIAGONAL  = 0x200, ///< Also allow 'diagonal rectangles'. Only usable in combination with #HT_RECT or #HT_POINT.
-	HT_SCROLL_VIEWPORT = 0x400, ///< Allow scrolling viewport with left mouse button, this disables drag&drop, use only when selection cannot grow.
+	HT_POLY      = 0x400, ///< polyline mode; connect highlighted track with previous one
+	HT_NEW_POLY  = 0xC00, ///< start completely new polyline; implies #HT_POLY
 	HT_DRAG_MASK = 0x0F8, ///< Mask for the tile drag-type modes.
+	HT_TUNNEL    = 0x1000,///< tunnel highlight hint
+	HT_MAP       = 0x2000,///< Allow in viewport map mode
 
 	/* lower bits (used with HT_LINE and HT_RAIL):
 	 * (see ASCII art in table/autorail.h for a visual interpretation) */
@@ -55,12 +58,16 @@ struct TileHighlightData {
 
 	Point new_pos;       ///< New value for \a pos; used to determine whether to redraw the selection.
 	Point new_size;      ///< New value for \a size; used to determine whether to redraw the selection.
+	Point new_offs;      ///< New value for \a offs; used to determine whether to redraw the selection.
 	Point new_outersize; ///< New value for \a outersize; used to determine whether to redraw the selection.
-	uint8_t dirty;          ///< Whether the build station window needs to redraw due to the changed selection.
+	uint8_t dirty;       ///< Whether the build station window needs to redraw due to the changed selection.
 
 	Point selstart;      ///< The location where the dragging started.
 	Point selend;        ///< The location where the drag currently ends.
-	uint8_t sizelimit;      ///< Whether the selection is limited in length, and what the maximum length is.
+	Point selstart2;     ///< The location where the second segment of a polyline track starts.
+	Point selend2;       ///< The location where the second segment of a polyline track ends.
+	HighLightStyle dir2; ///< Direction of the second segment of a polyline track, HT_DIR_END if second segment is not selected. HT_LINE drawstyle.
+	uint8_t sizelimit;   ///< Whether the selection is limited in length, and what the maximum length is.
 
 	HighLightStyle drawstyle;      ///< Lower bits 0-3 are reserved for detailed highlight information.
 	HighLightStyle next_drawstyle; ///< Queued, but not yet drawn style.
@@ -68,8 +75,9 @@ struct TileHighlightData {
 	HighLightStyle place_mode;     ///< Method which is used to place the selection.
 	WindowClass window_class;      ///< The \c WindowClass of the window that is responsible for the selection mode.
 	WindowNumber window_number;    ///< The \c WindowNumber of the window that is responsible for the selection mode.
+	WindowToken window_token;      ///< The \c WindowToken of the window that is responsible for the selection mode.
 
-	bool make_square_red;          ///< Whether to give a tile a red selection.
+	PaletteID square_palette;      ///< Whether to give a tile a recoloured selection.
 	TileIndex redsq;               ///< The tile that has to get a red selection.
 
 	ViewportPlaceMethod select_method;            ///< The method which governs how tiles are selected.

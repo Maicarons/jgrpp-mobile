@@ -10,32 +10,34 @@
 #ifndef NEWGRF_BYTEREADER_H
 #define NEWGRF_BYTEREADER_H
 
-#include "../core/string_consumer.hpp"
-
 class OTTDByteReaderSignal { };
 
 /** Class to read from a NewGRF file */
 class ByteReader {
-	StringConsumer consumer;
 public:
-	ByteReader(const uint8_t *data, size_t len) : consumer(std::string_view{reinterpret_cast<const char *>(data), len}) { }
+	ByteReader(const uint8_t *data, const uint8_t *end) : data(data), end(end) { }
 
-	const uint8_t *ReadBytes(size_t size)
+	inline const uint8_t *ReadBytes(size_t size)
 	{
-		auto result = this->consumer.Read(size);
-		if (result.size() != size) throw OTTDByteReaderSignal();
-		return reinterpret_cast<const uint8_t *>(result.data());
+		if (this->data + size >= this->end) {
+			/* Put data at the end, as would happen if every byte had been individually read. */
+			this->data = this->end;
+			throw OTTDByteReaderSignal();
+		}
+
+		const uint8_t *ret = this->data;
+		this->data += size;
+		return ret;
 	}
 
 	/**
 	 * Read a single byte (8 bits).
 	 * @return Value read from buffer.
 	 */
-	uint8_t ReadByte()
+	inline uint8_t ReadByte()
 	{
-		auto result = this->consumer.TryReadUint8();
-		if (!result.has_value()) throw OTTDByteReaderSignal();
-		return *result;
+		if (this->data < this->end) return *(this->data)++;
+		throw OTTDByteReaderSignal();
 	}
 
 	/**
@@ -44,9 +46,8 @@ public:
 	 */
 	uint16_t ReadWord()
 	{
-		auto result = this->consumer.TryReadUint16LE();
-		if (!result.has_value()) throw OTTDByteReaderSignal();
-		return *result;
+		uint16_t val = this->ReadByte();
+		return val | (this->ReadByte() << 8);
 	}
 
 	/**
@@ -65,50 +66,57 @@ public:
 	 */
 	uint32_t ReadDWord()
 	{
-		auto result = this->consumer.TryReadUint32LE();
-		if (!result.has_value()) throw OTTDByteReaderSignal();
-		return *result;
+		uint32_t val = this->ReadWord();
+		return val | (this->ReadWord() << 16);
 	}
 
-	/**
-	 * Read a single DWord (32 bits).
-	 * @note The buffer is NOT advanced.
-	 * @returns Value read from buffer.
-	 */
-	uint32_t PeekDWord()
+	uint32_t PeekDWord();
+
+	uint32_t ReadVarSize(uint8_t size)
 	{
-		auto result = this->consumer.PeekUint32LE();
-		if (!result.has_value()) throw OTTDByteReaderSignal();
-		return *result;
+		switch (size) {
+			case 1: return this->ReadByte();
+			case 2: return this->ReadWord();
+			case 4: return this->ReadDWord();
+			default:
+				NOT_REACHED();
+				return 0;
+		}
 	}
 
-	uint32_t ReadVarSize(uint8_t size);
+	std::string_view ReadString();
 
-	/**
-	 * Read a NUL-terminated string.
-	 * @returns String read from the buffer.
-	 */
-	std::string_view ReadString()
+	inline size_t Remaining() const
 	{
-		/* Terminating NUL may be missing at the end of sprite. */
-		return this->consumer.ReadUntilChar('\0', StringConsumer::SKIP_ONE_SEPARATOR);
+		return this->end - this->data;
 	}
 
-	size_t Remaining() const
+	inline bool HasData(size_t count = 1) const
 	{
-		return this->consumer.GetBytesLeft();
+		return this->data + count <= this->end;
 	}
 
-	bool HasData(size_t count = 1) const
+	inline const uint8_t *Data()
 	{
-		return count <= this->consumer.GetBytesLeft();
+		return this->data;
 	}
 
-	void Skip(size_t len)
+	inline void Skip(size_t len)
 	{
-		auto result = this->consumer.Read(len);
-		if (result.size() != len) throw OTTDByteReaderSignal();
+		this->data += len;
+		/* It is valid to move the buffer to exactly the end of the data,
+		 * as there may not be any more data read. */
+		if (this->data > this->end) throw OTTDByteReaderSignal();
 	}
+
+	inline void ResetReadPosition(const uint8_t *pos)
+	{
+		this->data = pos;
+	}
+
+private:
+	const uint8_t *data; ///< Current position within data.
+	const uint8_t *end; ///< Last position of data.
 
 };
 

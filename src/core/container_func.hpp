@@ -10,6 +10,9 @@
 #ifndef CONTAINER_FUNC_HPP
 #define CONTAINER_FUNC_HPP
 
+#include <iterator>
+#include <algorithm>
+
 /**
  * Helper function to append an item to a container if it is not already contained.
  * The container must have a \c emplace_back function.
@@ -59,6 +62,90 @@ auto Slide(TIter first, TIter last, TIter position) -> std::pair<TIter, TIter>
 	if (last < position) return { std::rotate(first, last, position), position };
 	if (position < first) return { position, std::rotate(position, first, last) };
 	return { first, last };
+}
+
+template <bool ONCE, typename C, typename UP>
+uint container_unordered_remove_if_generic(C &container, UP predicate)
+{
+	uint removecount = 0;
+	for (auto it = container.begin(); it != container.end();) {
+		if (predicate(*it)) {
+			removecount++;
+			if (std::next(it) != container.end()) {
+				*it = std::move(container.back());
+				container.pop_back();
+			} else {
+				container.pop_back();
+				break;
+			}
+			if (ONCE) break;
+		} else {
+			++it;
+		}
+	}
+	return removecount;
+}
+
+template <typename C, typename UP>
+uint container_unordered_remove_if(C &container, UP predicate)
+{
+	return container_unordered_remove_if_generic<false>(container, predicate);
+}
+
+template <typename C, typename UP>
+uint container_unordered_remove_once_if(C &container, UP predicate)
+{
+	return container_unordered_remove_if_generic<true>(container, predicate);
+}
+
+template <bool ONCE, typename C, typename V>
+unsigned int container_unordered_remove_generic(C &container, const V &value)
+{
+	return container_unordered_remove_if_generic<ONCE>(container, [&](const typename C::value_type &v) {
+		return v == value;
+	});
+}
+
+template <typename C, typename V>
+uint container_unordered_remove(C &container, const V &value)
+{
+	return container_unordered_remove_generic<false>(container, value);
+}
+
+template <typename C, typename V>
+uint container_unordered_remove_once(C &container, const V &value)
+{
+	return container_unordered_remove_generic<true>(container, value);
+}
+
+template <typename T>
+bool multimaps_equivalent(const T &a, const T&b)
+{
+	if (a.size() != b.size()) return false;
+
+	for (auto it_a = a.begin(); it_a != a.end();) {
+		const auto start_a = it_a;
+		const auto key = start_a->first;
+		size_t distance_a = 0;
+		do {
+			++it_a;
+			++distance_a;
+		} while (it_a != a.end() && it_a->first == key);
+
+		const auto start_b = b.lower_bound(key);
+		size_t distance_b = 0;
+		for (auto it_b = start_b; it_b != b.end() && it_b->first == key; ++it_b) {
+			++distance_b;
+		}
+
+		if (distance_a != distance_b) return false;
+
+		if (!std::is_permutation(start_a, it_a, start_b)) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 #endif /* CONTAINER_FUNC_HPP */

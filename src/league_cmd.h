@@ -10,20 +10,17 @@
 #ifndef LEAGUE_CMD_H
 #define LEAGUE_CMD_H
 
-#include "league_type.h"
 #include "command_type.h"
-#include "company_type.h"
+#include "league_type.h"
 
-std::tuple<CommandCost, LeagueTableID> CmdCreateLeagueTable(DoCommandFlags flags, const EncodedString &title, const EncodedString &header, const EncodedString &footer);
-std::tuple<CommandCost, LeagueTableElementID> CmdCreateLeagueTableElement(DoCommandFlags flags, LeagueTableID table, int64_t rating, CompanyID company, const EncodedString &text, const EncodedString &score, LinkType link_type, LinkTargetID link_target);
-CommandCost CmdUpdateLeagueTableElementData(DoCommandFlags flags, LeagueTableElementID element, CompanyID company, const EncodedString &text, LinkType link_type, LinkTargetID link_target);
-CommandCost CmdUpdateLeagueTableElementScore(DoCommandFlags flags, LeagueTableElementID element, int64_t rating, const EncodedString &score);
-CommandCost CmdRemoveLeagueTableElement(DoCommandFlags flags, LeagueTableElementID element);
+struct LeagueTableElementCmdData final : public AutoFmtTupleCmdData<LeagueTableElementCmdData, TCDF_NONE, LeagueTableID, int64_t, CompanyID, EncodedString, EncodedString, LinkType, LinkTargetID> {
+	static inline constexpr const char fmt_str[] = "t: {}, r: {}, c: {}, type: {}, targ: {}";
+};
 
-DEF_CMD_TRAIT(CMD_CREATE_LEAGUE_TABLE, CmdCreateLeagueTable, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_CREATE_LEAGUE_TABLE_ELEMENT, CmdCreateLeagueTableElement, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_UPDATE_LEAGUE_TABLE_ELEMENT_DATA, CmdUpdateLeagueTableElementData, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_UPDATE_LEAGUE_TABLE_ELEMENT_SCORE, CmdUpdateLeagueTableElementScore, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_REMOVE_LEAGUE_TABLE_ELEMENT, CmdRemoveLeagueTableElement, CommandFlag::Deity, CommandType::OtherManagement)
+DEF_CMD_TUPLE_NT(Commands::CreateLeagueTable,              CmdCreateLeagueTable,             CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement, CmdDataT<EncodedString, EncodedString, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::CreateLeagueTableElement,       CmdCreateLeagueTableElement,      CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement, LeagueTableElementCmdData)
+DEF_CMD_TUPLE_NT(Commands::UpdateLeagueTableElementData,   CmdUpdateLeagueTableElementData,  CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement, CmdDataT<LeagueTableElementID, CompanyID, EncodedString, LinkType, LinkTargetID>)
+DEF_CMD_TUPLE_NT(Commands::UpdateLeagueTableElementScore,  CmdUpdateLeagueTableElementScore, CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement, CmdDataT<LeagueTableElementID, int64_t, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::RemoveLeagueTableElement,       CmdRemoveLeagueTableElement,                     CMD_DEITY, CommandType::OtherManagement, CmdDataT<LeagueTableElementID>)
 
 #endif /* LEAGUE_CMD_H */

@@ -16,6 +16,7 @@
 #include "newgrf_internal.h"
 
 #include "../table/sprites.h"
+#include "../table/strings.h"
 
 #include "../safeguards.h"
 
@@ -104,32 +105,54 @@ static void GraphicsNew(ByteReader &buf)
 	uint16_t offset = HasBit(type, 7) ? buf.ReadExtendedByte() : 0;
 	ClrBit(type, 7); // Clear the high bit as that only indicates whether there is an offset.
 
-	if ((type == 0x0D) && (num == 10) && _cur_gps.grfconfig->flags.Test(GRFConfigFlag::System)) {
-		/* Special not-TTDP-compatible case used in openttd.grf
-		 * Missing shore sprites and initialisation of SPR_SHORE_BASE */
-		GrfMsg(2, "GraphicsNew: Loading 10 missing shore sprites from extra grf.");
-		LoadNextSprite(SPR_SHORE_BASE +  0, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_S
-		LoadNextSprite(SPR_SHORE_BASE +  5, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_W
-		LoadNextSprite(SPR_SHORE_BASE +  7, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_WSE
-		LoadNextSprite(SPR_SHORE_BASE + 10, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_N
-		LoadNextSprite(SPR_SHORE_BASE + 11, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_NWS
-		LoadNextSprite(SPR_SHORE_BASE + 13, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_ENW
-		LoadNextSprite(SPR_SHORE_BASE + 14, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_SEN
-		LoadNextSprite(SPR_SHORE_BASE + 15, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_E
-		LoadNextSprite(SPR_SHORE_BASE + 16, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_EW
-		LoadNextSprite(SPR_SHORE_BASE + 17, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_NS
-		if (_loaded_newgrf_features.shore == SHORE_REPLACE_NONE) _loaded_newgrf_features.shore = SHORE_REPLACE_ONLY_NEW;
-		return;
-	}
+	const Action5Type *action5_type;
+	const Action5TypeRemapSet &remap = _cur_gps.grffile->action5_type_remaps;
+	if (remap.remapped_ids[type]) {
+		auto iter = remap.mapping.find(type);
+		assert(iter != remap.mapping.end());
+		const Action5TypeRemapEntry &def = iter->second;
+		if (def.info == nullptr) {
+			if (def.fallback_mode == GPMFM_ERROR_ON_USE) {
+				GrfMsg(0, "Error: Unimplemented action 5 type: {}, mapped to: {:X}", def.name, type);
+				GRFError *error = DisableGrf(STR_NEWGRF_ERROR_UNIMPLEMETED_MAPPED_ACTION5_TYPE);
+				error->data = stredup(def.name);
+				error->param_value[1] = type;
+			} else if (def.fallback_mode == GPMFM_IGNORE) {
+				GrfMsg(2, "Ignoring unimplemented action 5 type: {}, mapped to: {:X}", def.name, type);
+			}
+			_cur_gps.skip_sprites = num;
+			return;
+		} else {
+			action5_type = def.info;
+		}
+	} else {
+		if ((type == 0x0D) && (num == 10) && _cur_gps.grfconfig->flags.Test(GRFConfigFlag::System)) {
+			/* Special not-TTDP-compatible case used in openttd.grf
+			 * Missing shore sprites and initialisation of SPR_SHORE_BASE */
+			GrfMsg(2, "GraphicsNew: Loading 10 missing shore sprites from extra grf.");
+			LoadNextSprite(SPR_SHORE_BASE +  0, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_S
+			LoadNextSprite(SPR_SHORE_BASE +  5, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_W
+			LoadNextSprite(SPR_SHORE_BASE +  7, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_WSE
+			LoadNextSprite(SPR_SHORE_BASE + 10, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_N
+			LoadNextSprite(SPR_SHORE_BASE + 11, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_NWS
+			LoadNextSprite(SPR_SHORE_BASE + 13, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_ENW
+			LoadNextSprite(SPR_SHORE_BASE + 14, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_SEN
+			LoadNextSprite(SPR_SHORE_BASE + 15, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_STEEP_E
+			LoadNextSprite(SPR_SHORE_BASE + 16, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_EW
+			LoadNextSprite(SPR_SHORE_BASE + 17, *_cur_gps.file, _cur_gps.nfo_line++); // SLOPE_NS
+			if (_loaded_newgrf_features.shore == ShoreReplacement::None) _loaded_newgrf_features.shore = ShoreReplacement::OnlyNew;
+			return;
+		}
 
-	/* Supported type? */
-	if ((type >= std::size(_action5_types)) || (_action5_types[type].block_type == A5BLOCK_INVALID)) {
-		GrfMsg(2, "GraphicsNew: Custom graphics (type 0x{:02X}) sprite block of length {} (unimplemented, ignoring)", type, num);
-		_cur_gps.skip_sprites = num;
-		return;
-	}
+		/* Supported type? */
+		if ((type >= std::size(_action5_types)) || (_action5_types[type].block_type == A5BLOCK_INVALID)) {
+			GrfMsg(2, "GraphicsNew: Custom graphics (type 0x{:02X}) sprite block of length {} (unimplemented, ignoring)", type, num);
+			_cur_gps.skip_sprites = num;
+			return;
+		}
 
-	const Action5Type *action5_type = &_action5_types[type];
+		action5_type = &_action5_types[type];
+	}
 
 	/* Contrary to TTDP we allow always to specify too few sprites as we allow always an offset,
 	 * except for the long version of the shore type:
@@ -154,25 +177,34 @@ static void GraphicsNew(ByteReader &buf)
 	/* Load <num> sprites starting from <replace>, then skip <skip_num> sprites. */
 	GrfMsg(2, "GraphicsNew: Replacing sprites {} to {} of {} (type 0x{:02X}) at SpriteID 0x{:04X}", offset, offset + num - 1, action5_type->name, type, replace);
 
-	if (type == 0x0D) _loaded_newgrf_features.shore = SHORE_REPLACE_ACTION_5;
+	if (type == 0x0D) _loaded_newgrf_features.shore = ShoreReplacement::Action5;
 
 	if (type == 0x0B) {
 		static const SpriteID depot_with_track_offset = SPR_TRAMWAY_DEPOT_WITH_TRACK - SPR_TRAMWAY_BASE;
 		static const SpriteID depot_no_track_offset = SPR_TRAMWAY_DEPOT_NO_TRACK - SPR_TRAMWAY_BASE;
-		if (offset <= depot_with_track_offset && offset + num > depot_with_track_offset) _loaded_newgrf_features.tram = TRAMWAY_REPLACE_DEPOT_WITH_TRACK;
-		if (offset <= depot_no_track_offset && offset + num > depot_no_track_offset) _loaded_newgrf_features.tram = TRAMWAY_REPLACE_DEPOT_NO_TRACK;
+		if (offset <= depot_with_track_offset && offset + num > depot_with_track_offset) _loaded_newgrf_features.tram = TramDepotReplacement::WithTrack;
+		if (offset <= depot_no_track_offset && offset + num > depot_no_track_offset) _loaded_newgrf_features.tram = TramDepotReplacement::WithoutTrack;
 	}
 
 	/* If the baseset or grf only provides sprites for flat tiles (pre #10282), duplicate those for use on slopes. */
 	bool dup_oneway_sprites = ((type == 0x09) && (offset + num <= ONEWAY_SLOPE_N_OFFSET));
 
-	for (; num > 0; num--) {
+	for (uint16_t n = num; n > 0; n--) {
 		_cur_gps.nfo_line++;
 		SpriteID load_index = (replace == 0 ? _cur_gps.spriteid++ : replace++);
 		LoadNextSprite(load_index, *_cur_gps.file, _cur_gps.nfo_line);
 		if (dup_oneway_sprites) {
 			DupSprite(load_index, load_index + ONEWAY_SLOPE_N_OFFSET);
 			DupSprite(load_index, load_index + ONEWAY_SLOPE_S_OFFSET);
+		}
+	}
+
+	if (type == 0x04 && ((_cur_gps.grfconfig->ident.grfid & 0x00FFFFFF) == OPENTTD_GRAPHICS_BASE_GRF_ID ||
+			_cur_gps.grfconfig->ident.grfid == std::byteswap<uint32_t>(0xFF4F4701) || _cur_gps.grfconfig->ident.grfid == std::byteswap<uint32_t>(0xFFFFFFFE))) {
+		/* Signal graphics action 5: Fill duplicate signal sprite block if this is a baseset GRF or OpenGFX */
+		const SpriteID end = offset + num;
+		for (SpriteID i = offset; i < end; i++) {
+			DupSprite(SPR_SIGNALS_BASE + i, SPR_DUP_SIGNALS_BASE + i);
 		}
 	}
 
@@ -191,9 +223,15 @@ static void SkipAct5(ByteReader &buf)
 	GrfMsg(3, "SkipAct5: Skipping {} sprites", _cur_gps.skip_sprites);
 }
 
+/** @copydoc GrfActionHandler::FileScan */
 template <> void GrfActionHandler<0x05>::FileScan(ByteReader &buf) { SkipAct5(buf); }
+/** @copydoc GrfActionHandler::SafetyScan */
 template <> void GrfActionHandler<0x05>::SafetyScan(ByteReader &buf) { SkipAct5(buf); }
+/** @copydoc GrfActionHandler::LabelScan */
 template <> void GrfActionHandler<0x05>::LabelScan(ByteReader &buf) { SkipAct5(buf); }
+/** @copydoc GrfActionHandler::Init */
 template <> void GrfActionHandler<0x05>::Init(ByteReader &buf) { SkipAct5(buf); }
+/** @copydoc GrfActionHandler::Reserve */
 template <> void GrfActionHandler<0x05>::Reserve(ByteReader &buf) { SkipAct5(buf); }
+/** @copydoc GrfActionHandler::Activation */
 template <> void GrfActionHandler<0x05>::Activation(ByteReader &buf) { GraphicsNew(buf); }

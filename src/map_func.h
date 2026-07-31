@@ -15,244 +15,18 @@
 #include "map_type.h"
 #include "direction_func.h"
 
-/**
- * Wrapper class to abstract away the way the tiles are stored. It is
- * intended to be used to access the "map" data of a single tile.
- *
- * The wrapper is expected to be fully optimized away by the compiler, even
- * with low optimization levels except when completely disabling it.
- */
-class Tile {
-private:
-	friend struct Map;
-	/**
-	 * Data that is stored per tile. Also used TileExtended for this.
-	 * Look at docs/landscape.html for the exact meaning of the members.
-	 */
-	struct TileBase {
-		uint8_t type = 0; ///< The type (bits 4..7), bridges (2..3), rainforest/desert (0..1)
-		uint8_t height = 0; ///< The height of the northern corner.
-		uint16_t m2 = 0; ///< Primarily used for indices to towns, industries and stations
-		uint8_t m1 = 0; ///< Primarily used for ownership information
-		uint8_t m3 = 0; ///< General purpose
-		uint8_t m4 = 0; ///< General purpose
-		uint8_t m5 = 0; ///< General purpose
-	};
+extern uint _map_tile_mask;
 
-	static_assert(sizeof(TileBase) == 8);
-
-	/**
-	 * Data that is stored per tile. Also used TileBase for this.
-	 * Look at docs/landscape.html for the exact meaning of the members.
-	 */
-	struct TileExtended {
-		uint8_t m6 = 0; ///< General purpose
-		uint8_t m7 = 0; ///< Primarily used for newgrf support
-		uint16_t m8 = 0; ///< General purpose
-	};
-
-	static std::unique_ptr<TileBase[]> base_tiles; ///< Pointer to the tile-array.
-	static std::unique_ptr<TileExtended[]> extended_tiles; ///< Pointer to the extended tile-array.
-
-	TileIndex tile; ///< The tile to access the map data for.
-
-public:
-	/**
-	 * Create the tile wrapper for the given tile.
-	 * @param tile The tile to access the map for.
-	 */
-	[[debug_inline]] inline Tile(TileIndex tile) : tile(tile) {}
-
-	/**
-	 * Create the tile wrapper for the given tile.
-	 * @param tile The tile to access the map for.
-	 */
-	Tile(uint tile) : tile(tile) {}
-
-	/**
-	 * Implicit conversion to the TileIndex.
-	 */
-	[[debug_inline]] inline constexpr operator TileIndex() const { return this->tile; }
-
-	/**
-	 * Implicit conversion to the uint for bounds checking.
-	 */
-	[[debug_inline]] inline constexpr operator uint() const { return this->tile.base(); }
-
-	/**
-	 * The type (bits 4..7), bridges (2..3), rainforest/desert (0..1)
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &type()
-	{
-		return base_tiles[this->tile.base()].type;
-	}
-
-	/**
-	 * The height of the northern corner
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the height for.
-	 * @return reference to the byte holding the height.
-	 */
-	[[debug_inline]] inline uint8_t &height()
-	{
-		return base_tiles[this->tile.base()].height;
-	}
-
-	/**
-	 * Primarily used for ownership information
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &m1()
-	{
-		return base_tiles[this->tile.base()].m1;
-	}
-
-	/**
-	 * Primarily used for indices to towns, industries and stations
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the uint16_t holding the data.
-	 */
-	[[debug_inline]] inline uint16_t &m2()
-	{
-		return base_tiles[this->tile.base()].m2;
-	}
-
-	/**
-	 * General purpose
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &m3()
-	{
-		return base_tiles[this->tile.base()].m3;
-	}
-
-	/**
-	 * General purpose
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &m4()
-	{
-		return base_tiles[this->tile.base()].m4;
-	}
-
-	/**
-	 * General purpose
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &m5()
-	{
-		return base_tiles[this->tile.base()].m5;
-	}
-
-	/**
-	 * General purpose
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &m6()
-	{
-		return extended_tiles[this->tile.base()].m6;
-	}
-
-	/**
-	 * Primarily used for newgrf support
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the byte holding the data.
-	 */
-	[[debug_inline]] inline uint8_t &m7()
-	{
-		return extended_tiles[this->tile.base()].m7;
-	}
-
-	/**
-	 * General purpose
-	 *
-	 * Look at docs/landscape.html for the exact meaning of the data.
-	 * @param tile The tile to get the data for.
-	 * @return reference to the uint16_t holding the data.
-	 */
-	[[debug_inline]] inline uint16_t &m8()
-	{
-		return extended_tiles[this->tile.base()].m8;
-	}
-};
-
-/**
- * Size related data of the map.
- */
 struct Map {
-private:
-	/**
-	 * Iterator to iterate all Tiles
-	 */
-	struct Iterator {
-		typedef Tile value_type;
-		typedef Tile *pointer;
-		typedef Tile &reference;
-		typedef size_t difference_type;
-		typedef std::forward_iterator_tag iterator_category;
-
-		explicit Iterator(TileIndex index) : index(index) {}
-		bool operator==(const Iterator &other) const { return this->index == other.index; }
-		Tile operator*() const { return this->index; }
-		Iterator & operator++() { this->index++; return *this; }
-	private:
-		TileIndex index;
-	};
-
-	/*
-	 * Iterable ensemble of all Tiles
-	 */
-	struct IterateWrapper {
-		Iterator begin() { return Iterator(TileIndex{}); }
-		Iterator end() { return Iterator(TileIndex{Map::Size()}); }
-		bool empty() { return false; }
-	};
-
-	static uint log_x;     ///< 2^_map_log_x == _map_size_x
-	static uint log_y;     ///< 2^_map_log_y == _map_size_y
-	static uint size_x;    ///< Size of the map along the X
-	static uint size_y;    ///< Size of the map along the Y
-	static uint size;      ///< The number of tiles on the map
-	static uint tile_mask; ///< _map_size - 1 (to mask the mapsize)
-
-	static uint initial_land_count; ///< Initial number of land tiles on the map.
-
-public:
-	static void Allocate(uint size_x, uint size_y);
-	static void CountLandTiles();
-
 	/**
 	 * Logarithm of the map size along the X side.
 	 * @note try to avoid using this one
 	 * @return 2^"return value" == Map::SizeX()
 	 */
-	[[debug_inline]] inline static uint LogX()
+	static inline uint LogX()
 	{
-		return Map::log_x;
+		extern uint _map_log_x;
+		return _map_log_x;
 	}
 
 	/**
@@ -262,16 +36,18 @@ public:
 	 */
 	static inline uint LogY()
 	{
-		return Map::log_y;
+		extern uint _map_log_y;
+		return _map_log_y;
 	}
 
 	/**
 	 * Get the size of the map along the X
 	 * @return the number of tiles along the X of the map
 	 */
-	[[debug_inline]] inline static uint SizeX()
+	static inline uint SizeX()
 	{
-		return Map::size_x;
+		extern uint _map_size_x;
+		return _map_size_x;
 	}
 
 	/**
@@ -280,29 +56,31 @@ public:
 	 */
 	static inline uint SizeY()
 	{
-		return Map::size_y;
+		extern uint _map_size_y;
+		return _map_size_y;
 	}
 
 	/**
 	 * Get the size of the map
 	 * @return the number of tiles of the map
 	 */
-	[[debug_inline]] inline static uint Size()
+	static inline uint Size()
 	{
-		return Map::size;
+		extern uint _map_size;
+		return _map_size;
 	}
 
 	/**
-	 * Gets the maximum X coordinate within the map, including MP_VOID
+	 * Gets the maximum X coordinate within the map, including TileType::Void
 	 * @return the maximum X coordinate
 	 */
-	[[debug_inline]] inline static uint MaxX()
+	static inline uint MaxX()
 	{
 		return Map::SizeX() - 1;
 	}
 
 	/**
-	 * Gets the maximum Y coordinate within the map, including MP_VOID
+	 * Gets the maximum Y coordinate within the map, including TileType::Void
 	 * @return the maximum Y coordinate
 	 */
 	static inline uint MaxY()
@@ -310,25 +88,41 @@ public:
 		return Map::SizeY() - 1;
 	}
 
-	/**
-	 * Scales the given value by the number of water tiles.
-	 * @param n the value to scale
-	 * @return the scaled size
-	 */
-	static inline uint ScaleByLandProportion(uint n)
+	static inline uint InitialLandCount()
 	{
-		/* Use 64-bit arithmetic to avoid overflow. */
-		return static_cast<uint>(static_cast<uint64_t>(n) * Map::initial_land_count / Map::size);
+		extern uint _map_initial_land_count;
+		return _map_initial_land_count;
+	}
+
+	/**
+	 * Get the number of base-10 digits required for the size of the map along the X
+	 * @return the number of digits required
+	 */
+	static inline uint DigitsX()
+	{
+		extern uint _map_digits_x;
+		return _map_digits_x;
+	}
+
+	/**
+	 * Get the number of base-10 digits required for the size of the map along the Y
+	 * @return the number of digits required
+	 */
+	static inline uint DigitsY()
+	{
+		extern uint _map_digits_y;
+		return _map_digits_y;
 	}
 
 	/**
 	 * 'Wraps' the given "tile" so it is within the map.
 	 * It does this by masking the 'high' bits of.
-	 * @param tile the tile to 'wrap'
+	 * @param tile the tile to 'wrap'.
+	 * @return The wrapped tile.
 	 */
 	static inline TileIndex WrapToMap(TileIndex tile)
 	{
-		return TileIndex{tile.base() & Map::tile_mask};
+		return TileIndex{tile.base() & _map_tile_mask};
 	}
 
 	/**
@@ -359,21 +153,49 @@ public:
 	}
 
 	/**
-	 * Check whether the map has been initialized, as to not try to save the map
-	 * during crashlog when the map is not there yet.
-	 * @return true when the map has been allocated/initialized.
+	 * Scales the given value by the number of water tiles.
+	 * @param n the value to scale
+	 * @return the scaled size
 	 */
-	static bool IsInitialized()
+	static inline uint ScaleByLandProportion(uint n)
 	{
-		return Tile::base_tiles != nullptr;
+		/* Use 64-bit arithmetic to avoid overflow. */
+		return static_cast<uint>(static_cast<uint64_t>(n) * Map::InitialLandCount() / Map::Size());
 	}
+};
+
+template <typename T>
+struct MapTilePtr {
+	T *tile_data;
 
 	/**
-	 * Returns an iterable ensemble of all Tiles
-	 * @return an iterable ensemble of all Tiles
+	 * Get a node abstraction with the specified id.
+	 * @param num ID of the node.
+	 * @return the Requested node.
 	 */
-	static IterateWrapper Iterate() { return IterateWrapper(); }
+	[[debug_inline]] T &operator[](TileIndex tile) { return this->tile_data[tile.base()]; }
 };
+
+/**
+ * Pointer to the tile-array.
+ *
+ * This variable points to the tile-array which contains the tiles of
+ * the map.
+ */
+extern MapTilePtr<Tile> _m;
+
+/**
+ * Pointer to the extended tile-array.
+ *
+ * This variable points to the extended tile-array which contains the tiles
+ * of the map.
+ */
+extern MapTilePtr<TileExtended> _me;
+
+bool ValidateMapSize(uint size_x, uint size_y);
+void AllocateMap(uint size_x, uint size_y);
+void DeallocateMap();
+void CountLandTiles();
 
 /**
  * Returns the TileIndex of a coordinate.
@@ -418,6 +240,19 @@ inline TileIndexDiff TileDiffXY(int x, int y)
 	return TileIndex{(y >> 4 << Map::LogX()) + (x >> 4)};
 }
 
+/**
+ * Get a tile from the virtual XY-coordinate.
+ * This is clamped to be within the map bounds.
+ * @param x The virtual x coordinate of the tile.
+ * @param y The virtual y coordinate of the tile.
+ * @return The TileIndex calculated by the coordinate.
+ */
+inline TileIndex TileVirtXYClampedToMap(int x, int y)
+{
+	int safe_x = Clamp<int>(x, 0, Map::MaxX() * TILE_SIZE);
+	int safe_y = Clamp<int>(y, 0, Map::MaxY() * TILE_SIZE);
+	return TileVirtXY((uint) safe_x, (uint) safe_y);
+}
 
 /**
  * Get the X component of a tile
@@ -454,10 +289,6 @@ inline TileIndexDiff ToTileIndexDiff(TileIndexDiffC tidc)
 	return TileDiffXY(tidc.x, tidc.y);
 }
 
-/* Helper functions to provide explicit +=/-= operators for TileIndex and TileIndexDiff. */
-constexpr TileIndex &operator+=(TileIndex &tile, TileIndexDiff offset) { tile = tile + TileIndex(offset); return tile; }
-constexpr TileIndex &operator-=(TileIndex &tile, TileIndexDiff offset) { tile = tile - TileIndex(offset); return tile; }
-
 /**
  * Adds a given offset to a tile.
  *
@@ -485,6 +316,7 @@ inline TileIndex TileAddXY(TileIndex tile, int x, int y)
 }
 
 TileIndex TileAddWrap(TileIndex tile, int addx, int addy);
+TileIndex TileAddSaturating(TileIndex tile, int addx, int addy);
 
 /**
  * Returns the TileIndexDiffC offset from a DiagDirection.
@@ -494,7 +326,7 @@ TileIndex TileAddWrap(TileIndex tile, int addx, int addy);
  */
 inline TileIndexDiffC TileIndexDiffCByDiagDir(DiagDirection dir)
 {
-	extern const TileIndexDiffC _tileoffs_by_diagdir[DIAGDIR_END];
+	extern const DiagDirectionIndexArray<TileIndexDiffC> _tileoffs_by_diagdir;
 
 	assert(IsValidDiagDirection(dir));
 	return _tileoffs_by_diagdir[dir];
@@ -508,7 +340,7 @@ inline TileIndexDiffC TileIndexDiffCByDiagDir(DiagDirection dir)
  */
 inline TileIndexDiffC TileIndexDiffCByDir(Direction dir)
 {
-	extern const TileIndexDiffC _tileoffs_by_dir[DIR_END];
+	extern const DirectionIndexArray<TileIndexDiffC> _tileoffs_by_dir;
 
 	assert(IsValidDirection(dir));
 	return _tileoffs_by_dir[dir];
@@ -550,9 +382,24 @@ inline TileIndexDiffC TileIndexToTileIndexDiffC(TileIndex tile_a, TileIndex tile
 	return difference;
 }
 
+/**
+ * Returns the diff between two tiles, as in tile_a - tile_b
+ *
+ * @param tile_a from tile
+ * @param tile_b to tile
+ * @return the difference between tila_a and tile_b
+ * @pre tile_a >= tile_b
+ */
+inline TileIndexDiffCUnsigned TileIndexToTileIndexDiffCUnsigned(TileIndex tile_a, TileIndex tile_b)
+{
+	TileIndex difference{tile_a.base() - tile_b.base()};
+	return { TileX(difference), TileY(difference) };
+}
+
 /* Functions to calculate distances */
 uint DistanceManhattan(TileIndex, TileIndex); ///< also known as L1-Norm. Is the shortest distance one could go over diagonal tracks (or roads)
-uint DistanceSquare(TileIndex, TileIndex); ///< Euclidean- or L2-Norm squared
+uint64_t DistanceSquare64(TileIndex, TileIndex); ///< Euclidean- or L2-Norm squared
+inline uint DistanceSquare(TileIndex t0, TileIndex t1) { return ClampTo<uint>(DistanceSquare64(t0, t1)); }
 uint DistanceMax(TileIndex, TileIndex); ///< also known as L-Infinity-Norm
 uint DistanceMaxPlusManhattan(TileIndex, TileIndex); ///< Max + Manhattan
 uint DistanceFromEdge(TileIndex); ///< shortest distance from any edge of the map
@@ -566,7 +413,7 @@ uint DistanceFromEdgeDir(TileIndex, DiagDirection); ///< distance from the map e
  */
 inline TileIndexDiff TileOffsByAxis(Axis axis)
 {
-	extern const TileIndexDiffC _tileoffs_by_axis[];
+	extern const AxisIndexArray<TileIndexDiffC> _tileoffs_by_axis;
 
 	assert(IsValidAxis(axis));
 	return ToTileIndexDiff(_tileoffs_by_axis[axis]);
@@ -581,7 +428,7 @@ inline TileIndexDiff TileOffsByAxis(Axis axis)
  */
 inline TileIndexDiff TileOffsByDiagDir(DiagDirection dir)
 {
-	extern const TileIndexDiffC _tileoffs_by_diagdir[DIAGDIR_END];
+	extern const DiagDirectionIndexArray<TileIndexDiffC> _tileoffs_by_diagdir;
 
 	assert(IsValidDiagDirection(dir));
 	return ToTileIndexDiff(_tileoffs_by_diagdir[dir]);
@@ -595,7 +442,7 @@ inline TileIndexDiff TileOffsByDiagDir(DiagDirection dir)
  */
 inline TileIndexDiff TileOffsByDir(Direction dir)
 {
-	extern const TileIndexDiffC _tileoffs_by_dir[DIR_END];
+	extern const DirectionIndexArray<TileIndexDiffC> _tileoffs_by_dir;
 
 	assert(IsValidDirection(dir));
 	return ToTileIndexDiff(_tileoffs_by_dir[dir]);
@@ -625,25 +472,53 @@ inline TileIndex TileAddByDiagDir(TileIndex tile, DiagDirection dir)
 	return TileAdd(tile, TileOffsByDiagDir(dir));
 }
 
+/** Checks if two tiles are adjacent */
+inline bool AreTilesAdjacent(TileIndex a, TileIndex b)
+{
+	return (std::abs((int)TileX(a) - (int)TileX(b)) <= 1) &&
+		   (std::abs((int)TileY(a) - (int)TileY(b)) <= 1);
+}
+
 /**
  * Determines the DiagDirection to get from one tile to another.
  * The tiles do not necessarily have to be adjacent.
  * @param tile_from Origin tile
  * @param tile_to Destination tile
- * @return DiagDirection from tile_from towards tile_to, or INVALID_DIAGDIR if the tiles are not on an axis
+ * @return DiagDirection from tile_from towards tile_to, or DiagDirection::Invalid if the tiles are not on an axis
  */
 inline DiagDirection DiagdirBetweenTiles(TileIndex tile_from, TileIndex tile_to)
 {
 	int dx = (int)TileX(tile_to) - (int)TileX(tile_from);
 	int dy = (int)TileY(tile_to) - (int)TileY(tile_from);
 	if (dx == 0) {
-		if (dy == 0) return INVALID_DIAGDIR;
-		return (dy < 0 ? DIAGDIR_NW : DIAGDIR_SE);
+		if (dy == 0) return DiagDirection::Invalid;
+		return (dy < 0 ? DiagDirection::NW : DiagDirection::SE);
 	} else {
-		if (dy != 0) return INVALID_DIAGDIR;
-		return (dx < 0 ? DIAGDIR_NE : DIAGDIR_SW);
+		if (dy != 0) return DiagDirection::Invalid;
+		return (dx < 0 ? DiagDirection::NE : DiagDirection::SW);
 	}
 }
+
+/**
+ * A callback function type for searching tiles.
+ *
+ * @param tile The tile to test
+ * @param user_data additional data for the callback function to use
+ * @return A boolean value, depend on the definition of the function.
+ */
+typedef bool TestTileOnSearchProc(TileIndex tile, void *user_data);
+
+bool EnoughContiguousTilesMatchingCondition(TileIndex tile, uint threshold, TestTileOnSearchProc proc, void *user_data);
+
+/**
+ * A callback function type for iterating tiles.
+ *
+ * @param tile The tile to test
+ * @param user_data additional data for the callback function to use
+ */
+typedef void TileIteratorProc(TileIndex tile, void *user_data);
+
+void IterateCurvedCircularTileArea(TileIndex centre_tile, uint diameter, TileIteratorProc proc, void *user_data);
 
 /**
  * Get a random tile out of a given seed.
@@ -652,7 +527,7 @@ inline DiagDirection DiagdirBetweenTiles(TileIndex tile_from, TileIndex tile_to)
  */
 inline TileIndex RandomTileSeed(uint32_t r)
 {
-	return Map::WrapToMap(TileIndex{r});
+	return Map::WrapToMap(TileIndex(r));
 }
 
 /**
@@ -664,5 +539,8 @@ inline TileIndex RandomTileSeed(uint32_t r)
 #define RandomTile() RandomTileSeed(Random())
 
 uint GetClosestWaterDistance(TileIndex tile, bool water);
+
+void DumpTileInfo(struct format_target &buffer, TileIndex tile);
+void DumpTileFields(struct format_target &buffer, TileIndex tile);
 
 #endif /* MAP_FUNC_H */

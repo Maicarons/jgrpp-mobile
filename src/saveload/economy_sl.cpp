@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file economy_sl.cpp Code handling saving and loading of economy data */
+/** @file economy_sl.cpp Code handling saving and loading of economy data. */
 
 #include "../stdafx.h"
 
@@ -17,31 +17,7 @@
 
 #include "../safeguards.h"
 
-/** Prices in pre 126 savegames */
-struct PRICChunkHandler : ChunkHandler {
-	PRICChunkHandler() : ChunkHandler('PRIC', CH_READONLY) {}
-
-	void Load() const override
-	{
-		/* Old games store 49 base prices, very old games store them as int32_t */
-		int vt = IsSavegameVersionBefore(SLV_65) ? SLE_FILE_I32 : SLE_FILE_I64;
-		SlCopy(nullptr, 49, vt | SLE_VAR_NULL);
-		SlCopy(nullptr, 49, SLE_FILE_U16 | SLE_VAR_NULL);
-	}
-};
-
-/** Cargo payment rates in pre 126 savegames */
-struct CAPRChunkHandler : ChunkHandler {
-	CAPRChunkHandler() : ChunkHandler('CAPR', CH_READONLY) {}
-
-	void Load() const override
-	{
-		uint num_cargo = IsSavegameVersionBefore(SLV_55) ? 12 : IsSavegameVersionBefore(SLV_EXTEND_CARGOTYPES) ? 32 : NUM_CARGO;
-		int vt = IsSavegameVersionBefore(SLV_65) ? SLE_FILE_I32 : SLE_FILE_I64;
-		SlCopy(nullptr, num_cargo, vt | SLE_VAR_NULL);
-		SlCopy(nullptr, num_cargo, SLE_FILE_U16 | SLE_VAR_NULL);
-	}
-};
+namespace upstream_sl {
 
 static const SaveLoad _economy_desc[] = {
 	SLE_CONDVAR(Economy, old_max_loan_unround,          SLE_FILE_I32 | SLE_VAR_I64,  SL_MIN_VERSION, SLV_65),
@@ -108,7 +84,7 @@ struct CAPYChunkHandler : ChunkHandler {
 		int index;
 
 		while ((index = SlIterateArray()) != -1) {
-			CargoPayment *cp = new (CargoPaymentID(index)) CargoPayment();
+			CargoPayment *cp = CargoPayment::CreateAtIndex(CargoPaymentID(index));
 			SlObject(cp, slt);
 		}
 	}
@@ -122,14 +98,12 @@ struct CAPYChunkHandler : ChunkHandler {
 };
 
 static const CAPYChunkHandler CAPY;
-static const PRICChunkHandler PRIC;
-static const CAPRChunkHandler CAPR;
 static const ECMYChunkHandler ECMY;
 static const ChunkHandlerRef economy_chunk_handlers[] = {
 	CAPY,
-	PRIC,
-	CAPR,
 	ECMY,
 };
 
 extern const ChunkHandlerTable _economy_chunk_handlers(economy_chunk_handlers);
+
+}

@@ -14,7 +14,6 @@
 #include "rail_type.h"
 #include "road_type.h"
 #include "vehicle_type.h"
-#include "economy_func.h"
 #include "rail.h"
 #include "road.h"
 #include "linkgraph/linkgraph_type.h"
@@ -27,11 +26,11 @@ void UpdateAllStationVirtCoords();
 void ClearAllStationCachedNames();
 
 CargoArray GetProductionAroundTiles(TileIndex tile, int w, int h, int rad);
-CargoArray GetAcceptanceAroundTiles(TileIndex tile, int w, int h, int rad, CargoTypes *always_accepted = nullptr);
+std::pair<CargoArray, CargoTypes> GetAcceptanceAroundTiles(TileIndex tile, int w, int h, int rad);
 
 void UpdateStationAcceptance(Station *st, bool show_msg);
 CargoTypes GetAcceptanceMask(const Station *st);
-CargoTypes GetEmptyMask(const Station *st);
+CargoTypes GetCargoWaitingMask(const Station *st);
 
 void SetRailStationTileFlags(TileIndex tile, const StationSpec *statspec);
 const DrawTileSprites *GetStationTileLayout(StationType st, uint8_t gfx);
@@ -48,20 +47,15 @@ void UpdateAirportsNoise();
 
 bool SplitGroundSpriteForOverlay(const TileInfo *ti, SpriteID *ground, RailTrackOffset *overlay_offset);
 
-void IncreaseStats(Station *st, const Vehicle *v, StationID next_station_id, uint32_t time);
 void IncreaseStats(Station *st, CargoType cargo, StationID next_station_id, uint capacity, uint usage, uint32_t time, EdgeUpdateModes modes);
 void RerouteCargo(Station *st, CargoType cargo, StationID avoid, StationID avoid2);
+void RerouteCargoFromSource(Station *st, CargoType c, StationID source, StationID avoid, StationID avoid2);
 
-/**
- * Calculates the maintenance cost of a number of station tiles.
- * @param num Number of station tiles.
- * @return Total cost.
- */
-inline Money StationMaintenanceCost(uint32_t num)
-{
-	return (_price[PR_INFRASTRUCTURE_STATION] * num * (1 + IntSqrt(num))) >> 7; // 7 bits scaling.
-}
+void FreeTrainStationPlatformReservation(const Train *v);
 
+Money StationMaintenanceCost(uint32_t num);
 Money AirportMaintenanceCost(Owner owner);
+
+bool ShouldShowBaseStationViewportLabel(const BaseStation *bst);
 
 #endif /* STATION_FUNC_H */

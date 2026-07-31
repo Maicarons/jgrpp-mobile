@@ -11,11 +11,15 @@
 #define TOWN_TYPE_H
 
 #include "core/enum_type.hpp"
-#include "core/pool_type.hpp"
+#include "core/pool_id_type.hpp"
+#include <vector>
 
-using TownID = PoolID<uint16_t, struct TownIDTag, 64000, 0xFFFF>;
+struct TownIDTag : public PoolIDTraits<uint16_t, 64000, 0xFFFF> {};
+using TownID = PoolID<TownIDTag>;
 
 struct Town;
+
+typedef std::vector<TownID> TownList;
 
 /** Supported initial town sizes */
 enum TownSize : uint8_t {
@@ -77,6 +81,9 @@ static constexpr int RATING_BRIBE_UP_STEP = 200;
 static constexpr int RATING_BRIBE_MAXIMUM = 800;
 static constexpr int RATING_BRIBE_DOWN_TO = -50; // XXX SHOULD BE SOMETHING LOWER?
 
+static constexpr int RATING_WATER_RIVER_DOWN_STEP = -200; ///< removing a river tile
+static constexpr int RATING_WATER_MINIMUM = RATING_MINIMUM; ///< minimum rating after removing water features near town
+
 /** Town Layouts. It needs to be 8bits, because we save and load it as such */
 enum TownLayout : uint8_t {
 	TL_BEGIN = 0,
@@ -132,6 +139,16 @@ struct TransportedCargoStat {
 		this->old_max = this->new_max; this->new_max = 0;
 		this->old_act = this->new_act; this->new_act = 0;
 	}
+};
+
+
+/** Town allow tunnel building setting values. It needs to be 8bits, because we save and load it as such */
+enum TownTunnelMode : uint8_t {
+	TTM_BEGIN = 0,         ///< Used for iterations and limit testing
+	TTM_FORBIDDEN = 0,     ///< Forbidden
+	TTM_OBSTRUCTION_ONLY,  ///< Allowed only for tunnels under obstructions
+	TTM_ALLOWED,           ///< Allowed in all cases (including through hills)
+	TTM_END,               ///< Used for iterations and limit testing
 };
 
 #endif /* TOWN_TYPE_H */

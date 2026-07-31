@@ -18,7 +18,9 @@
 #include "command_func.h"
 #include "viewport_func.h"
 #include "industry.h"
+#include "industry_cmd.h"
 #include "town.h"
+#include "cargo_type.h"
 #include "cheat_type.h"
 #include "newgrf_badge.h"
 #include "newgrf_badge_gui.h"
@@ -32,6 +34,7 @@
 #include "string_func.h"
 #include "sortlist_type.h"
 #include "dropdown_func.h"
+#include "dropdown_common_type.h"
 #include "company_base.h"
 #include "core/geometry_func.hpp"
 #include "core/random_func.hpp"
@@ -41,12 +44,9 @@
 #include "dropdown_type.h"
 #include "clear_map.h"
 #include "zoom_func.h"
-#include "industry_cmd.h"
 #include "graph_gui.h"
 #include "querystring_gui.h"
 #include "stringfilter_type.h"
-#include "timer/timer.h"
-#include "timer/timer_window.h"
 #include "hotkeys.h"
 #include "core/string_consumer.hpp"
 
@@ -59,21 +59,42 @@
 #include "safeguards.h"
 
 bool _ignore_industry_restrictions;
-std::bitset<NUM_INDUSTRYTYPES> _displayed_industries; ///< Communication from the industry chain window to the smallmap window about what industries to display.
+static std::bitset<NUM_INDUSTRYTYPES> _displayed_industries; ///< Communication from the industry chain window to the smallmap window about what industries to display.
+static std::bitset<NUM_INDUSTRYTYPES> _displayed_industries_in;
+static std::bitset<NUM_INDUSTRYTYPES> _displayed_industries_out;
+
+enum IndustryLinkMode {
+	ILM_ALL,
+	ILM_IN,
+	ILM_OUT,
+};
+static IndustryLinkMode _link_mode = ILM_ALL;
+
+const std::bitset<NUM_INDUSTRYTYPES> &GetIndustryLinkDisplayIndustries()
+{
+	switch (_link_mode) {
+		case ILM_IN:
+			return _displayed_industries_in;
+		case ILM_OUT:
+			return _displayed_industries_out;
+		default:
+			return _displayed_industries;
+	}
+}
 
 /** Cargo suffix type (for which window is it requested) */
-enum CargoSuffixType : uint8_t {
-	CST_FUND,  ///< Fund-industry window
-	CST_VIEW,  ///< View-industry window
-	CST_DIR,   ///< Industry-directory window
+enum class CargoSuffixType : uint8_t {
+	Fund = 0, ///< Fund-industry window
+	View = 1, ///< View-industry window
+	Directory = 2, ///< Industry-directory window
 };
 
 /** Ways of displaying the cargo. */
-enum CargoSuffixDisplay : uint8_t {
-	CSD_CARGO,             ///< Display the cargo without sub-type (cb37 result 401).
-	CSD_CARGO_AMOUNT,      ///< Display the cargo and amount (if useful), but no sub-type (cb37 result 400 or fail).
-	CSD_CARGO_TEXT,        ///< Display then cargo and supplied string (cb37 result 800-BFF).
-	CSD_CARGO_AMOUNT_TEXT, ///< Display then cargo, amount, and string (cb37 result 000-3FF).
+enum class CargoSuffixDisplay : uint8_t {
+	None, ///< Display the cargo without sub-type (cb37 result 401).
+	Amount, ///< Display the cargo and amount (if useful), but no sub-type (cb37 result 400 or fail).
+	Text, ///< Display the cargo and supplied string (cb37 result 800-BFF).
+	AmountAndText, ///< Display the cargo, amount, and string (cb37 result 000-3FF).
 };
 
 /** Transfer storage of cargo suffix information. */
@@ -97,19 +118,18 @@ static void ShowIndustryCargoesWindow(IndustryType id);
 static void GetCargoSuffix(uint cargo, CargoSuffixType cst, const Industry *ind, IndustryType ind_type, const IndustrySpec *indspec, CargoSuffix &suffix)
 {
 	suffix.text.clear();
-	suffix.display = CSD_CARGO_AMOUNT;
+	suffix.display = CargoSuffixDisplay::Amount;
 
 	if (indspec->callback_mask.Test(IndustryCallbackMask::CargoSuffix)) {
-		TileIndex t = (cst != CST_FUND) ? ind->location.tile : INVALID_TILE;
-		std::array<int32_t, 16> regs100;
-		uint16_t callback = GetIndustryCallback(CBID_INDUSTRY_CARGO_SUFFIX, 0, (cst << 8) | cargo, const_cast<Industry *>(ind), ind_type, t, regs100);
+		TileIndex t = (cst != CargoSuffixType::Fund) ? ind->location.tile : INVALID_TILE;
+		uint16_t callback = GetIndustryCallback(CBID_INDUSTRY_CARGO_SUFFIX, 0, (to_underlying(cst) << 8) | cargo, const_cast<Industry *>(ind), ind_type, t);
 		if (callback == CALLBACK_FAILED) return;
 
 		if (indspec->grf_prop.grffile->grf_version < 8) {
 			if (GB(callback, 0, 8) == 0xFF) return;
 			if (callback < 0x400) {
-				suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback, regs100);
-				suffix.display = CSD_CARGO_AMOUNT_TEXT;
+				suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback, GetRegisterRange(0x100));
+				suffix.display = CargoSuffixDisplay::AmountAndText;
 				return;
 			}
 			ErrorUnknownCallbackResult(indspec->grf_prop.grfid, CBID_INDUSTRY_CARGO_SUFFIX, callback);
@@ -120,27 +140,27 @@ static void GetCargoSuffix(uint cargo, CargoSuffixType cst, const Industry *ind,
 				case 0x400:
 					return;
 				case 0x401:
-					suffix.display = CSD_CARGO;
+					suffix.display = CargoSuffixDisplay::None;
 					return;
 				case 0x40E:
-					suffix.display = CSD_CARGO_TEXT;
-					suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, static_cast<GRFStringID>(regs100[0]), std::span{regs100}.subspan(1));
+					suffix.display = CargoSuffixDisplay::Text;
+					suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, static_cast<GRFStringID>(GetRegister(0x100)), GetRegisterRange(0x101));
 					return;
 				case 0x40F:
-					suffix.display = CSD_CARGO_AMOUNT_TEXT;
-					suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, static_cast<GRFStringID>(regs100[0]), std::span{regs100}.subspan(1));
+					suffix.display = CargoSuffixDisplay::AmountAndText;
+					suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, static_cast<GRFStringID>(GetRegister(0x100)), GetRegisterRange(0x101));
 					return;
 				default:
 					break;
 			}
 			if (callback < 0x400) {
-				suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback, regs100);
-				suffix.display = CSD_CARGO_AMOUNT_TEXT;
+				suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback, GetRegisterRange(0x100));
+				suffix.display = CargoSuffixDisplay::AmountAndText;
 				return;
 			}
 			if (callback >= 0x800 && callback < 0xC00) {
-				suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback - 0x800, regs100);
-				suffix.display = CSD_CARGO_TEXT;
+				suffix.text = GetGRFStringWithTextStack(indspec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback - 0x800, GetRegisterRange(0x100));
+				suffix.display = CargoSuffixDisplay::Text;
 				return;
 			}
 			ErrorUnknownCallbackResult(indspec->grf_prop.grfid, CBID_INDUSTRY_CARGO_SUFFIX, callback);
@@ -149,9 +169,10 @@ static void GetCargoSuffix(uint cargo, CargoSuffixType cst, const Industry *ind,
 	}
 }
 
-enum CargoSuffixInOut : uint8_t {
-	CARGOSUFFIX_OUT = 0,
-	CARGOSUFFIX_IN  = 1,
+/** Cargo direction for cargo suffixes. */
+enum class CargoSuffixDirection : uint8_t {
+	Out = 0, ///< Get cargo suffix for output cargoes.
+	In = 1, ///< Get cargo suffix for input cargoes.
 };
 
 /**
@@ -165,39 +186,39 @@ enum CargoSuffixInOut : uint8_t {
  * @param suffixes is filled with the suffixes
  */
 template <typename TC, typename TS>
-static inline void GetAllCargoSuffixes(CargoSuffixInOut use_input, CargoSuffixType cst, const Industry *ind, IndustryType ind_type, const IndustrySpec *indspec, const TC &cargoes, TS &suffixes)
+static inline void GetAllCargoSuffixes(CargoSuffixDirection use_input, CargoSuffixType cst, const Industry *ind, IndustryType ind_type, const IndustrySpec *indspec, const TC &cargoes, TS &suffixes)
 {
-	static_assert(std::tuple_size_v<std::remove_reference_t<decltype(cargoes)>> <= lengthof(suffixes));
+	static_assert(std::tuple_size_v<std::remove_reference_t<decltype(cargoes)>> <= std::tuple_size_v<std::remove_reference_t<decltype(suffixes)>>);
 
 	if (indspec->behaviour.Test(IndustryBehaviour::CargoTypesUnlimited)) {
 		/* Reworked behaviour with new many-in-many-out scheme */
-		for (uint j = 0; j < lengthof(suffixes); j++) {
-			if (IsValidCargoType(cargoes[j])) {
+		for (size_t j = 0; j < std::size(suffixes); j++) {
+			if (cargoes[j] != INVALID_CARGO) {
 				uint8_t local_id = indspec->grf_prop.grffile->cargo_map[cargoes[j]]; // should we check the value for valid?
-				uint cargotype = local_id << 16 | use_input;
+				uint cargotype = local_id << 16 | to_underlying(use_input);
 				GetCargoSuffix(cargotype, cst, ind, ind_type, indspec, suffixes[j]);
 			} else {
 				suffixes[j].text.clear();
-				suffixes[j].display = CSD_CARGO;
+				suffixes[j].display = CargoSuffixDisplay::None;
 			}
 		}
 	} else {
 		/* Compatible behaviour with old 3-in-2-out scheme */
-		for (uint j = 0; j < lengthof(suffixes); j++) {
+		for (size_t j = 0; j < std::size(suffixes); j++) {
 			suffixes[j].text.clear();
-			suffixes[j].display = CSD_CARGO;
+			suffixes[j].display = CargoSuffixDisplay::None;
 		}
 		switch (use_input) {
-			case CARGOSUFFIX_OUT:
+			case CargoSuffixDirection::Out:
 				/* Handle INDUSTRY_ORIGINAL_NUM_OUTPUTS cargoes */
-				if (IsValidCargoType(cargoes[0])) GetCargoSuffix(3, cst, ind, ind_type, indspec, suffixes[0]);
-				if (IsValidCargoType(cargoes[1])) GetCargoSuffix(4, cst, ind, ind_type, indspec, suffixes[1]);
+				if (cargoes[0] != INVALID_CARGO) GetCargoSuffix(3, cst, ind, ind_type, indspec, suffixes[0]);
+				if (cargoes[1] != INVALID_CARGO) GetCargoSuffix(4, cst, ind, ind_type, indspec, suffixes[1]);
 				break;
-			case CARGOSUFFIX_IN:
+			case CargoSuffixDirection::In:
 				/* Handle INDUSTRY_ORIGINAL_NUM_INPUTS cargoes */
-				if (IsValidCargoType(cargoes[0])) GetCargoSuffix(0, cst, ind, ind_type, indspec, suffixes[0]);
-				if (IsValidCargoType(cargoes[1])) GetCargoSuffix(1, cst, ind, ind_type, indspec, suffixes[1]);
-				if (IsValidCargoType(cargoes[2])) GetCargoSuffix(2, cst, ind, ind_type, indspec, suffixes[2]);
+				if (cargoes[0] != INVALID_CARGO) GetCargoSuffix(0, cst, ind, ind_type, indspec, suffixes[0]);
+				if (cargoes[1] != INVALID_CARGO) GetCargoSuffix(1, cst, ind, ind_type, indspec, suffixes[1]);
+				if (cargoes[2] != INVALID_CARGO) GetCargoSuffix(2, cst, ind, ind_type, indspec, suffixes[2]);
 				break;
 			default:
 				NOT_REACHED();
@@ -216,81 +237,80 @@ static inline void GetAllCargoSuffixes(CargoSuffixInOut use_input, CargoSuffixTy
  * @param slot accepts/produced slot number, used for old-style 3-in/2-out industries.
  * @param suffix is filled with the suffix
  */
-void GetCargoSuffix(CargoSuffixInOut use_input, CargoSuffixType cst, const Industry *ind, IndustryType ind_type, const IndustrySpec *indspec, CargoType cargo, uint8_t slot, CargoSuffix &suffix)
+void GetCargoSuffix(CargoSuffixDirection use_input, CargoSuffixType cst, const Industry *ind, IndustryType ind_type, const IndustrySpec *indspec, CargoType cargo, uint8_t slot, CargoSuffix &suffix)
 {
 	suffix.text.clear();
-	suffix.display = CSD_CARGO;
+	suffix.display = CargoSuffixDisplay::None;
 	if (!IsValidCargoType(cargo)) return;
 	if (indspec->behaviour.Test(IndustryBehaviour::CargoTypesUnlimited)) {
 		uint8_t local_id = indspec->grf_prop.grffile->cargo_map[cargo]; // should we check the value for valid?
-		uint cargotype = local_id << 16 | use_input;
+		uint cargotype = local_id << 16 | to_underlying(use_input);
 		GetCargoSuffix(cargotype, cst, ind, ind_type, indspec, suffix);
-	} else if (use_input == CARGOSUFFIX_IN) {
+	} else if (use_input == CargoSuffixDirection::In) {
 		if (slot < INDUSTRY_ORIGINAL_NUM_INPUTS) GetCargoSuffix(slot, cst, ind, ind_type, indspec, suffix);
-	} else if (use_input == CARGOSUFFIX_OUT) {
+	} else if (use_input == CargoSuffixDirection::Out) {
 		if (slot < INDUSTRY_ORIGINAL_NUM_OUTPUTS) GetCargoSuffix(slot + INDUSTRY_ORIGINAL_NUM_INPUTS, cst, ind, ind_type, indspec, suffix);
 	}
 }
 
 std::array<IndustryType, NUM_INDUSTRYTYPES> _sorted_industry_types; ///< Industry types sorted by name.
 
-/** Sort industry types by their name. */
-static bool IndustryTypeNameSorter(const IndustryType &a, const IndustryType &b)
-{
-	int r = StrNaturalCompare(GetString(GetIndustrySpec(a)->name), GetString(GetIndustrySpec(b)->name)); // Sort by name (natural sorting).
-
-	/* If the names are equal, sort by industry type. */
-	return (r != 0) ? r < 0 : (a < b);
-}
-
 /**
  * Initialize the list of sorted industry types.
  */
 void SortIndustryTypes()
 {
+	std::string industry_spec_names[NUM_INDUSTRYTYPES]{};
+
 	/* Add each industry type to the list. */
 	for (IndustryType i = 0; i < NUM_INDUSTRYTYPES; i++) {
 		_sorted_industry_types[i] = i;
+		industry_spec_names[i] = GetString(GetIndustrySpec(i)->name);
 	}
 
 	/* Sort industry types by name. */
-	std::sort(_sorted_industry_types.begin(), _sorted_industry_types.end(), IndustryTypeNameSorter);
+	std::sort(_sorted_industry_types.begin(), _sorted_industry_types.end(), [&](const IndustryType &a, const IndustryType &b) {
+		int r = StrNaturalCompare(industry_spec_names[a], industry_spec_names[b]); // Sort by name (natural sorting).
+
+		/* If the names are equal, sort by industry type. */
+		return (r != 0) ? r < 0 : (a < b);
+	});
 }
 
 static constexpr std::initializer_list<NWidgetPart> _nested_build_industry_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_CAPTION, COLOUR_DARK_GREEN), SetStringTip(STR_FUND_INDUSTRY_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
-		NWidget(WWT_SHADEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_STICKYBOX, COLOUR_DARK_GREEN),
+		NWidget(WWT_CLOSEBOX, Colours::DarkGreen),
+		NWidget(WWT_CAPTION, Colours::DarkGreen), SetStringTip(STR_FUND_INDUSTRY_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
+		NWidget(WWT_SHADEBOX, Colours::DarkGreen),
+		NWidget(WWT_DEFSIZEBOX, Colours::DarkGreen),
+		NWidget(WWT_STICKYBOX, Colours::DarkGreen),
 	EndContainer(),
-	NWidget(NWID_SELECTION, COLOUR_DARK_GREEN, WID_DPI_SCENARIO_EDITOR_PANE),
+	NWidget(NWID_SELECTION, Colours::DarkGreen, WID_DPI_SCENARIO_EDITOR_PANE),
 		NWidget(NWID_VERTICAL),
-			NWidget(WWT_TEXTBTN, COLOUR_DARK_GREEN, WID_DPI_CREATE_RANDOM_INDUSTRIES_WIDGET), SetMinimalSize(0, 12), SetFill(1, 0), SetResize(1, 0),
+			NWidget(WWT_TEXTBTN, Colours::DarkGreen, WID_DPI_CREATE_RANDOM_INDUSTRIES_WIDGET), SetMinimalSize(0, 12), SetFill(1, 0), SetResize(1, 0),
 					SetStringTip(STR_FUND_INDUSTRY_MANY_RANDOM_INDUSTRIES, STR_FUND_INDUSTRY_MANY_RANDOM_INDUSTRIES_TOOLTIP),
-			NWidget(WWT_TEXTBTN, COLOUR_DARK_GREEN, WID_DPI_REMOVE_ALL_INDUSTRIES_WIDGET), SetMinimalSize(0, 12), SetFill(1, 0), SetResize(1, 0),
+			NWidget(WWT_TEXTBTN, Colours::DarkGreen, WID_DPI_REMOVE_ALL_INDUSTRIES_WIDGET), SetMinimalSize(0, 12), SetFill(1, 0), SetResize(1, 0),
 					SetStringTip(STR_FUND_INDUSTRY_REMOVE_ALL_INDUSTRIES, STR_FUND_INDUSTRY_REMOVE_ALL_INDUSTRIES_TOOLTIP),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_MATRIX, COLOUR_DARK_GREEN, WID_DPI_MATRIX_WIDGET), SetMatrixDataTip(1, 0, STR_FUND_INDUSTRY_SELECTION_TOOLTIP), SetFill(1, 0), SetResize(1, 1), SetScrollbar(WID_DPI_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_DARK_GREEN, WID_DPI_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::DarkGreen, WID_DPI_MATRIX_WIDGET), SetMatrixDataTip(1, 0, STR_FUND_INDUSTRY_SELECTION_TOOLTIP), SetFill(1, 0), SetResize(1, 1), SetScrollbar(WID_DPI_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::DarkGreen, WID_DPI_SCROLLBAR),
 	EndContainer(),
-	NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_DPI_INFOPANEL), SetResize(1, 0),
+	NWidget(WWT_PANEL, Colours::DarkGreen, WID_DPI_INFOPANEL), SetResize(1, 0),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_TEXTBTN, COLOUR_DARK_GREEN, WID_DPI_DISPLAY_WIDGET), SetFill(1, 0), SetResize(1, 0),
+		NWidget(WWT_TEXTBTN, Colours::DarkGreen, WID_DPI_DISPLAY_WIDGET), SetFill(1, 0), SetResize(1, 0),
 				SetStringTip(STR_INDUSTRY_DISPLAY_CHAIN, STR_INDUSTRY_DISPLAY_CHAIN_TOOLTIP),
-		NWidget(WWT_TEXTBTN, COLOUR_DARK_GREEN, WID_DPI_FUND_WIDGET), SetFill(1, 0), SetResize(1, 0),
-		NWidget(WWT_RESIZEBOX, COLOUR_DARK_GREEN),
+		NWidget(WWT_TEXTBTN, Colours::DarkGreen, WID_DPI_FUND_WIDGET), SetFill(1, 0), SetResize(1, 0),
+		NWidget(WWT_RESIZEBOX, Colours::DarkGreen),
 	EndContainer(),
 };
 
 /** Window definition of the dynamic place industries gui */
-static WindowDesc _build_industry_desc(
-	WDP_ALIGN_TOOLBAR, "build_industry", 170, 212,
-	WC_BUILD_INDUSTRY, WC_NONE,
+static WindowDesc _build_industry_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "build_industry", 170, 212,
+	WindowClass::BuildIndustry, WindowClass::None,
 	WindowDefaultFlag::Construction,
 	_nested_build_industry_widgets
 );
@@ -309,7 +329,7 @@ class BuildIndustryWindow : public Window {
 
 	void UpdateAvailability()
 	{
-		this->enabled = this->selected_type != IT_INVALID && (_game_mode == GM_EDITOR || GetIndustryProbabilityCallback(this->selected_type, IACT_USERCREATION, 1) > 0);
+		this->enabled = this->selected_type != IT_INVALID && (_game_mode == GameMode::Editor || GetIndustryProbabilityCallback(this->selected_type, IndustryAvailabilityCallType::UserCreation, 1) > 0);
 	}
 
 	void SetupArrays()
@@ -326,7 +346,7 @@ class BuildIndustryWindow : public Window {
 				/* Rule is that editor mode loads all industries.
 				 * In game mode, all non raw industries are loaded too
 				 * and raw ones are loaded only when setting allows it */
-				if (_game_mode != GM_EDITOR && indsp->IsRawIndustry() && _settings_game.construction.raw_industry_construction == 0) {
+				if (_game_mode != GameMode::Editor && indsp->IsRawIndustry() && _settings_game.construction.raw_industry_construction == 0) {
 					/* Unselect if the industry is no longer in the list */
 					if (this->selected_type == ind) this->selected_type = IT_INVALID;
 					continue;
@@ -359,7 +379,6 @@ class BuildIndustryWindow : public Window {
 	 *
 	 * @param cargolist    Array of CargoType to display
 	 * @param cargo_suffix Array of suffixes to attach to each cargo
-	 * @param cargolistlen Length of arrays
 	 * @param prefixstr    String to use for the first item
 	 * @return A formatted raw string
 	 */
@@ -367,15 +386,13 @@ class BuildIndustryWindow : public Window {
 	{
 		assert(cargolist.size() == cargo_suffix.size());
 
-		std::string cargostring;
+		format_buffer cargostring;
 		std::string_view list_separator = GetListSeparator();
 
 		for (size_t j = 0; j < cargolist.size(); j++) {
 			if (!IsValidCargoType(cargolist[j])) continue;
-
-			if (!cargostring.empty()) cargostring += list_separator;
-			auto params = MakeParameters(CargoSpec::Get(cargolist[j])->name, cargo_suffix[j].text);
-			AppendStringWithArgsInPlace(cargostring, STR_INDUSTRY_VIEW_CARGO_LIST_EXTENSION, params);
+			if (!cargostring.empty()) cargostring.append(list_separator);
+			AppendStringInPlace(cargostring, STR_INDUSTRY_VIEW_CARGO_LIST_EXTENSION, CargoSpec::Get(cargolist[j])->name, cargo_suffix[j].text);
 		}
 
 		if (cargostring.empty()) AppendStringInPlace(cargostring, STR_JUST_NOTHING);
@@ -388,7 +405,7 @@ public:
 		this->CreateNestedTree();
 		this->vscroll = this->GetScrollbar(WID_DPI_SCROLLBAR);
 		/* Show scenario editor tools in editor. */
-		if (_game_mode != GM_EDITOR) {
+		if (_game_mode != GameMode::Editor) {
 			this->GetWidget<NWidgetStacked>(WID_DPI_SCENARIO_EDITOR_PANE)->SetDisplayedPlane(SZSP_HORIZONTAL);
 		}
 		this->FinishInitNested(0);
@@ -396,16 +413,12 @@ public:
 		this->SetButtons();
 	}
 
-	~BuildIndustryWindow() {
-		if (_thd.GetCallbackWnd() == this) this->OnPlaceObjectAbort();
-	}
-
 	void OnInit() override
 	{
-		this->badge_classes = GUIBadgeClasses{GSF_INDUSTRIES};
+		this->badge_classes = GUIBadgeClasses{GrfSpecFeature::Industries};
 
 		/* Width of the legend blob -- slightly larger than the smallmap legend blob. */
-		this->legend.height = GetCharacterHeight(FS_SMALL);
+		this->legend.height = GetCharacterHeight(FontSize::Small);
 		this->legend.width = this->legend.height * 9 / 6;
 
 		this->SetupArrays();
@@ -415,7 +428,7 @@ public:
 	{
 		switch (widget) {
 			case WID_DPI_MATRIX_WIDGET: {
-				Dimension count = GetStringBoundingBox(GetString(STR_JUST_COMMA, GetParamMaxDigits(4)), FS_SMALL);
+				Dimension count = GetStringBoundingBox(GetString(STR_JUST_COMMA, GetParamMaxDigits(4)), FontSize::Small);
 				Dimension d{};
 				for (const auto &indtype : this->list) {
 					d = maxdim(d, GetStringBoundingBox(GetIndustrySpec(indtype)->name));
@@ -429,18 +442,18 @@ public:
 
 			case WID_DPI_INFOPANEL: {
 				/* Extra line for cost outside of editor. */
-				int height = 2 + (_game_mode == GM_EDITOR ? 0 : 1);
+				int height = 2 + (_game_mode == GameMode::Editor ? 0 : 1);
 				uint extra_lines_req = 0;
 				uint extra_lines_prd = 0;
 				uint extra_lines_newgrf = 0;
-				uint max_minwidth = GetCharacterHeight(FS_NORMAL) * MAX_MINWIDTH_LINEHEIGHTS;
+				uint max_minwidth = GetCharacterHeight(FontSize::Normal) * MAX_MINWIDTH_LINEHEIGHTS;
 				Dimension d = {0, 0};
 				for (const auto &indtype : this->list) {
 					const IndustrySpec *indsp = GetIndustrySpec(indtype);
-					CargoSuffix cargo_suffix[std::tuple_size_v<decltype(indsp->accepts_cargo)>];
+					std::array<CargoSuffix, std::tuple_size_v<decltype(indsp->accepts_cargo)>> cargo_suffix{};
 
 					/* Measure the accepted cargoes, if any. */
-					GetAllCargoSuffixes(CARGOSUFFIX_IN, CST_FUND, nullptr, indtype, indsp, indsp->accepts_cargo, cargo_suffix);
+					GetAllCargoSuffixes(CargoSuffixDirection::In, CargoSuffixType::Fund, nullptr, indtype, indsp, indsp->accepts_cargo, cargo_suffix);
 					std::string cargostring = this->MakeCargoListString(indsp->accepts_cargo, cargo_suffix, STR_INDUSTRY_VIEW_REQUIRES_N_CARGO);
 					Dimension strdim = GetStringBoundingBox(cargostring);
 					if (strdim.width > max_minwidth) {
@@ -450,7 +463,7 @@ public:
 					d = maxdim(d, strdim);
 
 					/* Measure the produced cargoes, if any. */
-					GetAllCargoSuffixes(CARGOSUFFIX_OUT, CST_FUND, nullptr, indtype, indsp, indsp->produced_cargo, cargo_suffix);
+					GetAllCargoSuffixes(CargoSuffixDirection::Out, CargoSuffixType::Fund, nullptr, indtype, indsp, indsp->produced_cargo, cargo_suffix);
 					cargostring = this->MakeCargoListString(indsp->produced_cargo, cargo_suffix, STR_INDUSTRY_VIEW_PRODUCES_N_CARGO);
 					strdim = GetStringBoundingBox(cargostring);
 					if (strdim.width > max_minwidth) {
@@ -467,7 +480,7 @@ public:
 
 				/* Set it to something more sane :) */
 				height += extra_lines_prd + extra_lines_req + extra_lines_newgrf;
-				size.height = height * GetCharacterHeight(FS_NORMAL) + padding.height;
+				size.height = height * GetCharacterHeight(FontSize::Normal) + padding.height;
 				size.width = d.width + padding.width;
 				break;
 			}
@@ -490,7 +503,7 @@ public:
 			case WID_DPI_FUND_WIDGET:
 				/* Raw industries might be prospected. Show this fact by changing the string
 				 * In Editor, you just build, while ingame, or you fund or you prospect */
-				if (_game_mode == GM_EDITOR) {
+				if (_game_mode == GameMode::Editor) {
 					/* We've chosen many random industries but no industries have been specified */
 					return GetString(STR_FUND_INDUSTRY_BUILD_NEW_INDUSTRY);
 				}
@@ -528,19 +541,19 @@ public:
 
 					Rect tr = text;
 					if (badge_column_widths.size() >= 1 && badge_column_widths[0] > 0) {
-						DrawBadgeColumn(tr.WithWidth(badge_column_widths[0], rtl), 0, this->badge_classes, indsp->badges, GSF_INDUSTRIES, std::nullopt, PAL_NONE);
+						DrawBadgeColumn(tr.WithWidth(badge_column_widths[0], rtl), 0, this->badge_classes, indsp->badges, GrfSpecFeature::Industries, std::nullopt, PAL_NONE);
 						tr = tr.Indent(badge_column_widths[0], rtl);
 					}
 					if (badge_column_widths.size() >= 2 && badge_column_widths[1] > 0) {
-						DrawBadgeColumn(tr.WithWidth(badge_column_widths[1], !rtl), 0, this->badge_classes, indsp->badges, GSF_INDUSTRIES, std::nullopt, PAL_NONE);
+						DrawBadgeColumn(tr.WithWidth(badge_column_widths[1], !rtl), 0, this->badge_classes, indsp->badges, GrfSpecFeature::Industries, std::nullopt, PAL_NONE);
 						tr = tr.Indent(badge_column_widths[1], !rtl);
 					}
 
 					/* Draw the name of the industry in white is selected, otherwise, in orange */
-					DrawString(tr, indsp->name, selected ? TC_WHITE : TC_ORANGE);
+					DrawString(tr, indsp->name, selected ? TextColour::White : TextColour::Orange);
 					GfxFillRect(icon, selected ? PC_WHITE : PC_BLACK);
 					GfxFillRect(icon.Shrink(WidgetDimensions::scaled.bevel), indsp->map_colour);
-					DrawString(tr, GetString(STR_JUST_COMMA, Industry::GetIndustryTypeCount(type)), TC_BLACK, SA_RIGHT, false, FS_SMALL);
+					DrawString(tr, GetString(STR_JUST_COMMA, Industry::GetIndustryTypeCount(type)), TextColour::Black, SA_RIGHT, false, FontSize::Small);
 
 					text = text.Translate(0, this->resize.step_height);
 					icon = icon.Translate(0, this->resize.step_height);
@@ -558,40 +571,39 @@ public:
 
 				const IndustrySpec *indsp = GetIndustrySpec(this->selected_type);
 
-				if (_game_mode != GM_EDITOR) {
+				if (_game_mode != GameMode::Editor) {
 					DrawString(ir, GetString(STR_FUND_INDUSTRY_INDUSTRY_BUILD_COST, indsp->GetConstructionCost()));
-					ir.top += GetCharacterHeight(FS_NORMAL);
+					ir.top += GetCharacterHeight(FontSize::Normal);
 				}
 
-				CargoSuffix cargo_suffix[std::tuple_size_v<decltype(indsp->accepts_cargo)>];
+				std::array<CargoSuffix, std::tuple_size_v<decltype(indsp->accepts_cargo)>> cargo_suffix{};
 
 				/* Draw the accepted cargoes, if any. Otherwise, will print "Nothing". */
-				GetAllCargoSuffixes(CARGOSUFFIX_IN, CST_FUND, nullptr, this->selected_type, indsp, indsp->accepts_cargo, cargo_suffix);
+				GetAllCargoSuffixes(CargoSuffixDirection::In, CargoSuffixType::Fund, nullptr, this->selected_type, indsp, indsp->accepts_cargo, cargo_suffix);
 				std::string cargostring = this->MakeCargoListString(indsp->accepts_cargo, cargo_suffix, STR_INDUSTRY_VIEW_REQUIRES_N_CARGO);
 				ir.top = DrawStringMultiLine(ir, cargostring);
 
 				/* Draw the produced cargoes, if any. Otherwise, will print "Nothing". */
-				GetAllCargoSuffixes(CARGOSUFFIX_OUT, CST_FUND, nullptr, this->selected_type, indsp, indsp->produced_cargo, cargo_suffix);
+				GetAllCargoSuffixes(CargoSuffixDirection::Out, CargoSuffixType::Fund, nullptr, this->selected_type, indsp, indsp->produced_cargo, cargo_suffix);
 				cargostring = this->MakeCargoListString(indsp->produced_cargo, cargo_suffix, STR_INDUSTRY_VIEW_PRODUCES_N_CARGO);
 				ir.top = DrawStringMultiLine(ir, cargostring);
 
-				ir.top = DrawBadgeNameList(ir, indsp->badges, GSF_INDUSTRIES);
+				ir.top = DrawBadgeNameList(ir, indsp->badges, GrfSpecFeature::Industries);
 
 				/* Get the additional purchase info text, if it has not already been queried. */
 				if (indsp->callback_mask.Test(IndustryCallbackMask::FundMoreText)) {
-					std::array<int32_t, 16> regs100;
-					uint16_t callback_res = GetIndustryCallback(CBID_INDUSTRY_FUND_MORE_TEXT, 0, 0, nullptr, this->selected_type, INVALID_TILE, regs100);
+					uint16_t callback_res = GetIndustryCallback(CBID_INDUSTRY_FUND_MORE_TEXT, 0, 0, nullptr, this->selected_type, INVALID_TILE);
 					if (callback_res != CALLBACK_FAILED && callback_res != 0x400) {
 						std::string str;
 						if (callback_res == 0x40F) {
-							str = GetGRFStringWithTextStack(indsp->grf_prop.grffile, static_cast<GRFStringID>(regs100[0]), std::span{regs100}.subspan(1));
+							str = GetGRFStringWithTextStack(indsp->grf_prop.grffile, static_cast<GRFStringID>(GetRegister(0x100)), GetRegisterRange(0x101));
 						} else if (callback_res > 0x400) {
 							ErrorUnknownCallbackResult(indsp->grf_prop.grfid, CBID_INDUSTRY_FUND_MORE_TEXT, callback_res);
 						} else {
-							str = GetGRFStringWithTextStack(indsp->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback_res, regs100);
+							str = GetGRFStringWithTextStack(indsp->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback_res, GetRegisterRange(0x100));
 						}
 						if (!str.empty()) {
-							DrawStringMultiLine(ir, str, TC_YELLOW);
+							DrawStringMultiLine(ir, str, TextColour::Yellow);
 						}
 					}
 				}
@@ -605,13 +617,13 @@ public:
 		if (!confirmed) return;
 
 		if (Town::GetNumItems() == 0) {
-			ShowErrorMessage(GetEncodedString(STR_ERROR_CAN_T_GENERATE_INDUSTRIES), GetEncodedString(STR_ERROR_MUST_FOUND_TOWN_FIRST), WL_INFO);
+			ShowErrorMessage(GetEncodedString(STR_ERROR_CAN_T_GENERATE_INDUSTRIES), GetEncodedString(STR_ERROR_MUST_FOUND_TOWN_FIRST), WarningLevel::Info);
 		} else {
-			Backup<bool> old_generating_world(_generating_world, true);
+			CountLandTiles();
+			AutoRestoreBackup old_generating_world(_generating_world, true);
 			BasePersistentStorageArray::SwitchMode(PSM_ENTER_GAMELOOP);
 			GenerateIndustries();
 			BasePersistentStorageArray::SwitchMode(PSM_LEAVE_GAMELOOP);
-			old_generating_world.Restore();
 		}
 	}
 
@@ -622,20 +634,20 @@ public:
 		for (Industry *industry : Industry::Iterate()) delete industry;
 
 		/* Clear farmland. */
-		for (const auto tile : Map::Iterate()) {
-			if (IsTileType(tile, MP_CLEAR) && GetClearGround(tile) == CLEAR_FIELDS) {
-				MakeClear(tile, CLEAR_GRASS, 3);
+		for (TileIndex tile(0); tile < Map::Size(); ++tile) {
+			if (IsTileType(tile, TileType::Clear) && GetClearGround(tile) == ClearGround::Fields) {
+				MakeClear(tile, ClearGround::Grass, 3);
 			}
 		}
 
 		MarkWholeScreenDirty();
 	}
 
-	void OnClick([[maybe_unused]] Point pt, WidgetID widget, [[maybe_unused]] int click_count) override
+	void OnClick(Point pt, WidgetID widget, int click_count) override
 	{
 		switch (widget) {
 			case WID_DPI_CREATE_RANDOM_INDUSTRIES_WIDGET: {
-				assert(_game_mode == GM_EDITOR);
+				assert(_game_mode == GameMode::Editor);
 				this->HandleButtonClick(WID_DPI_CREATE_RANDOM_INDUSTRIES_WIDGET);
 				ShowQuery(
 					GetEncodedString(STR_FUND_INDUSTRY_MANY_RANDOM_INDUSTRIES_CAPTION),
@@ -645,7 +657,7 @@ public:
 			}
 
 			case WID_DPI_REMOVE_ALL_INDUSTRIES_WIDGET: {
-				assert(_game_mode == GM_EDITOR);
+				assert(_game_mode == GameMode::Editor);
 				this->HandleButtonClick(WID_DPI_REMOVE_ALL_INDUSTRIES_WIDGET);
 				ShowQuery(
 					GetEncodedString(STR_FUND_INDUSTRY_REMOVE_ALL_INDUSTRIES_CAPTION),
@@ -657,21 +669,7 @@ public:
 			case WID_DPI_MATRIX_WIDGET: {
 				auto it = this->vscroll->GetScrolledItemFromWidget(this->list, pt.y, this, WID_DPI_MATRIX_WIDGET);
 				if (it != this->list.end()) { // Is it within the boundaries of available data?
-					this->selected_type = *it;
-					this->UpdateAvailability();
-
-					const IndustrySpec *indsp = GetIndustrySpec(this->selected_type);
-
-					this->SetDirty();
-
-					if (_thd.GetCallbackWnd() == this &&
-							((_game_mode != GM_EDITOR && _settings_game.construction.raw_industry_construction == 2 && indsp != nullptr && indsp->IsRawIndustry()) || !this->enabled)) {
-						/* Reset the button state if going to prospecting or "build many industries" */
-						this->RaiseButtons();
-						ResetObjectToPlace();
-					}
-
-					this->SetButtons();
+					this->SelectIndustryType(*it);
 					if (this->enabled && click_count > 1) this->OnClick(pt, WID_DPI_FUND_WIDGET, 1);
 				}
 				break;
@@ -683,8 +681,8 @@ public:
 
 			case WID_DPI_FUND_WIDGET: {
 				if (this->selected_type != IT_INVALID) {
-					if (_game_mode != GM_EDITOR && _settings_game.construction.raw_industry_construction == 2 && GetIndustrySpec(this->selected_type)->IsRawIndustry()) {
-						Command<CMD_BUILD_INDUSTRY>::Post(STR_ERROR_CAN_T_CONSTRUCT_THIS_INDUSTRY, TileIndex{}, this->selected_type, 0, false, InteractiveRandom());
+					if (_game_mode != GameMode::Editor && _settings_game.construction.raw_industry_construction == 2 && GetIndustrySpec(this->selected_type)->IsRawIndustry()) {
+						Command<Commands::BuildIndustry>::Post(STR_ERROR_CAN_T_CONSTRUCT_THIS_INDUSTRY, TileIndex{}, this->selected_type, 0, false, InteractiveRandom());
 						this->HandleButtonClick(WID_DPI_FUND_WIDGET);
 					} else {
 						HandlePlacePushButton(this, WID_DPI_FUND_WIDGET, SPR_CURSOR_INDUSTRY, HT_RECT);
@@ -695,6 +693,33 @@ public:
 		}
 	}
 
+	void ScrollToSelected()
+	{
+		auto iter = std::find(this->list.begin(), this->list.end(), this->selected_type);
+		if (iter != this->list.end()) {
+			this->vscroll->ScrollTowards(iter - this->list.begin());
+		}
+	}
+
+	void SelectIndustryType(IndustryType type)
+	{
+		this->selected_type = type;
+		this->UpdateAvailability();
+
+		const IndustrySpec *indsp = GetIndustrySpec(this->selected_type);
+
+		this->SetDirty();
+
+		if (_thd.GetCallbackWnd() == this &&
+				((_game_mode != GameMode::Editor && _settings_game.construction.raw_industry_construction == 2 && indsp != nullptr && indsp->IsRawIndustry()) || !this->enabled)) {
+			/* Reset the button state if going to prospecting or "build many industries" */
+			this->RaiseButtons();
+			ResetObjectToPlace();
+		}
+
+		this->SetButtons();
+	}
+
 	void OnResize() override
 	{
 		/* Adjust the number of items in the matrix depending of the resize */
@@ -703,32 +728,17 @@ public:
 
 	void OnPlaceObject([[maybe_unused]] Point pt, TileIndex tile) override
 	{
-		VpStartPlaceSizing(tile, VPM_SINGLE_TILE, DDSP_SINGLE_TILE);
-		MoveAllWindowsOffScreen();
-	}
-
-	void OnPlaceDrag(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt) override
-	{
-		VpSelectTilesWithMethod(pt.x, pt.y, select_method);
-	}
-
-	void OnPlaceMouseUp(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt, TileIndex start_tile, TileIndex end_tile) override
-	{
-		if (pt.x == -1) return;
-		assert(end_tile == start_tile);
-
-		MoveAllHiddenWindowsBackToScreen();
 		bool success = true;
 		/* We do not need to protect ourselves against "Random Many Industries" in this mode */
 		const IndustrySpec *indsp = GetIndustrySpec(this->selected_type);
 		uint32_t seed = InteractiveRandom();
 		uint32_t layout_index = InteractiveRandomRange((uint32_t)indsp->layouts.size());
 
-		if (_game_mode == GM_EDITOR) {
+		if (_game_mode == GameMode::Editor) {
 			/* Show error if no town exists at all */
 			if (Town::GetNumItems() == 0) {
 				ShowErrorMessage(GetEncodedString(STR_ERROR_CAN_T_BUILD_HERE, indsp->name),
-					GetEncodedString(STR_ERROR_MUST_FOUND_TOWN_FIRST), WL_INFO, pt.x, pt.y);
+					GetEncodedString(STR_ERROR_MUST_FOUND_TOWN_FIRST), WarningLevel::Info, pt.x, pt.y);
 				return;
 			}
 
@@ -736,17 +746,18 @@ public:
 			AutoRestoreBackup backup_generating_world(_generating_world, true);
 			AutoRestoreBackup backup_ignore_industry_restritions(_ignore_industry_restrictions, true);
 
-			Command<CMD_BUILD_INDUSTRY>::Post(STR_ERROR_CAN_T_CONSTRUCT_THIS_INDUSTRY, end_tile, this->selected_type, layout_index, false, seed);
+			Command<Commands::BuildIndustry>::Post(STR_ERROR_CAN_T_CONSTRUCT_THIS_INDUSTRY, tile, this->selected_type, layout_index, false, seed);
 		} else {
-			success = Command<CMD_BUILD_INDUSTRY>::Post(STR_ERROR_CAN_T_CONSTRUCT_THIS_INDUSTRY, end_tile, this->selected_type, layout_index, false, seed);
+			success = Command<Commands::BuildIndustry>::Post(STR_ERROR_CAN_T_CONSTRUCT_THIS_INDUSTRY, tile, this->selected_type, layout_index, false, seed);
 		}
 
 		/* If an industry has been built, just reset the cursor and the system */
 		if (success && !_settings_client.gui.persistent_buildingtools) ResetObjectToPlace();
 	}
 
-	const IntervalTimer<TimerWindow> update_interval = {std::chrono::seconds(3), [this](auto) {
-		if (_game_mode == GM_EDITOR) return;
+	void OnHundredthTick() override
+	{
+		if (_game_mode == GameMode::Editor) return;
 		if (this->selected_type == IT_INVALID) return;
 
 		bool enabled = this->enabled;
@@ -755,7 +766,7 @@ public:
 			this->SetButtons();
 			this->SetDirty();
 		}
-	}};
+	}
 
 	void OnTimeout() override
 	{
@@ -764,7 +775,6 @@ public:
 
 	void OnPlaceObjectAbort() override
 	{
-		MoveAllHiddenWindowsBackToScreen();
 		this->RaiseButtons();
 	}
 
@@ -782,11 +792,30 @@ public:
 	}
 };
 
+static BuildIndustryWindow *CreateBuildIndustryWindow()
+{
+	if (_game_mode != GameMode::Editor && !Company::IsValidID(_local_company)) return nullptr;
+	Window *existing = BringWindowToFrontById(WindowClass::BuildIndustry, 0);
+	if (existing != nullptr) return static_cast<BuildIndustryWindow *>(existing);
+	return new BuildIndustryWindow();
+}
+
 void ShowBuildIndustryWindow()
 {
-	if (_game_mode != GM_EDITOR && !Company::IsValidID(_local_company)) return;
-	CloseToolbarLinkedWindows();
-	new BuildIndustryWindow();
+	CreateBuildIndustryWindow();
+}
+
+void ShowBuildIndustryWindowForIndustryType(IndustryType industry_type)
+{
+	const IndustrySpec *indsp = GetIndustrySpec(industry_type);
+	if (!indsp->enabled) return;
+	if (_game_mode != GameMode::Editor && indsp->IsRawIndustry() && _settings_game.construction.raw_industry_construction == 0) return;
+
+	BuildIndustryWindow *w = CreateBuildIndustryWindow();
+	if (w == nullptr) return;
+
+	w->SelectIndustryType(industry_type);
+	w->ScrollToSelected();
 }
 
 static void UpdateIndustryProduction(Industry *i);
@@ -795,7 +824,7 @@ static inline bool IsProductionAlterable(const Industry *i)
 {
 	const IndustrySpec *is = GetIndustrySpec(i->type);
 	bool has_prod = std::any_of(std::begin(is->production_rate), std::end(is->production_rate), [](auto rate) { return rate != 0; });
-	return ((_game_mode == GM_EDITOR || _cheats.setup_prod.value) &&
+	return ((_game_mode == GameMode::Editor || _cheats.setup_prod.value) &&
 			(has_prod || is->IsRawIndustry()) &&
 			!_networking);
 }
@@ -803,24 +832,23 @@ static inline bool IsProductionAlterable(const Industry *i)
 class IndustryViewWindow : public Window
 {
 	/** Modes for changing production */
-	enum Editability : uint8_t {
-		EA_NONE,              ///< Not alterable
-		EA_MULTIPLIER,        ///< Allow changing the production multiplier
-		EA_RATE,              ///< Allow changing the production rates
+	enum class Editability : uint8_t {
+		None, ///< Not alterable
+		Multiplier, ///< Allow changing the production multiplier
+		Rate, ///< Allow changing the production rates
 	};
 
-	/** Specific lines in the info panel */
-	enum InfoLine : uint8_t {
-		IL_NONE,              ///< No line
-		IL_MULTIPLIER,        ///< Production multiplier
-		IL_RATE1,             ///< Production rate of cargo 1
-		IL_RATE2,             ///< Production rate of cargo 2
-	};
+	/** Clicked cargo line in the info panel. */
+	using ClickedCargoLine = int8_t;
+
+	/* Special clicked cargo line values. */
+	static constexpr ClickedCargoLine CCL_NONE = -1; ///< No cargo line has been clicked.
+	static constexpr ClickedCargoLine CCL_MULTIPLIER = -2; ///< Product multiplier line is clicked.
 
 	Dimension cargo_icon_size{}; ///< Largest cargo icon dimension.
 	Editability editable{}; ///< Mode for changing production
-	InfoLine editbox_line = IL_NONE; ///< The line clicked to open the edit box
-	InfoLine clicked_line = IL_NONE; ///< The line of the button that has been clicked
+	ClickedCargoLine editbox_line = CCL_NONE; ///< The line clicked to open the edit box
+	ClickedCargoLine clicked_line = CCL_NONE; ///< The line of the button that has been clicked
 	uint8_t clicked_button = 0; ///< The button that has been clicked (to raise)
 	int production_offset_y = 0; ///< The offset of the production texts/buttons
 	int info_height = 0; ///< Height needed for the #WID_IV_INFO panel
@@ -829,28 +857,31 @@ class IndustryViewWindow : public Window
 public:
 	IndustryViewWindow(WindowDesc &desc, WindowNumber window_number) : Window(desc)
 	{
+		this->invalidation_policy = WindowInvalidationPolicy::QueueSingle;
 		this->flags.Set(WindowFlag::DisableVpScroll);
-		this->info_height = WidgetDimensions::scaled.framerect.Vertical() + 2 * GetCharacterHeight(FS_NORMAL); // Info panel has at least two lines text.
+		this->info_height = WidgetDimensions::scaled.framerect.Vertical() + 2 * GetCharacterHeight(FontSize::Normal); // Info panel has at least two lines text.
+
+		const Industry *i = Industry::Get(window_number);
 
 		this->InitNested(window_number);
 		NWidgetViewport *nvp = this->GetWidget<NWidgetViewport>(WID_IV_VIEWPORT);
-		nvp->InitializeViewport(this, Industry::Get(window_number)->location.GetCenterTile(), ScaleZoomGUI(ZoomLevel::Industry));
+		nvp->InitializeViewport(this, i->location.GetCenterTile().base(), ScaleZoomGUI(ZoomLevel::Industry));
 
-		const Industry *i = Industry::Get(window_number);
 		if (!i->IsCargoProduced() && !i->IsCargoAccepted()) this->DisableWidget(WID_IV_GRAPH);
 
 		this->InvalidateData();
 	}
 
-	~IndustryViewWindow()
+	void Close(int data = 0) override
 	{
-		CloseWindowById(WC_INDUSTRY_PRODUCTION, this->window_number, false);
+		CloseWindowById(WindowClass::IndustryProductionGraph, this->window_number, false);
+		this->Window::Close(data);
 	}
 
 	void OnInit() override
 	{
 		/* This only used when the cheat to alter industry production is enabled */
-		this->cheat_line_height = std::max(SETTING_BUTTON_HEIGHT + WidgetDimensions::scaled.vsep_normal, GetCharacterHeight(FS_NORMAL));
+		this->cheat_line_height = std::max(SETTING_BUTTON_HEIGHT + WidgetDimensions::scaled.vsep_normal, GetCharacterHeight(FontSize::Normal));
 		this->cargo_icon_size = GetLargestCargoIconSize();
 	}
 
@@ -874,7 +905,7 @@ public:
 		bool rtl = _current_text_dir == TD_RTL;
 		SpriteID icon = CargoSpec::Get(cargo_type)->GetCargoIcon();
 		Dimension d = GetSpriteSize(icon);
-		Rect ir = r.WithWidth(this->cargo_icon_size.width, rtl).WithHeight(GetCharacterHeight(FS_NORMAL));
+		Rect ir = r.WithWidth(this->cargo_icon_size.width, rtl).WithHeight(GetCharacterHeight(FontSize::Normal));
 		DrawSprite(icon, PAL_NONE, CentreBounds(ir.left, ir.right, d.width), CentreBounds(ir.top, ir.bottom, this->cargo_icon_size.height));
 	}
 
@@ -882,10 +913,10 @@ public:
 	{
 		auto params = MakeParameters(CargoSpec::Get(ac.cargo)->name, ac.cargo, ac.waiting, suffix.text);
 		switch (suffix.display) {
-			case CSD_CARGO_AMOUNT_TEXT: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_SUFFIX, params);
-			case CSD_CARGO_TEXT: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_SUFFIX, params);
-			case CSD_CARGO_AMOUNT: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_NOSUFFIX, params);
-			case CSD_CARGO: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_NOSUFFIX, params);
+			case CargoSuffixDisplay::AmountAndText: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_SUFFIX, params);
+			case CargoSuffixDisplay::Text: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_SUFFIX, params);
+			case CargoSuffixDisplay::Amount: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_NOSUFFIX, params);
+			case CargoSuffixDisplay::None: return GetStringWithArgs(STR_INDUSTRY_VIEW_ACCEPT_CARGO_NOSUFFIX, params);
 			default: NOT_REACHED();
 		}
 	}
@@ -909,99 +940,102 @@ public:
 
 		if (i->prod_level == PRODLEVEL_CLOSURE) {
 			DrawString(ir, STR_INDUSTRY_VIEW_INDUSTRY_ANNOUNCED_CLOSURE);
-			ir.top += GetCharacterHeight(FS_NORMAL) + WidgetDimensions::scaled.vsep_wide;
+			ir.top += GetCharacterHeight(FontSize::Normal) + WidgetDimensions::scaled.vsep_wide;
 		}
 
 		const int label_indent = WidgetDimensions::scaled.hsep_normal + this->cargo_icon_size.width;
 		bool stockpiling = ind->callback_mask.Any({IndustryCallbackMask::ProductionCargoArrival, IndustryCallbackMask::Production256Ticks});
 
-		for (const auto &a : i->accepted) {
-			if (!IsValidCargoType(a.cargo)) continue;
+		for (const auto &a : i->Accepted()) {
+			if (a.cargo == INVALID_CARGO) continue;
 			has_accept = true;
 			if (first) {
 				DrawString(ir, STR_INDUSTRY_VIEW_REQUIRES);
-				ir.top += GetCharacterHeight(FS_NORMAL);
+				ir.top += GetCharacterHeight(FontSize::Normal);
 				first = false;
 			}
 
 			DrawCargoIcon(ir, a.cargo);
 
 			CargoSuffix suffix;
-			GetCargoSuffix(CARGOSUFFIX_IN, CST_VIEW, i, i->type, ind, a.cargo, &a - i->accepted.data(), suffix);
+			GetCargoSuffix(CargoSuffixDirection::In, CargoSuffixType::View, i, i->type, ind, a.cargo, &a - i->accepted.get(), suffix);
 			/* if the industry is not stockpiling then don't show amount in the acceptance display. */
-			if (!stockpiling && suffix.display == CSD_CARGO_AMOUNT_TEXT) suffix.display = CSD_CARGO_TEXT;
-			if (!stockpiling && suffix.display == CSD_CARGO_AMOUNT) suffix.display = CSD_CARGO;
+			if (!stockpiling && suffix.display == CargoSuffixDisplay::AmountAndText) suffix.display = CargoSuffixDisplay::Text;
+			if (!stockpiling && suffix.display == CargoSuffixDisplay::Amount) suffix.display = CargoSuffixDisplay::None;
 
 			DrawString(ir.Indent(label_indent, rtl), this->GetAcceptedCargoString(a, suffix));
-			ir.top += GetCharacterHeight(FS_NORMAL);
+			ir.top += GetCharacterHeight(FontSize::Normal);
 		}
 
-		int line_height = this->editable == EA_RATE ? this->cheat_line_height : GetCharacterHeight(FS_NORMAL);
-		int text_y_offset = (line_height - GetCharacterHeight(FS_NORMAL)) / 2;
+		int line_height = this->editable == Editability::Rate ? this->cheat_line_height : GetCharacterHeight(FontSize::Normal);
+		int text_y_offset = (line_height - GetCharacterHeight(FontSize::Normal)) / 2;
 		int button_y_offset = (line_height - SETTING_BUTTON_HEIGHT) / 2;
 		first = true;
-		for (const auto &p : i->produced) {
-			if (!IsValidCargoType(p.cargo)) continue;
+		for (const auto &p : i->Produced()) {
+			if (p.cargo == INVALID_CARGO) continue;
 			if (first) {
 				if (has_accept) ir.top += WidgetDimensions::scaled.vsep_wide;
-				DrawString(ir, TimerGameEconomy::UsingWallclockUnits() ? STR_INDUSTRY_VIEW_PRODUCTION_LAST_MINUTE_TITLE : STR_INDUSTRY_VIEW_PRODUCTION_LAST_MONTH_TITLE);
-				ir.top += GetCharacterHeight(FS_NORMAL);
-				if (this->editable == EA_RATE) this->production_offset_y = ir.top;
+				if (EconTime::UsingWallclockUnits()) {
+					DrawString(ir, ReplaceWallclockMinutesUnit() ? STR_INDUSTRY_VIEW_PRODUCTION_LAST_PRODUCTION_INTERVAL_TITLE : STR_INDUSTRY_VIEW_PRODUCTION_LAST_MINUTE_TITLE);
+				} else {
+					DrawString(ir, STR_INDUSTRY_VIEW_PRODUCTION_LAST_MONTH_TITLE);
+				}
+				ir.top += GetCharacterHeight(FontSize::Normal);
+				if (this->editable == Editability::Rate) this->production_offset_y = ir.top;
 				first = false;
 			}
 
 			DrawCargoIcon(ir, p.cargo);
 
 			CargoSuffix suffix;
-			GetCargoSuffix(CARGOSUFFIX_OUT, CST_VIEW, i, i->type, ind, p.cargo, &p - i->produced.data(), suffix);
+			GetCargoSuffix(CargoSuffixDirection::Out, CargoSuffixType::View, i, i->type, ind, p.cargo, &p - i->produced.get(), suffix);
 
-			DrawString(ir.Indent(label_indent + (this->editable == EA_RATE ? SETTING_BUTTON_WIDTH + WidgetDimensions::scaled.hsep_normal : 0), rtl).Translate(0, text_y_offset),
+			DrawString(ir.Indent(label_indent + (this->editable == Editability::Rate ? SETTING_BUTTON_WIDTH + WidgetDimensions::scaled.hsep_normal : 0), rtl).Translate(0, text_y_offset),
 				GetString(STR_INDUSTRY_VIEW_TRANSPORTED, p.cargo, p.history[LAST_MONTH].production, suffix.text, ToPercent8(p.history[LAST_MONTH].PctTransported())));
 			/* Let's put out those buttons.. */
-			if (this->editable == EA_RATE) {
-				DrawArrowButtons(ir.Indent(label_indent, rtl).WithWidth(SETTING_BUTTON_WIDTH, rtl).left, ir.top + button_y_offset, COLOUR_YELLOW, (this->clicked_line == IL_RATE1 + (&p - i->produced.data())) ? this->clicked_button : 0,
+			if (this->editable == Editability::Rate) {
+				DrawArrowButtons(ir.Indent(label_indent, rtl).WithWidth(SETTING_BUTTON_WIDTH, rtl).left, ir.top + button_y_offset, Colours::Yellow, (this->clicked_line == (&p - i->produced.get())) ? this->clicked_button : 0,
 						p.rate > 0, p.rate < 255);
 			}
 			ir.top += line_height;
 		}
 
 		/* Display production multiplier if editable */
-		if (this->editable == EA_MULTIPLIER) {
+		if (this->editable == Editability::Multiplier) {
 			line_height = this->cheat_line_height;
-			text_y_offset = (line_height - GetCharacterHeight(FS_NORMAL)) / 2;
+			text_y_offset = (line_height - GetCharacterHeight(FontSize::Normal)) / 2;
 			button_y_offset = (line_height - SETTING_BUTTON_HEIGHT) / 2;
 			ir.top += WidgetDimensions::scaled.vsep_wide;
 			this->production_offset_y = ir.top;
 			DrawString(ir.Indent(label_indent + SETTING_BUTTON_WIDTH + WidgetDimensions::scaled.hsep_normal, rtl).Translate(0, text_y_offset),
 					GetString(STR_INDUSTRY_VIEW_PRODUCTION_LEVEL, RoundDivSU(i->prod_level * 100, PRODLEVEL_DEFAULT)));
-			DrawArrowButtons(ir.Indent(label_indent, rtl).WithWidth(SETTING_BUTTON_WIDTH, rtl).left, ir.top + button_y_offset, COLOUR_YELLOW, (this->clicked_line == IL_MULTIPLIER) ? this->clicked_button : 0,
+			DrawArrowButtons(ir.Indent(label_indent, rtl).WithWidth(SETTING_BUTTON_WIDTH, rtl).left, ir.top + button_y_offset, Colours::Yellow, (this->clicked_line == CCL_MULTIPLIER) ? this->clicked_button : 0,
 					i->prod_level > PRODLEVEL_MINIMUM, i->prod_level < PRODLEVEL_MAXIMUM);
 			ir.top += line_height;
 		}
 
 		/* Get the extra message for the GUI */
 		if (ind->callback_mask.Test(IndustryCallbackMask::WindowMoreText)) {
-			std::array<int32_t, 16> regs100;
-			uint16_t callback_res = GetIndustryCallback(CBID_INDUSTRY_WINDOW_MORE_TEXT, 0, 0, i, i->type, i->location.tile, regs100);
+			uint16_t callback_res = GetIndustryCallback(CBID_INDUSTRY_WINDOW_MORE_TEXT, 0, 0, i, i->type, i->location.tile);
 			if (callback_res != CALLBACK_FAILED && callback_res != 0x400) {
 				std::string str;
 				if (callback_res == 0x40F) {
-					str = GetGRFStringWithTextStack(ind->grf_prop.grffile, static_cast<GRFStringID>(regs100[0]), std::span{regs100}.subspan(1));
+					str = GetGRFStringWithTextStack(ind->grf_prop.grffile, static_cast<GRFStringID>(GetRegister(0x100)), GetRegisterRange(0x101));
 				} else if (callback_res > 0x400) {
 					ErrorUnknownCallbackResult(ind->grf_prop.grfid, CBID_INDUSTRY_WINDOW_MORE_TEXT, callback_res);
 				} else {
-					str = GetGRFStringWithTextStack(ind->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback_res, regs100);
+					str = GetGRFStringWithTextStack(ind->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback_res, GetRegisterRange(0x100));
 				}
 				if (!str.empty()) {
 					ir.top += WidgetDimensions::scaled.vsep_wide;
-					ir.top = DrawStringMultiLine(ir, str, TC_YELLOW);
+					ir.top = DrawStringMultiLine(ir, str, TextColour::Yellow);
 				}
 			}
 		}
 
 		if (!i->text.empty()) {
 			ir.top += WidgetDimensions::scaled.vsep_wide;
-			ir.top = DrawStringMultiLine(ir, i->text.GetDecodedString(), TC_BLACK);
+			ir.top = DrawStringMultiLine(ir, i->text.GetDecodedString(), TextColour::Black);
 		}
 
 		/* Return required bottom position, the last pixel row plus some padding. */
@@ -1025,30 +1059,30 @@ public:
 		switch (widget) {
 			case WID_IV_INFO: {
 				Industry *i = Industry::Get(this->window_number);
-				InfoLine line = IL_NONE;
+				ClickedCargoLine line = CCL_NONE;
 
 				switch (this->editable) {
-					case EA_NONE: break;
+					case Editability::None: break;
 
-					case EA_MULTIPLIER:
-						if (IsInsideBS(pt.y, this->production_offset_y, this->cheat_line_height)) line = IL_MULTIPLIER;
+					case Editability::Multiplier:
+						if (IsInsideBS(pt.y, this->production_offset_y, this->cheat_line_height)) line = CCL_MULTIPLIER;
 						break;
 
-					case EA_RATE:
+					case Editability::Rate:
 						if (pt.y >= this->production_offset_y) {
 							int row = (pt.y - this->production_offset_y) / this->cheat_line_height;
-							for (auto itp = std::begin(i->produced); itp != std::end(i->produced); ++itp) {
-								if (!IsValidCargoType(itp->cargo)) continue;
+							for (const auto &p : i->Produced()) {
+								if (p.cargo == INVALID_CARGO) continue;
 								row--;
 								if (row < 0) {
-									line = (InfoLine)(IL_RATE1 + (itp - std::begin(i->produced)));
+									line = (&p - i->produced.get());
 									break;
 								}
 							}
 						}
 						break;
 				}
-				if (line == IL_NONE) return;
+				if (line == CCL_NONE) return;
 
 				bool rtl = _current_text_dir == TD_RTL;
 				Rect r = this->GetWidget<NWidgetBase>(widget)->GetCurrentRect().Shrink(WidgetDimensions::scaled.framerect).Indent(this->cargo_icon_size.width + WidgetDimensions::scaled.hsep_normal, rtl);
@@ -1057,7 +1091,7 @@ public:
 					/* Clicked buttons, decrease or increase production */
 					bool decrease = r.WithWidth(SETTING_BUTTON_WIDTH / 2, rtl).Contains(pt);
 					switch (this->editable) {
-						case EA_MULTIPLIER:
+						case Editability::Multiplier:
 							if (decrease) {
 								if (i->prod_level <= PRODLEVEL_MINIMUM) return;
 								i->prod_level = static_cast<uint8_t>(std::max<uint>(i->prod_level / 2, PRODLEVEL_MINIMUM));
@@ -1067,15 +1101,15 @@ public:
 							}
 							break;
 
-						case EA_RATE:
+						case Editability::Rate:
 							if (decrease) {
-								if (i->produced[line - IL_RATE1].rate <= 0) return;
-								i->produced[line - IL_RATE1].rate = std::max(i->produced[line - IL_RATE1].rate / 2, 0);
+								if (i->produced[line].rate <= 0) return;
+								i->produced[line].rate = std::max(i->produced[line].rate / 2, 0);
 							} else {
-								if (i->produced[line - IL_RATE1].rate >= 255) return;
+								if (i->produced[line].rate >= 255) return;
 								/* a zero production industry is unlikely to give anything but zero, so push it a little bit */
-								int new_prod = i->produced[line - IL_RATE1].rate == 0 ? 1 : i->produced[line - IL_RATE1].rate * 2;
-								i->produced[line - IL_RATE1].rate = ClampTo<uint8_t>(new_prod);
+								int new_prod = i->produced[line].rate == 0 ? 1 : i->produced[line].rate * 2;
+								i->produced[line].rate = ClampTo<uint8_t>(new_prod);
 							}
 							break;
 
@@ -1091,12 +1125,12 @@ public:
 					/* clicked the text */
 					this->editbox_line = line;
 					switch (this->editable) {
-						case EA_MULTIPLIER:
+						case Editability::Multiplier:
 							ShowQueryString(GetString(STR_JUST_INT, RoundDivSU(i->prod_level * 100, PRODLEVEL_DEFAULT)), STR_CONFIG_GAME_PRODUCTION_LEVEL, 10, this, CS_ALPHANUMERAL, {});
 							break;
 
-						case EA_RATE:
-							ShowQueryString(GetString(STR_JUST_INT, i->produced[line - IL_RATE1].rate * 8), STR_CONFIG_GAME_PRODUCTION, 10, this, CS_ALPHANUMERAL, {});
+						case Editability::Rate:
+							ShowQueryString(GetString(STR_JUST_INT, i->produced[line].rate * 8), STR_CONFIG_GAME_PRODUCTION, 10, this, CS_ALPHANUMERAL, {});
 							break;
 
 						default: NOT_REACHED();
@@ -1129,7 +1163,7 @@ public:
 
 	void OnTimeout() override
 	{
-		this->clicked_line = IL_NONE;
+		this->clicked_line = CCL_NONE;
 		this->clicked_button = 0;
 		this->SetDirty();
 	}
@@ -1147,7 +1181,7 @@ public:
 	void OnMouseWheel(int wheel, WidgetID widget) override
 	{
 		if (widget != WID_IV_VIEWPORT) return;
-		if (_settings_client.gui.scrollwheel_scrolling != SWS_OFF) {
+		if (_settings_client.gui.scrollwheel_scrolling != ScrollWheelScrolling::Off) {
 			DoZoomInOutWindow(wheel < 0 ? ZOOM_IN : ZOOM_OUT, this);
 		}
 	}
@@ -1160,14 +1194,14 @@ public:
 		auto value = ParseInteger(*str, 10, true);
 		if (!value.has_value()) return;
 		switch (this->editbox_line) {
-			case IL_NONE: NOT_REACHED();
+			case CCL_NONE: NOT_REACHED();
 
-			case IL_MULTIPLIER:
+			case CCL_MULTIPLIER:
 				i->prod_level = ClampU(RoundDivSU(*value * PRODLEVEL_DEFAULT, 100), PRODLEVEL_MINIMUM, PRODLEVEL_MAXIMUM);
 				break;
 
 			default:
-				i->produced[this->editbox_line - IL_RATE1].rate = ClampU(RoundDivSU(*value, 8), 0, 255);
+				i->produced[this->editbox_line].rate = ClampU(RoundDivSU(*value, 8), 0, 255);
 				break;
 		}
 		UpdateIndustryProduction(i);
@@ -1185,20 +1219,20 @@ public:
 		const Industry *i = Industry::Get(this->window_number);
 		if (IsProductionAlterable(i)) {
 			const IndustrySpec *ind = GetIndustrySpec(i->type);
-			this->editable = ind->UsesOriginalEconomy() ? EA_MULTIPLIER : EA_RATE;
+			this->editable = ind->UsesOriginalEconomy() ? Editability::Multiplier : Editability::Rate;
 		} else {
-			this->editable = EA_NONE;
+			this->editable = Editability::None;
 		}
 	}
 
 	bool IsNewGRFInspectable() const override
 	{
-		return ::IsNewGRFInspectable(GSF_INDUSTRIES, this->window_number);
+		return ::IsNewGRFInspectable(GrfSpecFeature::Industries, this->window_number);
 	}
 
 	void ShowNewGRFInspectWindow() const override
 	{
-		::ShowNewGRFInspectWindow(GSF_INDUSTRIES, this->window_number);
+		::ShowNewGRFInspectWindow(GrfSpecFeature::Industries, this->window_number);
 	}
 };
 
@@ -1207,9 +1241,9 @@ static void UpdateIndustryProduction(Industry *i)
 	const IndustrySpec *indspec = GetIndustrySpec(i->type);
 	if (indspec->UsesOriginalEconomy()) i->RecomputeProductionMultipliers();
 
-	for (auto &p : i->produced) {
-		if (IsValidCargoType(p.cargo)) {
-			p.history[LAST_MONTH].production = ScaleByCargoScale(8 * p.rate, false);
+	for (auto &p : i->Produced()) {
+		if (p.cargo != INVALID_CARGO) {
+			p.history[LAST_MONTH].production = _industry_cargo_scaler.Scale(8 * p.rate);
 		}
 	}
 }
@@ -1217,32 +1251,32 @@ static void UpdateIndustryProduction(Industry *i)
 /** Widget definition of the view industry gui */
 static constexpr std::initializer_list<NWidgetPart> _nested_industry_view_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_CREAM),
-		NWidget(WWT_CAPTION, COLOUR_CREAM, WID_IV_CAPTION),
-		NWidget(WWT_PUSHIMGBTN, COLOUR_CREAM, WID_IV_GOTO), SetAspect(WidgetDimensions::ASPECT_LOCATION), SetSpriteTip(SPR_GOTO_LOCATION, STR_INDUSTRY_VIEW_LOCATION_TOOLTIP),
-		NWidget(WWT_DEBUGBOX, COLOUR_CREAM),
-		NWidget(WWT_SHADEBOX, COLOUR_CREAM),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_CREAM),
-		NWidget(WWT_STICKYBOX, COLOUR_CREAM),
+		NWidget(WWT_CLOSEBOX, Colours::Cream),
+		NWidget(WWT_CAPTION, Colours::Cream, WID_IV_CAPTION),
+		NWidget(WWT_PUSHIMGBTN, Colours::Cream, WID_IV_GOTO), SetAspect(WidgetDimensions::ASPECT_LOCATION), SetSpriteTip(SPR_GOTO_LOCATION, STR_INDUSTRY_VIEW_LOCATION_TOOLTIP),
+		NWidget(WWT_DEBUGBOX, Colours::Cream),
+		NWidget(WWT_SHADEBOX, Colours::Cream),
+		NWidget(WWT_DEFSIZEBOX, Colours::Cream),
+		NWidget(WWT_STICKYBOX, Colours::Cream),
 	EndContainer(),
-	NWidget(WWT_PANEL, COLOUR_CREAM),
-		NWidget(WWT_INSET, COLOUR_CREAM), SetPadding(2, 2, 2, 2),
-			NWidget(NWID_VIEWPORT, INVALID_COLOUR, WID_IV_VIEWPORT), SetMinimalSize(254, 86), SetFill(1, 0), SetResize(1, 1),
+	NWidget(WWT_PANEL, Colours::Cream),
+		NWidget(WWT_INSET, Colours::Cream), SetPadding(2, 2, 2, 2),
+			NWidget(NWID_VIEWPORT, Colours::Invalid, WID_IV_VIEWPORT), SetMinimalSize(254, 86), SetFill(1, 0), SetResize(1, 1),
 		EndContainer(),
 	EndContainer(),
-	NWidget(WWT_PANEL, COLOUR_CREAM, WID_IV_INFO), SetMinimalSize(260, 0), SetMinimalTextLines(2, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+	NWidget(WWT_PANEL, Colours::Cream, WID_IV_INFO), SetMinimalSize(260, 0), SetMinimalTextLines(2, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_PUSHTXTBTN, COLOUR_CREAM, WID_IV_DISPLAY), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_INDUSTRY_DISPLAY_CHAIN, STR_INDUSTRY_DISPLAY_CHAIN_TOOLTIP),
-		NWidget(WWT_PUSHTXTBTN, COLOUR_CREAM, WID_IV_GRAPH), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_INDUSTRY_VIEW_CARGO_GRAPH, STR_INDUSTRY_VIEW_CARGO_GRAPH_TOOLTIP),
-		NWidget(WWT_RESIZEBOX, COLOUR_CREAM),
+		NWidget(WWT_PUSHTXTBTN, Colours::Cream, WID_IV_DISPLAY), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_INDUSTRY_DISPLAY_CHAIN, STR_INDUSTRY_DISPLAY_CHAIN_TOOLTIP),
+		NWidget(WWT_PUSHTXTBTN, Colours::Cream, WID_IV_GRAPH), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_INDUSTRY_VIEW_CARGO_GRAPH, STR_INDUSTRY_VIEW_CARGO_GRAPH_TOOLTIP),
+		NWidget(WWT_RESIZEBOX, Colours::Cream),
 	EndContainer(),
 };
 
 /** Window definition of the view industry gui */
-static WindowDesc _industry_view_desc(
-	WDP_AUTO, "view_industry", 260, 120,
-	WC_INDUSTRY_VIEW, WC_NONE,
+static WindowDesc _industry_view_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "view_industry", 260, 120,
+	WindowClass::IndustryView, WindowClass::None,
 	{},
 	_nested_industry_view_widgets
 );
@@ -1255,32 +1289,32 @@ void ShowIndustryViewWindow(IndustryID industry)
 /** Widget definition of the industry directory gui */
 static constexpr std::initializer_list<NWidgetPart> _nested_industry_directory_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
-		NWidget(WWT_CAPTION, COLOUR_BROWN, WID_ID_CAPTION),
-		NWidget(WWT_SHADEBOX, COLOUR_BROWN),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_BROWN),
-		NWidget(WWT_STICKYBOX, COLOUR_BROWN),
+		NWidget(WWT_CLOSEBOX, Colours::Brown),
+		NWidget(WWT_CAPTION, Colours::Brown, WID_ID_CAPTION),
+		NWidget(WWT_SHADEBOX, Colours::Brown),
+		NWidget(WWT_DEFSIZEBOX, Colours::Brown),
+		NWidget(WWT_STICKYBOX, Colours::Brown),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
 		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_TEXTBTN, COLOUR_BROWN, WID_ID_DROPDOWN_ORDER), SetSizingType(NWST_BUTTON), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER),
-				NWidget(WWT_DROPDOWN, COLOUR_BROWN, WID_ID_DROPDOWN_CRITERIA), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
-				NWidget(WWT_EDITBOX, COLOUR_BROWN, WID_ID_FILTER), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_LIST_FILTER_OSKTITLE, STR_LIST_FILTER_TOOLTIP),
+				NWidget(WWT_TEXTBTN, Colours::Brown, WID_ID_DROPDOWN_ORDER), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER),
+				NWidget(WWT_DROPDOWN, Colours::Brown, WID_ID_DROPDOWN_CRITERIA), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_EDITBOX, Colours::Brown, WID_ID_FILTER), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_LIST_FILTER_OSKTITLE, STR_LIST_FILTER_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_DROPDOWN, COLOUR_BROWN, WID_ID_FILTER_BY_ACC_CARGO), SetMinimalSize(225, 12), SetFill(0, 1), SetToolTip(STR_TOOLTIP_FILTER_CRITERIA),
-				NWidget(WWT_DROPDOWN, COLOUR_BROWN, WID_ID_FILTER_BY_PROD_CARGO), SetMinimalSize(225, 12), SetFill(0, 1), SetToolTip(STR_TOOLTIP_FILTER_CRITERIA),
-				NWidget(WWT_PANEL, COLOUR_BROWN), SetResize(1, 0), EndContainer(),
+				NWidget(WWT_DROPDOWN, Colours::Brown, WID_ID_FILTER_BY_ACC_CARGO), SetMinimalSize(225, 12), SetFill(0, 1), SetToolTip(STR_TOOLTIP_FILTER_CRITERIA),
+				NWidget(WWT_DROPDOWN, Colours::Brown, WID_ID_FILTER_BY_PROD_CARGO), SetMinimalSize(225, 12), SetFill(0, 1), SetToolTip(STR_TOOLTIP_FILTER_CRITERIA),
+				NWidget(WWT_PANEL, Colours::Brown), SetResize(1, 0), EndContainer(),
 			EndContainer(),
-			NWidget(WWT_PANEL, COLOUR_BROWN, WID_ID_INDUSTRY_LIST), SetToolTip(STR_INDUSTRY_DIRECTORY_LIST_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_ID_VSCROLLBAR),
+			NWidget(WWT_PANEL, Colours::Brown, WID_ID_INDUSTRY_LIST), SetToolTip(STR_INDUSTRY_DIRECTORY_LIST_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_ID_VSCROLLBAR),
 			EndContainer(),
 		EndContainer(),
-		NWidget(NWID_VSCROLLBAR, COLOUR_BROWN, WID_ID_VSCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Brown, WID_ID_VSCROLLBAR),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(NWID_HSCROLLBAR, COLOUR_BROWN, WID_ID_HSCROLLBAR),
-		NWidget(WWT_RESIZEBOX, COLOUR_BROWN),
+		NWidget(NWID_HSCROLLBAR, Colours::Brown, WID_ID_HSCROLLBAR),
+		NWidget(WWT_RESIZEBOX, Colours::Brown),
 	EndContainer(),
 };
 
@@ -1343,14 +1377,14 @@ protected:
 	/* Runtime saved values */
 	static Listing last_sorting;
 
-	/* Constants for sorting industries */
+	/** Strings describing how industries are sorted. */
 	static inline const StringID sorter_names[] = {
 		STR_SORT_BY_NAME,
 		STR_SORT_BY_TYPE,
 		STR_SORT_BY_PRODUCTION,
 		STR_SORT_BY_TRANSPORTED,
 	};
-	static const std::initializer_list<GUIIndustryList::SortFunction * const> sorter_funcs;
+	static const std::initializer_list<GUIIndustryList::SortFunction * const> sorter_funcs; ///< Functions to sort industries.
 
 	GUIIndustryList industries{IndustryDirectoryWindow::produced_cargo_filter};
 	Scrollbar *vscroll{};
@@ -1364,10 +1398,11 @@ protected:
 	StringFilter string_filter{}; ///< Filter for industries
 	QueryString industry_editbox; ///< Filter editbox
 
+	/** Ways to sort industries. */
 	enum class SorterType : uint8_t {
-		ByName,        ///< Sorter type to sort by name
-		ByType,        ///< Sorter type to sort by type
-		ByProduction,  ///< Sorter type to sort by production amount
+		ByName, ///< Sorter type to sort by name
+		ByType, ///< Sorter type to sort by type
+		ByProduction, ///< Sorter type to sort by production amount
 		ByTransported, ///< Sorter type to sort by transported percentage
 	};
 
@@ -1390,7 +1425,7 @@ protected:
 
 	/**
 	 * Set accepted cargo filter for the industry list.
-	 * @param index The cargo to be set
+	 * @param cargo_type The cargo to be set
 	 */
 	void SetAcceptedCargoFilter(CargoType cargo_type)
 	{
@@ -1478,12 +1513,12 @@ protected:
 	/**
 	 * Returns percents of cargo transported if industry produces this cargo, else -1
 	 *
-	 * @param p industry produced cargo
+	 * @param p Industry produced cargo
 	 * @return percents of cargo transported, or -1 if industry doesn't use this cargo slot
 	 */
 	static inline int GetCargoTransportedPercentsIfValid(const Industry::ProducedCargo &p)
 	{
-		if (!IsValidCargoType(p.cargo)) return -1;
+		if (p.cargo == INVALID_CARGO) return -1;
 		return ToPercent8(p.history[LAST_MONTH].PctTransported());
 	}
 
@@ -1500,14 +1535,14 @@ protected:
 		if (filter == CargoFilterCriteria::CF_NONE) return 0;
 
 		int percentage = 0, produced_cargo_count = 0;
-		for (const auto &p : i->produced) {
+		for (auto &p : i->Produced()) {
 			if (filter == CargoFilterCriteria::CF_ANY) {
 				int transported = GetCargoTransportedPercentsIfValid(p);
 				if (transported != -1) {
 					produced_cargo_count++;
 					percentage += transported;
 				}
-				if (produced_cargo_count == 0 && &p == &i->produced.back() && percentage == 0) {
+				if (produced_cargo_count == 0 && &p == &i->produced[i->produced_cargo_count - 1] && percentage == 0) {
 					return transported;
 				}
 			} else if (filter == p.cargo) {
@@ -1519,15 +1554,15 @@ protected:
 		return percentage / produced_cargo_count;
 	}
 
-	/** Sort industries by name */
-	static bool IndustryNameSorter(const Industry * const &a, const Industry * const &b, const CargoType &)
+	/** Sort industries by name. @copydoc GUIList::SorterWithFilter */
+	static bool IndustryNameSorter(const Industry * const &a, const Industry * const &b, [[maybe_unused]] const CargoType &filter)
 	{
 		int r = StrNaturalCompare(a->GetCachedName(), b->GetCachedName()); // Sort by name (natural sorting).
 		if (r == 0) return a->index < b->index;
 		return r < 0;
 	}
 
-	/** Sort industries by type and name */
+	/** Sort industries by type and name. @copydoc GUIList::SorterWithFilter */
 	static bool IndustryTypeSorter(const Industry * const &a, const Industry * const &b, const CargoType &filter)
 	{
 		int it_a = 0;
@@ -1538,29 +1573,31 @@ protected:
 		return (r == 0) ? IndustryNameSorter(a, b, filter) : r < 0;
 	}
 
-	/** Sort industries by production and name */
+	/** Sort industries by production and name. @copydoc GUIList::SorterWithFilter */
 	static bool IndustryProductionSorter(const Industry * const &a, const Industry * const &b, const CargoType &filter)
 	{
 		if (filter == CargoFilterCriteria::CF_NONE) return IndustryTypeSorter(a, b, filter);
 
 		uint prod_a = 0, prod_b = 0;
 		if (filter == CargoFilterCriteria::CF_ANY) {
-			for (const auto &pa : a->produced) {
-				if (IsValidCargoType(pa.cargo)) prod_a += pa.history[LAST_MONTH].production;
+			for (const auto &pa : a->Produced()) {
+				if (pa.cargo != INVALID_CARGO) prod_a += pa.history[LAST_MONTH].production;
 			}
-			for (const auto &pb : b->produced) {
-				if (IsValidCargoType(pb.cargo)) prod_b += pb.history[LAST_MONTH].production;
+			for (const auto &pb : b->Produced()) {
+				if (pb.cargo != INVALID_CARGO) prod_b += pb.history[LAST_MONTH].production;
 			}
 		} else {
-			if (auto ita = a->GetCargoProduced(filter); ita != std::end(a->produced)) prod_a = ita->history[LAST_MONTH].production;
-			if (auto itb = b->GetCargoProduced(filter); itb != std::end(b->produced)) prod_b = itb->history[LAST_MONTH].production;
+			int index_a = a->GetCargoProducedIndex(filter);
+			if (index_a >= 0) prod_a = a->produced[index_a].history[LAST_MONTH].production;
+			int index_b = b->GetCargoProducedIndex(filter);
+			if (index_b >= 0) prod_b = b->produced[index_b].history[LAST_MONTH].production;
 		}
 		int r = prod_a - prod_b;
 
 		return (r == 0) ? IndustryTypeSorter(a, b, filter) : r < 0;
 	}
 
-	/** Sort industries by transported cargo and name */
+	/** Sort industries by transported cargo and name. @copydoc GUIList::SorterWithFilter */
 	static bool IndustryTransportedCargoSorter(const Industry * const &a, const Industry * const &b, const CargoType &filter)
 	{
 		int r = GetCargoTransportedSortValue(a) - GetCargoTransportedSortValue(b);
@@ -1590,19 +1627,19 @@ protected:
 		/* Get industry productions (CargoType, production, suffix, transported) */
 		struct CargoInfo {
 			CargoType cargo_type; ///< Cargo type.
-			uint16_t production; ///< Production last month.
-			uint transported; ///< Percent transported last month.
-			std::string suffix; ///< Cargo suffix.
+			uint32_t production;  ///< Production last month.
+			uint transported;     ///< Percent transported last month.
+			std::string suffix;   ///< Cargo suffix.
 
-			CargoInfo(CargoType cargo_type, uint16_t production, uint transported, std::string &&suffix) : cargo_type(cargo_type), production(production), transported(transported), suffix(std::move(suffix)) {}
+			CargoInfo(CargoType cargo_type, uint32_t production, uint transported, std::string &&suffix) : cargo_type(cargo_type), production(production), transported(transported), suffix(std::move(suffix)) {}
 		};
 		std::vector<CargoInfo> cargos;
 
-		for (auto itp = std::begin(i->produced); itp != std::end(i->produced); ++itp) {
-			if (!IsValidCargoType(itp->cargo)) continue;
+		for (const auto &p : i->Produced()) {
+			if (p.cargo == INVALID_CARGO) continue;
 			CargoSuffix cargo_suffix;
-			GetCargoSuffix(CARGOSUFFIX_OUT, CST_DIR, i, i->type, indsp, itp->cargo, itp - std::begin(i->produced), cargo_suffix);
-			cargos.emplace_back(itp->cargo, itp->history[LAST_MONTH].production, ToPercent8(itp->history[LAST_MONTH].PctTransported()), std::move(cargo_suffix.text));
+			GetCargoSuffix(CargoSuffixDirection::Out, CargoSuffixType::Directory, i, i->type, indsp, p.cargo, &p - i->produced.get(), cargo_suffix);
+			cargos.emplace_back(p.cargo, p.history[LAST_MONTH].production, ToPercent8(p.history[LAST_MONTH].PctTransported()), std::move(cargo_suffix.text));
 		}
 
 		switch (static_cast<IndustryDirectoryWindow::SorterType>(this->industries.SortType())) {
@@ -1660,6 +1697,8 @@ protected:
 public:
 	IndustryDirectoryWindow(WindowDesc &desc, WindowNumber) : Window(desc), industry_editbox(MAX_FILTER_LENGTH * MAX_CHAR_LENGTH, MAX_FILTER_LENGTH)
 	{
+		this->invalidation_policy = WindowInvalidationPolicy::NoQueue;
+
 		this->CreateNestedTree();
 		this->vscroll = this->GetScrollbar(WID_ID_VSCROLLBAR);
 		this->hscroll = this->GetScrollbar(WID_ID_HSCROLLBAR);
@@ -1676,9 +1715,10 @@ public:
 		this->industry_editbox.cancel_button = QueryString::ACTION_CLEAR;
 	}
 
-	~IndustryDirectoryWindow()
+	void Close(int data = 0) override
 	{
 		this->last_sorting = this->industries.GetListing();
+		this->Window::Close();
 	}
 
 	void OnInit() override
@@ -1735,11 +1775,11 @@ public:
 				const CargoType acf_cargo_type = this->accepted_cargo_filter_criteria;
 				auto [first, last] = this->vscroll->GetVisibleRangeIterators(this->industries);
 				for (auto it = first; it != last; ++it) {
-					TextColour tc = TC_FROMSTRING;
+					ExtendedTextColour tc{TextColour::FromString};
 					if (acf_cargo_type != CargoFilterCriteria::CF_ANY && acf_cargo_type != CargoFilterCriteria::CF_NONE) {
 						Industry *ind = const_cast<Industry *>(*it);
 						if (IndustryTemporarilyRefusesCargo(ind, acf_cargo_type)) {
-							tc = TC_GREY | TC_FORCED;
+							tc = ExtendedTextColour{TextColour::Grey, ExtendedTextColourFlag::Forced};
 						}
 					}
 					DrawString(ir, this->GetIndustryString(*it), tc);
@@ -1812,13 +1852,17 @@ public:
 				ShowDropDownMenu(this, IndustryDirectoryWindow::sorter_names, this->industries.SortType(), WID_ID_DROPDOWN_CRITERIA, 0, 0);
 				break;
 
-			case WID_ID_FILTER_BY_ACC_CARGO: // Cargo filter dropdown
-				ShowDropDownList(this, this->BuildCargoDropDownList(), this->accepted_cargo_filter_criteria, widget);
+			case WID_ID_FILTER_BY_ACC_CARGO: { // Cargo filter dropdown
+				static std::string acc_cargo_filter;
+				ShowDropDownList(this, this->BuildCargoDropDownList(), this->accepted_cargo_filter_criteria, widget, 0, DropDownOption::Filterable, &acc_cargo_filter);
 				break;
+			}
 
-			case WID_ID_FILTER_BY_PROD_CARGO: // Cargo filter dropdown
-				ShowDropDownList(this, this->BuildCargoDropDownList(), this->produced_cargo_filter_criteria, widget);
+			case WID_ID_FILTER_BY_PROD_CARGO: { // Cargo filter dropdown
+				static std::string prod_cargo_filter;
+				ShowDropDownList(this, this->BuildCargoDropDownList(), this->produced_cargo_filter_criteria, widget, 0, DropDownOption::Filterable, &prod_cargo_filter);
 				break;
+			}
 
 			case WID_ID_INDUSTRY_LIST: {
 				auto it = this->vscroll->GetScrolledItemFromWidget(this->industries, pt.y, this, WID_ID_INDUSTRY_LIST, WidgetDimensions::scaled.framerect.top);
@@ -1846,13 +1890,13 @@ public:
 			}
 
 			case WID_ID_FILTER_BY_ACC_CARGO: {
-				this->SetAcceptedCargoFilter(index);
+				this->SetAcceptedCargoFilter(static_cast<CargoType>(index));
 				this->BuildSortIndustriesList();
 				break;
 			}
 
 			case WID_ID_FILTER_BY_PROD_CARGO: {
-				this->SetProducedCargoFilter(index);
+				this->SetProducedCargoFilter(static_cast<CargoType>(index));
 				this->BuildSortIndustriesList();
 				break;
 			}
@@ -1880,11 +1924,11 @@ public:
 		this->DrawWidgets();
 	}
 
-	/** Rebuild the industry list on a regular interval. */
-	const IntervalTimer<TimerWindow> rebuild_interval = {std::chrono::seconds(3), [this](auto) {
+	void OnHundredthTick() override
+	{
 		this->industries.ForceResort();
 		this->BuildSortIndustriesList();
-	}};
+	}
 
 	/**
 	 * Some data on this window has become invalid.
@@ -1928,9 +1972,9 @@ CargoType IndustryDirectoryWindow::produced_cargo_filter = CargoFilterCriteria::
 
 
 /** Window definition of the industry directory gui */
-static WindowDesc _industry_directory_desc(
-	WDP_AUTO, "list_industries", 428, 190,
-	WC_INDUSTRY_DIRECTORY, WC_NONE,
+static WindowDesc _industry_directory_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "list_industries", 428, 190,
+	WindowClass::IndustryDirectory, WindowClass::None,
 	{},
 	_nested_industry_directory_widgets,
 	&IndustryDirectoryWindow::hotkeys
@@ -1944,47 +1988,52 @@ void ShowIndustryDirectory()
 /** Widgets of the industry cargoes window. */
 static constexpr std::initializer_list<NWidgetPart> _nested_industry_cargoes_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
-		NWidget(WWT_CAPTION, COLOUR_BROWN, WID_IC_CAPTION),
-		NWidget(WWT_SHADEBOX, COLOUR_BROWN),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_BROWN),
-		NWidget(WWT_STICKYBOX, COLOUR_BROWN),
+		NWidget(WWT_CLOSEBOX, Colours::Brown),
+		NWidget(WWT_CAPTION, Colours::Brown, WID_IC_CAPTION),
+		NWidget(WWT_DEBUGBOX, Colours::Brown),
+		NWidget(WWT_SHADEBOX, Colours::Brown),
+		NWidget(WWT_DEFSIZEBOX, Colours::Brown),
+		NWidget(WWT_STICKYBOX, Colours::Brown),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_PANEL, COLOUR_BROWN, WID_IC_PANEL), SetResize(1, 10), SetScrollbar(WID_IC_SCROLLBAR), EndContainer(),
-		NWidget(NWID_VSCROLLBAR, COLOUR_BROWN, WID_IC_SCROLLBAR),
-	EndContainer(),
-	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_TEXTBTN, COLOUR_BROWN, WID_IC_NOTIFY),
-			SetStringTip(STR_INDUSTRY_CARGOES_NOTIFY_SMALLMAP, STR_INDUSTRY_CARGOES_NOTIFY_SMALLMAP_TOOLTIP),
-		NWidget(WWT_PANEL, COLOUR_BROWN), SetFill(1, 0), SetResize(0, 0), EndContainer(),
-		NWidget(WWT_DROPDOWN, COLOUR_BROWN, WID_IC_IND_DROPDOWN), SetFill(0, 0), SetResize(0, 0),
-				SetStringTip(STR_INDUSTRY_CARGOES_SELECT_INDUSTRY, STR_INDUSTRY_CARGOES_SELECT_INDUSTRY_TOOLTIP),
-		NWidget(WWT_DROPDOWN, COLOUR_BROWN, WID_IC_CARGO_DROPDOWN), SetFill(0, 0), SetResize(0, 0),
-				SetStringTip(STR_INDUSTRY_CARGOES_SELECT_CARGO, STR_INDUSTRY_CARGOES_SELECT_CARGO_TOOLTIP),
-		NWidget(WWT_RESIZEBOX, COLOUR_BROWN),
+		NWidget(NWID_VERTICAL),
+			NWidget(WWT_PANEL, Colours::Brown, WID_IC_PANEL), SetResize(1, 10), SetScrollbar(WID_IC_SCROLLBAR), EndContainer(),
+			NWidget(NWID_HORIZONTAL),
+				NWidget(NWID_BUTTON_DROPDOWN, Colours::Brown, WID_IC_NOTIFY),
+					SetStringTip(STR_INDUSTRY_CARGOES_NOTIFY_SMALLMAP, STR_INDUSTRY_CARGOES_NOTIFY_SMALLMAP_TOOLTIP),
+				NWidget(WWT_PANEL, Colours::Brown), SetFill(1, 0), SetResize(0, 0), EndContainer(),
+				NWidget(WWT_DROPDOWN, Colours::Brown, WID_IC_IND_DROPDOWN), SetFill(0, 0), SetResize(0, 0),
+						SetStringTip(STR_INDUSTRY_CARGOES_SELECT_INDUSTRY, STR_INDUSTRY_CARGOES_SELECT_INDUSTRY_TOOLTIP),
+				NWidget(WWT_DROPDOWN, Colours::Brown, WID_IC_CARGO_DROPDOWN), SetFill(0, 0), SetResize(0, 0),
+						SetStringTip(STR_INDUSTRY_CARGOES_SELECT_CARGO, STR_INDUSTRY_CARGOES_SELECT_CARGO_TOOLTIP),
+			EndContainer(),
+		EndContainer(),
+		NWidget(NWID_VERTICAL),
+			NWidget(NWID_VSCROLLBAR, Colours::Brown, WID_IC_SCROLLBAR),
+			NWidget(WWT_RESIZEBOX, Colours::Brown),
+		EndContainer(),
 	EndContainer(),
 };
 
 /** Window description for the industry cargoes window. */
-static WindowDesc _industry_cargoes_desc(
-	WDP_AUTO, "industry_cargoes", 300, 210,
-	WC_INDUSTRY_CARGOES, WC_NONE,
+static WindowDesc _industry_cargoes_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "industry_cargoes", 300, 210,
+	WindowClass::IndustryCargoes, WindowClass::None,
 	{},
 	_nested_industry_cargoes_widgets
 );
 
 /** Available types of field. */
-enum CargoesFieldType : uint8_t {
-	CFT_EMPTY,       ///< Empty field.
-	CFT_SMALL_EMPTY, ///< Empty small field (for the header).
-	CFT_INDUSTRY,    ///< Display industry.
-	CFT_CARGO,       ///< Display cargo connections.
-	CFT_CARGO_LABEL, ///< Display cargo labels.
-	CFT_HEADER,      ///< Header text.
+enum class CargoesFieldType : uint8_t {
+	Empty, ///< Empty field.
+	SmallEmpty, ///< Empty small field (for the header).
+	Industry, ///< Display industry.
+	Cargo, ///< Display cargo connections.
+	CargoLabel, ///< Display cargo labels.
+	Header, ///< Header text.
 };
 
-static const uint MAX_CARGOES = 16; ///< Maximum number of cargoes carried in a #CFT_CARGO field in #CargoesField.
+static const uint MAX_CARGOES = 16; ///< Maximum number of cargoes carried in a #CargoesFieldType::Cargo field in #CargoesField.
 
 /** Data about a single field in the #IndustryCargoesWindow panel. */
 struct CargoesField {
@@ -2014,7 +2063,7 @@ struct CargoesField {
 			IndustryType ind_type; ///< Industry type (#NUM_INDUSTRYTYPES means 'houses').
 			std::array<CargoType, MAX_CARGOES> other_produced; ///< Cargoes produced but not used in this figure.
 			std::array<CargoType, MAX_CARGOES> other_accepted; ///< Cargoes accepted but not used in this figure.
-		} industry; ///< Industry data (for #CFT_INDUSTRY).
+		} industry; ///< Industry data (for #CargoesFieldType::Industry).
 		struct {
 			std::array<CargoType, MAX_CARGOES> vertical_cargoes; ///< Cargoes running from top to bottom (cargo type or #INVALID_CARGO).
 			Cargoes supp_cargoes; ///< Cargoes in \c vertical_cargoes entering from the left.
@@ -2022,16 +2071,16 @@ struct CargoesField {
 			uint8_t num_cargoes; ///< Number of cargoes.
 			uint8_t top_end; ///< Stop at the top of the vertical cargoes.
 			uint8_t bottom_end; ///< Stop at the bottom of the vertical cargoes.
-		} cargo; ///< Cargo data (for #CFT_CARGO).
+		} cargo; ///< Cargo data (for #CargoesFieldType::Cargo).
 		struct {
 			std::array<CargoType, MAX_CARGOES> cargoes; ///< Cargoes to display (or #INVALID_CARGO).
 			bool left_align; ///< Align all cargo texts to the left (else align to the right).
-		} cargo_label;   ///< Label data (for #CFT_CARGO_LABEL).
-		StringID header; ///< Header text (for #CFT_HEADER).
-	} u{}; // Data for each type.
+		} cargo_label;   ///< Label data (for #CargoesFieldType::CargoLabel).
+		StringID header; ///< Header text (for #CargoesFieldType::Header).
+	} u{}; ///< Data for each type.
 
 	/**
-	 * Make one of the empty fields (#CFT_EMPTY or #CFT_SMALL_EMPTY).
+	 * Make one of the empty fields (#CargoesFieldType::Empty or #CargoesFieldType::SmallEmpty).
 	 * @param type Type of empty field.
 	 */
 	void MakeEmpty(CargoesFieldType type)
@@ -2046,21 +2095,21 @@ struct CargoesField {
 	 */
 	void MakeIndustry(IndustryType ind_type)
 	{
-		this->type = CFT_INDUSTRY;
+		this->type = CargoesFieldType::Industry;
 		this->u.industry.ind_type = ind_type;
 		std::fill(std::begin(this->u.industry.other_accepted), std::end(this->u.industry.other_accepted), INVALID_CARGO);
 		std::fill(std::begin(this->u.industry.other_produced), std::end(this->u.industry.other_produced), INVALID_CARGO);
 	}
 
 	/**
-	 * Connect a cargo from an industry to the #CFT_CARGO column.
+	 * Connect a cargo from an industry to the #CargoesFieldType::Cargo column.
 	 * @param cargo Cargo to connect.
 	 * @param producer Cargo is produced (if \c false, cargo is assumed to be accepted).
 	 * @return Horizontal connection index, or \c -1 if not accepted at all.
 	 */
 	int ConnectCargo(CargoType cargo, bool producer)
 	{
-		assert(this->type == CFT_CARGO);
+		assert(this->type == CargoesFieldType::Cargo);
 		if (!IsValidCargoType(cargo)) return -1;
 
 		/* Find the vertical cargo column carrying the cargo. */
@@ -2084,12 +2133,12 @@ struct CargoesField {
 	}
 
 	/**
-	 * Does this #CFT_CARGO field have a horizontal connection?
+	 * Does this #CargoesFieldType::Cargo field have a horizontal connection?
 	 * @return \c true if a horizontal connection exists, \c false otherwise.
 	 */
 	bool HasConnection()
 	{
-		assert(this->type == CFT_CARGO);
+		assert(this->type == CargoesFieldType::Cargo);
 
 		return this->u.cargo.supp_cargoes != 0 || this->u.cargo.cust_cargoes != 0;
 	}
@@ -2101,7 +2150,7 @@ struct CargoesField {
 	 */
 	void MakeCargo(const std::span<const CargoType> cargoes)
 	{
-		this->type = CFT_CARGO;
+		this->type = CargoesFieldType::Cargo;
 		assert(std::size(cargoes) <= std::size(this->u.cargo.vertical_cargoes));
 		auto insert = std::copy_if(std::begin(cargoes), std::end(cargoes), std::begin(this->u.cargo.vertical_cargoes), IsValidCargoType);
 		this->u.cargo.num_cargoes = static_cast<uint8_t>(std::distance(std::begin(this->u.cargo.vertical_cargoes), insert));
@@ -2121,7 +2170,7 @@ struct CargoesField {
 	 */
 	void MakeCargoLabel(const std::span<const CargoType> cargoes, bool left_align)
 	{
-		this->type = CFT_CARGO_LABEL;
+		this->type = CargoesFieldType::CargoLabel;
 		assert(std::size(cargoes) <= std::size(this->u.cargo_label.cargoes));
 		auto insert = std::copy(std::begin(cargoes), std::end(cargoes), std::begin(this->u.cargo_label.cargoes));
 		std::fill(insert, std::end(this->u.cargo_label.cargoes), INVALID_CARGO);
@@ -2134,18 +2183,18 @@ struct CargoesField {
 	 */
 	void MakeHeader(StringID textid)
 	{
-		this->type = CFT_HEADER;
+		this->type = CargoesFieldType::Header;
 		this->u.header = textid;
 	}
 
 	/**
-	 * For a #CFT_CARGO, compute the left position of the left-most vertical cargo connection.
+	 * For a #CargoesFieldType::Cargo, compute the left position of the left-most vertical cargo connection.
 	 * @param xpos Left position of the field.
 	 * @return Left position of the left-most vertical cargo column.
 	 */
 	int GetCargoBase(int xpos) const
 	{
-		assert(this->type == CFT_CARGO);
+		assert(this->type == CargoesFieldType::Cargo);
 		int n = this->u.cargo.num_cargoes;
 
 		return xpos + cargo_field_width / 2 - (CargoesField::cargo_line.width * n + CargoesField::cargo_space.width * (n - 1)) / 2;
@@ -2159,24 +2208,24 @@ struct CargoesField {
 	void Draw(int xpos, int ypos) const
 	{
 		switch (this->type) {
-			case CFT_EMPTY:
-			case CFT_SMALL_EMPTY:
+			case CargoesFieldType::Empty:
+			case CargoesFieldType::SmallEmpty:
 				break;
 
-			case CFT_HEADER:
-				ypos += (small_height - GetCharacterHeight(FS_NORMAL)) / 2;
-				DrawString(xpos, xpos + industry_width, ypos, this->u.header, TC_WHITE, SA_HOR_CENTER);
+			case CargoesFieldType::Header:
+				ypos += (small_height - GetCharacterHeight(FontSize::Normal)) / 2;
+				DrawString(xpos, xpos + industry_width, ypos, this->u.header, TextColour::White, SA_HOR_CENTER);
 				break;
 
-			case CFT_INDUSTRY: {
+			case CargoesFieldType::Industry: {
 				int ypos1 = ypos + vert_inter_industry_space / 2;
 				int ypos2 = ypos + normal_height - 1 - vert_inter_industry_space / 2;
 				int xpos2 = xpos + industry_width - 1;
 				DrawRectOutline({xpos, ypos1, xpos2, ypos2}, INDUSTRY_LINE_COLOUR);
-				ypos += (normal_height - GetCharacterHeight(FS_NORMAL)) / 2;
+				ypos += (normal_height - GetCharacterHeight(FontSize::Normal)) / 2;
 				if (this->u.industry.ind_type < NUM_INDUSTRYTYPES) {
 					const IndustrySpec *indsp = GetIndustrySpec(this->u.industry.ind_type);
-					DrawString(xpos, xpos2, ypos, indsp->name, TC_WHITE, SA_HOR_CENTER);
+					DrawString(xpos, xpos2, ypos, indsp->name, TextColour::White, SA_HOR_CENTER);
 
 					/* Draw the industry legend. */
 					int blob_left, blob_right;
@@ -2190,7 +2239,7 @@ struct CargoesField {
 					GfxFillRect(blob_left,     ypos2 - blob_distance - CargoesField::legend.height,     blob_right,     ypos2 - blob_distance,     PC_BLACK); // Border
 					GfxFillRect(blob_left + 1, ypos2 - blob_distance - CargoesField::legend.height + 1, blob_right - 1, ypos2 - blob_distance - 1, indsp->map_colour);
 				} else {
-					DrawString(xpos, xpos2, ypos, STR_INDUSTRY_CARGOES_HOUSES, TC_FROMSTRING, SA_HOR_CENTER);
+					DrawString(xpos, xpos2, ypos, STR_INDUSTRY_CARGOES_HOUSES, TextColour::FromString, SA_HOR_CENTER);
 				}
 
 				/* Draw the other_produced/other_accepted cargoes. */
@@ -2202,26 +2251,26 @@ struct CargoesField {
 					other_right = this->u.industry.other_produced;
 					other_left  = this->u.industry.other_accepted;
 				}
-				ypos1 += CargoesField::cargo_border.height + (GetCharacterHeight(FS_NORMAL) - CargoesField::cargo_line.height) / 2;
+				ypos1 += CargoesField::cargo_border.height + (GetCharacterHeight(FontSize::Normal) - CargoesField::cargo_line.height) / 2;
 				for (uint i = 0; i < CargoesField::max_cargoes; i++) {
-					if (IsValidCargoType(other_right[i])) {
+					if (other_right[i] != INVALID_CARGO) {
 						const CargoSpec *csp = CargoSpec::Get(other_right[i]);
 						int xp = xpos + industry_width + CargoesField::cargo_stub.width;
 						DrawHorConnection(xpos + industry_width, xp - 1, ypos1, csp);
 						GfxDrawLine(xp, ypos1, xp, ypos1 + CargoesField::cargo_line.height - 1, CARGO_LINE_COLOUR);
 					}
-					if (IsValidCargoType(other_left[i])) {
+					if (other_left[i] != INVALID_CARGO) {
 						const CargoSpec *csp = CargoSpec::Get(other_left[i]);
 						int xp = xpos - CargoesField::cargo_stub.width;
 						DrawHorConnection(xp + 1, xpos - 1, ypos1, csp);
 						GfxDrawLine(xp, ypos1, xp, ypos1 + CargoesField::cargo_line.height - 1, CARGO_LINE_COLOUR);
 					}
-					ypos1 += GetCharacterHeight(FS_NORMAL) + CargoesField::cargo_space.height;
+					ypos1 += GetCharacterHeight(FontSize::Normal) + CargoesField::cargo_space.height;
 				}
 				break;
 			}
 
-			case CFT_CARGO: {
+			case CargoesFieldType::Cargo: {
 				int cargo_base = this->GetCargoBase(xpos);
 				int top = ypos + (this->u.cargo.top_end ? vert_inter_industry_space / 2 + 1 : 0);
 				int bot = ypos - (this->u.cargo.bottom_end ? vert_inter_industry_space / 2 + 1 : 0) + normal_height - 1;
@@ -2232,7 +2281,7 @@ struct CargoesField {
 					GfxDrawLine(colpos, top, colpos, bot, CARGO_LINE_COLOUR);
 					colpos++;
 					const CargoSpec *csp = CargoSpec::Get(this->u.cargo.vertical_cargoes[i]);
-					GfxFillRect(colpos, top, colpos + CargoesField::cargo_line.width - 2, bot, csp->legend_colour, FILLRECT_OPAQUE);
+					GfxFillRect(colpos, top, colpos + CargoesField::cargo_line.width - 2, bot, csp->legend_colour, FillRectMode::Opaque);
 					colpos += CargoesField::cargo_line.width - 2;
 					GfxDrawLine(colpos, top, colpos, bot, CARGO_LINE_COLOUR);
 					colpos += 1 + CargoesField::cargo_space.width;
@@ -2246,7 +2295,7 @@ struct CargoesField {
 					hor_left  = this->u.cargo.supp_cargoes;
 					hor_right = this->u.cargo.cust_cargoes;
 				}
-				ypos += CargoesField::cargo_border.height + vert_inter_industry_space / 2 + (GetCharacterHeight(FS_NORMAL) - CargoesField::cargo_line.height) / 2;
+				ypos += CargoesField::cargo_border.height + vert_inter_industry_space / 2 + (GetCharacterHeight(FontSize::Normal) - CargoesField::cargo_line.height) / 2;
 				for (uint i = 0; i < MAX_CARGOES; i++) {
 					if (HasBit(hor_left, i)) {
 						int col = i;
@@ -2270,20 +2319,20 @@ struct CargoesField {
 						}
 						DrawHorConnection(cargo_base + col * CargoesField::cargo_space.width + (col + 1) * CargoesField::cargo_line.width - 1 + dx, xpos + CargoesField::cargo_field_width - 1, ypos, csp);
 					}
-					ypos += GetCharacterHeight(FS_NORMAL) + CargoesField::cargo_space.height;
+					ypos += GetCharacterHeight(FontSize::Normal) + CargoesField::cargo_space.height;
 				}
 				break;
 			}
 
-			case CFT_CARGO_LABEL:
+			case CargoesFieldType::CargoLabel:
 				ypos += CargoesField::cargo_border.height + vert_inter_industry_space / 2;
 				for (uint i = 0; i < MAX_CARGOES; i++) {
-					if (IsValidCargoType(this->u.cargo_label.cargoes[i])) {
+					if (this->u.cargo_label.cargoes[i] != INVALID_CARGO) {
 						const CargoSpec *csp = CargoSpec::Get(this->u.cargo_label.cargoes[i]);
-						DrawString(xpos + WidgetDimensions::scaled.framerect.left, xpos + industry_width - 1 - WidgetDimensions::scaled.framerect.right, ypos, csp->name, TC_WHITE,
+						DrawString(xpos + WidgetDimensions::scaled.framerect.left, xpos + industry_width - 1 - WidgetDimensions::scaled.framerect.right, ypos, csp->name, TextColour::White,
 								(this->u.cargo_label.left_align) ? SA_LEFT : SA_RIGHT);
 					}
-					ypos += GetCharacterHeight(FS_NORMAL) + CargoesField::cargo_space.height;
+					ypos += GetCharacterHeight(FontSize::Normal) + CargoesField::cargo_space.height;
 				}
 				break;
 
@@ -2293,7 +2342,7 @@ struct CargoesField {
 	}
 
 	/**
-	 * Decide which cargo was clicked at in a #CFT_CARGO field.
+	 * Decide which cargo was clicked at in a #CargoesFieldType::Cargo field.
 	 * @param left  Left industry neighbour if available (else \c nullptr should be supplied).
 	 * @param right Right industry neighbour if available (else \c nullptr should be supplied).
 	 * @param pt    Click position in the cargo field.
@@ -2301,24 +2350,24 @@ struct CargoesField {
 	 */
 	CargoType CargoClickedAt(const CargoesField *left, const CargoesField *right, Point pt) const
 	{
-		assert(this->type == CFT_CARGO);
+		assert(this->type == CargoesFieldType::Cargo);
 
 		/* Vertical matching. */
 		int cpos = this->GetCargoBase(0);
 		uint col;
 		for (col = 0; col < this->u.cargo.num_cargoes; col++) {
 			if (pt.x < cpos) break;
-			if (pt.x < cpos + static_cast<int>(CargoesField::cargo_line.width)) return this->u.cargo.vertical_cargoes[col];
+			if (pt.x < cpos + (int)CargoesField::cargo_line.width) return this->u.cargo.vertical_cargoes[col];
 			cpos += CargoesField::cargo_line.width + CargoesField::cargo_space.width;
 		}
 		/* col = 0 -> left of first col, 1 -> left of 2nd col, ... this->u.cargo.num_cargoes right of last-col. */
 
-		int vpos = (vert_inter_industry_space / 2) + CargoesField::cargo_border.height + (GetCharacterHeight(FS_NORMAL) - CargoesField::cargo_line.height) / 2;
+		int vpos = (vert_inter_industry_space / 2) + (CargoesField::cargo_border.width / 2);
 		uint row;
 		for (row = 0; row < MAX_CARGOES; row++) {
 			if (pt.y < vpos) return INVALID_CARGO;
-			if (pt.y < vpos + static_cast<int>(CargoesField::cargo_line.height)) break;
-			vpos += GetCharacterHeight(FS_NORMAL) + CargoesField::cargo_space.height;
+			if (pt.y < vpos + (int)CargoesField::cargo_line.height) break;
+			vpos += GetCharacterHeight(FontSize::Normal) + CargoesField::cargo_space.width;
 		}
 		if (row == MAX_CARGOES) return INVALID_CARGO;
 
@@ -2326,16 +2375,16 @@ struct CargoesField {
 		if (col == 0) {
 			if (HasBit(this->u.cargo.supp_cargoes, row)) return this->u.cargo.vertical_cargoes[row];
 			if (left != nullptr) {
-				if (left->type == CFT_INDUSTRY) return left->u.industry.other_produced[row];
-				if (left->type == CFT_CARGO_LABEL && !left->u.cargo_label.left_align) return left->u.cargo_label.cargoes[row];
+				if (left->type == CargoesFieldType::Industry) return left->u.industry.other_produced[row];
+				if (left->type == CargoesFieldType::CargoLabel && !left->u.cargo_label.left_align) return left->u.cargo_label.cargoes[row];
 			}
 			return INVALID_CARGO;
 		}
 		if (col == this->u.cargo.num_cargoes) {
 			if (HasBit(this->u.cargo.cust_cargoes, row)) return this->u.cargo.vertical_cargoes[row];
 			if (right != nullptr) {
-				if (right->type == CFT_INDUSTRY) return right->u.industry.other_accepted[row];
-				if (right->type == CFT_CARGO_LABEL && right->u.cargo_label.left_align) return right->u.cargo_label.cargoes[row];
+				if (right->type == CargoesFieldType::Industry) return right->u.industry.other_accepted[row];
+				if (right->type == CargoesFieldType::CargoLabel && right->u.cargo_label.left_align) return right->u.cargo_label.cargoes[row];
 			}
 			return INVALID_CARGO;
 		}
@@ -2359,14 +2408,14 @@ struct CargoesField {
 	 */
 	CargoType CargoLabelClickedAt(Point pt) const
 	{
-		assert(this->type == CFT_CARGO_LABEL);
+		assert(this->type == CargoesFieldType::CargoLabel);
 
 		int vpos = vert_inter_industry_space / 2 + CargoesField::cargo_border.height;
 		uint row;
 		for (row = 0; row < MAX_CARGOES; row++) {
 			if (pt.y < vpos) return INVALID_CARGO;
-			if (pt.y < vpos + GetCharacterHeight(FS_NORMAL)) break;
-			vpos += GetCharacterHeight(FS_NORMAL) + CargoesField::cargo_space.height;
+			if (pt.y < vpos + GetCharacterHeight(FontSize::Normal)) break;
+			vpos += GetCharacterHeight(FontSize::Normal) + CargoesField::cargo_space.height;
 		}
 		if (row == MAX_CARGOES) return INVALID_CARGO;
 		return this->u.cargo_label.cargoes[row];
@@ -2383,7 +2432,7 @@ private:
 	static void DrawHorConnection(int left, int right, int top, const CargoSpec *csp)
 	{
 		GfxDrawLine(left, top, right, top, CARGO_LINE_COLOUR);
-		GfxFillRect(left, top + 1, right, top + CargoesField::cargo_line.height - 2, csp->legend_colour, FILLRECT_OPAQUE);
+		GfxFillRect(left, top + 1, right, top + CargoesField::cargo_line.height - 2, csp->legend_colour, FillRectMode::Opaque);
 		GfxDrawLine(left, top + CargoesField::cargo_line.height - 1, right, top + CargoesField::cargo_line.height - 1, CARGO_LINE_COLOUR);
 	}
 };
@@ -2421,7 +2470,7 @@ struct CargoesRow {
 	{
 		CargoesField *ind_fld   = this->columns + column;
 		CargoesField *cargo_fld = this->columns + column + 1;
-		assert(ind_fld->type == CFT_INDUSTRY && cargo_fld->type == CFT_CARGO);
+		assert(ind_fld->type == CargoesFieldType::Industry && cargo_fld->type == CargoesFieldType::Cargo);
 
 		std::fill(std::begin(ind_fld->u.industry.other_produced), std::end(ind_fld->u.industry.other_produced), INVALID_CARGO);
 
@@ -2445,13 +2494,13 @@ struct CargoesRow {
 			for (uint i = 0; i < cargo_fld->u.cargo.num_cargoes; i++) {
 				CargoType cargo_type = cargo_fld->u.cargo.vertical_cargoes[i];
 				TownProductionEffect tpe = CargoSpec::Get(cargo_type)->town_production_effect;
-				if (tpe == TPE_PASSENGERS || tpe == TPE_MAIL) cargo_fld->ConnectCargo(cargo_type, true);
+				if (tpe == TownProductionEffect::Passengers || tpe == TownProductionEffect::Mail) cargo_fld->ConnectCargo(cargo_type, true);
 			}
 		}
 	}
 
 	/**
-	 * Construct a #CFT_CARGO_LABEL field.
+	 * Construct a #CargoesFieldType::CargoLabel field.
 	 * @param column    Column to create the new field.
 	 * @param accepting Display accepted cargo (if \c false, display produced cargo).
 	 */
@@ -2463,7 +2512,7 @@ struct CargoesRow {
 		CargoesField *label_fld = this->columns + column;
 		CargoesField *cargo_fld = this->columns + (accepting ? column - 1 : column + 1);
 
-		assert(cargo_fld->type == CFT_CARGO && label_fld->type == CFT_EMPTY);
+		assert(cargo_fld->type == CargoesFieldType::Cargo && label_fld->type == CargoesFieldType::Empty);
 		for (uint i = 0; i < cargo_fld->u.cargo.num_cargoes; i++) {
 			int col = cargo_fld->ConnectCargo(cargo_fld->u.cargo.vertical_cargoes[i], !accepting);
 			if (col >= 0) cargoes[col] = cargo_fld->u.cargo.vertical_cargoes[i];
@@ -2480,7 +2529,7 @@ struct CargoesRow {
 	{
 		CargoesField *ind_fld   = this->columns + column;
 		CargoesField *cargo_fld = this->columns + column - 1;
-		assert(ind_fld->type == CFT_INDUSTRY && cargo_fld->type == CFT_CARGO);
+		assert(ind_fld->type == CargoesFieldType::Industry && cargo_fld->type == CargoesFieldType::Cargo);
 
 		std::fill(std::begin(ind_fld->u.industry.other_accepted), std::end(ind_fld->u.industry.other_accepted), INVALID_CARGO);
 
@@ -2505,7 +2554,7 @@ struct CargoesRow {
 				for (const auto &hs : HouseSpec::Specs()) {
 					if (!hs.enabled) continue;
 
-					for (uint j = 0; j < lengthof(hs.accepts_cargo); j++) {
+					for (size_t j = 0; j < std::size(hs.accepts_cargo); j++) {
 						if (hs.cargo_acceptance[j] > 0 && cargo_fld->u.cargo.vertical_cargoes[i] == hs.accepts_cargo[j]) {
 							cargo_fld->ConnectCargo(cargo_fld->u.cargo.vertical_cargoes[i], false);
 							goto next_cargo;
@@ -2524,27 +2573,27 @@ next_cargo: ;
  *
  * The main display is constructed from 'fields', rectangles that contain an industry, piece of the cargo connection, cargo labels, or headers.
  * For a nice display, the following should be kept in mind:
- * - A #CFT_HEADER is always at the top of an column of #CFT_INDUSTRY fields.
- * - A #CFT_CARGO_LABEL field is also always put in a column of #CFT_INDUSTRY fields.
- * - The top row contains #CFT_HEADER and #CFT_SMALL_EMPTY fields.
- * - Cargo connections have a column of their own (#CFT_CARGO fields).
+ * - A #CargoesFieldType::Header is always at the top of an column of #CargoesFieldType::Industry fields.
+ * - A #CargoesFieldType::CargoLabel field is also always put in a column of #CargoesFieldType::Industry fields.
+ * - The top row contains #CargoesFieldType::Header and #CargoesFieldType::SmallEmpty fields.
+ * - Cargo connections have a column of their own (#CargoesFieldType::Cargo fields).
  * - Cargo accepted or produced by an industry, but not carried in a cargo connection, is drawn in the space of a cargo column attached to the industry.
  *   The information however is part of the industry.
  *
  * This results in the following invariants:
- * - Width of a #CFT_INDUSTRY column is large enough to hold all industry type labels, all cargo labels, and all header texts.
- * - Height of a #CFT_INDUSTRY is large enough to hold a header line, or a industry type line, \c N cargo labels
+ * - Width of a #CargoesFieldType::Industry column is large enough to hold all industry type labels, all cargo labels, and all header texts.
+ * - Height of a #CargoesFieldType::Industry is large enough to hold a header line, or a industry type line, \c N cargo labels
  *   (where \c N is the maximum number of cargoes connected between industries), \c N connections of cargo types, and space
  *   between two industry types (1/2 above it, and 1/2 underneath it).
- * - Width of a cargo field (#CFT_CARGO) is large enough to hold \c N vertical columns (one for each type of cargo).
+ * - Width of a cargo field (#CargoesFieldType::Cargo) is large enough to hold \c N vertical columns (one for each type of cargo).
  *   Also, space is needed between an industry and the leftmost/rightmost column to draw the non-carried cargoes.
- * - Height of a #CFT_CARGO field is equally high as the height of the #CFT_INDUSTRY.
- * - A field at the top (#CFT_HEADER or #CFT_SMALL_EMPTY) match the width of the fields below them (#CFT_INDUSTRY respectively
- *   #CFT_CARGO), the height should be sufficient to display the header text.
+ * - Height of a #CargoesFieldType::Cargo field is equally high as the height of the #CargoesFieldType::Industry.
+ * - A field at the top (#CargoesFieldType::Header or #CargoesFieldType::SmallEmpty) match the width of the fields below them (#CargoesFieldType::Industry respectively
+ *   #CargoesFieldType::Cargo), the height should be sufficient to display the header text.
  *
  * When displaying the cargoes around an industry type, five columns are needed (supplying industries, accepted cargoes, the industry,
  * produced cargoes, customer industries). Displaying the industries around a cargo needs three columns (supplying industries, the cargo,
- * customer industries). The remaining two columns are set to #CFT_EMPTY with a width equal to the average of a cargo and an industry column.
+ * customer industries). The remaining two columns are set to #CargoesFieldType::Empty with a width equal to the average of a cargo and an industry column.
  */
 struct IndustryCargoesWindow : public Window {
 	typedef std::vector<CargoesRow> Fields;
@@ -2574,7 +2623,7 @@ struct IndustryCargoesWindow : public Window {
 		CargoesField::small_height = d.height;
 
 		/* Size of the legend blob -- slightly larger than the smallmap legend blob. */
-		CargoesField::legend.height = GetCharacterHeight(FS_SMALL);
+		CargoesField::legend.height = GetCharacterHeight(FontSize::Small);
 		CargoesField::legend.width = CargoesField::legend.height * 9 / 6;
 
 		/* Size of cargo lines. */
@@ -2622,13 +2671,13 @@ struct IndustryCargoesWindow : public Window {
 
 		d.width += WidgetDimensions::scaled.frametext.Horizontal();
 		/* Ensure the height is enough for the industry type text, for the horizontal connections, and for the cargo labels. */
-		uint min_ind_height = CargoesField::cargo_border.height * 2 + CargoesField::max_cargoes * GetCharacterHeight(FS_NORMAL) + (CargoesField::max_cargoes - 1) * CargoesField::cargo_space.height;
+		uint min_ind_height = CargoesField::cargo_border.height * 2 + CargoesField::max_cargoes * GetCharacterHeight(FontSize::Normal) + (CargoesField::max_cargoes - 1) * CargoesField::cargo_space.height;
 		d.height = std::max(d.height + WidgetDimensions::scaled.frametext.Vertical(), min_ind_height);
 
 		CargoesField::industry_width = d.width;
 		CargoesField::normal_height = d.height + CargoesField::vert_inter_industry_space;
 
-		/* Width of a #CFT_CARGO field. */
+		/* Width of a #CargoesFieldType::Cargo field. */
 		CargoesField::cargo_field_width = CargoesField::cargo_border.width * 2 + CargoesField::cargo_line.width * CargoesField::max_cargoes + CargoesField::cargo_space.width * (CargoesField::max_cargoes - 1);
 	}
 
@@ -2691,7 +2740,7 @@ struct IndustryCargoesWindow : public Window {
 		for (const CargoType cargo_type : cargoes) {
 			if (!IsValidCargoType(cargo_type)) continue;
 			TownProductionEffect tpe = CargoSpec::Get(cargo_type)->town_production_effect;
-			if (tpe == TPE_PASSENGERS || tpe == TPE_MAIL) return true;
+			if (tpe == TownProductionEffect::Passengers || tpe == TownProductionEffect::Mail) return true;
 		}
 		return false;
 	}
@@ -2711,7 +2760,7 @@ struct IndustryCargoesWindow : public Window {
 			for (const auto &hs : HouseSpec::Specs()) {
 				if (!hs.enabled || !hs.building_availability.Any(climate_mask)) continue;
 
-				for (uint j = 0; j < lengthof(hs.accepts_cargo); j++) {
+				for (size_t j = 0; j < std::size(hs.accepts_cargo); j++) {
 					if (hs.cargo_acceptance[j] > 0 && cargo_type == hs.accepts_cargo[j]) return true;
 				}
 			}
@@ -2762,13 +2811,13 @@ struct IndustryCargoesWindow : public Window {
 	void ShortenCargoColumn(int column, int top, int bottom)
 	{
 		while (top < bottom && !this->fields[top].columns[column].HasConnection()) {
-			this->fields[top].columns[column].MakeEmpty(CFT_EMPTY);
+			this->fields[top].columns[column].MakeEmpty(CargoesFieldType::Empty);
 			top++;
 		}
 		this->fields[top].columns[column].u.cargo.top_end = true;
 
 		while (bottom > top && !this->fields[bottom].columns[column].HasConnection()) {
-			this->fields[bottom].columns[column].MakeEmpty(CFT_EMPTY);
+			this->fields[bottom].columns[column].MakeEmpty(CargoesFieldType::Empty);
 			bottom--;
 		}
 		this->fields[bottom].columns[column].u.cargo.bottom_end = true;
@@ -2782,7 +2831,7 @@ struct IndustryCargoesWindow : public Window {
 	 */
 	void PlaceIndustry(int row, int col, IndustryType it)
 	{
-		assert(this->fields[row].columns[col].type == CFT_EMPTY);
+		assert(this->fields[row].columns[col].type == CargoesFieldType::Empty);
 		this->fields[row].columns[col].MakeIndustry(it);
 		if (col == 0) {
 			this->fields[row].ConnectIndustryProduced(col);
@@ -2798,9 +2847,7 @@ struct IndustryCargoesWindow : public Window {
 	{
 		if (!this->IsWidgetLowered(WID_IC_NOTIFY)) return;
 
-		/* Only notify the smallmap window if it exists. In particular, do not
-		 * bring it to the front to prevent messing up any nice layout of the user. */
-		InvalidateWindowClassesData(WC_SMALLMAP, 0);
+		UpdateSmallMapSelectedIndustries();
 	}
 
 	/**
@@ -2811,14 +2858,18 @@ struct IndustryCargoesWindow : public Window {
 	{
 		this->ind_cargo = displayed_it;
 		_displayed_industries.reset();
+		_displayed_industries_in.reset();
+		_displayed_industries_out.reset();
 		_displayed_industries.set(displayed_it);
+		_displayed_industries_in.set(displayed_it);
+		_displayed_industries_out.set(displayed_it);
 
 		this->fields.clear();
 		CargoesRow &first_row = this->fields.emplace_back();
 		first_row.columns[0].MakeHeader(STR_INDUSTRY_CARGOES_PRODUCERS);
-		first_row.columns[1].MakeEmpty(CFT_SMALL_EMPTY);
-		first_row.columns[2].MakeEmpty(CFT_SMALL_EMPTY);
-		first_row.columns[3].MakeEmpty(CFT_SMALL_EMPTY);
+		first_row.columns[1].MakeEmpty(CargoesFieldType::SmallEmpty);
+		first_row.columns[2].MakeEmpty(CargoesFieldType::SmallEmpty);
+		first_row.columns[3].MakeEmpty(CargoesFieldType::SmallEmpty);
 		first_row.columns[4].MakeHeader(STR_INDUSTRY_CARGOES_CUSTOMERS);
 
 		const IndustrySpec *central_sp = GetIndustrySpec(displayed_it);
@@ -2830,11 +2881,11 @@ struct IndustryCargoesWindow : public Window {
 		int num_indrows = std::max(3, std::max(num_supp, num_cust)); // One is needed for the 'it' industry, and 2 for the cargo labels.
 		for (int i = 0; i < num_indrows; i++) {
 			CargoesRow &row = this->fields.emplace_back();
-			row.columns[0].MakeEmpty(CFT_EMPTY);
+			row.columns[0].MakeEmpty(CargoesFieldType::Empty);
 			row.columns[1].MakeCargo(central_sp->accepts_cargo);
-			row.columns[2].MakeEmpty(CFT_EMPTY);
+			row.columns[2].MakeEmpty(CargoesFieldType::Empty);
 			row.columns[3].MakeCargo(central_sp->produced_cargo);
-			row.columns[4].MakeEmpty(CFT_EMPTY);
+			row.columns[4].MakeEmpty(CargoesFieldType::Empty);
 		}
 		/* Add central industry. */
 		int central_row = 1 + num_indrows / 2;
@@ -2856,11 +2907,13 @@ struct IndustryCargoesWindow : public Window {
 			if (HasCommonValidCargo(central_sp->accepts_cargo, indsp->produced_cargo)) {
 				this->PlaceIndustry(1 + supp_count * num_indrows / num_supp, 0, it);
 				_displayed_industries.set(it);
+				_displayed_industries_in.set(it);
 				supp_count++;
 			}
 			if (HasCommonValidCargo(central_sp->produced_cargo, indsp->accepts_cargo)) {
 				this->PlaceIndustry(1 + cust_count * num_indrows / num_cust, 4, it);
 				_displayed_industries.set(it);
+				_displayed_industries_out.set(it);
 				cust_count++;
 			}
 		}
@@ -2888,14 +2941,16 @@ struct IndustryCargoesWindow : public Window {
 	{
 		this->ind_cargo = cargo_type + NUM_INDUSTRYTYPES;
 		_displayed_industries.reset();
+		_displayed_industries_in.reset();
+		_displayed_industries_out.reset();
 
 		this->fields.clear();
 		CargoesRow &first_row = this->fields.emplace_back();
 		first_row.columns[0].MakeHeader(STR_INDUSTRY_CARGOES_PRODUCERS);
-		first_row.columns[1].MakeEmpty(CFT_SMALL_EMPTY);
+		first_row.columns[1].MakeEmpty(CargoesFieldType::SmallEmpty);
 		first_row.columns[2].MakeHeader(STR_INDUSTRY_CARGOES_CUSTOMERS);
-		first_row.columns[3].MakeEmpty(CFT_SMALL_EMPTY);
-		first_row.columns[4].MakeEmpty(CFT_SMALL_EMPTY);
+		first_row.columns[3].MakeEmpty(CargoesFieldType::SmallEmpty);
+		first_row.columns[4].MakeEmpty(CargoesFieldType::SmallEmpty);
 
 		auto cargoes = std::span(&cargo_type, 1);
 		bool houses_supply = HousesCanSupply(cargoes);
@@ -2905,11 +2960,11 @@ struct IndustryCargoesWindow : public Window {
 		int num_indrows = std::max(num_supp, num_cust);
 		for (int i = 0; i < num_indrows; i++) {
 			CargoesRow &row = this->fields.emplace_back();
-			row.columns[0].MakeEmpty(CFT_EMPTY);
+			row.columns[0].MakeEmpty(CargoesFieldType::Empty);
 			row.columns[1].MakeCargo(cargoes);
-			row.columns[2].MakeEmpty(CFT_EMPTY);
-			row.columns[3].MakeEmpty(CFT_EMPTY);
-			row.columns[4].MakeEmpty(CFT_EMPTY);
+			row.columns[2].MakeEmpty(CargoesFieldType::Empty);
+			row.columns[3].MakeEmpty(CargoesFieldType::Empty);
+			row.columns[4].MakeEmpty(CargoesFieldType::Empty);
 		}
 
 		this->fields[num_indrows].MakeCargoLabel(0, false); // Add cargo labels at the left bottom.
@@ -2924,11 +2979,13 @@ struct IndustryCargoesWindow : public Window {
 			if (HasCommonValidCargo(cargoes, indsp->produced_cargo)) {
 				this->PlaceIndustry(1 + supp_count * num_indrows / num_supp, 0, it);
 				_displayed_industries.set(it);
+				_displayed_industries_in.set(it);
 				supp_count++;
 			}
 			if (HasCommonValidCargo(cargoes, indsp->accepts_cargo)) {
 				this->PlaceIndustry(1 + cust_count * num_indrows / num_cust, 2, it);
 				_displayed_industries.set(it);
+				_displayed_industries_out.set(it);
 				cust_count++;
 			}
 		}
@@ -3060,19 +3117,19 @@ struct IndustryCargoesWindow : public Window {
 
 				const CargoesField *fld = this->fields[fieldxy.y].columns + fieldxy.x;
 				switch (fld->type) {
-					case CFT_INDUSTRY:
+					case CargoesFieldType::Industry:
 						if (fld->u.industry.ind_type < NUM_INDUSTRYTYPES) this->ComputeIndustryDisplay(fld->u.industry.ind_type);
 						break;
 
-					case CFT_CARGO: {
+					case CargoesFieldType::Cargo: {
 						CargoesField *lft = (fieldxy.x > 0) ? this->fields[fieldxy.y].columns + fieldxy.x - 1 : nullptr;
 						CargoesField *rgt = (fieldxy.x < 4) ? this->fields[fieldxy.y].columns + fieldxy.x + 1 : nullptr;
-						CargoType cargo_type = fld->CargoClickedAt(lft, rgt, xy);
-						if (IsValidCargoType(cargo_type)) this->ComputeCargoDisplay(cargo_type);
+						CargoType cid = fld->CargoClickedAt(lft, rgt, xy);
+						if (cid != INVALID_CARGO) this->ComputeCargoDisplay(cid);
 						break;
 					}
 
-					case CFT_CARGO_LABEL: {
+					case CargoesFieldType::CargoLabel: {
 						CargoType cargo_type = fld->CargoLabelClickedAt(xy);
 						if (IsValidCargoType(cargo_type)) this->ComputeCargoDisplay(cargo_type);
 						break;
@@ -3085,13 +3142,28 @@ struct IndustryCargoesWindow : public Window {
 			}
 
 			case WID_IC_NOTIFY:
-				this->ToggleWidgetLoweredState(WID_IC_NOTIFY);
-				this->SetWidgetDirty(WID_IC_NOTIFY);
-				SndClickBeep();
+				if (this->GetWidget<NWidgetLeaf>(widget)->ButtonHit(pt)) {
+					this->ToggleWidgetLoweredState(WID_IC_NOTIFY);
+					this->SetWidgetDirty(WID_IC_NOTIFY);
+					SndClickBeep();
 
-				if (this->IsWidgetLowered(WID_IC_NOTIFY)) {
-					if (FindWindowByClass(WC_SMALLMAP) == nullptr) ShowSmallMap();
-					this->NotifySmallmap();
+					if (this->IsWidgetLowered(WID_IC_NOTIFY)) {
+						_link_mode = ILM_ALL;
+						if (FindWindowByClass(WindowClass::SmallMap) == nullptr) ShowSmallMap();
+						this->NotifySmallmap();
+					}
+				} else {
+					DropDownList list;
+					auto add_item = [&](StringID string, int result) {
+						std::unique_ptr<DropDownListStringItem> item = std::make_unique<DropDownListStringItem>(GetString(string), result, false);
+						item->SetColourFlags(ExtendedTextColourFlag::Forced);
+						list.emplace_back(std::move(item));
+					};
+					add_item(STR_INDUSTRY_CARGOES_NOTIFY_SMALLMAP_ALL, ILM_ALL);
+					add_item(STR_INDUSTRY_CARGOES_PRODUCERS, ILM_IN);
+					add_item(STR_INDUSTRY_CARGOES_CUSTOMERS, ILM_OUT);
+					int selected = (this->IsWidgetLowered(WID_IC_NOTIFY)) ? (int)_link_mode : -1;
+					ShowDropDownList(this, std::move(list), selected, WID_IC_NOTIFY);
 				}
 				break;
 
@@ -3102,8 +3174,9 @@ struct IndustryCargoesWindow : public Window {
 					lst.push_back(MakeDropDownListIconItem(d, cs->GetCargoIcon(), PAL_NONE, cs->name, cs->Index()));
 				}
 				if (!lst.empty()) {
+					static std::string cargo_filter;
 					int selected = (this->ind_cargo >= NUM_INDUSTRYTYPES) ? (int)(this->ind_cargo - NUM_INDUSTRYTYPES) : -1;
-					ShowDropDownList(this, std::move(lst), selected, WID_IC_CARGO_DROPDOWN);
+					ShowDropDownList(this, std::move(lst), selected, WID_IC_CARGO_DROPDOWN, 0, DropDownOption::Filterable, &cargo_filter);
 				}
 				break;
 			}
@@ -3116,8 +3189,9 @@ struct IndustryCargoesWindow : public Window {
 					lst.push_back(MakeDropDownListStringItem(indsp->name, ind));
 				}
 				if (!lst.empty()) {
+					static std::string cargo_filter;
 					int selected = (this->ind_cargo < NUM_INDUSTRYTYPES) ? (int)this->ind_cargo : -1;
-					ShowDropDownList(this, std::move(lst), selected, WID_IC_IND_DROPDOWN);
+					ShowDropDownList(this, std::move(lst), selected, WID_IC_IND_DROPDOWN, 0, DropDownOption::Filterable, &cargo_filter);
 				}
 				break;
 			}
@@ -3130,11 +3204,19 @@ struct IndustryCargoesWindow : public Window {
 
 		switch (widget) {
 			case WID_IC_CARGO_DROPDOWN:
-				this->ComputeCargoDisplay(index);
+				this->ComputeCargoDisplay(static_cast<CargoType>(index));
 				break;
 
 			case WID_IC_IND_DROPDOWN:
 				this->ComputeIndustryDisplay(index);
+				break;
+
+			case WID_IC_NOTIFY:
+				_link_mode = (IndustryLinkMode)index;
+				this->LowerWidget(WID_IC_NOTIFY);
+				this->SetWidgetDirty(WID_IC_NOTIFY);
+				if (FindWindowByClass(WindowClass::SmallMap) == nullptr) ShowSmallMap();
+				this->NotifySmallmap();
 				break;
 		}
 	}
@@ -3149,19 +3231,19 @@ struct IndustryCargoesWindow : public Window {
 		const CargoesField *fld = this->fields[fieldxy.y].columns + fieldxy.x;
 		CargoType cargo_type = INVALID_CARGO;
 		switch (fld->type) {
-			case CFT_CARGO: {
+			case CargoesFieldType::Cargo: {
 				CargoesField *lft = (fieldxy.x > 0) ? this->fields[fieldxy.y].columns + fieldxy.x - 1 : nullptr;
 				CargoesField *rgt = (fieldxy.x < 4) ? this->fields[fieldxy.y].columns + fieldxy.x + 1 : nullptr;
 				cargo_type = fld->CargoClickedAt(lft, rgt, xy);
 				break;
 			}
 
-			case CFT_CARGO_LABEL: {
+			case CargoesFieldType::CargoLabel: {
 				cargo_type = fld->CargoLabelClickedAt(xy);
 				break;
 			}
 
-			case CFT_INDUSTRY:
+			case CargoesFieldType::Industry:
 				if (fld->u.industry.ind_type < NUM_INDUSTRYTYPES && (this->ind_cargo >= NUM_INDUSTRYTYPES || fieldxy.x != 2)) {
 					GuiShowTooltips(this, GetEncodedString(STR_INDUSTRY_CARGOES_INDUSTRY_TOOLTIP), close_cond);
 				}
@@ -3170,7 +3252,7 @@ struct IndustryCargoesWindow : public Window {
 			default:
 				break;
 		}
-		if (IsValidCargoType(cargo_type) && (this->ind_cargo < NUM_INDUSTRYTYPES || cargo_type != this->ind_cargo - NUM_INDUSTRYTYPES)) {
+		if (cargo_type != INVALID_CARGO && (this->ind_cargo < NUM_INDUSTRYTYPES || cargo_type != this->ind_cargo - NUM_INDUSTRYTYPES)) {
 			const CargoSpec *csp = CargoSpec::Get(cargo_type);
 			GuiShowTooltips(this, GetEncodedString(STR_INDUSTRY_CARGOES_CARGO_TOOLTIP, csp->name), close_cond);
 			return true;
@@ -3182,6 +3264,20 @@ struct IndustryCargoesWindow : public Window {
 	void OnResize() override
 	{
 		this->vscroll->SetCapacityFromWidget(this, WID_IC_PANEL, WidgetDimensions::scaled.framerect.Vertical() + CargoesField::small_height);
+	}
+
+	bool IsNewGRFInspectable() const override
+	{
+		return true;
+	}
+
+	void ShowNewGRFInspectWindow() const override
+	{
+		if (this->ind_cargo < NUM_INDUSTRYTYPES) {
+			::ShowNewGRFInspectWindow(GrfSpecFeature::Industries, this->ind_cargo | (1 << 26));
+		} else {
+			::ShowNewGRFInspectWindow(GrfSpecFeature::Cargoes, this->ind_cargo - NUM_INDUSTRYTYPES);
+		}
 	}
 };
 
@@ -3202,7 +3298,7 @@ static void ShowIndustryCargoesWindow(IndustryType id)
 		if (id >= NUM_INDUSTRYTYPES) return;
 	}
 
-	Window *w = BringWindowToFrontById(WC_INDUSTRY_CARGOES, 0);
+	Window *w = BringWindowToFrontById(WindowClass::IndustryCargoes, 0);
 	if (w != nullptr) {
 		w->InvalidateData(id);
 		return;
@@ -3214,4 +3310,101 @@ static void ShowIndustryCargoesWindow(IndustryType id)
 void ShowIndustryCargoesWindow()
 {
 	ShowIndustryCargoesWindow(NUM_INDUSTRYTYPES);
+}
+
+void ShowIndustryTooltip(Window *w, const TileIndex tile)
+{
+	if (!_settings_client.gui.industry_tooltip_show) return;
+	if (!(_settings_client.gui.industry_tooltip_show_name || _settings_client.gui.industry_tooltip_show_produced ||
+			_settings_client.gui.industry_tooltip_show_required || _settings_client.gui.industry_tooltip_show_stockpiled)) return;
+
+	const Industry *industry = Industry::GetByTile(tile);
+	const IndustrySpec *industry_spec = GetIndustrySpec(industry->type);
+
+	std::string msg;
+
+	if (_settings_client.gui.industry_tooltip_show_name) {
+		// Print out the name of the industry.
+		msg = GetString(STR_INDUSTRY_VIEW_NAME_TOOLTIP, industry_spec->name);
+	}
+
+	if (_settings_client.gui.industry_tooltip_show_required || _settings_client.gui.industry_tooltip_show_stockpiled) {
+		// Have to query the stockpiling right now, in case callback 37 returns fail.
+		bool stockpiling = industry_spec->callback_mask.Test(IndustryCallbackMask::ProductionCargoArrival) ||
+				industry_spec->callback_mask.Test(IndustryCallbackMask::Production256Ticks);
+
+		if (_settings_client.gui.industry_tooltip_show_required) {
+			// Print out required cargo.
+			bool first = true;
+			std::string required_cargo_list;
+
+			for (const auto &a : industry->Accepted()) {
+				if (a.cargo == INVALID_CARGO) {
+					continue;
+				}
+
+				CargoSuffix suffix;
+				GetCargoSuffix(CargoSuffixDirection::In, CargoSuffixType::View, industry, industry->type, industry_spec, a.cargo, &a - industry->accepted.get(), suffix);
+
+				const bool is_stockpile_with_suffix = (suffix.display == CargoSuffixDisplay::AmountAndText);
+				const bool is_stockpile_without_suffix = (suffix.display == CargoSuffixDisplay::Amount);
+				const bool is_proper_stockpile_without_suffix = (is_stockpile_without_suffix && stockpiling); // If callback 37 fails, the result is interpreted as a stockpile, for some reason.
+				if (is_stockpile_with_suffix || is_proper_stockpile_without_suffix) {
+					if (_settings_client.gui.industry_tooltip_show_stockpiled) continue;
+				}
+
+				StringID format = STR_INDUSTRY_VIEW_REQUIRED_TOOLTIP_NEXT;
+				if (first) {
+					format = STR_INDUSTRY_VIEW_REQUIRED_TOOLTIP_FIRST;
+					first = false;
+				}
+
+				required_cargo_list += GetString(format, CargoSpec::Get(a.cargo)->name, suffix.text);
+			}
+
+			if (!required_cargo_list.empty()) {
+				if (!msg.empty()) msg += '\n';
+				msg += required_cargo_list;
+			}
+		}
+
+		// Print out stockpiled cargo.
+
+		if (stockpiling && _settings_client.gui.industry_tooltip_show_stockpiled) {
+			for (const auto &a : industry->Accepted()) {
+				if (a.cargo == INVALID_CARGO) continue;
+
+				CargoSuffix suffix;
+				GetCargoSuffix(CargoSuffixDirection::In, CargoSuffixType::View, industry, industry->type, industry_spec, a.cargo, &a - industry->accepted.get(), suffix);
+
+				if (suffix.display == CargoSuffixDisplay::None || suffix.display == CargoSuffixDisplay::Text) {
+					continue;
+				}
+
+				if (!msg.empty()) msg += '\n';
+
+				msg += GetString(STR_INDUSTRY_VIEW_STOCKPILED_TOOLTIP, a.cargo, a.waiting, suffix.text);
+			}
+		}
+	}
+
+	if (_settings_client.gui.industry_tooltip_show_produced) {
+		// Print out amounts of produced cargo.
+
+		for (const auto &p : industry->Produced()) {
+			if (p.cargo == INVALID_CARGO) continue;
+
+			if (!msg.empty()) msg += '\n';
+
+			CargoSuffix suffix;
+			GetCargoSuffix(CargoSuffixDirection::Out, CargoSuffixType::View, industry, industry->type, industry_spec, p.cargo, &p - industry->produced.get(), suffix);
+
+			msg += GetString(STR_INDUSTRY_VIEW_TRANSPORTED_TOOLTIP_EXTENSION,
+					p.cargo, p.history[LAST_MONTH].production, suffix.text, ToPercent8(p.history[LAST_MONTH].PctTransported()));
+		}
+	}
+
+	if (!msg.empty()) {
+		GuiShowTooltips(w, GetEncodedRawString(msg), TCC_HOVER_VIEWPORT);
+	}
 }

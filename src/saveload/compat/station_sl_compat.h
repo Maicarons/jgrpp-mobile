@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _roadstop_desc. */
 const SaveLoadCompat _roadstop_sl_compat[] = {
 	SLC_VAR("xy"),
@@ -177,5 +179,7 @@ const SaveLoadCompat _old_station_sl_compat[] = {
 	SLC_VAR("speclist"),
 
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_STATION_H */

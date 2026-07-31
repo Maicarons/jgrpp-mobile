@@ -13,6 +13,7 @@
 #include "base.hpp"
 #include "../debug.h"
 #include "../string_func.h"
+#include <map>
 
 
 /**
@@ -92,6 +93,7 @@ public:
 	 * Find the requested blitter and return its class.
 	 * @param name the blitter to select.
 	 * @post Sets the blitter so GetCurrentBlitter() returns it too.
+	 * @return The selected blitter or \c nullptr when no blitter could be found.
 	 */
 	static Blitter *SelectBlitter(std::string_view name)
 	{
@@ -132,6 +134,7 @@ public:
 
 	/**
 	 * Get the current active blitter (always set by calling SelectBlitter).
+	 * @return The active blitter.
 	 */
 	static Blitter *GetCurrentBlitter()
 	{
@@ -140,38 +143,39 @@ public:
 
 	/**
 	 * Fill a buffer with information about the blitters.
-	 * @param p The buffer to fill.
-	 * @param last The last element of the buffer.
-	 * @return p The location till where we filled the buffer.
+	 * @param output The buffer to fill.
 	 */
-	static void GetBlittersInfo(std::back_insert_iterator<std::string> &output_iterator)
+	static void GetBlittersInfo(format_target &output)
 	{
-		fmt::format_to(output_iterator, "List of blitters:\n");
+		output.append("List of blitters:\n");
 		for (auto &it : GetBlitters()) {
 			BlitterFactory *b = it.second;
-			fmt::format_to(output_iterator, "{:>18}: {}\n", b->name, b->GetDescription());
+			output.format("{:>18}: {}\n", b->name, b->GetDescription());
 		}
-		fmt::format_to(output_iterator, "\n");
+		output.push_back('\n');
 	}
 
 	/**
 	 * Get the long, human readable, name for the Blitter-class.
+	 * @return Name of this instance.
 	 */
-	std::string_view GetName() const
+	const std::string &GetName() const
 	{
 		return this->name;
 	}
 
 	/**
 	 * Get a nice description of the blitter-class.
+	 * @return Description of this instance.
 	 */
-	std::string_view GetDescription() const
+	const std::string &GetDescription() const
 	{
 		return this->description;
 	}
 
 	/**
 	 * Create an instance of this Blitter-class.
+	 * @return The created instance.
 	 */
 	virtual std::unique_ptr<Blitter> CreateInstance() = 0;
 };

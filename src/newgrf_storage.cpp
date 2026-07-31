@@ -11,6 +11,7 @@
 #include "newgrf_storage.h"
 #include "core/pool_func.hpp"
 #include "debug.h"
+#include "3rdparty/cpp-btree/btree_set.h"
 
 #include "safeguards.h"
 
@@ -18,7 +19,7 @@ PersistentStoragePool _persistent_storage_pool("PersistentStorage");
 INSTANTIATE_POOL_METHODS(PersistentStorage)
 
 /** The changed storage arrays */
-static std::set<BasePersistentStorageArray*> *_changed_storage_arrays = new std::set<BasePersistentStorageArray*>;
+static btree::btree_set<BasePersistentStorageArray*> _changed_storage_arrays;
 
 bool BasePersistentStorageArray::gameloop;
 bool BasePersistentStorageArray::command;
@@ -29,7 +30,7 @@ bool BasePersistentStorageArray::testmode;
  */
 BasePersistentStorageArray::~BasePersistentStorageArray()
 {
-	_changed_storage_arrays->erase(this);
+	_changed_storage_arrays.erase(this);
 }
 
 /**
@@ -40,7 +41,7 @@ BasePersistentStorageArray::~BasePersistentStorageArray()
  */
 void AddChangedPersistentStorage(BasePersistentStorageArray *storage)
 {
-	_changed_storage_arrays->insert(storage);
+	_changed_storage_arrays.insert(storage);
 }
 
 /**
@@ -89,9 +90,9 @@ void AddChangedPersistentStorage(BasePersistentStorageArray *storage)
 	}
 
 	/* Discard all temporary changes */
-	for (auto &it : *_changed_storage_arrays) {
-		Debug(desync, 2, "warning: discarding persistent storage changes: Feature {}, GrfID {:08X}, Tile {}", it->feature, std::byteswap(it->grfid), it->tile);
+	for (auto &it : _changed_storage_arrays) {
+		Debug(desync, 1, "Discarding persistent storage changes: Feature {}, GrfID {:08X}, Tile {}", it->feature, std::byteswap(it->grfid), it->tile);
 		it->ClearChanges();
 	}
-	_changed_storage_arrays->clear();
+	_changed_storage_arrays.clear();
 }

@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file fios.h Declarations for savegames operations */
+/** @file fios.h Declarations for savegames operations. */
 
 #ifndef FIOS_H
 #define FIOS_H
@@ -13,9 +13,9 @@
 #include "gfx_type.h"
 #include "company_base.h"
 #include "newgrf_config.h"
-#include "gamelog.h"
 #include "network/core/tcp_content_type.h"
-#include "timer/timer_game_calendar.h"
+#include "order_type.h"
+#include <vector>
 
 
 /** Special values for save-load window for the data parameter of #InvalidateWindowData. */
@@ -25,62 +25,12 @@ enum SaveLoadInvalidateWindowData : uint8_t {
 	SLIWD_FILTER_CHANGES,        ///< The filename filter has changed (via the editbox)
 };
 
-using CompanyPropertiesMap = std::map<uint, std::unique_ptr<CompanyProperties>>;
-
-/**
- * Container for loading in mode SL_LOAD_CHECK.
- */
-struct LoadCheckData {
-	bool checkable = false; ///< True if the savegame could be checked by SL_LOAD_CHECK. (Old savegames are not checkable.)
-	StringID error{}; ///< Error message from loading. INVALID_STRING_ID if no error.
-	std::string error_msg{}; ///< Data to pass to string parameters when displaying #error.
-
-	uint32_t map_size_x = 0;
-	uint32_t map_size_y = 0;
-	TimerGameCalendar::Date current_date{};
-
-	LandscapeType landscape{}; ///< Landscape type.
-	TimerGameCalendar::Year starting_year{}; ///< Starting date.
-
-	CompanyPropertiesMap companies{}; ///< Company information.
-
-	GRFConfigList grfconfig{}; ///< NewGrf configuration from save.
-	GRFListCompatibility grf_compatibility = GLC_NOT_FOUND; ///< Summary state of NewGrfs, whether missing files or only compatible found.
-
-	Gamelog gamelog{}; ///< Gamelog actions
-
-	LoadCheckData() {}
-
-	/**
-	 * Check whether loading the game resulted in errors.
-	 * @return true if errors were encountered.
-	 */
-	bool HasErrors()
-	{
-		return this->checkable && this->error != INVALID_STRING_ID;
-	}
-
-	/**
-	 * Check whether the game uses any NewGrfs.
-	 * @return true if NewGrfs are used.
-	 */
-	bool HasNewGrfs()
-	{
-		return this->checkable && this->error == INVALID_STRING_ID && !this->grfconfig.empty();
-	}
-
-	void Clear();
-};
-
-extern LoadCheckData _load_check_data;
-
 /** Deals with finding savegames */
 struct FiosItem {
 	FiosType type;
-	int64_t mtime;
+	uint64_t mtime;
 	EncodedString title;
 	std::string name;
-	bool operator< (const FiosItem &other) const;
 };
 
 /** List of file information. */
@@ -89,35 +39,39 @@ public:
 	void BuildFileList(AbstractFileType abstract_filetype, SaveLoadOperation fop, bool show_dirs);
 	const FiosItem *FindItem(std::string_view file);
 };
+bool FiosItemSorter(const FiosItem &a, const FiosItem &b);
+bool FiosItemNameSorter(const FiosItem &a, const FiosItem &b);
+bool FiosItemModificationDateSorter(const FiosItem &a, const FiosItem &b);
 
-enum SortingBits : uint8_t {
-	SORT_ASCENDING  = 0,
-	SORT_DESCENDING = 1,
-	SORT_BY_DATE    = 0,
-	SORT_BY_NAME    = 2
+struct FiosOrderListInfo {
+	const Vehicle * const veh;
+	const VehicleOrderID order_insert_index;
+	const bool reverse;
+
+	FiosOrderListInfo(const Vehicle *veh, VehicleOrderID order_insert_index = INVALID_VEH_ORDER_ID, bool reverse = false)
+			: veh(veh), order_insert_index(order_insert_index), reverse(reverse) {}
 };
-DECLARE_ENUM_AS_BIT_SET(SortingBits)
 
-/* Variables to display file lists */
-extern SortingBits _savegame_sort_order;
-
-void ShowSaveLoadDialog(AbstractFileType abstract_filetype, SaveLoadOperation fop);
+void ShowSaveLoadDialog(AbstractFileType abstract_filetype, SaveLoadOperation fop, std::optional<FiosOrderListInfo> order_list_info = std::nullopt);
 
 void FiosGetSavegameList(SaveLoadOperation fop, bool show_dirs, FileList &file_list);
 void FiosGetScenarioList(SaveLoadOperation fop, bool show_dirs, FileList &file_list);
 void FiosGetHeightmapList(SaveLoadOperation fop, bool show_dirs, FileList &file_list);
+void FiosGetOrderlistList(SaveLoadOperation fop, bool show_dirs, FileList &file_list);
 void FiosGetTownDataList(SaveLoadOperation fop, bool show_dirs, FileList &file_list);
 
 bool FiosBrowseTo(const FiosItem *item);
 
 std::string FiosGetCurrentPath();
 std::optional<uint64_t> FiosGetDiskFreeSpace(const std::string &path);
-std::string FiosMakeHeightmapName(std::string_view name);
-std::string FiosMakeSavegameName(std::string_view name);
+std::string FiosMakeHeightmapName(const char *name);
+std::string FiosMakeSavegameName(const char *name);
+std::string FiosMakeOrderListName(const char *name);
 
-std::tuple<FiosType, std::string> FiosGetSavegameListCallback(SaveLoadOperation fop, std::string_view file, std::string_view ext);
-std::tuple<FiosType, std::string> FiosGetScenarioListCallback(SaveLoadOperation fop, std::string_view file, std::string_view ext);
-std::tuple<FiosType, std::string> FiosGetHeightmapListCallback(SaveLoadOperation fop, std::string_view file, std::string_view ext);
+FiosType FiosGetSavegameListCallback(SaveLoadOperation fop, const std::string &file, const char *ext, char *title, const char *last);
+FiosType FiosGetScenarioListCallback(SaveLoadOperation fop, const std::string &file, const char *ext, char *title, const char *last);
+FiosType FiosGetHeightmapListCallback(SaveLoadOperation fop, const std::string &file, const char *ext, char *title, const char *last);
+FiosType FiosGetOrderlistListCallback(SaveLoadOperation fop, const std::string &file, const char *ext, char *title, const char *last);
 
 void ScanScenarios();
 std::optional<std::string_view> FindScenario(const ContentInfo &ci, bool md5sum);
@@ -126,12 +80,17 @@ std::optional<std::string_view> FindScenario(const ContentInfo &ci, bool md5sum)
  * A savegame name automatically numbered.
  */
 struct FiosNumberedSaveName {
-	FiosNumberedSaveName(const std::string &prefix);
+	FiosNumberedSaveName(std::string_view prefix);
 	std::string Filename();
+	std::string FilenameUsingMaxSaves(uint max_saves);
+	void FilenameUsingNumber(struct format_target &buffer, int num, const char *suffix) const;
 	std::string Extension();
+	uint GetLastNumber() const { return this->number; }
+	std::string_view GetSavePath() const { return this->save_path; }
 private:
 	std::string prefix;
-	int number;
+	std::string save_path;
+	uint number;
 };
 
 #endif /* FIOS_H */

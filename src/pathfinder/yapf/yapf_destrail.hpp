@@ -43,32 +43,34 @@ public:
 	typedef typename Types::NodeList::Item Node; ///< this will be our node type
 	typedef typename Node::Key Key; ///< key to hash tables
 
-	/** to access inherited path finder */
+	/** @copydoc CYapfBaseT::Yapf */
 	Tpf &Yapf()
 	{
 		return *static_cast<Tpf *>(this);
 	}
 
-	/** Called by YAPF to detect if node ends in the desired destination */
+	/** @copydoc CYapfBaseT::PfDetectDestinationFunc */
 	inline bool PfDetectDestination(Node &n)
 	{
 		return this->PfDetectDestination(n.GetLastTile(), n.GetLastTrackdir());
 	}
 
-	/** Called by YAPF to detect if node ends in the desired destination */
-	inline bool PfDetectDestination(TileIndex tile, Trackdir)
+	/** @copydoc CYapfBaseT::PfDetectDestinationTileFunc */
+	inline bool PfDetectDestination(TileIndex tile, [[maybe_unused]] Trackdir td)
 	{
 		return IsRailDepotTile(tile);
 	}
 
-	/**
-	 * Called by YAPF to calculate cost estimate. Calculates distance to the destination
-	 *  adds it to the actual cost from origin and stores the sum to the Node::estimate
-	 */
+	/** @copydoc CYapfBaseT::PfCalcEstimateFunc */
 	inline bool PfCalcEstimate(Node &n)
 	{
 		n.estimate = n.cost;
 		return true;
+	}
+
+	inline int TeleportCost(TileIndex cur_tile, TileIndex prev_tile)
+	{
+		return 0;
 	}
 };
 
@@ -80,33 +82,35 @@ public:
 	typedef typename Node::Key Key; ///< key to hash tables
 	typedef typename Types::TrackFollower TrackFollower; ///< TrackFollower. Need to typedef for gcc 2.95
 
-	/** to access inherited path finder */
+	/** @copydoc CYapfBaseT::Yapf */
 	Tpf &Yapf()
 	{
 		return *static_cast<Tpf *>(this);
 	}
 
-	/** Called by YAPF to detect if node ends in the desired destination */
+	/** @copydoc CYapfBaseT::PfDetectDestinationFunc */
 	inline bool PfDetectDestination(Node &n)
 	{
 		return this->PfDetectDestination(n.GetLastTile(), n.GetLastTrackdir());
 	}
 
-	/** Called by YAPF to detect if node ends in the desired destination */
+	/** @copydoc CYapfBaseT::PfDetectDestinationTileFunc */
 	inline bool PfDetectDestination(TileIndex tile, Trackdir td)
 	{
 		return IsSafeWaitingPosition(Yapf().GetVehicle(), tile, td, true, !TrackFollower::Allow90degTurns()) &&
 				IsWaitingPositionFree(Yapf().GetVehicle(), tile, td, !TrackFollower::Allow90degTurns());
 	}
 
-	/**
-	 * Called by YAPF to calculate cost estimate. Calculates distance to the destination
-	 *  adds it to the actual cost from origin and stores the sum to the Node::estimate.
-	 */
+	/** @copydoc CYapfBaseT::PfCalcEstimateFunc */
 	inline bool PfCalcEstimate(Node &n)
 	{
 		n.estimate = n.cost;
 		return true;
+	}
+
+	inline int TeleportCost(TileIndex cur_tile, TileIndex prev_tile)
+	{
+		return 0;
 	}
 };
 
@@ -123,7 +127,7 @@ protected:
 	StationID dest_station_id;
 	bool any_depot;
 
-	/** to access inherited path finder */
+	/** @copydoc CYapfBaseT::Yapf */
 	Tpf &Yapf()
 	{
 		return *static_cast<Tpf *>(this);
@@ -146,33 +150,33 @@ public:
 				[[fallthrough]];
 
 			case OT_GOTO_STATION:
-				this->dest_tile = CalcClosestStationTile(v->current_order.GetDestination().ToStationID(), v->tile, v->current_order.IsType(OT_GOTO_STATION) ? StationType::Rail : StationType::RailWaypoint);
+				this->dest_tile = CalcClosestStationTile(v->current_order.GetDestination().ToStationID(), v->GetMovingFront()->tile, v->current_order.IsType(OT_GOTO_STATION) ? StationType::Rail : StationType::RailWaypoint);
 				this->dest_station_id = v->current_order.GetDestination().ToStationID();
 				this->dest_trackdirs = INVALID_TRACKDIR_BIT;
 				break;
 
 			case OT_GOTO_DEPOT:
-				if (v->current_order.GetDepotActionType().Test(OrderDepotActionFlag::NearestDepot)) {
+				if (v->current_order.GetDepotActionType() & ODATFB_NEAREST_DEPOT) {
 					this->any_depot = true;
 				}
 				[[fallthrough]];
 
 			default:
-				this->dest_tile = v->dest_tile;
+				this->dest_tile = (v->dest_tile == INVALID_TILE) ? TileIndex{} : v->dest_tile;
 				this->dest_station_id = StationID::Invalid();
-				this->dest_trackdirs = TrackStatusToTrackdirBits(GetTileTrackStatus(v->dest_tile, TRANSPORT_RAIL, 0));
+				this->dest_trackdirs = GetTileTrackdirBits(this->dest_tile, TRANSPORT_RAIL, 0);
 				break;
 		}
 		this->CYapfDestinationRailBase::SetDestination(v);
 	}
 
-	/** Called by YAPF to detect if node ends in the desired destination */
+	/** @copydoc CYapfBaseT::PfDetectDestinationFunc */
 	inline bool PfDetectDestination(Node &n)
 	{
 		return this->PfDetectDestination(n.GetLastTile(), n.GetLastTrackdir());
 	}
 
-	/** Called by YAPF to detect if node ends in the desired destination */
+	/** @copydoc CYapfBaseT::PfDetectDestinationTileFunc */
 	inline bool PfDetectDestination(TileIndex tile, Trackdir td)
 	{
 		if (this->dest_station_id != StationID::Invalid()) {
@@ -188,10 +192,7 @@ public:
 		return (tile == this->dest_tile) && HasTrackdir(this->dest_trackdirs, td);
 	}
 
-	/**
-	 * Called by YAPF to calculate cost estimate. Calculates distance to the destination
-	 *  adds it to the actual cost from origin and stores the sum to the Node::estimate
-	 */
+	/** @copydoc CYapfBaseT::PfCalcEstimateFunc */
 	inline bool PfCalcEstimate(Node &n)
 	{
 		if (this->PfDetectDestination(n)) {
@@ -202,6 +203,22 @@ public:
 		n.estimate = n.cost + OctileDistanceCost(n.GetLastTile(), n.GetLastTrackdir(), this->dest_tile);
 		assert(n.estimate >= n.parent->estimate);
 		return true;
+	}
+
+	inline int TeleportCost(TileIndex cur_tile, TileIndex prev_tile)
+	{
+		auto calculate_distance_cost = [&](TileIndex t, int d_adjust) -> int {
+			int x1 = 2 * TileX(t);
+			int y1 = 2 * TileY(t);
+			int x2 = 2 * TileX(this->dest_tile);
+			int y2 = 2 * TileY(this->dest_tile);
+			int dx = abs(x1 - x2) + d_adjust;
+			int dy = abs(y1 - y2);
+			int dmin = std::min(dx, dy) + d_adjust; // up to 2x track exit dir tile offsets in opposite directions
+			int dxy = abs(dx - dy) + d_adjust; // "
+			return dmin * YAPF_TILE_CORNER_LENGTH + (dxy - 1) * (YAPF_TILE_LENGTH / 2);
+		};
+		return std::max<int>(0, calculate_distance_cost(prev_tile, 8) - calculate_distance_cost(cur_tile, 0));
 	}
 };
 

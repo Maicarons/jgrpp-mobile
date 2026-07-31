@@ -22,18 +22,20 @@ struct Backup {
 	/**
 	 * Backup variable.
 	 * @param original Variable to backup.
-	 * @param location Source location for debug output.
+	 * @param file Filename for debug output. Use FILE_LINE macro.
+	 * @param line Linenumber for debug output. Use FILE_LINE macro.
 	 */
-	Backup(T &original, const std::source_location location = std::source_location::current()) : original(original), valid(true), original_value(original), location(location) {}
+	Backup(T &original, const char * const file, const int line) : original(original), file(file), line(line), valid(true), original_value(original) {}
 
 	/**
 	 * Backup variable and switch to new value.
 	 * @param original Variable to backup.
 	 * @param new_value New value for variable.
-	 * @param location Source location for debug output.
+	 * @param file Filename for debug output. Use FILE_LINE macro.
+	 * @param line Linenumber for debug output. Use FILE_LINE macro.
 	 */
 	template <typename U>
-	Backup(T &original, const U &new_value, const std::source_location location = std::source_location::current()) : original(original), valid(true), original_value(original), location(location)
+	Backup(T &original, const U &new_value, const char * const file, const int line) : original(original), file(file), line(line), valid(true), original_value(original)
 	{
 		/* Note: We use a separate typename U, so type conversions are handled by assignment operator. */
 		original = new_value;
@@ -45,11 +47,10 @@ struct Backup {
 	~Backup()
 	{
 		/* Check whether restoration was done */
-		if (this->valid)
-		{
+		if (this->valid) {
 			/* We cannot assert here, as missing restoration is 'normal' when exceptions are thrown.
 			 * Exceptions are especially used to abort world generation. */
-			Debug(misc, 0, "{}:{}: Backed-up value was not restored!", this->location.file_name(), this->location.line());
+			Debug(misc, 0, "{}:{}: Backed-up value was not restored!", this->file, this->line);
 			this->Restore();
 		}
 	}
@@ -70,7 +71,7 @@ struct Backup {
 	const T &GetOriginalValue() const
 	{
 		assert(this->valid);
-		return original_value;
+		return this->original_value;
 	}
 
 	/**
@@ -83,7 +84,7 @@ struct Backup {
 	{
 		/* Note: We use a separate typename U, so type conversions are handled by assignment operator. */
 		assert(this->valid);
-		original = new_value;
+		this->original = new_value;
 	}
 
 	/**
@@ -134,12 +135,14 @@ struct Backup {
 	}
 
 private:
-	T &original;
-	bool valid;
-	T original_value;
-
-	const std::source_location location;
+	T &original;             ///< Reference to the value we are backing up.
+	const char * const file; ///< File location where the backup was created.
+	const int line;          ///< Line location where the backup was created.
+	bool valid;              ///< Whether the original value has been restored.
+	T original_value;        ///< The value at the moment of making a backup.
 };
+
+struct AutoRestoreBackupNoNewValueTag {};
 
 /**
  * Class to backup a specific variable and restore it upon destruction of this object to prevent
@@ -153,6 +156,13 @@ struct AutoRestoreBackup {
 	 * for the new value to go out of scope before this object goes out of scope, thus defeating
 	 * the whole goal and reason for existing of this object.
 	 */
+
+	/**
+	 * Backup variable.
+	 * @param original Variable to backup.
+	 * @param tag Tag to indicate that the variable's value should not be changed.
+	 */
+	AutoRestoreBackup(T &original, AutoRestoreBackupNoNewValueTag tag) : original(original), original_value(original) {}
 
 	/**
 	 * Backup variable and switch to new value.
@@ -172,9 +182,18 @@ struct AutoRestoreBackup {
 		this->original = this->original_value;
 	}
 
+	/**
+	 * Returns the backupped value.
+	 * @return value from the backup.
+	 */
+	const T &GetOriginalValue() const
+	{
+		return this->original_value;
+	}
+
 private:
-	T &original;
-	T original_value;
+	T &original; ///< Reference to the value we are backing up.
+	T original_value; ///< The value at the moment of making a backup.
 
 	/* Prevent copy, assignment and allocation on stack. */
 	AutoRestoreBackup(const AutoRestoreBackup&) = delete;

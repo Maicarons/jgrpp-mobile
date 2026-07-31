@@ -47,13 +47,14 @@ static void Convert32bppTo8bpp(SpriteLoader::Sprite &sprite)
 	}
 }
 
-ZoomLevels SpriteLoaderMakeIndexed::LoadSprite(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool, SpriteCacheCtrlFlags control_flags, ZoomLevels &avail_8bpp, ZoomLevels &avail_32bpp)
+SpriteLoaderResult SpriteLoaderMakeIndexed::LoadSprite(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, uint count, uint16_t control_flags, LowZoomLevels zoom_levels)
 {
-	ZoomLevels avail = this->baseloader.LoadSprite(sprite, file, file_pos, sprite_type, true, control_flags, avail_8bpp, avail_32bpp);
+	SpriteLoaderResult result = this->baseloader.LoadSprite(sprite, file, file_pos, sprite_type, true, count, control_flags, zoom_levels);
 
-	for (ZoomLevel zoom : avail) {
-		Convert32bppTo8bpp(sprite[zoom]);
+	LowZoomLevels levels = result.loaded_sprites & zoom_levels & ZOOM_SPRITE_RENDER_MASK;
+	for (ZoomLevel zoom : levels.IterateSetBits()) {
+		if (sprite[zoom].data != nullptr) Convert32bppTo8bpp(sprite[zoom]);
 	}
 
-	return avail;
+	return result;
 }

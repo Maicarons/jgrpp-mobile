@@ -14,6 +14,7 @@
 #include "../gfx_type.h"
 #include "../spriteloader/spriteloader.hpp"
 #include "../misc/lrucache.hpp"
+#include <vector>
 
 typedef void (*OGLProc)();
 typedef OGLProc (*GetOGLProcAddressProc)(const char *proc);
@@ -69,9 +70,9 @@ private:
 	std::vector<CursorSprite> cursor_sprites{}; ///< Sprites comprising cursor
 
 	OpenGLBackend();
-	~OpenGLBackend();
+	~OpenGLBackend() override;
 
-	std::optional<std::string_view> Init(const Dimension &screen_res);
+	const char *Init(const Dimension &screen_res);
 	bool InitShaders();
 
 	void InternalClearCursorCache();
@@ -79,12 +80,15 @@ private:
 	void RenderOglSprite(const OpenGLSprite *gl_sprite, PaletteID pal, int x, int y, ZoomLevel zoom);
 
 public:
-	/** Get singleton instance of this class. */
+	/**
+	 * Get singleton instance of this class.
+	 * @return Our instance.
+	 */
 	static inline OpenGLBackend *Get()
 	{
 		return OpenGLBackend::instance;
 	}
-	static std::optional<std::string_view> Create(GetOGLProcAddressProc get_proc, const Dimension &screen_res);
+	static const char *Create(GetOGLProcAddressProc get_proc, const Dimension &screen_res);
 	static void Destroy();
 
 	void PrepareContext();
@@ -106,8 +110,7 @@ public:
 
 	/* SpriteEncoder */
 
-	bool Is32BppSupported() override { return true; }
-	uint GetSpriteAlignment() override { return 1u << to_underlying(ZoomLevel::Max); }
+	uint GetSpriteAlignment() override { return 1u << to_underlying(ZoomLevel::SpriteMax); }
 	Sprite *Encode(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator) override;
 };
 

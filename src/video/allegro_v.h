@@ -15,7 +15,7 @@
 /** The allegro video driver. */
 class VideoDriver_Allegro : public VideoDriver {
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -29,11 +29,11 @@ public:
 
 	bool AfterBlitterChange() override;
 
-	bool ClaimMousePointer() override;
+	void ClaimMousePointer() override;
 
 	std::vector<int> GetListOfMonitorRefreshRates() override;
 
-	std::string_view GetName() const override { return "allegro"; }
+	const char *GetName() const override { return "allegro"; }
 
 protected:
 	void InputLoop() override;
@@ -45,7 +45,7 @@ protected:
 /** Factory for the allegro video driver. */
 class FVideoDriver_Allegro : public DriverFactoryBase {
 public:
-	FVideoDriver_Allegro() : DriverFactoryBase(Driver::DT_VIDEO, 4, "allegro", "Allegro Video Driver") {}
+	FVideoDriver_Allegro() : DriverFactoryBase(Driver::Type::Video, 4, "allegro", "Allegro Video Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<VideoDriver_Allegro>(); }
 };
 

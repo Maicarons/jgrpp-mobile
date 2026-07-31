@@ -10,14 +10,16 @@
 #ifndef GROUP_TYPE_H
 #define GROUP_TYPE_H
 
-#include "core/pool_type.hpp"
+#include "core/pool_id_type.hpp"
 
-using GroupID = PoolID<uint16_t, struct GroupIDTag, 64000, 0xFFFF>;
+struct GroupIDTag : public PoolIDTraits<uint16_t, 64000, 0xFFFF> {};
+using GroupID = PoolID<GroupIDTag>;
 static constexpr GroupID NEW_GROUP{0xFFFC}; ///< Sentinel for a to-be-created group.
 static constexpr GroupID ALL_GROUP{0xFFFD}; ///< All vehicles are in this group.
 static constexpr GroupID DEFAULT_GROUP{0xFFFE}; ///< Ungrouped vehicles are in this group.
+static const uint32_t GROUP_NAME_HIERARCHY = 0x80000000; ///< String constant to display the group name with its full hierarchy
 
-static const uint MAX_LENGTH_GROUP_NAME_CHARS = 32; ///< The maximum length of a group name in characters including '\0'
+static const uint MAX_LENGTH_GROUP_NAME_CHARS = 128; ///< The maximum length of a group name in characters including '\0'
 
 struct Group;
 

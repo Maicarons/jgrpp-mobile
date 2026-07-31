@@ -17,14 +17,20 @@ class Blitter_32bppOptimized : public Blitter_32bppSimple {
 public:
 	/** Data stored about a (single) sprite. */
 	struct SpriteData {
-		SpriteCollMap<uint32_t> offset[2]; ///< Offsets (from .data) to streams for different zoom levels, and the normal and remap image information.
-		uint8_t data[];                      ///< Data, all zoomlevels.
+		BlitterSpriteFlags flags;
+		SpriteCollMap<std::array<uint32_t, 2>> offset; ///< Offsets (from .data) to streams for different zoom levels, and the normal and remap image information.
+		uint8_t data[];                                ///< Data, all zoomlevels.
 	};
+
+	Blitter_32bppOptimized()
+	{
+		this->SetSupportsMissingZoomLevels(true);
+	}
 
 	void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) override;
 	Sprite *Encode(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator) override;
 
-	std::string_view GetName() override { return "32bpp-optimized"; }
+	const char *GetName() const override { return "32bpp-optimized"; }
 
 	template <BlitterMode mode, bool Tpal_to_rgb = false> void Draw(const Blitter::BlitterParams *bp, ZoomLevel zoom);
 

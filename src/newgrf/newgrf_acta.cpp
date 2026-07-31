@@ -59,21 +59,29 @@ static void SpriteReplace(ByteReader &buf)
 				GrfMsg(0, "SpriteReplace: [Set {}] Changing {} sprites, beginning with {}, above limit of {} and not within reserved range, ignoring.",
 					i, num_sprites, first_sprite, SPR_OPENTTD_BASE);
 
-				/* Load the sprites at the current location so they will do nothing instead of appearing to work. */
-				first_sprite = _cur_gps.spriteid;
-				_cur_gps.spriteid += num_sprites;
+				for (uint j = 0; j < num_sprites; j++) {
+					_cur_gps.nfo_line++;
+					LoadNextSprite(INVALID_SPRITE_ID, *_cur_gps.file, _cur_gps.nfo_line);
+				}
+				return;
 			}
 		}
 
 		for (uint j = 0; j < num_sprites; j++) {
 			SpriteID load_index = first_sprite + j;
 			_cur_gps.nfo_line++;
-			LoadNextSprite(load_index, *_cur_gps.file, _cur_gps.nfo_line); // XXX
+			if (load_index < (int)SPR_PROGSIGNAL_BASE || load_index >= (int)SPR_NEWGRFS_BASE) {
+				LoadNextSprite(load_index, *_cur_gps.file, _cur_gps.nfo_line); // XXX
+			} else {
+				/* Skip sprite */
+				GrfMsg(0, "SpriteReplace: Ignoring attempt to replace protected sprite ID: {}", load_index);
+				LoadNextSprite(INVALID_SPRITE_ID, *_cur_gps.file, _cur_gps.nfo_line);
+			}
 
 			/* Shore sprites now located at different addresses.
 			 * So detect when the old ones get replaced. */
 			if (IsInsideMM(load_index, SPR_ORIGINALSHORE_START, SPR_ORIGINALSHORE_END + 1)) {
-				if (_loaded_newgrf_features.shore != SHORE_REPLACE_ACTION_5) _loaded_newgrf_features.shore = SHORE_REPLACE_ACTION_A;
+				if (_loaded_newgrf_features.shore != ShoreReplacement::Action5) _loaded_newgrf_features.shore = ShoreReplacement::ActionA;
 			}
 		}
 	}
@@ -94,9 +102,15 @@ static void SkipActA(ByteReader &buf)
 	GrfMsg(3, "SkipActA: Skipping {} sprites", _cur_gps.skip_sprites);
 }
 
+/** @copydoc GrfActionHandler::FileScan */
 template <> void GrfActionHandler<0x0A>::FileScan(ByteReader &buf) { SkipActA(buf); }
+/** @copydoc GrfActionHandler::SafetyScan */
 template <> void GrfActionHandler<0x0A>::SafetyScan(ByteReader &buf) { SkipActA(buf); }
+/** @copydoc GrfActionHandler::LabelScan */
 template <> void GrfActionHandler<0x0A>::LabelScan(ByteReader &buf) { SkipActA(buf); }
+/** @copydoc GrfActionHandler::Init */
 template <> void GrfActionHandler<0x0A>::Init(ByteReader &buf) { SkipActA(buf); }
+/** @copydoc GrfActionHandler::Reserve */
 template <> void GrfActionHandler<0x0A>::Reserve(ByteReader &buf) { SkipActA(buf); }
+/** @copydoc GrfActionHandler::Activation */
 template <> void GrfActionHandler<0x0A>::Activation(ByteReader &buf) { SpriteReplace(buf); }

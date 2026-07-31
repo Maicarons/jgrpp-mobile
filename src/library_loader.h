@@ -10,6 +10,10 @@
 #ifndef LIBRARY_LOADER_H
 #define LIBRARY_LOADER_H
 
+#include <optional>
+#include <string>
+#include <type_traits>
+
 class LibraryLoader {
 public:
 	/**
@@ -33,6 +37,7 @@ public:
 
 	/**
 	 * Load a library with the given filename.
+	 * @param filename The library to open.
 	 */
 	explicit LibraryLoader(const std::string &filename)
 	{
@@ -88,6 +93,7 @@ private:
 	 * Should set error if any error occurred.
 	 *
 	 * @param filename The filename of the library to open.
+	 * @return Handle to the opened library.
 	 */
 	void *OpenLibrary(const std::string &filename);
 
@@ -102,6 +108,7 @@ private:
 	 * Should set error if any error occurred.
 	 *
 	 * @param symbol_name The name of the symbol to get.
+	 * @return The loaded symbol, or \c nullptr when no symbol was loaded.
 	 */
 	void *GetSymbol(const std::string &symbol_name);
 

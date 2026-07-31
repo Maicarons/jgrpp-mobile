@@ -12,14 +12,19 @@
 
 #include "vehicle_type.h"
 #include "engine_type.h"
+#include <vector>
 
-uint CountArticulatedParts(EngineID engine_type, bool purchase_window);
-CargoArray GetCapacityOfArticulatedParts(EngineID engine);
+static constexpr uint MAX_ARTICULATED_PARTS = 100; ///< Maximum of articulated parts per vehicle, i.e. when to abort calling the articulated vehicle callback.
+
+uint CountArticulatedParts(EngineID engine_type);
+CargoArray GetCapacityOfArticulatedParts(EngineID engine, CargoType attempt_refit = INVALID_CARGO);
 CargoTypes GetCargoTypesOfArticulatedParts(EngineID engine);
 void AddArticulatedParts(Vehicle *first);
 void GetArticulatedRefitMasks(EngineID engine, bool include_initial_cargo_type, CargoTypes *union_mask, CargoTypes *intersection_mask);
+std::vector<CargoTypes> GetArticulatedRefitMaskVector(EngineID engine, bool include_initial_cargo_type);
 CargoTypes GetUnionOfArticulatedRefitMasks(EngineID engine, bool include_initial_cargo_type);
 CargoTypes GetCargoTypesOfArticulatedVehicle(const Vehicle *v, CargoType *cargo_type);
+CargoType GetOverallCargoOfArticulatedVehicle(const Vehicle *v);
 bool IsArticulatedVehicleRefittable(EngineID engine);
 bool IsArticulatedEngine(EngineID engine_type);
 void CheckConsistencyOfArticulatedVehicle(const Vehicle *v);

@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _goals_desc. */
 const SaveLoadCompat _goals_sl_compat[] = {
 	SLC_VAR("company"),
@@ -21,5 +23,7 @@ const SaveLoadCompat _goals_sl_compat[] = {
 	SLC_VAR("progress"),
 	SLC_VAR("completed"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_GOAL_H */

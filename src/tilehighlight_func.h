@@ -12,26 +12,27 @@
 
 #include "gfx_type.h"
 #include "tilehighlight_type.h"
+#include "track_type.h"
 
 void PlaceProc_DemolishArea(TileIndex tile);
 bool GUIPlaceProcDragXY(ViewportDragDropSelectionProcess proc, TileIndex start_tile, TileIndex end_tile);
 
 bool HandlePlacePushButton(Window *w, WidgetID widget, CursorID cursor, HighLightStyle mode);
 void SetObjectToPlaceWnd(CursorID icon, PaletteID pal, HighLightStyle mode, Window *w);
-void SetObjectToPlace(CursorID icon, PaletteID pal, HighLightStyle mode, WindowClass window_class, WindowNumber window_num);
+void SetObjectToPlace(CursorID icon, PaletteID pal, HighLightStyle mode, WindowClass window_class, WindowNumber window_num, WindowToken window_token = WindowToken(0));
 void ResetObjectToPlace();
-void ConfirmPlacingObject();
-
 
 void VpSelectTilesWithMethod(int x, int y, ViewportPlaceMethod method);
 void VpStartDragging(ViewportDragDropSelectionProcess process);
 void VpStartPlaceSizing(TileIndex tile, ViewportPlaceMethod method, ViewportDragDropSelectionProcess process);
-void VpStartPreSizing();
 void VpSetPresizeRange(TileIndex from, TileIndex to);
 void VpSetPlaceSizingLimit(int limit);
 
 void UpdateTileSelection();
-void SetSelectionTilesDirty();
+
+void StoreRailPlacementEndpoints(TileIndex start_tile, TileIndex end_tile, Track start_track, bool bidirectional = true);
+void ResetRailPlacementSnapping();
+bool CurrentlySnappingRailPlacement();
 
 extern TileHighlightData _thd;
 

@@ -10,7 +10,7 @@
 #ifndef OBJECT_TYPE_H
 #define OBJECT_TYPE_H
 
-#include "core/pool_type.hpp"
+#include "core/pool_id_type.hpp"
 
 /** Types of objects. */
 typedef uint16_t ObjectType;
@@ -27,7 +27,8 @@ static const ObjectType NUM_OBJECTS_PER_GRF = NUM_OBJECTS; ///< Number of suppor
 static const ObjectType INVALID_OBJECT_TYPE = 0xFFFF; ///< An invalid object
 
 /** Unique identifier for an object. */
-using ObjectID = PoolID<uint32_t, struct ObjectIDTag, 0xFF0000, 0xFFFFFFFF>;
+struct ObjectIDTag : public PoolIDTraits<uint32_t, 0xFF0000, 0xFFFFFFFF> {};
+using ObjectID = PoolID<ObjectIDTag>;
 
 struct Object;
 struct ObjectSpec;
@@ -39,5 +40,12 @@ enum class ObjectAnimationTrigger : uint8_t {
 	TileLoopNorth, ///< Triggered every 256 ticks (for all tiles at the same time).
 };
 using ObjectAnimationTriggers = EnumBitSet<ObjectAnimationTrigger, uint16_t>;
+
+enum ObjectEffectiveFoundationType {
+	OEFT_NONE,
+	OEFT_FLAT,
+	OEFT_INCLINE_X,
+	OEFT_INCLINE_Y,
+};
 
 #endif /* OBJECT_TYPE_H */

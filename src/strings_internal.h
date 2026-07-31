@@ -10,10 +10,11 @@
 #ifndef STRINGS_INTERNAL_H
 #define STRINGS_INTERNAL_H
 
-#include "strings_func.h"
 #include "string_func.h"
-#include "core/string_builder.hpp"
-#include "core/string_consumer.hpp"
+#include "strings_type.h"
+#include "core/strong_typedef_type.hpp"
+
+#include <array>
 
 class StringParameters {
 protected:
@@ -29,12 +30,18 @@ public:
 	/**
 	 * Create a new StringParameters instance that can reference part of the data of
 	 * the given parent instance.
+	 * @param parent The parent we are a subset from.
+	 * @param size The number of elements from the parent at its offset to take.
 	 */
 	StringParameters(StringParameters &parent, size_t size) :
 		parent(&parent),
 		parameters(parent.parameters.subspan(parent.offset, size))
 	{}
 
+	/**
+	 * Create a new StringParameters instance with the given parameters.
+	 * @param parameters The actual parameters.
+	 */
 	StringParameters(std::span<StringParameter> parameters = {}) : parameters(parameters) {}
 
 	void SetTypeOfNextParameter(char32_t type) { this->next_type = type; }
@@ -60,7 +67,9 @@ public:
 		 * words, when the offset was already at the end of the parameters and
 		 * the string did not consume any parameters.
 		 */
-		assert(offset < this->parameters.size() || this->offset == offset);
+		if (!(offset < this->parameters.size() || this->offset == offset)) {
+			throw std::out_of_range("SetOffset() out of range");
+		}
 		this->offset = offset;
 	}
 
@@ -87,6 +96,7 @@ public:
 			uint64_t operator()(const std::monostate &) { throw std::out_of_range("Attempt to read uninitialised parameter as integer"); }
 			uint64_t operator()(const uint64_t &arg) { return arg; }
 			uint64_t operator()(const std::string &) { throw std::out_of_range("Attempt to read string parameter as integer"); }
+			uint64_t operator()(const StringParameterDataStringView &) { throw std::out_of_range("Attempt to read string parameter as integer"); }
 		};
 
 		const auto &param = this->GetNextParameterReference();
@@ -118,6 +128,7 @@ public:
 			std::string_view operator()(const std::monostate &) { throw std::out_of_range("Attempt to read uninitialised parameter as string"); }
 			std::string_view operator()(const uint64_t &) { throw std::out_of_range("Attempt to read integer parameter as string"); }
 			std::string_view operator()(const std::string &arg) { return arg; }
+			std::string_view operator()(const StringParameterDataStringView &arg) { return arg.view; }
 		};
 
 		const auto &param = this->GetNextParameterReference();
@@ -149,52 +160,39 @@ public:
 		return StringParameters(this->parameters.subspan(offset, this->parameters.size() - offset));
 	}
 
-	/** Return the amount of elements which can still be read. */
+	/**
+	 * Return the amount of elements which can still be read.
+	 * @return The number of parameters minus the current offset.
+	 */
 	size_t GetDataLeft() const
 	{
 		return this->parameters.size() - this->offset;
 	}
 
-	/** Return the number of parameters. */
+	/**
+	 * Return the number of parameters.
+	 * @return The parameter count.
+	 */
 	size_t GetNumParameters() const
 	{
 		return this->parameters.size();
 	}
 
-	/** Get the type of a specific element. */
+	/**
+	 * Get the type of a specific element.
+	 * @param offset The offset to get the type for.
+	 * @return The type.
+	 */
 	char32_t GetTypeAtOffset(size_t offset) const
 	{
 		assert(offset < this->parameters.size());
 		return this->parameters[offset].type;
 	}
 
-	void SetParam(size_t n, const StringParameterData &v)
-	{
+	template <typename T>
+	inline void SetParam(size_t n, T &&v) {
 		assert(n < this->parameters.size());
-		this->parameters[n].data = v;
-	}
-
-	void SetParam(size_t n, uint64_t v)
-	{
-		assert(n < this->parameters.size());
-		this->parameters[n].data = v;
-	}
-
-	void SetParam(size_t n, ConvertibleThroughBase auto v)
-	{
-		SetParam(n, v.base());
-	}
-
-	void SetParam(size_t n, const std::string &str)
-	{
-		assert(n < this->parameters.size());
-		this->parameters[n].data = str;
-	}
-
-	void SetParam(size_t n, std::string &&str)
-	{
-		assert(n < this->parameters.size());
-		this->parameters[n].data = std::move(str);
+		this->parameters[n] = StringParameter(std::forward<T>(v));
 	}
 
 	const StringParameterData &GetParam(size_t n) const
@@ -204,15 +202,14 @@ public:
 	}
 };
 
-void GetStringWithArgs(StringBuilder &builder, StringID string, StringParameters &args, uint case_index = 0, bool game_script = false);
-void GetStringWithArgs(StringBuilder &builder, StringID string, std::span<StringParameter> params, uint case_index = 0, bool game_script = false);
-std::string GetStringWithArgs(StringID string, StringParameters &args);
+class StringBuilder;
+
+void GetStringWithArgs(StringBuilder builder, StringID string, StringParameters &args, uint case_index = 0, bool game_script = false);
+void GetStringWithArgs(StringBuilder builder, StringID string, std::span<StringParameter> params, uint case_index = 0, bool game_script = false);
 
 /* Do not leak the StringBuilder to everywhere. */
-void GenerateTownNameString(StringBuilder &builder, size_t lang, uint32_t seed);
-void GetTownName(StringBuilder &builder, const struct Town *t);
-void GRFTownNameGenerate(StringBuilder &builder, uint32_t grfid, uint16_t gen, uint32_t seed);
-
-char32_t RemapNewGRFStringControlCode(char32_t scc, StringConsumer &consumer);
+void GenerateTownNameString(StringBuilder builder, size_t lang, uint32_t seed);
+void GetTownName(StringBuilder builder, const struct Town *t);
+void GRFTownNameGenerate(StringBuilder builder, uint32_t grfid, uint16_t gen, uint32_t seed);
 
 #endif /* STRINGS_INTERNAL_H */

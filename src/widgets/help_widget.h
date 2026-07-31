@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
- /** @file help_widget.h Types related to the help window widgets. */
+/** @file help_widget.h Types related to the help window widgets. */
 
 #ifndef WIDGETS_HELP_WIDGET_H
 #define WIDGETS_HELP_WIDGET_H
@@ -21,11 +21,6 @@ enum HelpWindowWidgets : WidgetID {
 	WID_HW_WIKI,
 	WID_HW_BUGTRACKER,
 	WID_HW_COMMUNITY,
-  WID_HW_BUS,
-  WID_HW_TRAIN,
-  WID_HW_TRUCK,
-  WID_HW_SHIP,
-  WID_HW_FACILALL
 };
 
 #endif /* WIDGETS_HELP_WIDGET_H */

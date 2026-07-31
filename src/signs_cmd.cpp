@@ -11,13 +11,13 @@
 #include "landscape.h"
 #include "company_func.h"
 #include "signs_base.h"
+#include "signs_cmd.h"
 #include "signs_func.h"
 #include "command_func.h"
 #include "tilehighlight_func.h"
 #include "viewport_kdtree.h"
 #include "window_func.h"
 #include "string_func.h"
-#include "signs_cmd.h"
 
 #include "table/strings.h"
 
@@ -32,27 +32,29 @@
  * @param text contents of the sign
  * @return the cost of this operation + the ID of the new sign or an error
  */
-std::tuple<CommandCost, SignID> CmdPlaceSign(DoCommandFlags flags, TileIndex tile, const std::string &text)
+CommandCost CmdPlaceSign(DoCommandFlags flags, TileIndex tile, const std::string &text)
 {
 	/* Try to locate a new sign */
-	if (!Sign::CanAllocateItem()) return { CommandCost(STR_ERROR_TOO_MANY_SIGNS), SignID::Invalid() };
+	if (!Sign::CanAllocateItem()) return CommandCost(STR_ERROR_TOO_MANY_SIGNS);
 
 	/* Check sign text length if any */
-	if (Utf8StringLength(text) >= MAX_LENGTH_SIGN_NAME_CHARS) return { CMD_ERROR, SignID::Invalid() };
+	if (Utf8StringLength(text) >= MAX_LENGTH_SIGN_NAME_CHARS) return CMD_ERROR;
 
 	/* When we execute, really make the sign */
 	if (flags.Test(DoCommandFlag::Execute)) {
 		int x = TileX(tile) * TILE_SIZE;
 		int y = TileY(tile) * TILE_SIZE;
 
-		Sign *si = new Sign(_game_mode == GM_EDITOR ? OWNER_DEITY : _current_company, x, y, GetSlopePixelZ(x, y), text);
+		Sign *si = Sign::Create(_game_mode == GameMode::Editor ? OWNER_DEITY : _current_company, x, y, GetSlopePixelZ(x, y), text);
 
 		si->UpdateVirtCoord();
-		InvalidateWindowData(WC_SIGN_LIST, 0, 0);
-		return { CommandCost(), si->index };
+		InvalidateWindowData(WindowClass::SignList, 0, 0);
+		CommandCost cost;
+		cost.SetResultData(si->index);
+		return cost;
 	}
 
-	return { CommandCost(), SignID::Invalid() };
+	return CommandCost();
 }
 
 /**
@@ -62,9 +64,10 @@ std::tuple<CommandCost, SignID> CmdPlaceSign(DoCommandFlags flags, TileIndex til
  * @param flags type of operation
  * @param sign_id index of the sign to be renamed/removed
  * @param text the new name or an empty string when resetting to the default
+ * @param text_colour colour of the sign's text. Only relevant for OWNER_DEITY. Use Colours::Invalid to keep the current colour.
  * @return the cost of this operation or an error
  */
-CommandCost CmdRenameSign(DoCommandFlags flags, SignID sign_id, const std::string &text)
+CommandCost CmdRenameSign(DoCommandFlags flags, SignID sign_id, const std::string &text, Colours text_colour)
 {
 	Sign *si = Sign::GetIfValid(sign_id);
 	if (si == nullptr) return CMD_ERROR;
@@ -77,18 +80,21 @@ CommandCost CmdRenameSign(DoCommandFlags flags, SignID sign_id, const std::strin
 		if (flags.Test(DoCommandFlag::Execute)) {
 			/* Assign the new one */
 			si->name = text;
-			if (_game_mode != GM_EDITOR) si->owner = _current_company;
+			if (text_colour != Colours::Invalid) si->text_colour = text_colour;
+			if (_game_mode != GameMode::Editor) si->owner = _current_company;
 
 			si->UpdateVirtCoord();
-			InvalidateWindowData(WC_SIGN_LIST, 0, 1);
+			InvalidateWindowData(WindowClass::SignList, 0, 1);
 		}
 	} else { // Delete sign
 		if (flags.Test(DoCommandFlag::Execute)) {
-			si->sign.MarkDirty();
-			if (si->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeSign(si->index));
+			if (_display_opt.Test(DisplayOption::ShowSigns) && !(si->IsCompetitorOwned() && !_display_opt.Test(DisplayOption::ShowCompetitorSigns))) {
+				si->sign.MarkDirty(ZoomLevel::SpriteMax);
+			}
+			if (_viewport_sign_kdtree_valid && si->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeSign(si->index));
 			delete si;
 
-			InvalidateWindowData(WC_SIGN_LIST, 0, 0);
+			InvalidateWindowData(WindowClass::SignList, 0, 0);
 		}
 	}
 
@@ -117,7 +123,7 @@ CommandCost CmdMoveSign(DoCommandFlags flags, SignID sign_id, TileIndex tile)
 		si->x = x;
 		si->y = y;
 		si->z = GetSlopePixelZ(x, y);
-		if (_game_mode != GM_EDITOR) si->owner = _current_company;
+		if (_game_mode != GameMode::Editor) si->owner = _current_company;
 
 		si->UpdateVirtCoord();
 	}
@@ -128,14 +134,16 @@ CommandCost CmdMoveSign(DoCommandFlags flags, SignID sign_id, TileIndex tile)
 /**
  * Callback function that is called after a sign is placed
  * @param result of the operation
- * @param new_sign ID of the placed sign.
  */
-void CcPlaceSign(Commands, const CommandCost &result, SignID new_sign)
+void CcPlaceSign(const CommandCost &result)
 {
 	if (result.Failed()) return;
 
-	ShowRenameSignWindow(Sign::Get(new_sign));
-	ResetObjectToPlace();
+	auto sign_id = result.GetResultData<SignID>();
+	if (sign_id.has_value()) {
+		ShowRenameSignWindow(Sign::Get(*sign_id));
+		ResetObjectToPlace();
+	}
 }
 
 /**
@@ -146,5 +154,5 @@ void CcPlaceSign(Commands, const CommandCost &result, SignID new_sign)
  */
 void PlaceProc_Sign(TileIndex tile)
 {
-	Command<CMD_PLACE_SIGN>::Post(STR_ERROR_CAN_T_PLACE_SIGN_HERE, CcPlaceSign, tile, {});
+	Command<Commands::PlaceSign>::Post(STR_ERROR_CAN_T_PLACE_SIGN_HERE, CommandCallback::PlaceSign, tile, {});
 }

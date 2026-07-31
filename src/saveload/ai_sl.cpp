@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file ai_sl.cpp Handles the saveload part of the AIs */
+/** @file ai_sl.cpp Handles the saveload part of the AIs. */
 
 #include "../stdafx.h"
 #include "../debug.h"
@@ -22,6 +22,8 @@
 #include "../ai/ai_instance.hpp"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 static std::string _ai_saveload_name;
 static int         _ai_saveload_version;
@@ -44,7 +46,7 @@ static const SaveLoad _ai_running_desc[] = {
 static void SaveReal_AIPL(int arg)
 {
 	CompanyID index = static_cast<CompanyID>(arg);
-	AIConfig *config = AIConfig::GetConfig(index, AIConfig::SSS_FORCE_GAME);
+	AIConfig *config = AIConfig::GetConfig(index, AIConfig::ScriptSettingSource::ForceCurrentGame);
 
 	if (config->HasScript()) {
 		_ai_saveload_name = config->GetName();
@@ -81,7 +83,7 @@ struct AIPLChunkHandler : ChunkHandler {
 
 		/* Free all current data */
 		for (CompanyID c = CompanyID::Begin(); c < MAX_COMPANIES; ++c) {
-			AIConfig::GetConfig(c, AIConfig::SSS_FORCE_GAME)->Change(std::nullopt);
+			AIConfig::GetConfig(c, AIConfig::ScriptSettingSource::ForceCurrentGame)->Change(std::nullopt);
 		}
 
 		CompanyID index;
@@ -92,7 +94,7 @@ struct AIPLChunkHandler : ChunkHandler {
 			_ai_saveload_version = -1;
 			SlObject(nullptr, slt);
 
-			if (_game_mode == GM_MENU || (_networking && !_network_server)) {
+			if (_game_mode == GameMode::Menu || (_networking && !_network_server)) {
 				if (Company::IsValidAiID(index)) {
 					SlObject(nullptr, _ai_running_desc);
 					AIInstance::LoadEmpty();
@@ -100,7 +102,7 @@ struct AIPLChunkHandler : ChunkHandler {
 				continue;
 			}
 
-			AIConfig *config = AIConfig::GetConfig(index, AIConfig::SSS_FORCE_GAME);
+			AIConfig *config = AIConfig::GetConfig(index, AIConfig::ScriptSettingSource::ForceCurrentGame);
 			if (_ai_saveload_name.empty() || _ai_saveload_is_random) {
 				/* A random AI. */
 				config->Change(std::nullopt, -1, false);
@@ -173,3 +175,5 @@ static const ChunkHandlerRef ai_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _ai_chunk_handlers(ai_chunk_handlers);
+
+}

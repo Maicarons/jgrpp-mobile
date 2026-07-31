@@ -17,12 +17,13 @@ private:
 	std::vector<std::string> command_tokens{};
 	std::string song{};
 	pid_t pid = 0;
+	bool failed = false;
 
 	void DoPlay();
 	void DoStop();
 
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -33,12 +34,14 @@ public:
 	bool IsSongPlaying() override;
 
 	void SetVolume(uint8_t vol) override;
-	std::string_view GetName() const override { return "extmidi"; }
+	const char *GetName() const override { return "extmidi"; }
+
+	bool IsInFailedState() override { return this->failed; }
 };
 
 class FMusicDriver_ExtMidi : public DriverFactoryBase {
 public:
-	FMusicDriver_ExtMidi() : DriverFactoryBase(Driver::DT_MUSIC, 3, "extmidi", "External MIDI Driver") {}
+	FMusicDriver_ExtMidi() : DriverFactoryBase(Driver::Type::Music, 3, "extmidi", "External MIDI Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<MusicDriver_ExtMidi>(); }
 };
 

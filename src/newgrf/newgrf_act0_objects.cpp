@@ -9,6 +9,7 @@
 
 #include "../stdafx.h"
 #include "../debug.h"
+#include "../newgrf_extension.h"
 #include "../newgrf_object.h"
 #include "newgrf_bytereader.h"
 #include "newgrf_internal.h"
@@ -24,7 +25,7 @@
  */
 static ChangeInfoResult IgnoreObjectProperty(uint prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	switch (prop) {
 		case 0x0B:
@@ -58,7 +59,7 @@ static ChangeInfoResult IgnoreObjectProperty(uint prop, ByteReader &buf)
 			break;
 
 		default:
-			ret = CIR_UNKNOWN;
+			ret = HandleAction0PropertyDefault(buf, prop);
 			break;
 	}
 
@@ -70,23 +71,24 @@ static ChangeInfoResult IgnoreObjectProperty(uint prop, ByteReader &buf)
  * @param first Local ID of the first object.
  * @param last Local ID of the last object.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_OBJECTS_PER_GRF) {
 		GrfMsg(1, "ObjectChangeInfo: Too many objects loaded ({}), max ({}). Ignoring.", last, NUM_OBJECTS_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate object specs if they haven't been allocated already. */
 	if (_cur_gps.grffile->objectspec.size() < last) _cur_gps.grffile->objectspec.resize(last);
 
 	for (uint id = first; id < last; ++id) {
-		auto &spec = _cur_gps.grffile->objectspec[id];
+		ObjectSpec *spec = _cur_gps.grffile->objectspec[id].get();
 
 		if (prop != 0x08 && spec == nullptr) {
 			/* If the object property 08 is not yet set, ignore this property */
@@ -99,7 +101,8 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 			case 0x08: { // Class ID
 				/* Allocate space for this object. */
 				if (spec == nullptr) {
-					spec = std::make_unique<ObjectSpec>();
+					_cur_gps.grffile->objectspec[id] = std::make_unique<ObjectSpec>();
+					spec = _cur_gps.grffile->objectspec[id].get();
 					spec->views = 1; // Default for NewGRFs that don't set it.
 					spec->size = OBJECT_SIZE_1X1; // Default for NewGRFs that manage to not set it (1x1)
 				}
@@ -111,7 +114,7 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 			}
 
 			case 0x09: { // Class name
-				AddStringForMapping(GRFStringID{buf.ReadWord()}, [spec = spec.get()](StringID str) { ObjectClass::Get(spec->class_index)->name = str; });
+				AddStringForMapping(GRFStringID{buf.ReadWord()}, spec, [](StringID str, ObjectSpec *spec) { ObjectClass::Get(spec->class_index)->name = str; });
 				break;
 			}
 
@@ -137,11 +140,11 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 				break;
 
 			case 0x0E: // Introduction date
-				spec->introduction_date = TimerGameCalendar::Date(buf.ReadDWord());
+				spec->introduction_date = CalTime::Date(static_cast<int32_t>(buf.ReadDWord()));
 				break;
 
 			case 0x0F: // End of life
-				spec->end_of_life_date = TimerGameCalendar::Date(buf.ReadDWord());
+				spec->end_of_life_date = CalTime::Date(static_cast<int32_t>(buf.ReadDWord()));
 				break;
 
 			case 0x10: // Flags
@@ -187,11 +190,40 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 				break;
 
 			case 0x19: // Badge list
-				spec->badges = ReadBadgeList(buf, GSF_OBJECTS);
+				spec->badges = ReadBadgeList(buf, GrfSpecFeature::Objects);
+				break;
+
+			case A0RPI_OBJECT_USE_LAND_GROUND:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				spec->ctrl_flags.Set(ObjectCtrlFlag::UseLandGround, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_OBJECT_EDGE_FOUNDATION_MODE:
+				if (MappedPropertyLengthMismatch(buf, 4, mapping_entry)) break;
+				spec->ctrl_flags.Set(ObjectCtrlFlag::EdgeFoundation);
+				for (int i = 0; i < 4; i++) {
+					spec->edge_foundation[i] = buf.ReadByte();
+				}
+				break;
+
+			case A0RPI_OBJECT_FLOOD_RESISTANT:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				spec->ctrl_flags.Set(ObjectCtrlFlag::FloodResistant, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_OBJECT_VIEWPORT_MAP_TYPE:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				spec->vport_map_type = (ObjectViewportMapType)buf.ReadByte();
+				spec->ctrl_flags.Set(ObjectCtrlFlag::ViewportMapTypeSet);
+				break;
+
+			case A0RPI_OBJECT_VIEWPORT_MAP_SUBTYPE:
+				if (MappedPropertyLengthMismatch(buf, 2, mapping_entry)) break;
+				spec->vport_map_subtype = buf.ReadWord();
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -199,5 +231,5 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_OBJECTS>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_OBJECTS>::Activation(uint first, uint last, int prop, ByteReader &buf) { return ObjectChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Objects>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Objects>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return ObjectChangeInfo(first, last, prop, mapping_entry, buf); }

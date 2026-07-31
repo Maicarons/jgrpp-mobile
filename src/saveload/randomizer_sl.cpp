@@ -5,13 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file randomizer_sl.cpp Code handling saving and loading of script randomizers */
+/** @file randomizer_sl.cpp Code handling saving and loading of script randomizers. */
 
 #include "../stdafx.h"
 #include "../script/api/script_object.hpp"
 #include "saveload.h"
-#include "saveload_internal.h"
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 static const SaveLoad _randomizer_desc[] = {
 	SLE_VAR(Randomizer, state[0], SLE_UINT32),
@@ -49,3 +50,5 @@ static const ChunkHandlerRef randomizer_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _randomizer_chunk_handlers(randomizer_chunk_handlers);
+
+};

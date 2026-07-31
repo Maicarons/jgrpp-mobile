@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file osk_gui.cpp The On Screen Keyboard GUI */
+/** @file osk_gui.cpp The On Screen Keyboard GUI. */
 
 #include "stdafx.h"
 #include "string_func.h"
@@ -101,7 +101,7 @@ struct OskWindow : public Window {
 		if (widget < WID_OSK_LETTERS) return;
 
 		widget -= WID_OSK_LETTERS;
-		DrawCharCentered(_keyboard[this->shift][widget], r, TC_BLACK);
+		DrawCharCentered(_keyboard[this->shift][widget], r, TextColour::Black);
 	}
 
 	void OnClick([[maybe_unused]] Point pt, WidgetID widget, [[maybe_unused]] int click_count) override
@@ -202,18 +202,18 @@ struct OskWindow : public Window {
 		this->parent->SetWidgetDirty(this->text_btn);
 	}
 
-	void OnFocusLost(bool closing) override
+	void OnFocusLost(bool closing, Window *newly_focused_window) override
 	{
 		VideoDriver::GetInstance()->EditBoxLostFocus();
 		if (!closing) this->Close();
 	}
 };
 
-static const int HALF_KEY_WIDTH = 7;  // Width of 1/2 key in pixels.
-static const int INTER_KEY_SPACE = 2; // Number of pixels between two keys.
+static const int HALF_KEY_WIDTH = 7; ///< Width of 1/2 key in pixels.
+static const int INTER_KEY_SPACE = 2; ///< Number of pixels between two keys.
 
-static const int TOP_KEY_PADDING = 2; // Vertical padding for the top row of keys.
-static const int KEY_PADDING = 6;     // Vertical padding for remaining key rows.
+static const int TOP_KEY_PADDING = 2; ///< Vertical padding for the top row of keys.
+static const int KEY_PADDING = 6; ///< Vertical padding for remaining key rows.
 
 /**
  * Add a key widget to a row of the keyboard.
@@ -231,17 +231,17 @@ static void AddKey(std::unique_ptr<NWidgetHorizontal> &hor, int pad_y, int num_h
 
 	if (widtype == NWID_SPACER) {
 		auto spc = std::make_unique<NWidgetSpacer>(key_width, 0);
-		spc->SetMinimalTextLines(1, pad_y, FS_NORMAL);
+		spc->SetMinimalTextLines(1, pad_y, FontSize::Normal);
 		hor->Add(std::move(spc));
 	} else {
-		auto leaf = std::make_unique<NWidgetLeaf>(widtype, COLOUR_GREY, widnum, widdata, STR_NULL);
+		auto leaf = std::make_unique<NWidgetLeaf>(widtype, Colours::Grey, widnum, widdata, STR_NULL);
 		leaf->SetMinimalSize(key_width, 0);
-		leaf->SetMinimalTextLines(1, pad_y, FS_NORMAL);
+		leaf->SetMinimalTextLines(1, pad_y, FontSize::Normal);
 		hor->Add(std::move(leaf));
 	}
 }
 
-/** Construct the top row keys (cancel, ok, backspace). */
+/** Construct the top row keys (cancel, ok, backspace). @copydoc NWidgetFunctionType */
 static std::unique_ptr<NWidgetBase> MakeTopKeys()
 {
 	auto hor = std::make_unique<NWidgetHorizontal>();
@@ -253,7 +253,7 @@ static std::unique_ptr<NWidgetBase> MakeTopKeys()
 	return hor;
 }
 
-/** Construct the row containing the digit keys. */
+/** Construct the row containing the digit keys. @copydoc NWidgetFunctionType */
 static std::unique_ptr<NWidgetBase> MakeNumberKeys()
 {
 	std::unique_ptr<NWidgetHorizontal> hor = std::make_unique<NWidgetHorizontalLTR>();
@@ -265,7 +265,7 @@ static std::unique_ptr<NWidgetBase> MakeNumberKeys()
 	return hor;
 }
 
-/** Construct the qwerty row keys. */
+/** Construct the qwerty row keys. @copydoc NWidgetFunctionType */
 static std::unique_ptr<NWidgetBase> MakeQwertyKeys()
 {
 	std::unique_ptr<NWidgetHorizontal> hor = std::make_unique<NWidgetHorizontalLTR>();
@@ -279,7 +279,7 @@ static std::unique_ptr<NWidgetBase> MakeQwertyKeys()
 	return hor;
 }
 
-/** Construct the asdfg row keys. */
+/** Construct the asdfg row keys. @copydoc NWidgetFunctionType */
 static std::unique_ptr<NWidgetBase> MakeAsdfgKeys()
 {
 	std::unique_ptr<NWidgetHorizontal> hor = std::make_unique<NWidgetHorizontalLTR>();
@@ -292,7 +292,7 @@ static std::unique_ptr<NWidgetBase> MakeAsdfgKeys()
 	return hor;
 }
 
-/** Construct the zxcvb row keys. */
+/** Construct the zxcvb row keys. @copydoc NWidgetFunctionType */
 static std::unique_ptr<NWidgetBase> MakeZxcvbKeys()
 {
 	std::unique_ptr<NWidgetHorizontal> hor = std::make_unique<NWidgetHorizontalLTR>();
@@ -306,7 +306,7 @@ static std::unique_ptr<NWidgetBase> MakeZxcvbKeys()
 	return hor;
 }
 
-/** Construct the spacebar row keys. */
+/** Construct the spacebar row keys. @copydoc NWidgetFunctionType */
 static std::unique_ptr<NWidgetBase> MakeSpacebarKeys()
 {
 	auto hor = std::make_unique<NWidgetHorizontal>();
@@ -322,11 +322,11 @@ static std::unique_ptr<NWidgetBase> MakeSpacebarKeys()
 
 
 static constexpr std::initializer_list<NWidgetPart> _nested_osk_widgets = {
-	NWidget(WWT_CAPTION, COLOUR_GREY, WID_OSK_CAPTION), SetTextStyle(TC_WHITE),
-	NWidget(WWT_PANEL, COLOUR_GREY),
-		NWidget(WWT_EDITBOX, COLOUR_GREY, WID_OSK_TEXT), SetMinimalSize(252, 0), SetPadding(2, 2, 2, 2),
+	NWidget(WWT_CAPTION, Colours::Grey, WID_OSK_CAPTION), SetTextStyle(TextColour::White),
+	NWidget(WWT_PANEL, Colours::Grey),
+		NWidget(WWT_EDITBOX, Colours::Grey, WID_OSK_TEXT), SetMinimalSize(252, 0), SetPadding(2, 2, 2, 2),
 	EndContainer(),
-	NWidget(WWT_PANEL, COLOUR_GREY),
+	NWidget(WWT_PANEL, Colours::Grey),
 		NWidget(NWID_VERTICAL), SetPadding(3), SetPIP(0, INTER_KEY_SPACE, 0),
 			NWidgetFunction(MakeTopKeys),
 			NWidgetFunction(MakeNumberKeys),
@@ -338,9 +338,10 @@ static constexpr std::initializer_list<NWidgetPart> _nested_osk_widgets = {
 	EndContainer(),
 };
 
-static WindowDesc _osk_desc(
-	WDP_CENTER, {}, 0, 0,
-	WC_OSK, WC_NONE,
+/** Window definition for the on screen keyboard window. */
+static WindowDesc _osk_desc(__FILE__, __LINE__,
+	WindowPosition::Center, nullptr, 0, 0,
+	WindowClass::OnScreenKeyboard, WindowClass::None,
 	{},
 	_nested_osk_widgets
 );
@@ -390,7 +391,7 @@ void GetKeyboardLayout()
  */
 void ShowOnScreenKeyboard(Window *parent, WidgetID button)
 {
-	CloseWindowById(WC_OSK, 0);
+	CloseWindowById(WindowClass::OnScreenKeyboard, 0);
 
 	GetKeyboardLayout();
 	new OskWindow(_osk_desc, parent, button);
@@ -405,7 +406,7 @@ void ShowOnScreenKeyboard(Window *parent, WidgetID button)
  */
 void UpdateOSKOriginalText(const Window *parent, WidgetID button)
 {
-	OskWindow *osk = dynamic_cast<OskWindow *>(FindWindowById(WC_OSK, 0));
+	OskWindow *osk = dynamic_cast<OskWindow *>(FindWindowById(WindowClass::OnScreenKeyboard, 0));
 	if (osk == nullptr || osk->parent != parent || osk->text_btn != button) return;
 
 	osk->orig_str = osk->qs->text.GetText();
@@ -421,6 +422,6 @@ void UpdateOSKOriginalText(const Window *parent, WidgetID button)
  */
 bool IsOSKOpenedFor(const Window *w, WidgetID button)
 {
-	OskWindow *osk = dynamic_cast<OskWindow *>(FindWindowById(WC_OSK, 0));
+	OskWindow *osk = dynamic_cast<OskWindow *>(FindWindowById(WindowClass::OnScreenKeyboard, 0));
 	return osk != nullptr && osk->parent == w && osk->text_btn == button;
 }

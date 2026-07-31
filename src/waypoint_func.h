@@ -13,12 +13,11 @@
 #include "rail_type.h"
 #include "command_type.h"
 #include "station_type.h"
-
-enum StationClassID : uint16_t;
+#include "newgrf_station_id.h"
 
 CommandCost RemoveBuoy(TileIndex tile, DoCommandFlags flags);
 
-Axis GetAxisForNewRailWaypoint(TileIndex tile);
+Axis GetAxisForNewWaypoint(TileIndex tile);
 Axis GetAxisForNewRoadWaypoint(TileIndex tile);
 void ShowWaypointWindow(const Waypoint *wp);
 void DrawWaypointSprite(int x, int y, StationClassID station_class, uint16_t station_type, RailType railtype);

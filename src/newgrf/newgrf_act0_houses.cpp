@@ -28,7 +28,7 @@
  */
 static ChangeInfoResult IgnoreTownHouseProperty(int prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	switch (prop) {
 		case 0x09:
@@ -79,7 +79,7 @@ static ChangeInfoResult IgnoreTownHouseProperty(int prop, ByteReader &buf)
 			break;
 
 		default:
-			ret = CIR_UNKNOWN;
+			ret = HandleAction0PropertyDefault(buf, prop);
 			break;
 	}
 	return ret;
@@ -90,23 +90,24 @@ static ChangeInfoResult IgnoreTownHouseProperty(int prop, ByteReader &buf)
  * @param first Local ID of the first house.
  * @param last Local ID of the last house.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_HOUSES_PER_GRF) {
 		GrfMsg(1, "TownHouseChangeInfo: Too many houses loaded ({}), max ({}). Ignoring.", last, NUM_HOUSES_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate house specs if they haven't been allocated already. */
 	if (_cur_gps.grffile->housespec.size() < last) _cur_gps.grffile->housespec.resize(last);
 
 	for (uint id = first; id < last; ++id) {
-		auto &housespec = _cur_gps.grffile->housespec[id];
+		HouseSpec *housespec = _cur_gps.grffile->housespec[id].get();
 
 		if (prop != 0x08 && housespec == nullptr) {
 			/* If the house property 08 is not yet set, ignore this property */
@@ -132,17 +133,18 @@ static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, Byt
 				/* Allocate space for this house. */
 				if (housespec == nullptr) {
 					/* Only the first property 08 setting copies properties; if you later change it, properties will stay. */
-					housespec = std::make_unique<HouseSpec>(*HouseSpec::Get(subs_id));
+					_cur_gps.grffile->housespec[id] = std::make_unique<HouseSpec>(*HouseSpec::Get(subs_id));
+					housespec = _cur_gps.grffile->housespec[id].get();
 
 					housespec->enabled = true;
 					housespec->grf_prop.local_id = id;
 					housespec->grf_prop.subst_id = subs_id;
 					housespec->grf_prop.SetGRFFile(_cur_gps.grffile);
 					/* Set default colours for randomization, used if not overridden. */
-					housespec->random_colour[0] = COLOUR_RED;
-					housespec->random_colour[1] = COLOUR_BLUE;
-					housespec->random_colour[2] = COLOUR_ORANGE;
-					housespec->random_colour[3] = COLOUR_GREEN;
+					housespec->random_colour[0] = Colours::Red;
+					housespec->random_colour[1] = Colours::Blue;
+					housespec->random_colour[2] = Colours::Orange;
+					housespec->random_colour[3] = Colours::Green;
 
 					/* House flags 40 and 80 are exceptions; these flags are never set automatically. */
 					housespec->building_flags.Reset({BuildingFlag::IsChurch, BuildingFlag::IsStadium});
@@ -166,8 +168,8 @@ static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, Byt
 
 			case 0x0A: { // Availability years
 				uint16_t years = buf.ReadWord();
-				housespec->min_year = GB(years, 0, 8) > 150 ? CalendarTime::MAX_YEAR : CalendarTime::ORIGINAL_BASE_YEAR + GB(years, 0, 8);
-				housespec->max_year = GB(years, 8, 8) > 150 ? CalendarTime::MAX_YEAR : CalendarTime::ORIGINAL_BASE_YEAR + GB(years, 8, 8);
+				housespec->min_year = GB(years, 0, 8) > 150 ? CalTime::MAX_YEAR : CalTime::ORIGINAL_BASE_YEAR + GB(years, 0, 8);
+				housespec->max_year = GB(years, 8, 8) > 150 ? CalTime::MAX_YEAR : CalTime::ORIGINAL_BASE_YEAR + GB(years, 8, 8);
 				break;
 			}
 
@@ -305,18 +307,18 @@ static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, Byt
 				uint8_t count = buf.ReadByte();
 				for (uint8_t j = 0; j < count; j++) {
 					CargoType cargo = GetCargoTranslation(buf.ReadByte(), _cur_gps.grffile);
-					if (IsValidCargoType(cargo)) SetBit(housespec->watched_cargoes, cargo);
+					if (IsValidCargoType(cargo)) housespec->watched_cargoes.Set(cargo);
 				}
 				break;
 			}
 
 			case 0x21: // long introduction year
-				housespec->min_year = TimerGameCalendar::Year{buf.ReadWord()};
+				housespec->min_year = CalTime::Year{buf.ReadWord()};
 				break;
 
 			case 0x22: // long maximum year
-				housespec->max_year = TimerGameCalendar::Year{buf.ReadWord()};
-				if (housespec->max_year == UINT16_MAX) housespec->max_year = CalendarTime::MAX_YEAR;
+				housespec->max_year = CalTime::Year{buf.ReadWord()};
+				if (housespec->max_year == UINT16_MAX) housespec->max_year = CalTime::MAX_YEAR;
 				break;
 
 			case 0x23: { // variable length cargo types accepted
@@ -324,7 +326,7 @@ static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, Byt
 				if (count > lengthof(housespec->accepts_cargo)) {
 					GRFError *error = DisableGrf(STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG);
 					error->param_value[1] = prop;
-					return CIR_DISABLED;
+					return ChangeInfoResult::Disabled;
 				}
 				/* Always write the full accepts_cargo array, and check each index for being inside the
 				 * provided data. This ensures all values are properly initialized, and also avoids
@@ -343,11 +345,11 @@ static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, Byt
 			}
 
 			case 0x24: // Badge list
-				housespec->badges = ReadBadgeList(buf, GSF_HOUSES);
+				housespec->badges = ReadBadgeList(buf, GrfSpecFeature::Houses);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -355,5 +357,5 @@ static ChangeInfoResult TownHouseChangeInfo(uint first, uint last, int prop, Byt
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_HOUSES>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_HOUSES>::Activation(uint first, uint last, int prop, ByteReader &buf) { return TownHouseChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Houses>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Houses>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return TownHouseChangeInfo(first, last, prop, mapping_entry, buf); }

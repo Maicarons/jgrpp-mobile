@@ -14,12 +14,13 @@
 #include "transport_type.h"
 #include "bridge.h"
 
-CommandCost CmdBuildBridge(DoCommandFlags flags, TileIndex tile_end, TileIndex tile_start, TransportType transport_type, BridgeType bridge_type, uint8_t road_rail_type);
-CommandCost CmdBuildTunnel(DoCommandFlags flags, TileIndex start_tile, TransportType transport_type, uint8_t road_rail_type);
+enum class BuildBridgeFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	ScriptCommand         = (1U << 0), ///< This is a script command, disable functionality inappropriate for scripts.
+};
+DECLARE_ENUM_AS_BIT_SET(BuildBridgeFlags)
 
-DEF_CMD_TRAIT(CMD_BUILD_BRIDGE, CmdBuildBridge, CommandFlags({CommandFlag::Deity, CommandFlag::Auto, CommandFlag::NoWater}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_TUNNEL, CmdBuildTunnel, CommandFlags({CommandFlag::Deity, CommandFlag::Auto}),                       CommandType::LandscapeConstruction)
-
-void CcBuildBridge(Commands cmd, const CommandCost &result, TileIndex end_tile, TileIndex tile_start, TransportType transport_type, BridgeType, uint8_t);
+DEF_CMD_TUPLE(Commands::BuildBridge, CmdBuildBridge, CMD_DEITY | CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, TransportType, BridgeType, uint8_t, BuildBridgeFlags>)
+DEF_CMD_TUPLE(Commands::BuildTunnel, CmdBuildTunnel,                CMD_DEITY | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TransportType, uint8_t>)
 
 #endif /* TUNNELBRIDGE_CMD_H */

@@ -13,12 +13,12 @@
 #include "network/network.h"
 #include "network/network_func.h"
 #include "order_backup.h"
+#include "order_cmd.h"
 #include "vehicle_base.h"
 #include "window_func.h"
 #include "station_map.h"
-#include "order_cmd.h"
-#include "group_cmd.h"
 #include "vehicle_func.h"
+#include "group_cmd.h"
 
 #include "table/strings.h"
 
@@ -27,14 +27,24 @@
 OrderBackupPool _order_backup_pool("BackupOrder");
 INSTANTIATE_POOL_METHODS(OrderBackup)
 
-OrderBackup::~OrderBackup() = default;
+uint OrderBackup::update_counter;
+
+/** Free everything that is allocated. */
+OrderBackup::~OrderBackup()
+{
+	if (CleaningPool()) return;
+
+	OrderBackup::update_counter++;
+}
 
 /**
  * Create an order backup for the given vehicle.
+ * @param index The index of the order backup pool.
  * @param v    The vehicle to make a backup of.
  * @param user The user that is requesting the backup.
  */
-OrderBackup::OrderBackup(const Vehicle *v, uint32_t user) : user(user), tile(v->tile), group(v->group_id)
+OrderBackup::OrderBackup(OrderBackupID index, const Vehicle *v, uint32_t user) :
+	PoolItemBase(index), user(user), tile(v->tile), group(v->group_id)
 {
 	this->CopyConsistPropertiesFrom(v);
 
@@ -43,8 +53,16 @@ OrderBackup::OrderBackup(const Vehicle *v, uint32_t user) : user(user), tile(v->
 		this->clone = (v->FirstShared() == v) ? v->NextShared() : v->FirstShared();
 	} else {
 		/* Else copy the orders */
-		this->orders.assign(std::begin(v->Orders()), std::end(v->Orders()));
+		for (const Order *order : v->Orders()) {
+			this->orders.emplace_back(*order);
+		}
+
+		if (v->orders != nullptr) {
+			this->dispatch_schedules = v->orders->GetScheduledDispatchScheduleSet();
+		}
 	}
+
+	OrderBackup::update_counter++;
 }
 
 /**
@@ -55,24 +73,29 @@ void OrderBackup::DoRestore(Vehicle *v)
 {
 	/* If we had shared orders, recover that */
 	if (this->clone != nullptr) {
-		Command<CMD_CLONE_ORDER>::Do(DoCommandFlag::Execute, CO_SHARE, v->index, this->clone->index);
+		Command<Commands::CloneOrder>::Do(DoCommandFlag::Execute, CO_SHARE, v->index, this->clone->index);
 	} else if (!this->orders.empty() && OrderList::CanAllocateItem()) {
-		v->orders = new OrderList(std::move(this->orders), v);
+		v->orders = OrderList::Create(std::move(this->orders), v);
+		this->orders.clear();
+
+		v->orders->GetScheduledDispatchScheduleSet() = std::move(this->dispatch_schedules);
+
 		/* Make sure buoys/oil rigs are updated in the station list. */
-		InvalidateWindowClassesData(WC_STATION_LIST, 0);
+		InvalidateWindowClassesData(WindowClass::StationList, 0);
 	}
 
 	/* Remove backed up name if it's no longer unique. */
-	if (!IsUniqueVehicleName(this->name)) this->name.clear();
+	if (!this->name.empty() && !IsUniqueVehicleName(this->name)) this->name.clear();
 
 	v->CopyConsistPropertiesFrom(this);
 
 	/* Make sure orders are in range */
 	v->UpdateRealOrderIndex();
 	if (v->cur_implicit_order_index >= v->GetNumOrders()) v->cur_implicit_order_index = v->cur_real_order_index;
+	if (v->cur_timetable_order_index >= v->GetNumOrders()) v->cur_timetable_order_index = INVALID_VEH_ORDER_ID;
 
 	/* Restore vehicle group */
-	Command<CMD_ADD_VEHICLE_GROUP>::Do(DoCommandFlag::Execute, this->group, v->index, false, VehicleListIdentifier{});
+	Command<Commands::AddVehicleToGroup>::Do(DoCommandFlag::Execute, this->group, v->index, false);
 }
 
 /**
@@ -89,7 +112,7 @@ void OrderBackup::DoRestore(Vehicle *v)
 		if (ob->user == user) delete ob;
 	}
 	if (OrderBackup::CanAllocateItem()) {
-		new OrderBackup(v, user);
+		OrderBackup::Create(v, user);
 	}
 }
 
@@ -124,8 +147,8 @@ void OrderBackup::DoRestore(Vehicle *v)
 
 /**
  * Clear an OrderBackup
- * @param flags For command.
  * @param tile  Tile related to the to-be-cleared OrderBackup.
+ * @param flags For command.
  * @param user_id User that had the OrderBackup.
  * @return The cost of this operation or an error.
  */
@@ -151,7 +174,7 @@ CommandCost CmdClearOrderBackup(DoCommandFlags flags, TileIndex tile, ClientID u
 		/* If it's not a backup of us, ignore it. */
 		if (ob->user != user) continue;
 
-		Command<CMD_CLEAR_ORDER_BACKUP>::Post(TileIndex{}, static_cast<ClientID>(user));
+		Command<Commands::ClearOrderBackup>::Post({}, static_cast<ClientID>(user));
 		return;
 	}
 }
@@ -180,7 +203,7 @@ CommandCost CmdClearOrderBackup(DoCommandFlags flags, TileIndex tile, ClientID u
 			/* We need to circumvent the "prevention" from this command being executed
 			 * while the game is paused, so use the internal method. Nor do we want
 			 * this command to get its cost estimated when shift is pressed. */
-			Command<CMD_CLEAR_ORDER_BACKUP>::Unsafe<CommandCallback>(STR_NULL, nullptr, true, false, ob->tile, CommandTraits<CMD_CLEAR_ORDER_BACKUP>::Args{ ob->tile, static_cast<ClientID>(user) });
+			DoCommandPInternal(Commands::ClearOrderBackup, ob->tile, CmdPayload<Commands::ClearOrderBackup>::Make(static_cast<ClientID>(user)), (StringID)0, CommandCallback::None, 0, DCIF_NONE, false);
 		} else {
 			/* The command came from the game logic, i.e. the clearing of a tile.
 			 * In that case we have no need to actually sync this, just do it. */
@@ -231,12 +254,12 @@ CommandCost CmdClearOrderBackup(DoCommandFlags flags, TileIndex tile, ClientID u
 /* static */ void OrderBackup::RemoveOrder(OrderType type, DestinationID destination, bool hangar)
 {
 	for (OrderBackup *ob : OrderBackup::Iterate()) {
-		for (Order &order : ob->orders) {
-			OrderType ot = order.GetType();
-			if (ot == OT_GOTO_DEPOT && order.GetDepotActionType().Test(OrderDepotActionFlag::NearestDepot)) continue;
+		for (const Order *order : ob->Orders()) {
+			OrderType ot = order->GetType();
+			if (ot == OT_GOTO_DEPOT && (order->GetDepotActionType() & ODATFB_NEAREST_DEPOT) != 0) continue;
 			if (ot == OT_GOTO_DEPOT && hangar && !IsHangarTile(ob->tile)) continue; // Not an aircraft? Can't have a hangar order.
 			if (ot == OT_IMPLICIT || (IsHangarTile(ob->tile) && ot == OT_GOTO_DEPOT && !hangar)) ot = OT_GOTO_STATION;
-			if (ot == type && order.GetDestination() == destination) {
+			if (ot == type && order->GetDestination() == destination) {
 				/* Remove the order backup! If a station/depot gets removed, we can't/shouldn't restore those broken orders. */
 				delete ob;
 				break;

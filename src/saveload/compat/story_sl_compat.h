@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _story_page_elements_desc. */
 const SaveLoadCompat _story_page_elements_sl_compat[] = {
 	SLC_VAR("sort_value"),
@@ -28,5 +30,7 @@ const SaveLoadCompat _story_pages_sl_compat[] = {
 	SLC_VAR("company"),
 	SLC_VAR("title"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_STORE_H */

@@ -11,6 +11,7 @@
 #define TRUETYPEFONTCACHE_H
 
 #include "../fontcache.h"
+#include "../3rdparty/robin_hood/robin_hood.h"
 
 
 static const int MAX_FONT_SIZE = 72; ///< Maximum font size.
@@ -35,16 +36,22 @@ protected:
 		Sprite *GetSprite() { return reinterpret_cast<Sprite *>(data.get()); }
 	};
 
-	std::unordered_map<GlyphID, GlyphEntry> glyph_to_sprite_map{};
+	robin_hood::unordered_map<GlyphID, GlyphEntry> glyph_to_sprite_map{};
 
 	GlyphEntry *GetGlyphPtr(GlyphID key);
 	GlyphEntry &SetGlyphPtr(GlyphID key, GlyphEntry &&glyph);
 
+	/**
+	 * Load the glyph as a sprite.
+	 * @param key Unique ID of glyph to load.
+	 * @param aa Whether to enable anti-aliasing.
+	 * @return The loaded sprite.
+	 */
 	virtual const Sprite *InternalGetGlyph(GlyphID key, bool aa) = 0;
 
 public:
 	TrueTypeFontCache(FontSize fs, int pixels);
-	virtual ~TrueTypeFontCache();
+	~TrueTypeFontCache() override;
 	int GetFontSize() const override { return this->used_size; }
 	const Sprite *GetGlyph(GlyphID key) override;
 	void ClearFontCache() override;

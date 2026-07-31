@@ -10,37 +10,39 @@
 #ifndef ENGINE_TYPE_H
 #define ENGINE_TYPE_H
 
-#include "core/pool_type.hpp"
+#include "core/pool_id_type.hpp"
 #include "economy_type.h"
 #include "landscape_type.h"
 #include "newgrf_callbacks.h"
 #include "rail_type.h"
 #include "road_type.h"
 #include "cargo_type.h"
-#include "timer/timer_game_calendar.h"
+#include "date_type.h"
 #include "sound_type.h"
 #include "strings_type.h"
 #include "newgrf_badge_type.h"
+#include <variant>
 
 /** Unique identification number of an engine. */
-using EngineID = PoolID<uint16_t, struct EngineIDTag, 64000, 0xFFFF>;
+struct EngineIDTag : public PoolIDTraits<uint16_t, 64000, 0xFFFF> {};
+using EngineID = PoolID<EngineIDTag>;
 
-class Engine;
+struct Engine;
 
 /** Available types of rail vehicles. */
-enum RailVehicleTypes : uint8_t {
-	RAILVEH_SINGLEHEAD,  ///< indicates a "standalone" locomotive
-	RAILVEH_MULTIHEAD,   ///< indicates a combination of two locomotives
-	RAILVEH_WAGON,       ///< simple wagon, not motorized
+enum class RailVehicleType : uint8_t {
+	Singlehead, ///< indicates a "standalone" locomotive
+	Multihead, ///< indicates a combination of two locomotives
+	Wagon, ///< simple wagon, not motorized
 };
 
 /** Type of rail engine. */
-enum EngineClass : uint8_t {
-	EC_STEAM,    ///< Steam rail engine.
-	EC_DIESEL,   ///< Diesel rail engine.
-	EC_ELECTRIC, ///< Electric rail engine.
-	EC_MONORAIL, ///< Mono rail engine.
-	EC_MAGLEV,   ///< Maglev engine.
+enum class EngineClass : uint8_t {
+	Steam, ///< Steam rail engine.
+	Diesel, ///< Diesel rail engine.
+	Electric, ///< Electric rail engine.
+	Monorail, ///< Mono rail engine.
+	Maglev, ///< Maglev engine.
 };
 
 /** Acceleration model of a vehicle. */
@@ -73,26 +75,26 @@ enum VisualEffect : uint8_t {
 /** Information about a rail vehicle. */
 struct RailVehicleInfo {
 	uint8_t image_index = 0;
-	RailVehicleTypes railveh_type = RAILVEH_WAGON;
-	uint8_t cost_factor = 0; ///< Purchase cost factor;      For multiheaded engines the sum of both engine prices.
-	RailTypes railtypes{RAILTYPE_RAIL}; ///< Railtypes, mangled if elrail is disabled.
+	RailVehicleType railveh_type = RailVehicleType::Wagon;
+	uint8_t cost_factor = 0;                     ///< Purchase cost factor. For multiheaded engines the sum of both engine prices.
+	RailTypes railtypes{RAILTYPE_RAIL};          ///< Railtypes, mangled if elrail is disabled.
 	RailTypes intended_railtypes{RAILTYPE_RAIL}; ///< Intended railtypes, regardless of elrail being enabled or disabled.
-	uint8_t ai_passenger_only = 0; ///< Bit value to tell AI that this engine is for passenger use only
-	uint16_t max_speed = 0; ///< Maximum speed (1 unit = 1/1.6 mph = 1 km-ish/h)
-	uint16_t power = 0; ///< Power of engine (hp);      For multiheaded engines the sum of both engine powers.
-	uint16_t weight = 0; ///< Weight of vehicle (tons);  For multiheaded engines the weight of each single engine.
-	uint8_t running_cost = 0; ///< Running cost of engine;    For multiheaded engines the sum of both running costs.
+	uint8_t ai_passenger_only = 0;      ///< Bit value to tell AI that this engine is for passenger use only
+	uint16_t max_speed = 0;             ///< Maximum speed (1 unit = 1/1.6 mph = 1 km-ish/h)
+	uint16_t power = 0;                 ///< Power of engine (hp);      For multiheaded engines the sum of both engine powers.
+	uint16_t weight = 0;                ///< Weight of vehicle (tons);  For multiheaded engines the weight of each single engine.
+	uint8_t running_cost = 0;           ///< Running cost of engine;    For multiheaded engines the sum of both running costs.
 	Price running_cost_class{};
-	EngineClass engclass{}; ///< Class of engine for this vehicle
-	uint8_t capacity = 0; ///< Cargo capacity of vehicle; For multiheaded engines the capacity of each single engine.
-	uint16_t pow_wag_power = 0; ///< Extra power applied to consist if wagon should be powered
-	uint8_t pow_wag_weight = 0; ///< Extra weight applied to consist if wagon should be powered
+	EngineClass engclass{};             ///< Class of engine for this vehicle
+	uint8_t capacity = 0;               ///< Cargo capacity of vehicle; For multiheaded engines the capacity of each single engine.
+	uint16_t pow_wag_power = 0;         ///< Extra power applied to consist if wagon should be powered
+	uint8_t pow_wag_weight = 0;         ///< Extra weight applied to consist if wagon should be powered
 	uint8_t visual_effect = VE_DEFAULT; ///< Bitstuffed NewGRF visual effect data
-	uint8_t shorten_factor = 0; ///< length on main map for this type is 8 - shorten_factor
-	uint8_t tractive_effort = 0; ///< Tractive effort coefficient
-	uint8_t air_drag = 0; ///< Coefficient of air drag
-	uint8_t user_def_data = 0; ///< Property 0x25: "User-defined bit mask" Used only for (very few) NewGRF vehicles
-	int16_t curve_speed_mod = 0; ///< Modifier to maximum speed in curves (fixed-point binary with 8 fractional bits)
+	uint8_t shorten_factor = 0;         ///< length on main map for this type is 8 - shorten_factor
+	uint8_t tractive_effort = 0;        ///< Tractive effort coefficient
+	uint8_t air_drag = 0;               ///< Coefficient of air drag
+	uint8_t user_def_data = 0;          ///< Property 0x25: "User-defined bit mask" Used only for (very few) NewGRF vehicles
+	int16_t curve_speed_mod = 0;        ///< Modifier to maximum speed in curves (fixed-point binary with 8 fractional bits)
 };
 
 /** Information about a ship vehicle. */
@@ -100,16 +102,21 @@ struct ShipVehicleInfo {
 	uint8_t image_index = 0;
 	uint8_t cost_factor = 0;
 	uint8_t running_cost = 0;
-	uint8_t acceleration = 1; ///< Acceleration (1 unit = 1/3.2 mph per tick = 0.5 km-ish/h per tick)
-	uint16_t max_speed = 0; ///< Maximum speed (1 unit = 1/3.2 mph = 0.5 km-ish/h)
+	uint8_t acceleration = 1;           ///< Acceleration (1 unit = 1/3.2 mph per tick = 0.5 km-ish/h per tick)
+	uint16_t max_speed = 0;             ///< Maximum speed (1 unit = 1/3.2 mph = 0.5 km-ish/h)
 	uint16_t capacity = 0;
 	SoundID sfx{};
-	bool old_refittable = 0; ///< Is ship refittable; only used during initialisation. Later use EngineInfo::refit_mask.
+	bool old_refittable = false;        ///< Is ship refittable; only used during initialisation. Later use EngineInfo::refit_mask.
 	uint8_t visual_effect = VE_DEFAULT; ///< Bitstuffed NewGRF visual effect data
-	uint8_t ocean_speed_frac = 0; ///< Fraction of maximum speed for ocean tiles.
-	uint8_t canal_speed_frac = 0; ///< Fraction of maximum speed for canal/river tiles.
+	uint8_t ocean_speed_frac = 0;       ///< Fraction of maximum speed for ocean tiles.
+	uint8_t canal_speed_frac = 0;       ///< Fraction of maximum speed for canal/river tiles.
 
-	/** Apply ocean/canal speed fraction to a velocity */
+	/**
+	 * Apply ocean/canal speed fraction to a velocity.
+	 * @param raw_speed The original speed.
+	 * @param is_ocean Whether to apply the ocean or canal/river speed fraction.
+	 * @return The actual maximum speed of the ship.
+	 */
 	uint ApplyWaterClassSpeedFrac(uint raw_speed, bool is_ocean) const
 	{
 		/* speed_frac == 0 means no reduction while 0xFF means reduction to 1/256. */
@@ -133,13 +140,13 @@ struct AircraftVehicleInfo {
 	uint8_t image_index = 0;
 	uint8_t cost_factor = 0;
 	uint8_t running_cost = 0;
-	uint8_t subtype = 0; ///< Type of aircraft. @see AircraftSubTypeBits
+	uint8_t subtype = 0;              ///< Type of aircraft. @see AircraftSubTypeBits
 	SoundID sfx{};
-	uint16_t max_speed = 0; ///< Maximum speed (1 unit = 8 mph = 12.8 km-ish/h)
+	uint16_t max_speed = 0;           ///< Maximum speed (1 unit = 8 mph = 12.8 km-ish/h)
 	uint8_t acceleration = 0;
-	uint8_t mail_capacity = 0; ///< Mail capacity (bags).
-	uint16_t passenger_capacity = 0; ///< Passenger capacity (persons).
-	uint16_t max_range = 0; ///< Maximum range of this aircraft.
+	uint8_t mail_capacity = 0;        ///< Mail capacity (bags).
+	uint16_t passenger_capacity = 0;  ///< Passenger capacity (persons).
+	uint16_t max_range = 0;           ///< Maximum range of this aircraft.
 };
 
 /** Information about a road vehicle. */
@@ -149,15 +156,15 @@ struct RoadVehicleInfo {
 	uint8_t running_cost = 0;
 	Price running_cost_class{};
 	SoundID sfx{};
-	uint16_t max_speed = 0; ///< Maximum speed (1 unit = 1/3.2 mph = 0.5 km-ish/h)
+	uint16_t max_speed = 0;        ///< Maximum speed (1 unit = 1/3.2 mph = 0.5 km-ish/h)
 	uint8_t capacity = 0;
-	uint8_t weight = 0; ///< Weight in 1/4t units
-	uint8_t power = 0; ///< Power in 10hp units
-	uint8_t tractive_effort = 0x4C; ///< Coefficient of tractive effort
-	uint8_t air_drag = 0; ///< Coefficient of air drag
+	uint8_t weight = 0;                 ///< Weight in 1/4t units
+	uint8_t power = 0;                  ///< Power in 10hp units
+	uint8_t tractive_effort = 0x4C;     ///< Coefficient of tractive effort
+	uint8_t air_drag = 0;               ///< Coefficient of air drag
 	uint8_t visual_effect = VE_DEFAULT; ///< Bitstuffed NewGRF visual effect data
-	uint8_t shorten_factor = 0; ///< length on main map for this type is 8 - shorten_factor
-	RoadType roadtype{}; ///< Road type
+	uint8_t shorten_factor = 0;         ///< length on main map for this type is 8 - shorten_factor
+	RoadType roadtype{};                ///< Road type
 };
 
 /**
@@ -169,6 +176,7 @@ enum class ExtraEngineFlag : uint8_t {
 	NoPreview       = 1, ///< No exclusive preview will be offered.
 	JoinPreview     = 2, ///< Engine will join exclusive preview with variant parent.
 	SyncReliability = 3, ///< Engine reliability will be synced with variant parent.
+	HasCab          = 4, ///< Train wagon has a cab and can lead a train when backing up, without any speed reduction.
 };
 using ExtraEngineFlags = EnumBitSet<ExtraEngineFlag, uint8_t>;
 
@@ -196,23 +204,23 @@ using EngineMiscFlags = EnumBitSet<EngineMiscFlag, uint8_t>;
  *  @see table/engines.h
  */
 struct EngineInfo {
-	TimerGameCalendar::Date base_intro{}; ///< Basic date of engine introduction (without random parts).
-	TimerGameCalendar::Year lifelength{}; ///< Lifetime of a single vehicle
-	TimerGameCalendar::Year base_life{}; ///< Basic duration of engine availability (without random parts). \c 0xFF means infinite life.
+	CalTime::Date base_intro{};      ///< Basic date of engine introduction (without random parts).
+	CalTime::YearDelta lifelength{}; ///< Lifetime of a single vehicle
+	CalTime::YearDelta base_life{};  ///< Basic duration of engine availability (without random parts). \c 0xFF means infinite life.
 	uint8_t decay_speed = 0;
 	uint8_t load_amount = 0;
-	LandscapeTypes climates{}; ///< Climates supported by the engine.
+	LandscapeTypes climates{};       ///< Climates supported by the engine.
 	CargoType cargo_type{};
 	std::variant<CargoLabel, MixedCargoType> cargo_label{};
 	CargoTypes refit_mask{};
 	uint8_t refit_cost = 0;
-	EngineMiscFlags misc_flags{}; ///< Miscellaneous flags. @see EngineMiscFlags
-	VehicleCallbackMasks callback_mask{}; ///< Bitmask of vehicle callbacks that have to be called
-	int8_t retire_early = 0; ///< Number of years early to retire vehicle
+	EngineMiscFlags misc_flags{};           ///< Miscellaneous flags. @see EngineMiscFlags
+	VehicleCallbackMasks callback_mask{};   ///< Bitmask of vehicle callbacks that have to be called
+	int8_t retire_early = 0;                ///< Number of years early to retire vehicle
 	ExtraEngineFlags extra_flags{};
 	StringID string_id = INVALID_STRING_ID; ///< Default name of engine
-	uint16_t cargo_age_period = 0; ///< Number of ticks before carried cargo is aged.
-	EngineID variant_id{}; ///< Engine variant ID. If set, will be treated specially in purchase lists.
+	uint16_t cargo_age_period = 0;          ///< Number of ticks before carried cargo is aged.
+	EngineID variant_id{};                  ///< Engine variant ID. If set, will be treated specially in purchase lists.
 };
 
 /**
@@ -235,12 +243,18 @@ enum class EngineNameContext : uint8_t {
 	AutoreplaceVehicleInUse = 0x22, ///< Name is show in the autoreplace window 'Vehicles in use' panel.
 };
 
-/** Combine an engine ID and a name context to an engine name dparam. */
+/**
+ * Combine an engine ID and a name context to an engine name StringParameter.
+ * @param engine_id The engine's ID.
+ * @param context The context for the name.
+ * @param extra_data Arbitrary extra data.
+ * @return The packed StringParameter.
+ */
 inline uint64_t PackEngineNameDParam(EngineID engine_id, EngineNameContext context, uint32_t extra_data = 0)
 {
 	return engine_id.base() | (static_cast<uint64_t>(context) << 32) | (static_cast<uint64_t>(extra_data) << 40);
 }
 
-static const uint MAX_LENGTH_ENGINE_NAME_CHARS = 32; ///< The maximum length of an engine name in characters including '\0'
+static const uint MAX_LENGTH_ENGINE_NAME_CHARS = 64; ///< The maximum length of an engine name in characters including '\0'
 
 #endif /* ENGINE_TYPE_H */

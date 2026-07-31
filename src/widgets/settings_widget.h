@@ -13,8 +13,6 @@
 /** Widgets of the #GameOptionsWindow class. */
 enum GameOptionsWidgets : WidgetID {
 	WID_GO_TAB_GENERAL,            ///< General tab.
-	WID_GO_TAB_INTERFACE,          ///< Interface tab.
-	WID_GO_TAB_FONTS,              ///< Fonts tab.
 	WID_GO_TAB_GRAPHICS,           ///< Graphics tab.
 	WID_GO_TAB_SOUND,              ///< Sound tab.
 	WID_GO_TAB_SOCIAL,             ///< Social tab.
@@ -26,18 +24,9 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_LANG_DROPDOWN,          ///< Language dropdown.
 	WID_GO_RESOLUTION_DROPDOWN,    ///< Dropdown for the resolution.
 	WID_GO_FULLSCREEN_BUTTON,      ///< Toggle fullscreen.
-	WID_GO_BUTTON_SIZE_DROPDOWN,   ///< Size of in-game UI elements, such as buttons.
-	WID_GO_TEXT_SIZE_DROPDOWN,     ///< Size of medium font, sizes of other fonts are derived from it.
-	WID_GO_VERTICAL_TOOLBAR,       ///< Enable vertical toolbar.
-	WID_GO_BUILD_CONFIRMATION,     ///< Enable build confirmation dialog.
-	WID_GO_WINDOWS_TITLEBARS,      ///< Titlebars for all windows.
-	WID_GO_WINDOWS_TITLEBARS_TEXT, ///< Text for toggle Titlebars.
-	WID_GO_MOUSE_CURSOR,           ///< Show mouse cursor.
-	WID_GO_MOUSE_CURSOR_TEXT,      ///< Text for toggle mouse cursor.
 	WID_GO_FULLSCREEN_TEXT,        ///< Text for toggle fullscreen.
 	WID_GO_GUI_SCALE,              ///< GUI Scale slider.
 	WID_GO_GUI_SCALE_AUTO,         ///< Autodetect GUI scale button.
-	WID_GO_GUI_BUTTON_RATIO,       ///< Button ratio
 	WID_GO_GUI_SCALE_AUTO_TEXT,    ///< Text for Autodetect GUI scale.
 	WID_GO_GUI_SCALE_BEVEL_BUTTON, ///< Toggle for chunky bevels.
 	WID_GO_GUI_SCALE_BEVEL_TEXT,   ///< Text for chunky bevels.
@@ -45,18 +34,10 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_GUI_FONT_SPRITE_TEXT,   ///< Text for sprite font toggle.
 	WID_GO_GUI_FONT_AA,            ///< Toggle whether to anti-alias fonts.
 	WID_GO_GUI_FONT_AA_TEXT,       ///< Text for anti-alias toggle.
-	WID_GO_NORMAL_FONT_VALUE,      ///< Display value of normal font
-	WID_GO_SMALL_FONT_VALUE,       ///< Display value of small font
-	WID_GO_LARGE_FONT_VALUE,       ///< Display value of large font
-	WID_GO_MONO_FONT_VALUE,        ///< Display value of mono font
-	WID_GO_NORMAL_FONT_L,          ///< Decrease Arrow for normal font
-	WID_GO_NORMAL_FONT_R,          ///< Increase Arrow for normal font
-	WID_GO_SMALL_FONT_L,           ///< Decrease Arrow for small font
-	WID_GO_SMALL_FONT_R,           ///< Increase Arrow for small font
-	WID_GO_LARGE_FONT_L,           ///< Decrease Arrow for large font
-	WID_GO_LARGE_FONT_R,           ///< Increase Arrow for large font
-	WID_GO_MONO_FONT_L,            ///< Decrease Arrow for mono font
-	WID_GO_MONO_FONT_R,            ///< Increase Arrow for mono font
+	WID_GO_GUI_SCALE_MAIN_TOOLBAR, ///< Toggle for bigger main toolbar.
+	WID_GO_GUI_SCALE_MAIN_TOOLBAR_TEXT, ///< Text for bigger main toolbar toggle.
+	WID_GO_GUI_TRAD_INTRO_TOOLBAR, ///< Toggle for traditional intro menu.
+	WID_GO_GUI_TRAD_INTRO_TOOLBAR_TEXT, ///< Text for traditional intro menu toggle.
 	WID_GO_BASE_GRF_DROPDOWN,      ///< Use to select a base GRF.
 	WID_GO_BASE_GRF_PARAMETERS,    ///< Base GRF parameters.
 	WID_GO_BASE_GRF_CONTENT_DOWNLOAD, ///< 'Get Content' button for base GRF.

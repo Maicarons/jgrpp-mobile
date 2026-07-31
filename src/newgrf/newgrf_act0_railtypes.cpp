@@ -9,6 +9,7 @@
 
 #include "../stdafx.h"
 #include "../debug.h"
+#include "../newgrf_extension.h"
 #include "../rail.h"
 #include "newgrf_bytereader.h"
 #include "newgrf_internal.h"
@@ -21,24 +22,25 @@
  * @param first Local ID of the first railtype.
  * @param last Local ID of the last railtype.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult RailTypeChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult RailTypeChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	extern RailTypeInfo _railtypes[RAILTYPE_END];
 	const auto &type_map = _cur_gps.grffile->railtype_map;
 
 	if (last > std::size(type_map)) {
 		GrfMsg(1, "RailTypeChangeInfo: Rail type {} is invalid, max {}, ignoring", last, std::size(type_map));
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	for (uint id = first; id < last; ++id) {
 		RailType rt = type_map[id];
-		if (rt == INVALID_RAILTYPE) return CIR_INVALID_ID;
+		if (rt == INVALID_RAILTYPE) return ChangeInfoResult::InvalidId;
 
 		RailTypeInfo *rti = &_railtypes[rt];
 
@@ -126,7 +128,7 @@ static ChangeInfoResult RailTypeChangeInfo(uint first, uint last, int prop, Byte
 				break;
 
 			case 0x17: // Introduction date
-				rti->introduction_date = TimerGameCalendar::Date(buf.ReadDWord());
+				rti->introduction_date = CalTime::Date(static_cast<int32_t>(buf.ReadDWord()));
 				break;
 
 			case 0x1A: // Sort order
@@ -147,11 +149,41 @@ static ChangeInfoResult RailTypeChangeInfo(uint first, uint last, int prop, Byte
 				break;
 
 			case 0x1E: // Badge list
-				rti->badges = ReadBadgeList(buf, GSF_RAILTYPES);
+				rti->badges = ReadBadgeList(buf, GrfSpecFeature::RailTypes);
+				break;
+
+			case A0RPI_RAILTYPE_ENABLE_PROGRAMMABLE_SIGNALS:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				rti->ctrl_flags.Set(RailTypeCtrlFlag::SigSpriteProgSig, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_RAILTYPE_ENABLE_NO_ENTRY_SIGNALS:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				rti->ctrl_flags.Set(RailTypeCtrlFlag::SigSpriteNoEntry, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_RAILTYPE_ENABLE_RESTRICTED_SIGNALS:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				rti->ctrl_flags.Set(RailTypeCtrlFlag::SigSpriteRestrictedSig, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_RAILTYPE_DISABLE_REALISTIC_BRAKING:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				rti->ctrl_flags.Set(RailTypeCtrlFlag::NoRealisticBraking, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_RAILTYPE_ENABLE_SIGNAL_RECOLOUR:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				rti->ctrl_flags.Set(RailTypeCtrlFlag::SigSpriteRecolourEnabled, buf.ReadByte() != 0);
+				break;
+
+			case A0RPI_RAILTYPE_EXTRA_ASPECTS:
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				rti->signal_extra_aspects = std::min<uint8_t>(buf.ReadByte(), NEW_SIGNALS_MAX_EXTRA_ASPECT);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -159,16 +191,16 @@ static ChangeInfoResult RailTypeChangeInfo(uint first, uint last, int prop, Byte
 	return ret;
 }
 
-static ChangeInfoResult RailTypeReserveInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult RailTypeReserveInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	extern RailTypeInfo _railtypes[RAILTYPE_END];
 	auto &type_map = _cur_gps.grffile->railtype_map;
 
 	if (last > std::size(type_map)) {
 		GrfMsg(1, "RailTypeReserveInfo: Rail type {} is invalid, max {}, ignoring", last, std::size(type_map));
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	for (uint id = first; id < last; ++id) {
@@ -235,8 +267,17 @@ static ChangeInfoResult RailTypeReserveInfo(uint first, uint last, int prop, Byt
 				SkipBadgeList(buf);
 				break;
 
+			case A0RPI_RAILTYPE_ENABLE_PROGRAMMABLE_SIGNALS:
+			case A0RPI_RAILTYPE_ENABLE_NO_ENTRY_SIGNALS:
+			case A0RPI_RAILTYPE_ENABLE_RESTRICTED_SIGNALS:
+			case A0RPI_RAILTYPE_DISABLE_REALISTIC_BRAKING:
+			case A0RPI_RAILTYPE_ENABLE_SIGNAL_RECOLOUR:
+			case A0RPI_RAILTYPE_EXTRA_ASPECTS:
+				buf.Skip(buf.ReadExtendedByte());
+				break;
+
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -244,5 +285,5 @@ static ChangeInfoResult RailTypeReserveInfo(uint first, uint last, int prop, Byt
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_RAILTYPES>::Reserve(uint first, uint last, int prop, ByteReader &buf) { return RailTypeReserveInfo(first, last, prop, buf); }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_RAILTYPES>::Activation(uint first, uint last, int prop, ByteReader &buf) { return RailTypeChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::RailTypes>::Reserve(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return RailTypeReserveInfo(first, last, prop, mapping_entry, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::RailTypes>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return RailTypeChangeInfo(first, last, prop, mapping_entry, buf); }

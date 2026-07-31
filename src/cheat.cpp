@@ -10,13 +10,19 @@
 #include "stdafx.h"
 #include "cheat_type.h"
 
+#include <map>
+#include <string>
+
 #include "safeguards.h"
 
 /** All the cheats. */
 Cheats _cheats;
 
+std::map<std::string, bool> _unknown_cheat_fields;
+
 /** Reinitialise all the cheats. */
 void InitializeCheats()
 {
 	_cheats = {};
+	_unknown_cheat_fields.clear();
 }

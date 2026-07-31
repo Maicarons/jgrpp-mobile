@@ -26,7 +26,7 @@ struct CargoResolverObject : public ResolverObject {
 
 GrfSpecFeature CargoResolverObject::GetFeature() const
 {
-	return GSF_CARGOES;
+	return GrfSpecFeature::Cargoes;
 }
 
 uint32_t CargoResolverObject::GetDebugID() const
@@ -55,17 +55,17 @@ CargoResolverObject::CargoResolverObject(const CargoSpec *cs, CallbackID callbac
 SpriteID GetCustomCargoSprite(const CargoSpec *cs)
 {
 	CargoResolverObject object(cs);
-	const auto *group = object.Resolve<ResultSpriteGroup>();
+	const ResultSpriteGroup *group = object.Resolve<ResultSpriteGroup>();
 	if (group == nullptr || group->num_sprites == 0) return 0;
 
 	return group->sprite;
 }
 
 
-uint16_t GetCargoCallback(CallbackID callback, uint32_t param1, uint32_t param2, const CargoSpec *cs, std::span<int32_t> regs100)
+uint16_t GetCargoCallback(CallbackID callback, uint32_t param1, uint32_t param2, const CargoSpec *cs)
 {
 	CargoResolverObject object(cs, callback, param1, param2);
-	return object.ResolveCallback(regs100);
+	return object.ResolveCallback();
 }
 
 /**

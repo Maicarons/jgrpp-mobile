@@ -17,9 +17,11 @@
 /** Flags used in ShowQueryString() call */
 enum class QueryStringFlag : uint8_t {
 	AcceptUnchanged, ///< return success even when the text didn't change
-	EnableDefault, ///< enable the 'Default' button ("\0" is returned)
+	EnableDefault,   ///< enable the 'Default' button ("\0" is returned)
 	LengthIsInChars, ///< the length of the string is counted in characters
 	EnableMove, ///< enable the 'Move' button
+	Password,        ///< password entry box, show warning about password security
+	DefaultIsDelete, ///< Default button is labelled 'Delete'
 };
 
 using QueryStringFlags = EnumBitSet<QueryStringFlag, uint8_t>;
@@ -27,8 +29,38 @@ using QueryStringFlags = EnumBitSet<QueryStringFlag, uint8_t>;
 /** Callback procedure for the ShowQuery method. */
 typedef void QueryCallbackProc(Window*, bool);
 
+/**
+ * Information needed by QueryStringWindow for each editbox.
+ */
+struct QueryEditboxDescription
+{
+	/** Text to populate the editbox with initially */
+	std::string_view str;
+	/** Text shown in the on-screen keyboard's title bar */
+	StringID caption;
+	/**
+	 * Text of the label in the query window before this string.
+	 *
+	 * Set to #INVALID_STRING_ID when not required
+	 */
+	StringID label;
+	/** Filters out unwanted character input */
+	CharSetFilter afilter;
+	/**
+	 * Maximum length of the text, including the terminating '\0'.
+	 *
+	 * Whether this is in bytes or in characters depends on QueryStringFlags.
+	 */
+	uint max_size;
+};
+
+void ShowQueryString(const std::span<QueryEditboxDescription, 1> &ed, StringID window_caption, Window *parent, QueryStringFlags flags);
+void ShowQueryString(const std::span<QueryEditboxDescription, 2> &ed, StringID window_caption, Window *parent, QueryStringFlags flags);
 void ShowQueryString(std::string_view str, StringID caption, uint max_len, Window *parent, CharSetFilter afilter, QueryStringFlags flags);
-void ShowQuery(EncodedString &&caption, EncodedString &&message, Window *w, QueryCallbackProc *callback, bool focus = false);
+void ShowQueryString(std::string_view str, EncodedString &&caption, uint maxsize, Window *parent, CharSetFilter afilter, QueryStringFlags flags);
+void ShowQuery(EncodedString &&caption, EncodedString &&message, Window *parent, QueryCallbackProc *callback, bool focus = false);
+
+void UpdateQueryStringDefault(std::string_view str);
 
 /** The number of 'characters' on the on-screen keyboard. */
 static const uint OSK_KEYBOARD_ENTRIES = 50;

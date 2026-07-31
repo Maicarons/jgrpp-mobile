@@ -53,7 +53,7 @@ static void IConsoleWriteToLogFile(const std::string &string)
 	if (_iconsole_output_file.has_value()) {
 		/* if there is an console output file ... also print it there */
 		try {
-			fmt::print(*_iconsole_output_file, "{}{}\n", GetLogPrefix(), string);
+			fmt::print(*_iconsole_output_file, "{}{}\n", log_prefix().GetLogPrefix(), string);
 		} catch (const std::system_error &) {
 			_iconsole_output_file.reset();
 			IConsolePrint(CC_ERROR, "Cannot write to console log file; closing the log file.");
@@ -87,7 +87,7 @@ void IConsoleFree()
  * @param colour_code The colour of the command.
  * @param string The message to output on the console (notice, error, etc.)
  */
-void IConsolePrint(TextColour colour_code, const std::string &string)
+void IConsolePrint(ExtendedTextColour colour_code, std::string string)
 {
 	assert(IsValidConsoleColour(colour_code));
 
@@ -102,20 +102,20 @@ void IConsolePrint(TextColour colour_code, const std::string &string)
 		return;
 	}
 
-	/* Create a copy of the string, strip it of colours and invalid
-	 * characters and (when applicable) assign it to the console buffer */
-	std::string str = StrMakeValid(string, {});
+	/* Strip string of colours and invalid characters in place,
+	 * and (when applicable) assign it to the console buffer */
+	StrMakeValidInPlace(string, {});
 
 	if (_network_dedicated) {
-		NetworkAdminConsole("console", str);
-		fmt::print("{}{}\n", GetLogPrefix(), str);
+		NetworkAdminConsole("console", string);
+		fmt_print_no_system_error("{}{}\n", log_prefix().GetLogPrefix(), string);
 		fflush(stdout);
-		IConsoleWriteToLogFile(str);
+		IConsoleWriteToLogFile(string);
 		return;
 	}
 
-	IConsoleWriteToLogFile(str);
-	IConsoleGUIPrint(colour_code, str);
+	IConsoleWriteToLogFile(string);
+	IConsoleGUIPrint(colour_code, std::move(string));
 }
 
 /**
@@ -123,20 +123,23 @@ void IConsolePrint(TextColour colour_code, const std::string &string)
  * @param name String to remove the underscores from.
  * @return A copy of \a name, without underscores.
  */
-static std::string RemoveUnderscores(std::string name)
+std::string RemoveUnderscores(std::string_view name)
 {
-	name.erase(std::remove(name.begin(), name.end(), '_'), name.end());
-	return name;
+	std::string output;
+	output.reserve(name.size());
+	std::copy_if(std::begin(name), std::end(name), std::back_inserter(output), [](char c) { return c != '_'; });
+	return output;
 }
 
 /**
  * Register a new command to be used in the console
  * @param name name of the command that will be used
  * @param proc function that will be called upon execution of command
+ * @param hook Callback to check whether the command is allowed to run in the current context.
  */
-/* static */ void IConsole::CmdRegister(const std::string &name, IConsoleCmdProc *proc, IConsoleHook *hook)
+/* static */ void IConsole::CmdRegister(std::string_view name, IConsoleCmdProc *proc, IConsoleHook *hook, bool unlisted)
 {
-	IConsole::Commands().try_emplace(RemoveUnderscores(name), name, proc, hook);
+	IConsole::Commands().try_emplace(RemoveUnderscores(name), name, proc, hook, unlisted);
 }
 
 /**
@@ -144,7 +147,7 @@ static std::string RemoveUnderscores(std::string name)
  * @param name command to be found
  * @return return Cmdstruct of the found command, or nullptr on failure
  */
-/* static */ IConsoleCmd *IConsole::CmdGet(const std::string &name)
+/* static */ IConsoleCmd *IConsole::CmdGet(std::string_view name)
 {
 	auto item = IConsole::Commands().find(RemoveUnderscores(name));
 	if (item != IConsole::Commands().end()) return &item->second;
@@ -156,7 +159,7 @@ static std::string RemoveUnderscores(std::string name)
  * @param name name of the alias that will be used
  * @param cmd name of the command that 'name' will be alias of
  */
-/* static */ void IConsole::AliasRegister(const std::string &name, std::string_view cmd)
+/* static */ void IConsole::AliasRegister(std::string_view name, std::string_view cmd)
 {
 	auto result = IConsole::Aliases().try_emplace(RemoveUnderscores(name), name, cmd);
 	if (!result.second) IConsolePrint(CC_ERROR, "An alias with the name '{}' already exists.", name);
@@ -167,7 +170,7 @@ static std::string RemoveUnderscores(std::string name)
  * @param name alias to be found
  * @return return Aliasstruct of the found alias, or nullptr on failure
  */
-/* static */ IConsoleAlias *IConsole::AliasGet(const std::string &name)
+/* static */ IConsoleAlias *IConsole::AliasGet(std::string_view name)
 {
 	auto item = IConsole::Aliases().find(RemoveUnderscores(name));
 	if (item != IConsole::Aliases().end()) return &item->second;
@@ -181,7 +184,7 @@ static std::string RemoveUnderscores(std::string name)
  * @param tokens are the parameters given to the original command (0 is the first param)
  * @param recurse_count the number of re-entrant calls to this function
  */
-static void IConsoleAliasExec(const IConsoleAlias *alias, std::span<std::string> tokens, uint recurse_count)
+static void IConsoleAliasExec(const IConsoleAlias *alias, std::span<std::string_view> tokens, uint recurse_count)
 {
 	Debug(console, 6, "Requested command is an alias; parsing...");
 
@@ -190,7 +193,7 @@ static void IConsoleAliasExec(const IConsoleAlias *alias, std::span<std::string>
 		return;
 	}
 
-	std::string buffer;
+	format_buffer buffer;
 	StringBuilder builder{buffer};
 
 	StringConsumer consumer{alias->cmdline};
@@ -207,7 +210,7 @@ static void IConsoleAliasExec(const IConsoleAlias *alias, std::span<std::string>
 				break;
 
 			case ';': // Cmd separator; execute previous and start new command
-				IConsoleCmdExec(builder.GetString(), recurse_count);
+				IConsoleCmdExec(buffer, recurse_count);
 
 				buffer.clear();
 				break;
@@ -258,21 +261,29 @@ static void IConsoleAliasExec(const IConsoleAlias *alias, std::span<std::string>
 		}
 	}
 
-	IConsoleCmdExec(builder.GetString(), recurse_count);
+	IConsoleCmdExec(buffer, recurse_count);
 }
 
 /**
  * Execute a given command passed to us. First chop it up into
  * individual tokens (separated by spaces), then execute it if possible
  * @param command_string string to be parsed and executed
+ * @param recurse_count The number of re-entrant calls to this function.
  */
 void IConsoleCmdExec(std::string_view command_string, const uint recurse_count)
 {
-	if (command_string[0] == '#') return; // comments
+	if (command_string.empty() || command_string[0] == '#') return; // comments
+
+	for (char c : command_string) {
+		if (!IsValidChar(c, CS_ALPHANUMERAL)) {
+			IConsolePrint(CC_ERROR, "Command '{}' contains malformed characters.", command_string);
+			return;
+		}
+	}
 
 	Debug(console, 4, "Executing cmdline: '{}'", command_string);
 
-	std::string buffer;
+	format_buffer buffer;
 	StringBuilder builder{buffer};
 	StringConsumer consumer{command_string};
 
@@ -299,7 +310,7 @@ void IConsoleCmdExec(std::string_view command_string, const uint recurse_count)
 					break;
 				}
 
-				tokens.emplace_back(std::move(buffer));
+				tokens.emplace_back(buffer);
 				buffer.clear();
 				found_token = false;
 				break;
@@ -324,7 +335,7 @@ void IConsoleCmdExec(std::string_view command_string, const uint recurse_count)
 	}
 
 	if (found_token) {
-		tokens.emplace_back(std::move(buffer));
+		tokens.emplace_back(buffer);
 		buffer.clear();
 	}
 
@@ -332,6 +343,18 @@ void IConsoleCmdExec(std::string_view command_string, const uint recurse_count)
 		Debug(console, 8, "Token {} is: '{}'", i, tokens[i]);
 	}
 
+	std::vector<std::string_view> token_views;
+	token_views.reserve(tokens.size());
+	for (auto &token : tokens) token_views.emplace_back(token);
+	IConsoleCmdExecTokens(token_views, recurse_count);
+}
+
+/**
+ * Execute a given command passed to us as tokens
+ * @param cmdstr string to be parsed and executed
+ */
+void IConsoleCmdExecTokens(std::span<std::string_view> tokens, const uint recurse_count)
+{
 	if (tokens.empty() || tokens[0].empty()) return; // don't execute empty commands
 	/* 2. Determine type of command (cmd or alias) and execute
 	 * First try commands, then aliases. Execute
@@ -339,25 +362,23 @@ void IConsoleCmdExec(std::string_view command_string, const uint recurse_count)
 	 */
 	IConsoleCmd *cmd = IConsole::CmdGet(tokens[0]);
 	if (cmd != nullptr) {
-		ConsoleHookResult chr = (cmd->hook == nullptr ? CHR_ALLOW : cmd->hook(true));
+		ConsoleHookResult chr = (cmd->hook == nullptr ? ConsoleHookResult::Allow : cmd->hook(true));
 		switch (chr) {
-			case CHR_ALLOW: {
-				std::vector<std::string_view> views;
-				for (auto &token : tokens) views.emplace_back(token);
-				if (!cmd->proc(views)) { // index started with 0
+			case ConsoleHookResult::Allow: {
+				if (!cmd->proc(tokens)) { // index started with 0
 					cmd->proc({}); // if command failed, give help
 				}
 				return;
 			}
 
-			case CHR_DISALLOW: return;
-			case CHR_HIDE: break;
+			case ConsoleHookResult::Disallow: return;
+			case ConsoleHookResult::Hide: break;
 		}
 	}
 
 	IConsoleAlias *alias = IConsole::AliasGet(tokens[0]);
 	if (alias != nullptr) {
-		IConsoleAliasExec(alias, std::span(tokens).subspan(1), recurse_count + 1);
+		IConsoleAliasExec(alias, tokens.subspan(1), recurse_count + 1);
 		return;
 	}
 

@@ -15,6 +15,8 @@
 
 #include "../safeguards.h"
 
+using namespace std::literals;
+
 TEST_CASE("Utf8View - empty")
 {
 	Utf8View view;

@@ -14,11 +14,42 @@
 #include "script_station.hpp"
 #include "script_waypoint.hpp"
 #include "../../depot_map.h"
+#include "../../group.h"
 #include "../../vehicle_base.h"
 #include "../../vehiclelist_func.h"
 #include "../../train.h"
 
 #include "../../safeguards.h"
+
+struct FrontVehicleOnlyFillListHelper {
+	using IterType = Vehicle;
+
+	auto Iterate()
+	{
+		return Vehicle::IterateFrontOnly();
+	}
+
+	int OpcodeCharge(int item_count)
+	{
+		return item_count / 2;
+	}
+};
+
+struct VehicleTypeFrontVehicleOnlyFillListHelper {
+	using IterType = Vehicle;
+
+	::VehicleType vt;
+
+	auto Iterate()
+	{
+		return Vehicle::IterateTypeFrontOnly(this->vt);
+	}
+
+	int OpcodeCharge(int item_count)
+	{
+		return item_count / 2;
+	}
+};
 
 ScriptVehicleList::ScriptVehicleList(HSQUIRRELVM vm)
 {
@@ -27,9 +58,9 @@ ScriptVehicleList::ScriptVehicleList(HSQUIRRELVM vm)
 	bool is_deity = ScriptCompanyMode::IsDeity();
 	::CompanyID owner = ScriptObject::GetCompany();
 
-	ScriptList::FillList<Vehicle>(vm, this,
+	ScriptList::FillListT<FrontVehicleOnlyFillListHelper>({}, vm, this,
 		[is_deity, owner](const Vehicle *v) {
-			return (is_deity || v->owner == owner) && (v->IsPrimaryVehicle() || (v->type == VEH_TRAIN && ::Train::From(v)->IsFreeWagon()));
+			return (is_deity || v->owner == owner) && (v->IsPrimaryVehicle() || (v->type == VehicleType::Train && ::Train::From(v)->IsFreeWagon()));
 		}
 	);
 }
@@ -51,7 +82,7 @@ ScriptVehicleList_Station::ScriptVehicleList_Station(HSQUIRRELVM vm)
 
 	bool is_deity = ScriptCompanyMode::IsDeity();
 	::CompanyID owner = ScriptObject::GetCompany();
-	::VehicleType type = VEH_INVALID;
+	::VehicleType type = VehicleType::Invalid;
 
 	if (nparam == 2) {
 		SQInteger sqtype;
@@ -63,7 +94,7 @@ ScriptVehicleList_Station::ScriptVehicleList_Station(HSQUIRRELVM vm)
 	}
 
 	FindVehiclesWithOrder(
-		[is_deity, owner, type](const Vehicle *v) { return (is_deity || v->owner == owner) && (type == VEH_INVALID || v->type == type); },
+		[is_deity, owner, type](const Vehicle *v) { return (is_deity || v->owner == owner) && (type == VehicleType::Invalid || v->type == type); },
 		[station_id](const Order *order) { return (order->IsType(OT_GOTO_STATION) || order->IsType(OT_GOTO_WAYPOINT)) && order->GetDestination() == station_id; },
 		[this](const Vehicle *v) { this->AddItem(v->index.base()); }
 	);
@@ -93,27 +124,27 @@ ScriptVehicleList_Depot::ScriptVehicleList_Depot(TileIndex tile)
 	VehicleType type;
 
 	switch (GetTileType(tile)) {
-		case MP_STATION: // Aircraft
+		case TileType::Station: // Aircraft
 			if (!IsAirport(tile)) return;
-			type = VEH_AIRCRAFT;
+			type = VehicleType::Aircraft;
 			dest = GetStationIndex(tile);
 			break;
 
-		case MP_RAILWAY:
+		case TileType::Railway:
 			if (!IsRailDepot(tile)) return;
-			type = VEH_TRAIN;
+			type = VehicleType::Train;
 			dest = GetDepotIndex(tile);
 			break;
 
-		case MP_ROAD:
+		case TileType::Road:
 			if (!IsRoadDepot(tile)) return;
-			type = VEH_ROAD;
+			type = VehicleType::Road;
 			dest = GetDepotIndex(tile);
 			break;
 
-		case MP_WATER:
+		case TileType::Water:
 			if (!IsShipDepot(tile)) return;
-			type = VEH_SHIP;
+			type = VehicleType::Ship;
 			dest = GetDepotIndex(tile);
 			break;
 
@@ -146,8 +177,9 @@ ScriptVehicleList_Group::ScriptVehicleList_Group(GroupID group_id)
 	if (!ScriptGroup::IsValidGroup(group_id)) return;
 
 	::CompanyID owner = ScriptObject::GetCompany();
+	VehicleType veh_type = ::Group::Get(group_id)->vehicle_type;
 
-	ScriptList::FillList<Vehicle>(this,
+	ScriptList::FillListT<VehicleTypeFrontVehicleOnlyFillListHelper>({ veh_type }, this,
 		[owner](const Vehicle *v) { return v->owner == owner && v->IsPrimaryVehicle(); },
 		[group_id](const Vehicle *v) { return v->group_id == group_id; }
 	);
@@ -160,8 +192,8 @@ ScriptVehicleList_DefaultGroup::ScriptVehicleList_DefaultGroup(ScriptVehicle::Ve
 
 	::CompanyID owner = ScriptObject::GetCompany();
 
-	ScriptList::FillList<Vehicle>(this,
+	ScriptList::FillListT<VehicleTypeFrontVehicleOnlyFillListHelper>({ (::VehicleType)vehicle_type  }, this,
 		[owner](const Vehicle *v) { return v->owner == owner && v->IsPrimaryVehicle(); },
-		[vehicle_type](const Vehicle *v) { return v->type == (::VehicleType)vehicle_type && v->group_id == ScriptGroup::GROUP_DEFAULT; }
+		[](const Vehicle *v) { return v->group_id == ScriptGroup::GROUP_DEFAULT; }
 	);
 }

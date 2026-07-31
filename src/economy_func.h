@@ -15,18 +15,22 @@
 #include "cargo_type.h"
 #include "vehicle_type.h"
 #include "company_type.h"
-#include "settings_type.h"
 #include "source_type.h"
-#include "core/random_func.hpp"
+#include "station_container.h"
+#include "core/typed_container.hpp"
 
 void ResetPriceBaseMultipliers();
 void SetPriceBaseMultiplier(Price price, int factor);
 
-extern const ScoreInfo _score_info[];
-extern TypedIndexContainer<std::array<std::array<int64_t, SCORE_END>, MAX_COMPANIES>, CompanyID> _score_part;
+extern const EnumIndexArray<ScoreInfo, ScoreID, ScoreID::End> _score_info;
+extern TypedIndexContainer<std::array<EnumIndexArray<int64_t, ScoreID, ScoreID::End>, MAX_COMPANIES>, CompanyID> _score_part;
 extern Economy _economy;
-/* Prices and also the fractional part. */
+/** Prices and also the fractional part. */
 extern Prices _price;
+
+extern CargoScaler _town_cargo_scaler;
+extern CargoScaler _industry_cargo_scaler;
+extern CargoScaler _industry_inverse_cargo_scaler;
 
 int UpdateCompanyRatingAndValue(Company *c, bool update);
 void StartupIndustryDailyChanges(bool init_counter);
@@ -52,48 +56,13 @@ inline bool EconomyIsInRecession()
 	return _economy.fluct <= 0;
 }
 
-/**
- * Scale a number by the inverse of the cargo scale setting, e.g. a scale of 25% multiplies the number by 4.
- * @param num The number to scale.
- * @param town Are we scaling town production, or industry production?
- * @return The number scaled by the inverse of the cargo scale setting, minimum of 1.
- */
-static uint ScaleByInverseCargoScale(uint num, bool town)
-{
-	uint16_t percentage = (town ? _settings_game.economy.town_cargo_scale : _settings_game.economy.industry_cargo_scale);
+uint ScaleQuantity(uint amount, int scale_factor, bool allow_trunc = false);
+uint ScaleQuantity(uint amount, int cf, int fine, bool allow_trunc = false);
 
-	/* We might not need to do anything. */
-	if (percentage == 100) return num;
+int PercentageToScaleQuantityFactor(uint percentage);
 
-	/* Never return 0, since we often divide by this number. */
-	return std::max((num * 100) / percentage, 1u);
-}
+void UpdateCargoScalers();
 
-/**
- * Scale a number by the cargo scale setting.
- * @param num The number to scale.
- * @param town Are we scaling town production, or industry production?
- * @return The number scaled by the current cargo scale setting. May be 0.
- */
-inline uint ScaleByCargoScale(uint num, bool town)
-{
-	/* Don't bother scaling in the menu, especially since settings don't exist when starting OpenTTD and trying to read them crashes the game. */
-	if (_game_mode == GM_MENU) return num;
-
-	if (num == 0) return num;
-
-	uint16_t percentage = (town ? _settings_game.economy.town_cargo_scale : _settings_game.economy.industry_cargo_scale);
-
-	/* We might not need to do anything. */
-	if (percentage == 100) return num;
-
-	uint scaled = (num * percentage) / 100;
-
-	/* We might round down to 0, so we compensate with a random chance approximately equal to the economy scale,
-	 *  e.g. at 25% scale there's a 1/4 chance to round up to 1. */
-	if (scaled == 0 && Chance16(1, ScaleByInverseCargoScale(1, town))) return 1;
-
-	return scaled;
-}
+void PostAcquireCompany(Company *c);
 
 #endif /* ECONOMY_FUNC_H */

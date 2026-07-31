@@ -11,11 +11,23 @@
 #define TREE_CMD_H
 
 #include "command_type.h"
+#include "tree_type.h"
+#include <vector>
 
 void PlaceTree(TileIndex tile, uint32_t r, bool keep_density = false);
 
-CommandCost CmdPlantTree(DoCommandFlags flags, TileIndex tile, TileIndex start_tile, uint8_t tree_to_plant, bool diagonal);
+struct BulkTreeCmdData final : public CommandPayloadSerialisable<BulkTreeCmdData> {
+	static constexpr bool HasStringSanitiser = false;
+	static constexpr size_t MAX_SERIALISED_COUNT = 512;
 
-DEF_CMD_TRAIT(CMD_PLANT_TREE, CmdPlantTree, CommandFlag::Auto, CommandType::LandscapeConstruction)
+	std::vector<std::pair<TileIndex, TreePlacerData>> plant_tree_data; // List of every tile index and the tree type/count intended to be on this tile.
+
+	void SerialisePayload(BufferSerialisationRef buffer) const;
+	bool Deserialise(DeserialisationBuffer &buffer, StringValidationSettings default_string_validation);
+	void FormatDebugSummary(format_target &output) const;
+};
+
+DEF_CMD_TUPLE    (Commands::PlantTree, CmdPlantTree, CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, TreeTypes, uint8_t, bool>)
+DEF_CMD_DIRECT_LT(Commands::BulkTree,  CmdBulkTree,  CMD_AUTO, CommandType::LandscapeConstruction, BulkTreeCmdData)
 
 #endif /* TREE_CMD_H */

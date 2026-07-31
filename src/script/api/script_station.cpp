@@ -13,9 +13,9 @@
 #include "script_town.hpp"
 #include "script_cargo.hpp"
 #include "../../station_base.h"
+#include "../../station_cmd.h"
 #include "../../roadstop_base.h"
 #include "../../town.h"
-#include "../../station_cmd.h"
 
 #include "../../safeguards.h"
 
@@ -28,7 +28,7 @@
 
 /* static */ StationID ScriptStation::GetStationID(TileIndex tile)
 {
-	if (!::IsValidTile(tile) || !::IsTileType(tile, MP_STATION)) return StationID::Invalid();
+	if (!::IsValidTile(tile) || !::IsTileType(tile, TileType::Station)) return StationID::Invalid();
 	return ::GetStationIndex(tile);
 }
 
@@ -52,10 +52,10 @@ template <bool Tfrom, bool Tvia>
 		return -1;
 	}
 
-	const ::GoodsEntry &goods = ::Station::Get(station_id)->goods[cargo_type];
-	if (!goods.HasData()) return 0;
+	const GoodsEntry &ge = ::Station::Get(station_id)->goods[cargo_type];
+	if (ge.data == nullptr) return 0;
 
-	const StationCargoList &cargo_list = goods.GetData().cargo;
+	const StationCargoList &cargo_list = ge.data->cargo;
 	if (!Tfrom && !Tvia) return cargo_list.TotalCount();
 
 	uint16_t cargo_count = 0;
@@ -103,10 +103,10 @@ template <bool Tfrom, bool Tvia>
 		return -1;
 	}
 
-	const ::GoodsEntry &goods = ::Station::Get(station_id)->goods[cargo_type];
-	if (!goods.HasData()) return 0;
+	const GoodsEntry &ge = ::Station::Get(station_id)->goods[cargo_type];
+	if (ge.data == nullptr) return 0;
 
-	const FlowStatMap &flows = goods.GetData().flows;
+	const FlowStatMap &flows = ge.data->flows;
 	if (Tfrom) {
 		return Tvia ? flows.GetFlowFromVia(from_station_id, via_station_id) :
 					  flows.GetFlowFrom(from_station_id);
@@ -158,14 +158,16 @@ template <bool Tfrom, bool Tvia>
 	if (station_type == STATION_AIRPORT) return -1;
 	if (!HasExactlyOneBit(station_type)) return -1;
 
-	if (!_settings_game.station.modified_catchment) return CA_UNMODIFIED;
+	const int32_t inc = _settings_game.station.catchment_increase;
+
+	if (!_settings_game.station.modified_catchment) return CA_UNMODIFIED + inc;
 
 	switch (station_type) {
-		case STATION_TRAIN:      return CA_TRAIN;
-		case STATION_TRUCK_STOP: return CA_TRUCK;
-		case STATION_BUS_STOP:   return CA_BUS;
-		case STATION_DOCK:       return CA_DOCK;
-		default:                 return CA_NONE;
+		case STATION_TRAIN:      return CA_TRAIN + inc;
+		case STATION_TRUCK_STOP: return CA_TRUCK + inc;
+		case STATION_BUS_STOP:   return CA_BUS + inc;
+		case STATION_DOCK:       return CA_DOCK + inc;
+		default:                 return CA_NONE + inc;
 	}
 }
 
@@ -241,5 +243,5 @@ template <bool Tfrom, bool Tvia>
 	EnforcePrecondition(false, IsValidStation(station_id));
 	EnforcePrecondition(false, HasStationType(station_id, STATION_AIRPORT));
 
-	return ScriptObject::Command<CMD_OPEN_CLOSE_AIRPORT>::Do(station_id);
+	return ScriptObject::Command<Commands::OpenCloseAirport>::Do(station_id);
 }

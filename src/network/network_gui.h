@@ -11,17 +11,19 @@
 #define NETWORK_GUI_H
 
 #include "../company_type.h"
-#include "../timer/timer_game_calendar.h"
+#include "../date_type.h"
 #include "../economy_type.h"
 #include "../window_type.h"
 #include "network_type.h"
 #include "network_gamelist.h"
 
-void ShowNetworkNeedPassword(std::shared_ptr<class NetworkAuthenticationPasswordRequest> request);
-void ShowNetworkChatQueryWindow(DestType type, int dest);
+void ShowNetworkNeedPassword(NetworkPasswordType npt, std::shared_ptr<class NetworkAuthenticationPasswordRequest> request);
+void ShowNetworkGiveMoneyWindow(CompanyID company);
+void ShowNetworkChatQueryWindow(NetworkChatDestinationType type, int dest);
 void ShowJoinStatusWindow();
 void ShowNetworkGameWindow();
 void ShowClientList();
+void ShowNetworkCompanyPasswordWindow(Window *parent);
 void ShowNetworkAskRelay(std::string_view server_connection_string, std::string &&relay_connection_string, std::string &&token);
 void ShowNetworkAskSurvey();
 void ShowSurveyResultTextfileWindow(Window *parent);
@@ -29,15 +31,16 @@ void ShowSurveyResultTextfileWindow(Window *parent);
 /** Company information stored at the client side */
 struct NetworkCompanyInfo : NetworkCompanyStats {
 	std::string company_name; ///< Company name
-	TimerGameCalendar::Year inaugurated_year; ///< What year the company started in
+	CalTime::Year inaugurated_year; ///< What year the company started in
 	Money company_value;      ///< The company value
 	Money money;              ///< The amount of money the company has
 	Money income;             ///< How much did the company earn last year
-	uint16_t performance;       ///< What was his performance last month?
+	uint16_t performance;     ///< What was his performance last month?
 	bool use_password;        ///< Is there a password
 	std::string clients;      ///< The clients that control this company (Name1, name2, ..)
 };
 
+/** Reasons to close the window that opts you in for relaying the network game. */
 enum NetworkRelayWindowCloseData : uint8_t {
 	NRWCD_UNHANDLED = 0, ///< Relay request is unhandled.
 	NRWCD_HANDLED = 1, ///< Relay request is handled, either by user or by timeout.

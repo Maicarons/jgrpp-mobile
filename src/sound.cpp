@@ -37,7 +37,7 @@ static void OpenBankFile(const std::string &filename)
 	/* If there is no sound file (nosound set), don't load anything */
 	if (filename.empty()) return;
 
-	original_sound_file = std::make_unique<RandomAccessFile>(filename, BASESET_DIR);
+	original_sound_file = std::make_unique<RandomAccessFile>(filename, Subdirectory::Baseset);
 	size_t pos = original_sound_file->GetPos();
 	uint count = original_sound_file->ReadDword();
 
@@ -51,7 +51,7 @@ static void OpenBankFile(const std::string &filename)
 		/* Corrupt sample data? Just leave the allocated memory as those tell
 		 * there is no sound to play (size = 0 due to calloc). Not allocating
 		 * the memory disables valid NewGRFs that replace sounds. */
-		Debug(misc, 6, "Incorrect number of sounds in '{}', ignoring.", filename);
+		Debug(sound, 6, "Incorrect number of sounds in '{}', ignoring.", filename);
 		return;
 	}
 
@@ -89,7 +89,7 @@ static bool SetBankSource(MixerChannel *mc, SoundEntry *sound, SoundID sound_id)
 
 void InitializeSound()
 {
-	Debug(misc, 1, "Loading sound effects...");
+	Debug(sound, 1, "Loading sound effects...");
 	OpenBankFile(BaseSounds::GetUsedSet()->files[0].filename);
 }
 
@@ -120,9 +120,8 @@ static void StartSound(SoundID sound_id, float pan, uint volume)
 	MxActivateChannel(mc);
 }
 
-
-static const uint8_t _vol_factor_by_zoom[] = {255, 255, 255, 190, 134, 87};
-static_assert(lengthof(_vol_factor_by_zoom) == to_underlying(ZoomLevel::End));
+/** Volume scaling for each zoom level. */
+static constexpr EnumIndexArray<uint8_t, ZoomLevel, ZoomLevel::End> _vol_factor_by_zoom{255, 255, 255, 190, 134, 87, 10, 1, 1, 1};
 
 static const uint8_t _sound_base_vol[] = {
 	128,  90, 128, 128, 128, 128, 128, 128,
@@ -169,6 +168,7 @@ void ChangeSoundSet(int index)
 	if (BaseSounds::GetIndexOfUsedSet() == index) return;
 
 	auto set = BaseSounds::GetSet(index);
+	if (set->name != "NoSound") InitSoundDriver();
 	BaseSounds::ini_set = set->name;
 	BaseSounds::SetSet(set);
 
@@ -187,7 +187,7 @@ void ChangeSoundSet(int index)
 		sound->priority = 0;
 	}
 
-	InvalidateWindowData(WC_GAME_OPTIONS, WN_GAME_OPTIONS_GAME_OPTIONS, 0, true);
+	InvalidateWindowData(WindowClass::GameOptions, GameOptionsWindowNumber::GameOptions, 0, true);
 }
 
 /**
@@ -203,19 +203,19 @@ static void SndPlayScreenCoordFx(SoundID sound, int left, int right, int top, in
 {
 	/* Iterate from back, so that main viewport is checked first */
 	for (const Window *w : Window::IterateFromBack()) {
-		if (w->viewport == nullptr) continue;
+		const Viewport *vp = w->viewport;
 
-		const Viewport &vp = *w->viewport;
-		if (left < vp.virtual_left + vp.virtual_width && right > vp.virtual_left &&
-				top < vp.virtual_top + vp.virtual_height && bottom > vp.virtual_top) {
-			int screen_x = (left + right) / 2 - vp.virtual_left;
-			int width = (vp.virtual_width == 0 ? 1 : vp.virtual_width);
+		if (vp != nullptr &&
+				left < vp->virtual_left + vp->virtual_width && right > vp->virtual_left &&
+				top < vp->virtual_top + vp->virtual_height && bottom > vp->virtual_top) {
+			int screen_x = (left + right) / 2 - vp->virtual_left;
+			int width = (vp->virtual_width == 0 ? 1 : vp->virtual_width);
 			float panning = (float)screen_x / width;
 
 			StartSound(
 				sound,
 				panning,
-				_vol_factor_by_zoom[to_underlying(vp.zoom)]
+				_vol_factor_by_zoom[vp->zoom]
 			);
 			return;
 		}
@@ -224,6 +224,8 @@ static void SndPlayScreenCoordFx(SoundID sound, int left, int right, int top, in
 
 void SndPlayTileFx(SoundID sound, TileIndex tile)
 {
+	if (_settings_client.music.effect_vol == 0) return;
+
 	/* emits sound from center of the tile */
 	int x = std::min(Map::MaxX() - 1, TileX(tile)) * TILE_SIZE + TILE_SIZE / 2;
 	int y = std::min(Map::MaxY() - 1, TileY(tile)) * TILE_SIZE - TILE_SIZE / 2;
@@ -236,6 +238,8 @@ void SndPlayTileFx(SoundID sound, TileIndex tile)
 
 void SndPlayVehicleFx(SoundID sound, const Vehicle *v)
 {
+	if (_settings_client.music.effect_vol == 0) return;
+
 	SndPlayScreenCoordFx(sound,
 		v->coord.left, v->coord.right,
 		v->coord.top, v->coord.bottom
@@ -266,18 +270,21 @@ void SndConfirmBeep()
 /** Names corresponding to the sound set's files */
 static const std::string_view _sound_file_names[] = { "samples" };
 
+/** @copydoc BaseSet::GetFilenames */
 template <>
 /* static */ std::span<const std::string_view> BaseSet<SoundsSet>::GetFilenames()
 {
 	return _sound_file_names;
 }
 
+/** @copydoc BaseMedia::GetExtension */
 template <>
 /* static */ std::string_view BaseMedia<SoundsSet>::GetExtension()
 {
 	return ".obs"; // OpenTTD Base Sounds
 }
 
+/** @copydoc BaseMedia::DetermineBestSet */
 template <>
 /* static */ bool BaseMedia<SoundsSet>::DetermineBestSet()
 {

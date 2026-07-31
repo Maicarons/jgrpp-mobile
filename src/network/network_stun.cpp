@@ -18,15 +18,17 @@
 /** Connect to the STUN server. */
 class NetworkStunConnecter : public TCPConnecter {
 private:
-	ClientNetworkStunSocketHandler *stun_handler;
-	std::string token;
-	uint8_t family;
+	ClientNetworkStunSocketHandler *stun_handler; ///< The STUN handler for callbacks.
+	std::string token; ///< The (server) token for this action.
+	uint8_t family; ///< The IP-family to connect with.
 
 public:
 	/**
 	 * Initiate the connecting.
 	 * @param stun_handler The handler for this request.
 	 * @param connection_string The address of the server.
+	 * @param token The (server) token for the STUN action.
+	 * @param family The IP-family to connect with.
 	 */
 	NetworkStunConnecter(ClientNetworkStunSocketHandler *stun_handler, std::string_view connection_string, std::string_view token, uint8_t family) :
 		TCPConnecter(connection_string, NETWORK_STUN_SERVER_PORT, NetworkAddress(), family),
@@ -38,8 +40,6 @@ public:
 
 	void OnFailure() override
 	{
-		Debug(net, 9, "Stun::OnFailure(): family={}", this->family);
-
 		this->stun_handler->connecter = nullptr;
 
 		/* Connection to STUN server failed. For example, the client doesn't
@@ -50,8 +50,6 @@ public:
 
 	void OnConnect(SOCKET s) override
 	{
-		Debug(net, 9, "Stun::OnConnect(): family={}", this->family);
-
 		this->stun_handler->connecter = nullptr;
 
 		assert(this->stun_handler->sock == INVALID_SOCKET);
@@ -75,8 +73,6 @@ void ClientNetworkStunSocketHandler::Connect(std::string_view token, uint8_t fam
 	this->token = token;
 	this->family = family;
 
-	Debug(net, 9, "Stun::Connect(): family={}", this->family);
-
 	this->connecter = TCPConnecter::Create<NetworkStunConnecter>(this, NetworkStunConnectionString(), token, family);
 }
 
@@ -92,12 +88,11 @@ std::unique_ptr<ClientNetworkStunSocketHandler> ClientNetworkStunSocketHandler::
 
 	stun_handler->Connect(token, family);
 
-	auto p = std::make_unique<Packet>(stun_handler.get(), PACKET_STUN_SERCLI_STUN);
+	auto p = std::make_unique<Packet>(stun_handler.get(), PacketStunType::ClientStun);
 	p->Send_uint8(NETWORK_COORDINATOR_VERSION);
 	p->Send_string(token);
 	p->Send_uint8(family);
 
-	Debug(net, 9, "Stun::SendStun({}, {})", token, family);
 	stun_handler->SendPacket(std::move(p));
 
 	return stun_handler;

@@ -14,7 +14,7 @@
 #include "group.h"
 #include "gfx_type.h"
 
-TextColour GetDrawStringCompanyColour(CompanyID company);
+ExtendedTextColour GetDrawStringCompanyColour(CompanyID company);
 void DrawCompanyIcon(CompanyID c, int x, int y);
 
 void ShowCompanyLiveryWindow(CompanyID company, GroupID group);
@@ -25,5 +25,6 @@ void ShowCompany(CompanyID company);
 void InvalidateCompanyWindows(const Company *c);
 void CloseCompanyWindows(CompanyID company);
 void DirtyCompanyInfrastructureWindows(CompanyID company);
+void DirtyAllCompanyInfrastructureWindows();
 
 #endif /* COMPANY_GUI_H */

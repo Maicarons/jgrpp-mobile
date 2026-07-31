@@ -18,21 +18,38 @@ struct Cheat {
 	bool value = false; ///< tells if the bool cheat is active or not
 };
 
-/**
- * WARNING! Do _not_ remove entries in Cheats struct or change the order
- * of the existing ones! Would break downward compatibility.
- * Only add new entries at the end of the struct!
- */
 struct Cheats {
-	Cheat magic_bulldozer{}; ///< dynamite industries, objects
-	Cheat switch_company{};  ///< change to another company
-	Cheat money{}; ///< get rich or poor
+	Cheat magic_bulldozer{};  ///< dynamite industries, objects
+	Cheat switch_company{};   ///< change to another company
+	Cheat money{};            ///< get rich or poor
 	Cheat crossing_tunnels{}; ///< allow tunnels that cross each other
-	Cheat no_jetcrash{}; ///< no jet will crash on small airports anymore
-	Cheat change_date{}; ///< changes date ingame
-	Cheat setup_prod{}; ///< setup raw-material production in game
-	Cheat edit_max_hl{}; ///< edit the maximum heightlevel; this is a cheat because of the fact that it needs to reset NewGRF game state and doing so as a simple configuration breaks the expectation of many
-	Cheat station_rating{}; ///< Fix station ratings at 100%
+	Cheat no_jetcrash{};      ///< no jet will crash on small airports anymore
+	Cheat change_date{};      ///< changes date ingame
+	Cheat setup_prod{};       ///< setup raw-material production in game
+	Cheat edit_max_hl{};      ///< edit the maximum heightlevel{}; this is a cheat because of the fact that it needs to reset NewGRF game state and doing so as a simple configuration breaks the expectation of many
+	Cheat station_rating{};   ///< Fix station ratings at 100%
+	/* non-trunk cheats follow */
+	Cheat inflation_cost{};   ///< inflation cost factor
+	Cheat inflation_income{}; ///< inflation income factor
+	Cheat town_rating{};      ///< 100% town local authority rating
+};
+
+/** Available cheats. */
+enum CheatNumbers : uint8_t {
+	CHT_MONEY,           ///< Change amount of money.
+	CHT_CHANGE_COMPANY,  ///< Switch company.
+	CHT_EXTRA_DYNAMITE,  ///< Dynamite anything.
+	CHT_CROSSINGTUNNELS, ///< Allow tunnels to cross each other.
+	CHT_NO_JETCRASH,     ///< Disable jet-airplane crashes.
+	CHT_SETUP_PROD,      ///< Allow manually editing of industry production.
+	CHT_EDIT_MAX_HL,     ///< Edit maximum allowed heightlevel
+	CHT_CHANGE_DATE,     ///< Do time traveling.
+	CHT_INFLATION_COST,  ///< Change inflation cost factor
+	CHT_INFLATION_INCOME,///< Change inflation income factor
+	CHT_STATION_RATING,  ///< 100% station ratings
+	CHT_TOWN_RATING,     ///< 100% town local authority ratings
+
+	CHT_NUM_CHEATS,      ///< Number of cheats.
 };
 
 extern Cheats _cheats;

@@ -11,11 +11,9 @@
 #define LANDSCAPE_CMD_H
 
 #include "command_type.h"
+#include "tile_type.h"
 
-CommandCost CmdLandscapeClear(DoCommandFlags flags, TileIndex tile);
-std::tuple<CommandCost, Money> CmdClearArea(DoCommandFlags flags, TileIndex tile, TileIndex start_tile, bool diagonal);
-
-DEF_CMD_TRAIT(CMD_LANDSCAPE_CLEAR, CmdLandscapeClear, CommandFlag::Deity,  CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_CLEAR_AREA,      CmdClearArea,      CommandFlag::NoTest, CommandType::LandscapeConstruction) // destroying multi-tile houses makes town rating differ between test and execution
+DEF_CMD_TUPLE(Commands::LandscapeClear, CmdLandscapeClear,   CMD_DEITY, CommandType::LandscapeConstruction, CmdDataT<>)
+DEF_CMD_TUPLE(Commands::ClearArea,      CmdClearArea,      CMD_NO_TEST, CommandType::LandscapeConstruction, CmdDataT<TileIndex, bool>) // destroying multi-tile houses makes town rating differ between test and execution
 
 #endif /* LANDSCAPE_CMD_H */

@@ -5,11 +5,12 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file newgrf_act0_bidges.cpp NewGRF Action 0x00 handler for bridges. */
+/** @file newgrf_act0_bridges.cpp NewGRF Action 0x00 handler for bridges. */
 
 #include "../stdafx.h"
 #include "../debug.h"
 #include "../bridge.h"
+#include "../newgrf_extension.h"
 #include "newgrf_bytereader.h"
 #include "newgrf_internal.h"
 #include "newgrf_stringmapping.h"
@@ -24,13 +25,13 @@
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > MAX_BRIDGES) {
 		GrfMsg(1, "BridgeChangeInfo: Bridge {} is invalid, max {}, ignoring", last, MAX_BRIDGES);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	for (uint id = first; id < last; ++id) {
@@ -40,7 +41,7 @@ static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, ByteRe
 			case 0x08: { // Year of availability
 				/* We treat '0' as always available */
 				uint8_t year = buf.ReadByte();
-				bridge->avail_year = (year > 0 ? CalendarTime::ORIGINAL_BASE_YEAR + year : TimerGameCalendar::Year{});
+				bridge->avail_year = (year > 0 ? CalTime::ORIGINAL_BASE_YEAR + year : CalTime::Year{0});
 				break;
 			}
 
@@ -93,7 +94,7 @@ static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, ByteRe
 						MapSpriteMappingRecolour(&bridge->sprite_table[tableid][sprite]);
 					}
 				}
-				if (!bridge->ctrl_flags.Test(BridgeSpec::ControlFlag::CustomPillarFlags)) bridge->ctrl_flags.Set(BridgeSpec::ControlFlag::InvalidPillarFlags);
+				if (!HasBit(bridge->ctrl_flags, BSCF_CUSTOM_PILLAR_FLAGS)) SetBit(bridge->ctrl_flags, BSCF_INVALID_PILLAR_FLAGS);
 				break;
 			}
 
@@ -102,7 +103,7 @@ static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, ByteRe
 				break;
 
 			case 0x0F: // Long format year of availability (year since year 0)
-				bridge->avail_year = Clamp(TimerGameCalendar::Year(buf.ReadDWord()), CalendarTime::MIN_YEAR, CalendarTime::MAX_YEAR);
+				bridge->avail_year = CalTime::DeserialiseYearClamped(static_cast<int32_t>(buf.ReadDWord()));
 				break;
 
 			case 0x10: // purchase string
@@ -121,23 +122,48 @@ static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, ByteRe
 				bridge->price = buf.ReadWord();
 				break;
 
+			case A0RPI_BRIDGE_MENU_ICON:
+				if (MappedPropertyLengthMismatch(buf, 4, mapping_entry)) break;
+				[[fallthrough]];
+			case 0x14: // purchase sprite
+				bridge->sprite = buf.ReadWord();
+				bridge->pal    = buf.ReadWord();
+				break;
+
+			case A0RPI_BRIDGE_PILLAR_FLAGS:
+				if (MappedPropertyLengthMismatch(buf, 12, mapping_entry)) break;
+				for (uint i = 0; i < 12; i++) {
+					bridge->pillar_flags[i] = buf.ReadByte();
+				}
+				ClrBit(bridge->ctrl_flags, BSCF_INVALID_PILLAR_FLAGS);
+				SetBit(bridge->ctrl_flags, BSCF_CUSTOM_PILLAR_FLAGS);
+				break;
+
 			case 0x15: { // Pillar information for each bridge piece.
 				uint16_t tiles = buf.ReadExtendedByte();
 				for (uint j = 0; j != tiles; ++j) {
-					if (j < std::size(bridge->pillar_flags)) {
-						bridge->pillar_flags[j][AXIS_X] = BridgePillarFlags{buf.ReadByte()};
-						bridge->pillar_flags[j][AXIS_Y] = BridgePillarFlags{buf.ReadByte()};
+					if (j < 6) {
+						bridge->pillar_flags[j * 2] = buf.ReadByte();
+						bridge->pillar_flags[(j * 2) + 1] = buf.ReadByte();
 					} else {
 						buf.ReadWord();
 					}
 				}
-				bridge->ctrl_flags.Reset(BridgeSpec::ControlFlag::InvalidPillarFlags);
-				bridge->ctrl_flags.Set(BridgeSpec::ControlFlag::CustomPillarFlags);
+				ClrBit(bridge->ctrl_flags, BSCF_INVALID_PILLAR_FLAGS);
+				SetBit(bridge->ctrl_flags, BSCF_CUSTOM_PILLAR_FLAGS);
+				break;
+			}
+
+			case A0RPI_BRIDGE_AVAILABILITY_FLAGS: {
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				uint8_t flags = buf.ReadByte();
+				AssignBit(bridge->ctrl_flags, BSCF_NOT_AVAILABLE_TOWN, HasBit(flags, 0));
+				AssignBit(bridge->ctrl_flags, BSCF_NOT_AVAILABLE_AI_GS, HasBit(flags, 1));
 				break;
 			}
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -145,5 +171,5 @@ static ChangeInfoResult BridgeChangeInfo(uint first, uint last, int prop, ByteRe
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_BRIDGES>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_BRIDGES>::Activation(uint first, uint last, int prop, ByteReader &buf) { return BridgeChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Bridges>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Bridges>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return BridgeChangeInfo(first, last, prop, mapping_entry, buf); }

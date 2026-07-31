@@ -5,9 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file tcp_content.h Basic functions to receive and send TCP packets to/from the content server.
- */
+/** @file tcp_content.h Basic functions to receive and send TCP packets to/from the content server. */
 
 #ifndef NETWORK_CORE_TCP_CONTENT_H
 #define NETWORK_CORE_TCP_CONTENT_H
@@ -18,6 +16,24 @@
 #include "../../debug.h"
 #include "tcp_content_type.h"
 
+/**
+ * Enum with all types of TCP content packets.
+ * @important The order MUST not be changed.
+ */
+enum class PacketContentType : uint8_t {
+	ClientInfoList, ///< Queries the content server for a list of info of a given content type
+	ClientInfoID, ///< Queries the content server for information about a list of internal IDs
+	ClientInfoExternalID, ///< Queries the content server for information about a list of external IDs
+	ClientInfoExternalIDMD5, ///< Queries the content server for information about a list of external IDs and MD5
+	ServerInfo, ///< Reply of content server with information about content
+	ClientContent, ///< Request a content file given an internal ID
+	ServerContent, ///< Reply with the content of the given ID
+};
+/** Mark PacketContentType as PacketType. */
+template <> struct IsEnumPacketType<PacketContentType> {
+	static constexpr bool value = true; ///< This is an enumeration of a PacketType.
+};
+
 /** Base socket handler for all Content TCP sockets */
 class NetworkContentSocketHandler : public NetworkTCPSocketHandler {
 protected:
@@ -25,16 +41,16 @@ protected:
 
 	/**
 	 * Client requesting a list of content info:
-	 *  uint8_t    type
+	 *  uint8_t   type
 	 *  uint32_t  openttd version (or 0xFFFFFFFF if using a list)
 	 * Only if the above value is 0xFFFFFFFF:
 	 *  uint8_t   count
-	 *  string  branch-name ("vanilla" for upstream OpenTTD)
-	 *  string  release version (like "12.0")
+	 *  string    branch-name ("vanilla" for upstream OpenTTD)
+	 *  string    release version (like "12.0")
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_INFO_LIST(Packet &p);
+	virtual bool ReceiveClientInfoList(Packet &p);
 
 	/**
 	 * Client requesting a list of content info:
@@ -43,7 +59,7 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_INFO_ID(Packet &p);
+	virtual bool ReceiveClientInfoID(Packet &p);
 
 	/**
 	 * Client requesting a list of content info based on an external
@@ -57,7 +73,7 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_INFO_EXTID(Packet &p);
+	virtual bool ReceiveClientInfoExternalID(Packet &p);
 
 	/**
 	 * Client requesting a list of content info based on an external
@@ -72,25 +88,25 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_INFO_EXTID_MD5(Packet &p);
+	virtual bool ReceiveClientInfoExternalIDMD5(Packet &p);
 
 	/**
 	 * Server sending list of content info:
-	 *  uint8_t    type (invalid ID == does not exist)
+	 *  uint8_t   type (invalid ID == does not exist)
 	 *  uint32_t  id
 	 *  uint32_t  file_size
-	 *  string  name (max 32 characters)
-	 *  string  version (max 16 characters)
+	 *  string    name (max 32 characters)
+	 *  string    version (max 16 characters)
 	 *  uint32_t  unique id
 	 *  uint8_t   md5sum (16 bytes)
 	 *  uint8_t   dependency count
 	 *  uint32_t  unique id of dependency (dependency count times)
 	 *  uint8_t   tag count
-	 *  string  tag (max 32 characters for tag count times)
+	 *  string    tag (max 32 characters for tag count times)
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_SERVER_INFO(Packet &p);
+	virtual bool ReceiveServerInfo(Packet &p);
 
 	/**
 	 * Client requesting the actual content:
@@ -99,26 +115,25 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_CONTENT(Packet &p);
+	virtual bool ReceiveClientContent(Packet &p);
 
 	/**
 	 * Server sending list of content info:
 	 *  uint32_t  unique id
 	 *  uint32_t  file size (0 == does not exist)
-	 *  string  file name (max 48 characters)
+	 *  string    file name (max 48 characters)
 	 * After this initial packet, packets with the actual data are send using
 	 * the same packet type.
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_SERVER_CONTENT(Packet &p);
+	virtual bool ReceiveServerContent(Packet &p);
 
 	bool HandlePacket(Packet &p);
 public:
 	/**
 	 * Create a new cs socket handler for a given cs
-	 * @param s  the socket we are connected with
-	 * @param address IP etc. of the client
+	 * @param s The socket we are connected with.
 	 */
 	NetworkContentSocketHandler(SOCKET s = INVALID_SOCKET) :
 		NetworkTCPSocketHandler(s)
@@ -126,7 +141,7 @@ public:
 	}
 
 	/** On destructing of this class, the socket needs to be closed */
-	virtual ~NetworkContentSocketHandler()
+	~NetworkContentSocketHandler() override
 	{
 		/* Virtual functions get called statically in destructors, so make it explicit to remove any confusion. */
 		this->CloseSocket();

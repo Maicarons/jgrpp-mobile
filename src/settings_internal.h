@@ -10,25 +10,40 @@
 #ifndef SETTINGS_INTERNAL_H
 #define SETTINGS_INTERNAL_H
 
-#include <variant>
-#include "saveload/saveload.h"
+#include "sl/saveload_types.h"
 
+#include <functional>
+#include <initializer_list>
+#include <vector>
+
+enum SaveToConfigFlags : uint32_t;
+
+/** Flags describing the behaviour of a setting. */
 enum class SettingFlag : uint8_t {
-	GuiZeroIsSpecial, ///< A value of zero is possible and has a custom string (the one after "strval").
-	GuiDropdown, ///< The value represents a limited number of string-options (internally integer) presented as dropdown.
-	GuiCurrency, ///< The number represents money, so when reading value multiply by exchange rate.
-	NetworkOnly, ///< This setting only applies to network games.
-	NoNetwork, ///< This setting does not apply to network games; it may not be changed during the game.
-	NewgameOnly, ///< This setting cannot be changed in a game.
-	SceneditToo, ///< This setting can be changed in the scenario editor (only makes sense when SettingFlag::NewgameOnly is set).
-	SceneditOnly, ///< This setting can only be changed in the scenario editor.
-	PerCompany, ///< This setting can be different for each company (saved in company struct).
-	NotInSave, ///< Do not save with savegame, basically client-based.
-	NotInConfig, ///< Do not save to config file.
-	NoNetworkSync, ///< Do not synchronize over network (but it is saved if SettingFlag::NotInSave is not set).
-	Sandbox, ///< This setting is a sandbox setting.
+	GuiZeroIsSpecial,        ///< A value of zero is possible and has a custom string (the one after "strval").
+	GuiDropdown,             ///< The value represents a limited number of string-options (internally integer) presented as dropdown.
+	GuiCurrency,             ///< The number represents money, so when reading value multiply by exchange rate.
+	NetworkOnly,             ///< This setting only applies to network games.
+	NoNetwork,               ///< This setting does not apply to network games; it may not be changed during the game.
+	NewgameOnly,             ///< This setting cannot be changed in a game.
+	SceneditToo,             ///< This setting can be changed in the scenario editor (only makes sense when SettingFlag::NewgameOnly is set).
+	SceneditOnly,            ///< This setting can only be changed in the scenario editor.
+	PerCompany,              ///< This setting can be different for each company (saved in company struct).
+	NotInSave,               ///< Do not save with savegame, basically client-based.
+	NotInConfig,             ///< Do not save to config file.
+	NoNetworkSync,           ///< Do not synchronize over network (but it is saved if SettingFlag::NotInSave is not set).
+	Sandbox,                 ///< This setting is a sandbox setting.
+	Enum,                    ///< The setting can take one of the values given by an array of struct SettingDescEnumEntry.
+	NoNewgame,               ///< The setting does not apply and is not shown in a new game context.
+	RunCallbacksOnParse,     ///< Run callbacks when parsing from config file.
+	GuiVelocity,             ///< Setting value is a velocity.
+	EnumPreCallbackValidate, ///< Call the pre_check callback for enum incoming value validation.
+	ConvertBoolToInt,        ///< Accept a boolean value when loading an int-type setting from the config file.
+	Patch,                   ///< Do not load from upstream table-mode PATS, also for GUI filtering of "patch" settings.
+	Private,                 ///< Setting is in private ini.
+	Secret,                  ///< Setting is in secrets ini.
 };
-using SettingFlags = EnumBitSet<SettingFlag, uint16_t>;
+using SettingFlags = EnumBitSet<SettingFlag, uint32_t>;
 
 /**
  * A SettingCategory defines a grouping of the settings.
@@ -53,6 +68,7 @@ enum SettingCategory : uint8_t {
 
 	SC_END,
 };
+DECLARE_ENUM_AS_BIT_SET(SettingCategory)
 
 /**
  * Type of settings for filtering.
@@ -65,29 +81,55 @@ enum SettingType : uint8_t {
 	ST_ALL,       ///< Used in setting filter to match all types.
 };
 
+enum SettingOnGuiCtrlType {
+	SOGCT_DESCRIPTION_TEXT,   ///< Description text callback
+	SOGCT_GUI_DROPDOWN_ORDER, ///< SettingFlag::GuiDropdown reordering callback
+	SOGCT_CFG_NAME,           ///< Config file name override
+	SOGCT_CFG_FALLBACK_NAME,  ///< Config file name within group fallback
+	SOGCT_GUI_SPRITE,         ///< Show sprite after setting value (i.e. warning)
+	SOGCT_GUI_WARNING_TEXT,   ///< Show warning text
+	SOGCT_GUI_DISABLE,        ///< Disable setting in GUI
+};
+
+struct SettingOnGuiCtrlData {
+	SettingOnGuiCtrlType type;
+	StringID text;
+	int val;
+	const char *str = nullptr;
+	int output = 0;
+};
+
 struct IniItem;
+typedef bool OnGuiCtrl(SettingOnGuiCtrlData &data); ///< callback prototype for GUI operations
+typedef int64_t OnXrefValueConvert(int64_t val); ///< callback prototype for xref value conversion
+
+/** The last entry in an array of struct SettingDescEnumEntry must use STR_NULL. */
+struct SettingDescEnumEntry {
+	int32_t val;
+	StringID str;
+
+	SettingDescEnumEntry(int32_t val, StringID str) : val(val), str(str) {}
+
+	template <typename T> requires is_scoped_enum_v<T>
+	SettingDescEnumEntry(T val, StringID str) : val(to_underlying(val)), str(str) {}
+};
 
 /** Properties of config file settings. */
 struct SettingDesc {
-	SettingDesc(const SaveLoad &save, SettingFlags flags, bool startup) :
-		flags(flags), startup(startup), save(save) {}
+	constexpr SettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name) :
+		name(name), flags(flags), startup(startup), save(save), guiproc(guiproc), patx_name(patx_name) {}
 	virtual ~SettingDesc() = default;
 
-	SettingFlags flags;  ///< Handles how a setting would show up in the GUI (text/currency, etc.).
-	bool startup;       ///< Setting has to be loaded directly at startup?.
-	SaveLoad save;      ///< Internal structure (going to savegame, parts to config).
+	const char *name;       ///< Name of the setting. Used in configuration file and for console
+	SettingFlags flags;     ///< Handles how a setting would show up in the GUI (text/currency, etc.)
+	bool startup;           ///< Setting has to be loaded directly at startup?
+	SaveLoad save;          ///< Internal structure (going to savegame, parts to config)
+	OnGuiCtrl *guiproc;     ///< Callback procedure for GUI operations
+
+	const char *patx_name;  ///< Name to save/load setting from in PATX chunk, if nullptr save/load from PATS chunk as normal
 
 	bool IsEditable(bool do_command = false) const;
 	SettingType GetType() const;
-
-	/**
-	 * Get the name of this setting.
-	 * @return The name of the setting.
-	 */
-	constexpr const std::string &GetName() const
-	{
-		return this->save.name;
-	}
 
 	/**
 	 * Check whether this setting is an integer type setting.
@@ -106,11 +148,10 @@ struct SettingDesc {
 
 	/**
 	 * Format the value of the setting associated with this object.
-	 * @param buf The before of the buffer to format into.
-	 * @param last The end of the buffer to format into.
+	 * @param buf The buffer to format into.
 	 * @param object The object the setting is in.
 	 */
-	virtual std::string FormatValue(const void *object) const = 0;
+	virtual void FormatValue(struct format_target &buf, const void *object) const = 0;
 
 	/**
 	 * Parse/read the value from the Ini item into the setting associated with this object.
@@ -140,17 +181,48 @@ struct SettingDesc {
 
 	/**
 	 * Reset the setting to its default value.
+	 * @param object The object to set the value of.
 	 */
 	virtual void ResetToDefault(void *object) const = 0;
 };
 
 /** Base integer type, including boolean, settings. Only these are shown in the settings UI. */
 struct IntSettingDesc : SettingDesc {
+	/**
+	 * Callback to get the title for the settings panel of this setting.
+	 * @param sd The setting to consider.
+	 * @return The StringID of the title.
+	 */
 	using GetTitleCallback = StringID(const IntSettingDesc &sd);
+
+	/**
+	 * Callback to get the help description for the settings panel of this setting.
+	 * @param sd The setting to consider.
+	 * @return The StringID of the help.
+	 */
 	using GetHelpCallback = StringID(const IntSettingDesc &sd);
+
+	/**
+	 * Callback to parameters for string formatting for this setting.
+	 * @param sd The setting to consider.
+	 * @param value The value of the setting.
+	 * @return The string parameters.
+	 */
 	using GetValueParamsCallback = std::pair<StringParameter, StringParameter>(const IntSettingDesc &sd, int32_t value);
+
+	/**
+	 * Callback to get default value for this setting.
+	 * @param sd The setting to consider.
+	 * @return The default value.
+	 */
 	using GetDefaultValueCallback = int32_t(const IntSettingDesc &sd);
-	using GetRangeCallback = std::tuple<int32_t, uint32_t>(const IntSettingDesc &sd);
+
+	/**
+	 * Callback to get range of valid values for this setting.
+	 * @param sd The setting to consider.
+	 * @return The range, start and end are included..
+	 */
+	using GetRangeCallback = std::pair<int32_t, uint32_t>(const IntSettingDesc &sd);
 
 	/**
 	 * A check to be performed before the setting gets changed. The passed integer may be
@@ -163,50 +235,26 @@ struct IntSettingDesc : SettingDesc {
 	using PreChangeCheck = bool(int32_t &value);
 	/**
 	 * A callback to denote that a setting has been changed.
-	 * @param The new value for the setting.
+	 * @param new_value The new value for the setting.
 	 */
-	using PostChangeCallback = void(int32_t value);
+	using PostChangeCallback = void(int32_t new_value);
 
-	template <ConvertibleThroughBaseOrTo<int32_t> Tdef, ConvertibleThroughBaseOrTo<int32_t> Tmin, ConvertibleThroughBaseOrTo<uint32_t> Tmax, ConvertibleThroughBaseOrTo<int32_t> Tinterval>
-	IntSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, Tdef def,
-			Tmin min, Tmax max, Tinterval interval, StringID str, StringID str_help, StringID str_val,
+	constexpr IntSettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name, int32_t def,
+			int32_t min, uint32_t max, int32_t interval, StringID str, StringID str_help, StringID str_val,
 			SettingCategory cat, PreChangeCheck pre_check, PostChangeCallback post_callback,
 			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
-			GetDefaultValueCallback get_def_cb, GetRangeCallback get_range_cb) :
-		SettingDesc(save, flags, startup),
-			str(str), str_help(str_help), str_val(str_val), cat(cat), pre_check(pre_check),
-			post_callback(post_callback),
+			GetDefaultValueCallback get_def_cb, GetRangeCallback get_range_cb,
+			const SettingDescEnumEntry *enumlist) :
+		SettingDesc(save, name, flags, guiproc, startup, patx_name), def(def), min(min), max(max), interval(interval),
+			str(str), str_help(str_help), str_val(str_val), cat(cat), pre_check(pre_check), post_callback(post_callback),
 			get_title_cb(get_title_cb), get_help_cb(get_help_cb), get_value_params_cb(get_value_params_cb),
-			get_def_cb(get_def_cb), get_range_cb(get_range_cb) {
-		if constexpr (ConvertibleThroughBase<Tdef>) {
-			this->def = def.base();
-		} else {
-			this->def = def;
-		}
+			get_def_cb(get_def_cb), get_range_cb(get_range_cb),
+			enumlist(enumlist) {}
 
-		if constexpr (ConvertibleThroughBase<Tmin>) {
-			this->min = min.base();
-		} else {
-			this->min = min;
-		}
-
-		if constexpr (ConvertibleThroughBase<Tmax>) {
-			this->max = max.base();
-		} else {
-			this->max = max;
-		}
-
-		if constexpr (ConvertibleThroughBase<Tinterval>) {
-			this->interval = interval.base();
-		} else {
-			this->interval = interval;
-		}
-	}
-
-	int32_t def;              ///< default value given when none is present
-	int32_t min;              ///< minimum values
-	uint32_t max;             ///< maximum values
-	int32_t interval;         ///< the interval to use between settings in the 'settings' window. If interval is '0' the interval is dynamically determined
+	int32_t def;            ///< default value given when none is present
+	int32_t min;            ///< minimum values
+	uint32_t max;           ///< maximum values
+	int32_t interval;       ///< the interval to use between settings in the 'settings' window. If interval is '0' the interval is dynamically determined
 	StringID str;           ///< (translated) string with descriptive text; gui and console
 	StringID str_help;      ///< (Translated) string with help text; gui only.
 	StringID str_val;       ///< (Translated) first string describing the value.
@@ -219,11 +267,13 @@ struct IntSettingDesc : SettingDesc {
 	GetDefaultValueCallback *get_def_cb; ///< Callback to set the correct default value
 	GetRangeCallback *get_range_cb;
 
+	const SettingDescEnumEntry *enumlist; ///< For SF_ENUM. The last entry must use STR_NULL
+
 	StringID GetTitle() const;
 	StringID GetHelp() const;
 	std::pair<StringParameter, StringParameter> GetValueParams(int32_t value) const;
 	int32_t GetDefaultValue() const;
-	std::tuple<int32_t, uint32_t> GetRange() const;
+	std::pair<int32_t, uint32_t> GetRange() const;
 
 	/**
 	 * Check whether this setting is a boolean type setting.
@@ -232,12 +282,15 @@ struct IntSettingDesc : SettingDesc {
 	virtual bool IsBoolSetting() const { return false; }
 	bool IsIntSetting() const override { return true; }
 
-	void ChangeValue(const void *object, int32_t newvalue) const;
+	void ChangeValue(const void *object, int32_t newvalue, SaveToConfigFlags ini_save_flags) const;
 	void MakeValueValidAndWrite(const void *object, int32_t value) const;
 
 	virtual int32_t ParseValue(std::string_view str) const;
-	std::string FormatValue(const void *object) const override;
+	void FormatValue(struct format_target &buf, const void *object) const override;
+	virtual void FormatIntValue(struct format_target &buf, uint32_t value) const;
 	void ParseValue(const IniItem *item, void *object) const override;
+	static std::optional<int32_t> ParseSingleValue(std::string_view str, int32_t min, uint32_t max);
+
 	bool IsSameValue(const IniItem *item, void *object) const override;
 	bool IsDefaultValue(void *object) const override;
 	void ResetToDefault(void *object) const override;
@@ -250,60 +303,56 @@ private:
 
 /** Boolean setting. */
 struct BoolSettingDesc : IntSettingDesc {
-	BoolSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, bool def,
+	constexpr BoolSettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name, bool def,
 			StringID str, StringID str_help, StringID str_val, SettingCategory cat,
 			PreChangeCheck pre_check, PostChangeCallback post_callback,
 			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
 			GetDefaultValueCallback get_def_cb) :
-		IntSettingDesc(save, flags, startup, def ? 1 : 0, 0, 1, 0, str, str_help, str_val, cat,
-			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr) {}
+		IntSettingDesc(save, name, flags, guiproc, startup, patx_name, def, 0, 1, 0, str, str_help, str_val, cat,
+			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr, nullptr) {}
 
 	static std::optional<bool> ParseSingleValue(std::string_view str);
 
 	bool IsBoolSetting() const override { return true; }
 	int32_t ParseValue(std::string_view str) const override;
-	std::string FormatValue(const void *object) const override;
+	void FormatIntValue(struct format_target &buf, uint32_t value) const override;
 };
 
 /** One of many setting. */
 struct OneOfManySettingDesc : IntSettingDesc {
 	typedef std::optional<uint32_t> OnConvert(std::string_view value); ///< callback prototype for conversion error
 
-	template <ConvertibleThroughBaseOrTo<int32_t> Tdef, ConvertibleThroughBaseOrTo<uint32_t> Tmax>
-	OneOfManySettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, Tdef def,
-			Tmax max, StringID str, StringID str_help, StringID str_val, SettingCategory cat,
+	constexpr OneOfManySettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name,
+			int32_t def, int32_t max, StringID str, StringID str_help, StringID str_val, SettingCategory cat,
 			PreChangeCheck pre_check, PostChangeCallback post_callback,
 			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
-			GetDefaultValueCallback get_def_cb, std::initializer_list<std::string_view> many, OnConvert *many_cnvt) :
-		IntSettingDesc(save, flags, startup, def, 0, max, 0, str, str_help, str_val, cat,
-			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr), many_cnvt(many_cnvt)
-	{
-		for (auto one : many) this->many.push_back(one);
-	}
+			GetDefaultValueCallback get_def_cb, std::initializer_list<const char *> many, OnConvert *many_cnvt) :
+		IntSettingDesc(save, name, flags, guiproc, startup, patx_name, def, 0, max, 0, str, str_help, str_val, cat,
+			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr, nullptr),
+			many(many), many_cnvt(many_cnvt) {}
 
-	std::vector<std::string_view> many; ///< possible values for this type
-	OnConvert *many_cnvt;          ///< callback procedure when loading value mechanism fails
+	std::span<const char * const> many; ///< possible values for this type
+	OnConvert *many_cnvt;               ///< callback procedure when loading value mechanism fails
 
-	static std::optional<uint32_t> ParseSingleValue(std::string_view str, std::span<const std::string_view> many);
-	std::string FormatSingleValue(uint id) const;
+	static std::optional<uint32_t> ParseSingleValue(std::string_view str, std::span<const char * const> many);
+	void FormatSingleValue(struct format_target &buf, uint id) const;
 
 	int32_t ParseValue(std::string_view str) const override;
-	std::string FormatValue(const void *object) const override;
+	void FormatIntValue(struct format_target &buf, uint32_t value) const override;
 };
 
 /** Many of many setting. */
 struct ManyOfManySettingDesc : OneOfManySettingDesc {
-	template <ConvertibleThroughBaseOrTo<int32_t> Tdef>
-	ManyOfManySettingDesc(const SaveLoad &save, SettingFlags flags, bool startup,
-		Tdef def, StringID str, StringID str_help, StringID str_val, SettingCategory cat,
-		PreChangeCheck pre_check, PostChangeCallback post_callback,
-		GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
-		GetDefaultValueCallback get_def_cb, std::initializer_list<std::string_view> many, OnConvert *many_cnvt) :
-		OneOfManySettingDesc(save, flags, startup, def, (1 << many.size()) - 1, str, str_help,
+	constexpr ManyOfManySettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name,
+			int32_t def, StringID str, StringID str_help, StringID str_val, SettingCategory cat,
+			PreChangeCheck pre_check, PostChangeCallback post_callback,
+			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
+			GetDefaultValueCallback get_def_cb, std::initializer_list<const char *> many, OnConvert *many_cnvt) :
+		OneOfManySettingDesc(save, name, flags, guiproc, startup, patx_name, def, (1 << many.size()) - 1, str, str_help,
 			str_val, cat, pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, many, many_cnvt) {}
 
 	int32_t ParseValue(std::string_view str) const override;
-	std::string FormatValue(const void *object) const override;
+	void FormatIntValue(struct format_target &buf, uint32_t value) const override;
 };
 
 /** String settings. */
@@ -323,20 +372,20 @@ struct StringSettingDesc : SettingDesc {
 	 */
 	typedef void PostChangeCallback(const std::string &value);
 
-	StringSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, std::string_view def,
+	constexpr StringSettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name, const char *def,
 			uint32_t max_length, PreChangeCheck pre_check, PostChangeCallback post_callback) :
-		SettingDesc(save, flags, startup), def(def), max_length(max_length),
+		SettingDesc(save, name, flags, guiproc, startup, patx_name), def(def == nullptr ? "" : def), max_length(max_length),
 			pre_check(pre_check), post_callback(post_callback) {}
 
-	std::string_view def; ///< Default value given when none is present
-	uint32_t max_length;                 ///< Maximum length of the string, 0 means no maximum length
+	const char *def;                   ///< Default value given when none is present
+	uint32_t max_length;               ///< Maximum length of the string, 0 means no maximum length
 	PreChangeCheck *pre_check;         ///< Callback to check for the validity of the setting.
 	PostChangeCallback *post_callback; ///< Callback when the setting has been changed.
 
 	bool IsStringSetting() const override { return true; }
-	void ChangeValue(const void *object, std::string &&newval) const;
+	void ChangeValue(const void *object, std::string &&newval, SaveToConfigFlags ini_save_flags) const;
 
-	std::string FormatValue(const void *object) const override;
+	void FormatValue(struct format_target &buf, const void *object) const override;
 	void ParseValue(const IniItem *item, void *object) const override;
 	bool IsSameValue(const IniItem *item, void *object) const override;
 	bool IsDefaultValue(void *object) const override;
@@ -345,17 +394,17 @@ struct StringSettingDesc : SettingDesc {
 
 private:
 	void MakeValueValid(std::string &str) const;
-	void Write(const void *object, std::string_view str) const;
+	void Write(const void *object, const std::string &str) const;
 };
 
 /** List/array settings. */
 struct ListSettingDesc : SettingDesc {
-	ListSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, std::string_view def) :
-		SettingDesc(save, flags, startup), def(def) {}
+	constexpr ListSettingDesc(const SaveLoad &save, const char *name, SettingFlags flags, OnGuiCtrl *guiproc, bool startup, const char *patx_name, const char *def) :
+		SettingDesc(save, name, flags, guiproc, startup, patx_name), def(def) {}
 
-	std::string_view def; ///< default value given when none is present
+	const char *def;        ///< default value given when none is present
 
-	std::string FormatValue(const void *object) const override;
+	void FormatValue(struct format_target &buf, const void *object) const override;
 	void ParseValue(const IniItem *item, void *object) const override;
 	bool IsSameValue(const IniItem *item, void *object) const override;
 	bool IsDefaultValue(void *object) const override;
@@ -364,36 +413,109 @@ struct ListSettingDesc : SettingDesc {
 
 /** Placeholder for settings that have been removed, but might still linger in the savegame. */
 struct NullSettingDesc : SettingDesc {
-	NullSettingDesc(const SaveLoad &save) :
-		SettingDesc(save, SettingFlag::NotInConfig, false) {}
+	constexpr NullSettingDesc(const SaveLoad &save) :
+		SettingDesc(save, "", SettingFlag::NotInConfig, nullptr, false, nullptr) {}
+	constexpr NullSettingDesc(const SaveLoad &save, const char *name, const char *patx_name) :
+		SettingDesc(save, name, SettingFlag::NotInConfig, nullptr, false, patx_name) {}
 
-	std::string FormatValue(const void *) const override { NOT_REACHED(); }
-	void ParseValue(const IniItem *, void *) const override { NOT_REACHED(); }
-	bool IsSameValue(const IniItem *, void *) const override { NOT_REACHED(); }
-	bool IsDefaultValue(void *) const override { NOT_REACHED(); }
-	void ResetToDefault(void *) const override { NOT_REACHED(); }
+	void FormatValue(struct format_target &buf, const void *object) const override { NOT_REACHED(); }
+	void ParseValue(const IniItem *item, void *object) const override { NOT_REACHED(); }
+	bool IsSameValue(const IniItem *item, void *object) const override { NOT_REACHED(); }
+	bool IsDefaultValue(void *object) const override { NOT_REACHED(); }
+	void ResetToDefault(void *object) const override {}
 };
 
-typedef std::variant<IntSettingDesc, BoolSettingDesc, OneOfManySettingDesc, ManyOfManySettingDesc, StringSettingDesc, ListSettingDesc, NullSettingDesc> SettingVariant;
-
-/**
- * Helper to convert the type of the iterated settings description to a pointer to it.
- * @param desc The type of the iterator of the value in SettingTable.
- * @return The actual pointer to SettingDesc.
- */
-static constexpr const SettingDesc *GetSettingDesc(const SettingVariant &desc)
-{
-	return std::visit([](auto&& arg) -> const SettingDesc * { return &arg; }, desc);
-}
-
-typedef std::span<const SettingVariant> SettingTable;
+using SettingTablePtr = const SettingDesc *;
+typedef std::initializer_list<SettingTablePtr> SettingTable;
 
 const SettingDesc *GetSettingFromName(std::string_view name);
-void GetSaveLoadFromSettingTable(SettingTable settings, std::vector<SaveLoad> &saveloads);
-SettingTable GetSaveLoadSettingTable();
+
 bool SetSettingValue(const IntSettingDesc *sd, int32_t value, bool force_newgame = false);
 bool SetSettingValue(const StringSettingDesc *sd, std::string_view value, bool force_newgame = false);
 
 std::vector<const SettingDesc *> GetFilteredSettingCollection(std::function<bool(const SettingDesc &desc)> func);
+
+void IterateSettingsTables(std::function<void(const SettingTable &, void *)> handler);
+std::initializer_list<SettingTable> GetSaveLoadSettingsTables();
+const SettingTable &GetLinkGraphSettingTable();
+uint GetSettingIndexByFullName(const SettingTable &table, const char *name);
+
+/**
+ * Get the setting at the given index into a settings table.
+ * @param table The settings table.
+ * @param index The index to look for.
+ * @return The setting at the given index, or nullptr when the index is invalid.
+ */
+inline const SettingDesc *GetSettingDescription(const SettingTable &table, uint index)
+{
+	if (index >= table.size()) return nullptr;
+	return table.begin()[index];
+}
+
+struct SettingTablesIterator {
+	typedef SettingTablePtr value_type;
+	typedef SettingTablePtr *pointer;
+	typedef SettingTablePtr &reference;
+	typedef size_t difference_type;
+	typedef std::forward_iterator_tag iterator_category;
+
+	explicit SettingTablesIterator(std::initializer_list<SettingTable> &src, std::initializer_list<SettingTable>::iterator outer)
+		: src(src), outer(outer)
+	{
+		this->ResetInner();
+		this->ValidateIndex();
+	};
+
+	explicit SettingTablesIterator(std::initializer_list<SettingTable> &src, std::initializer_list<SettingTable>::iterator outer, SettingTable::iterator inner)
+		: src(src), outer(outer), inner(inner) {}
+
+	bool operator==(const SettingTablesIterator &other) const { return this->outer == other.outer && this->inner == other.inner; }
+	bool operator!=(const SettingTablesIterator &other) const { return !(*this == other); }
+	const SettingDesc *operator*() const { return *this->inner; }
+	SettingTablesIterator &operator++() { ++this->inner; this->ValidateIndex(); return *this; }
+
+private:
+	std::initializer_list<SettingTable> &src;
+	std::initializer_list<SettingTable>::iterator outer;
+	SettingTable::iterator inner;
+
+	void ResetInner()
+	{
+		this->inner = (this->outer != this->src.end()) ? this->outer->begin() : SettingTable::iterator();
+	}
+
+	void ValidateIndex()
+	{
+		while (this->outer != this->src.end() && this->inner == this->outer->end()) {
+			++this->outer;
+			this->ResetInner();
+		}
+	}
+};
+
+/* Wrapper to iterate the settings within a set of settings tables: std::initializer_list<SettingTable> */
+struct IterateSettingTables {
+	std::initializer_list<SettingTable> tables;
+
+	IterateSettingTables(std::initializer_list<SettingTable> tables) : tables(tables) {}
+	SettingTablesIterator begin() { return SettingTablesIterator(this->tables, this->tables.begin()); }
+	SettingTablesIterator end() { return SettingTablesIterator(this->tables, this->tables.end(), SettingTable::iterator()); }
+};
+
+enum class SettingsCompatType : uint8_t {
+	Null,
+	Setting,
+	Xref,
+};
+
+struct SettingsCompat {
+	const char *name;                 ///< Name of the field.
+	SettingsCompatType type;          ///< Compat type
+	uint16_t length;                  ///< Length of the NULL field.
+	SaveLoadVersion version_from;     ///< Save/load the variable starting from this savegame version.
+	SaveLoadVersion version_to;       ///< Save/load the variable before this savegame version.
+	SlXvFeatureTest ext_feature_test; ///< Extended feature test
+	OnXrefValueConvert *xrefconv;     ///< Value conversion for xref
+};
 
 #endif /* SETTINGS_INTERNAL_H */

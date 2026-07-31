@@ -5,18 +5,23 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file engine_sl.cpp Code handling saving and loading of engines */
+/** @file engine_sl.cpp Code handling saving and loading of engines. */
 
 #include "../stdafx.h"
 
 #include "saveload.h"
 #include "compat/engine_sl_compat.h"
 
-#include "saveload_internal.h"
 #include "../engine_base.h"
+#include "../engine_override.h"
 #include "../string_func.h"
+#include <vector>
 
 #include "../safeguards.h"
+
+Engine *GetTempDataEngine(EngineID index, VehicleType type, uint16_t local_id);
+
+namespace upstream_sl {
 
 static const SaveLoad _engine_desc[] = {
 	 SLE_CONDVAR(Engine, intro_date,          SLE_FILE_U16 | SLE_VAR_I32,  SL_MIN_VERSION,  SLV_31),
@@ -38,21 +43,8 @@ static const SaveLoad _engine_desc[] = {
 	 SLE_CONDVAR(Engine, company_avail,       SLE_FILE_U8  | SLE_VAR_U16,  SL_MIN_VERSION, SLV_104),
 	 SLE_CONDVAR(Engine, company_avail,       SLE_UINT16,                SLV_104, SL_MAX_VERSION),
 	 SLE_CONDVAR(Engine, company_hidden,      SLE_UINT16,                SLV_193, SL_MAX_VERSION),
-	SLE_CONDSSTR(Engine, name,                SLE_STR,                    SLV_84, SL_MAX_VERSION),
+	 SLE_CONDSTR(Engine, name,                SLE_STR, 0,                SLV_84, SL_MAX_VERSION),
 };
-
-static TypedIndexContainer<std::vector<Engine>, EngineID> _temp_engine;
-
-Engine *GetTempDataEngine(EngineID index)
-{
-	if (index < _temp_engine.size()) {
-		return &_temp_engine[index];
-	} else if (index == _temp_engine.size()) {
-		return &_temp_engine.emplace_back();
-	} else {
-		NOT_REACHED();
-	}
-}
 
 struct ENGNChunkHandler : ChunkHandler {
 	ENGNChunkHandler() : ChunkHandler('ENGN', CH_TABLE) {}
@@ -76,7 +68,7 @@ struct ENGNChunkHandler : ChunkHandler {
 		 * engine pool after processing NewGRFs by CopyTempEngineData(). */
 		int index;
 		while ((index = SlIterateArray()) != -1) {
-			Engine *e = GetTempDataEngine(static_cast<EngineID>(index));
+			Engine *e = GetTempDataEngine(static_cast<EngineID>(index), VehicleType::Invalid, 0);
 			SlObject(e, slt);
 
 			if (IsSavegameVersionBefore(SLV_179)) {
@@ -86,62 +78,6 @@ struct ENGNChunkHandler : ChunkHandler {
 				e->preview_company = CompanyID::Invalid();
 				e->preview_asked.Set();
 			}
-		}
-	}
-};
-
-/**
- * Copy data from temporary engine array into the real engine pool.
- */
-void CopyTempEngineData()
-{
-	for (Engine *e : Engine::Iterate()) {
-		if (e->index >= _temp_engine.size()) break;
-
-		const Engine *se = GetTempDataEngine(e->index);
-		e->intro_date          = se->intro_date;
-		e->age                 = se->age;
-		e->reliability         = se->reliability;
-		e->reliability_spd_dec = se->reliability_spd_dec;
-		e->reliability_start   = se->reliability_start;
-		e->reliability_max     = se->reliability_max;
-		e->reliability_final   = se->reliability_final;
-		e->duration_phase_1    = se->duration_phase_1;
-		e->duration_phase_2    = se->duration_phase_2;
-		e->duration_phase_3    = se->duration_phase_3;
-		e->flags               = se->flags;
-		e->preview_asked       = se->preview_asked;
-		e->preview_company     = se->preview_company;
-		e->preview_wait        = se->preview_wait;
-		e->company_avail       = se->company_avail;
-		e->company_hidden      = se->company_hidden;
-		e->name                = se->name;
-	}
-
-	ResetTempEngineData();
-}
-
-void ResetTempEngineData()
-{
-	_temp_engine.clear();
-	_temp_engine.shrink_to_fit();
-}
-
-struct ENGSChunkHandler : ChunkHandler {
-	ENGSChunkHandler() : ChunkHandler('ENGS', CH_READONLY) {}
-
-	void Load() const override
-	{
-		/* Load old separate String ID list into a temporary array. This
-		 * was always 256 entries. */
-		TypedIndexContainer<std::array<StringID, 256>, EngineID> names{};
-
-		SlCopy(names.data(), std::size(names), SLE_STRINGID);
-
-		/* Copy each string into the temporary engine array. */
-		for (EngineID engine = EngineID::Begin(); engine < std::size(names); ++engine) {
-			Engine *e = GetTempDataEngine(engine);
-			e->name = CopyFromOldName(names[engine]);
 		}
 	}
 };
@@ -161,25 +97,11 @@ struct EIDSChunkHandler : ChunkHandler {
 	{
 		SlTableHeader(_engine_id_mapping_desc);
 
-		/* Count total entries needed for combined list. */
-		size_t total = 0;
-		for (const auto &mapping : _engine_mngr.mappings) {
-			total += std::size(mapping);
-		}
-
-		/* Combine per-type mappings into single list for all types. */
-		std::vector<EngineIDMapping> temp;
-		temp.reserve(total);
-		for (const auto &mapping : _engine_mngr.mappings) {
-			temp.insert(std::end(temp), std::begin(mapping), std::end(mapping));
-		}
-
-		/* Sort combined list by EngineID */
-		std::ranges::sort(temp, std::less{}, &EngineIDMapping::engine);
-
-		for (EngineIDMapping &eid : temp) {
-			SlSetArrayIndex(eid.engine);
+		uint index = 0;
+		for (EngineIDMapping &eid : _engine_mngr.mappings) {
+			SlSetArrayIndex(index);
 			SlObject(&eid, _engine_id_mapping_desc);
+			index++;
 		}
 	}
 
@@ -187,24 +109,24 @@ struct EIDSChunkHandler : ChunkHandler {
 	{
 		const std::vector<SaveLoad> slt = SlCompatTableHeader(_engine_id_mapping_desc, _engine_id_mapping_sl_compat);
 
-		_engine_mngr.mappings = {};
+		_engine_mngr.mappings.clear();
 
-		int index;
-		while ((index = SlIterateArray()) != -1) {
-			EngineIDMapping eid;
-			SlObject(&eid, slt);
-			_engine_mngr.SetID(eid.type, eid.internal_id, eid.grfid, eid.substitute_id, static_cast<EngineID>(index));
+		while (SlIterateArray() != -1) {
+			EngineIDMapping *eid = &_engine_mngr.mappings.emplace_back();
+			SlObject(eid, slt);
 		}
+
+		_engine_mngr.ReIndex();
 	}
 };
 
 static const EIDSChunkHandler EIDS;
 static const ENGNChunkHandler ENGN;
-static const ENGSChunkHandler ENGS;
 static const ChunkHandlerRef engine_chunk_handlers[] = {
 	EIDS,
 	ENGN,
-	ENGS,
 };
 
 extern const ChunkHandlerTable _engine_chunk_handlers(engine_chunk_handlers);
+
+}

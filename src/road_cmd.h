@@ -13,29 +13,21 @@
 #include "direction_type.h"
 #include "road_type.h"
 #include "command_type.h"
-#include "station_type.h"
 #include "town_type.h"
 
-enum RoadStopClassID : uint16_t;
-
 void DrawRoadDepotSprite(int x, int y, DiagDirection dir, RoadType rt);
-void UpdateNearestTownForRoadTiles(bool invalidate);
+bool UpdateNearestTownForRoadTiles(bool invalidate);
 
-CommandCost CmdBuildLongRoad(DoCommandFlags flags, TileIndex end_tile, TileIndex start_tile, RoadType rt, Axis axis, DisallowedRoadDirections drd, bool start_half, bool end_half, bool is_ai);
-std::tuple<CommandCost, Money> CmdRemoveLongRoad(DoCommandFlags flags, TileIndex end_tile, TileIndex start_tile, RoadType rt, Axis axis, bool start_half, bool end_half);
-CommandCost CmdBuildRoad(DoCommandFlags flags, TileIndex tile, RoadBits pieces, RoadType rt, DisallowedRoadDirections toggle_drd, TownID town_id);
-CommandCost CmdBuildRoadDepot(DoCommandFlags flags, TileIndex tile, RoadType rt, DiagDirection dir);
-CommandCost CmdConvertRoad(DoCommandFlags flags, TileIndex tile, TileIndex area_start, RoadType to_type, bool diagonal);
+enum class BuildRoadFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	NoCustomBridgeHeads   = (1U << 0), ///< Disable custom bridge heads.
+};
+DECLARE_ENUM_AS_BIT_SET(BuildRoadFlags)
 
-DEF_CMD_TRAIT(CMD_BUILD_LONG_ROAD,  CmdBuildLongRoad,  CommandFlags({CommandFlag::Auto, CommandFlag::NoWater, CommandFlag::Deity}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_REMOVE_LONG_ROAD, CmdRemoveLongRoad, CommandFlags({CommandFlag::Auto, CommandFlag::NoTest}),              CommandType::LandscapeConstruction) // towns may disallow removing road bits (as they are connected) in test, but in exec they're removed and thus removing is allowed.
-DEF_CMD_TRAIT(CMD_BUILD_ROAD,       CmdBuildRoad,      CommandFlags({CommandFlag::Auto, CommandFlag::NoWater, CommandFlag::Deity}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_ROAD_DEPOT, CmdBuildRoadDepot, CommandFlags({CommandFlag::Auto, CommandFlag::NoWater}),             CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_CONVERT_ROAD,     CmdConvertRoad,    {},                                                                  CommandType::LandscapeConstruction)
-
-CommandCallback CcPlaySound_CONSTRUCTION_OTHER;
-CommandCallback CcBuildRoadTunnel;
-void CcRoadDepot(Commands cmd, const CommandCost &result, TileIndex tile, RoadType rt, DiagDirection dir);
-void CcRoadStop(Commands cmd, const CommandCost &result, TileIndex tile, uint8_t width, uint8_t length, RoadStopType, bool is_drive_through, DiagDirection dir, RoadType, RoadStopClassID spec_class, uint16_t spec_index, StationID, bool);
+DEF_CMD_TUPLE(Commands::BuildRoadLong,   CmdBuildLongRoad,  CMD_DEITY | CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, RoadType, Axis, DisallowedRoadDirections, bool, bool, bool>)
+DEF_CMD_TUPLE(Commands::RemoveRoadLong,  CmdRemoveLongRoad,              CMD_NO_TEST | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, RoadType, Axis, bool, bool>) // towns may disallow removing road bits (as they are connected) in test, but in exec they're removed and thus removing is allowed.
+DEF_CMD_TUPLE(Commands::BuildRoad,       CmdBuildRoad,      CMD_DEITY | CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<RoadBits, RoadType, DisallowedRoadDirections, TownID, BuildRoadFlags>)
+DEF_CMD_TUPLE(Commands::BuildRoadDepot,  CmdBuildRoadDepot,             CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<RoadType, DiagDirection>)
+DEF_CMD_TUPLE(Commands::ConvertRoad,     CmdConvertRoad,                                     {}, CommandType::LandscapeConstruction, CmdDataT<TileIndex, RoadType, bool>)
 
 #endif /* ROAD_CMD_H */

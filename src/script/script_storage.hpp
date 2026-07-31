@@ -10,12 +10,11 @@
 #ifndef SCRIPT_STORAGE_HPP
 #define SCRIPT_STORAGE_HPP
 
-#include <queue>
-
 #include "../command_type.h"
-#include "../company_type.h"
 #include "../rail_type.h"
 #include "../road_type.h"
+#include "../core/ring_buffer_queue.hpp"
+#include "../3rdparty/robin_hood/robin_hood.h"
 
 #include "script_types.hpp"
 #include "script_log_types.hpp"
@@ -24,8 +23,10 @@
 class ScriptEvent;
 
 /* This is a "struct", so we can forward declare it, and use as incomplete type. */
-struct ScriptEventQueue : std::queue<ScriptObjectRef<ScriptEvent>> {
+struct ScriptEventQueue : ring_buffer_queue<ScriptObjectRef<ScriptEvent>> {
 };
+
+#include <vector>
 
 /**
  * The callback function for Mode-classes.
@@ -43,32 +44,35 @@ typedef bool (ScriptAsyncModeProc)();
 class ScriptStorage {
 friend class ScriptObject;
 private:
-	ScriptModeProc *mode = nullptr; ///< The current build mode we are int.
-	class ScriptObject *mode_instance = nullptr; ///< The instance belonging to the current build mode.
-	ScriptAsyncModeProc *async_mode = nullptr; ///< The current command async mode we are in.
+	ScriptModeProc *mode = nullptr;                    ///< The current build mode we are int.
+	class ScriptObject *mode_instance = nullptr;       ///< The instance belonging to the current build mode.
+	ScriptAsyncModeProc *async_mode = nullptr;         ///< The current command async mode we are in.
 	class ScriptObject *async_mode_instance = nullptr; ///< The instance belonging to the current command async mode.
-	CompanyID root_company = INVALID_OWNER; ///< The root company, the company that the script really belongs to.
-	CompanyID company = INVALID_OWNER; ///< The current company.
+	CompanyID root_company = INVALID_OWNER;            ///< The root company, the company that the script really belongs to.
+	CompanyID company = INVALID_OWNER;                 ///< The current company.
 
-	uint delay = 1; ///< The ticks of delay each DoCommand has.
-	bool allow_do_command = true; ///< Is the usage of DoCommands restricted?
+	uint delay = 1;                        ///< The ticks of delay each DoCommand has.
+	bool allow_do_command = true;          ///< Is the usage of DoCommands restricted?
 
-	CommandCost costs; ///< The costs the script is tracking.
-	Money last_cost = 0; ///< The last cost of the command.
-	ScriptErrorType last_error{}; ///< The last error of the command.
-	bool last_command_res = true; ///< The last result of the command.
+	CommandCost costs;                     ///< The costs the script is tracking.
+	Money last_cost = 0;                   ///< The last cost of the command.
+	CommandResultData last_result{};       ///< The last result data of the command.
+	ScriptErrorType last_error{};          ///< The last error of the command.
+	bool last_command_res = true;          ///< The last result of the command.
 
-	CommandDataBuffer last_data; ///< The last data passed to a command.
-	Commands last_cmd = CMD_END; ///< The last cmd passed to a command.
-	CommandDataBuffer last_cmd_ret; ///< The extra data returned by the last command.
+	Commands last_cmd = Commands::End;     ///< The last cmd passed to a command.
+	TileIndex last_tile = INVALID_TILE;    ///< The last tile passed to a command.
+	CallbackParameter last_cb_param{};     ///< The last callback parameter passed to a command.
 
-	std::vector<int> callback_value; ///< The values which need to survive a callback.
+	std::vector<int> callback_value;       ///< The values which need to survive a callback.
 
 	RoadType road_type = INVALID_ROADTYPE; ///< The current roadtype we build.
 	RailType rail_type = INVALID_RAILTYPE; ///< The current railtype we build.
 
-	ScriptEventQueue event_queue; ///< Event queue for this script.
-	ScriptLogTypes::LogData log_data; ///< Log data storage.
+	ScriptEventQueue event_queue;          ///< Event queue for this script.
+	ScriptLogTypes::LogData log_data;      ///< Log data storage.
+
+	robin_hood::unordered_node_set<std::string> seen_unique_log_messages; ///< Messages which have already been logged once and don't need to be logged again
 
 public:
 	ScriptStorage();

@@ -8,13 +8,16 @@
 /** @file survey_unix.cpp Unix implementation of OS-specific survey information. */
 
 #include "../../stdafx.h"
-#include "../../survey.h"
+
+#include "../../3rdparty/nlohmann/json.hpp"
 
 #include <sys/utsname.h>
 #include <thread>
 #include <unistd.h>
 
 #include "../../safeguards.h"
+
+extern std::string SurveyMemoryToText(uint64_t memory);
 
 void SurveyOS(nlohmann::json &json)
 {

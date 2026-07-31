@@ -3,7 +3,8 @@
  */
 
 #include "../../../stdafx.h"
-#include "../../fmt/format.h"
+#include "../../../core/bit_cast.hpp"
+#include "../../../core/format.hpp"
 
 #include <squirrel.h>
 #include "sqpcheader.h"
@@ -17,8 +18,6 @@
 #include "squserdata.h"
 #include "sqarray.h"
 #include "sqclass.h"
-
-#include "../../../string_func.h"
 
 #include "../../../safeguards.h"
 
@@ -263,20 +262,20 @@ bool SQVM::CMP_OP(CmpOP op, const SQObjectPtr &o1,const SQObjectPtr &o2,SQObject
 
 void SQVM::ToString(const SQObjectPtr &o,SQObjectPtr &res)
 {
-	std::string str;
+	format_buffer_sized<64> buf;
 	switch(type(o)) {
 	case OT_STRING:
 		res = o;
 		return;
 	case OT_FLOAT:
-		str = fmt::format("{}",_float(o));
+		buf.format("{}",_float(o));
 		break;
 	case OT_INTEGER:
-		str = fmt::format("{}",_integer(o));
+		buf.format("{}",_integer(o));
 		break;
 	case OT_BOOL:
-		str = _integer(o)?"true":"false";
-		break;
+		res = SQString::Create(_ss(this),_integer(o)?"true":"false");
+		return;
 	case OT_TABLE:
 	case OT_USERDATA:
 	case OT_INSTANCE:
@@ -290,9 +289,9 @@ void SQVM::ToString(const SQObjectPtr &o,SQObjectPtr &res)
 		}
 		[[fallthrough]];
 	default:
-		str = fmt::format("({} : 0x{:08X})",GetTypeName(o),(size_t)(void*)_rawval(o));
+		buf.format("({} : 0x{:08X})",GetTypeName(o),(size_t)(void*)_rawval(o));
 	}
-	res = SQString::Create(_ss(this),str);
+	res = SQString::Create(_ss(this),buf);
 }
 
 
@@ -424,7 +423,7 @@ bool SQVM::Return(SQInteger _arg0, SQInteger _arg1, SQObjectPtr &retval)
 		else retval = _null_;
 	}
 	else {
-		if(target != -1) { //-1 is when a class contructor ret value has to be ignored
+		if(target != -1) { //-1 is when a class constructor ret value has to be ignored
 			if (_arg0 != MAX_FUNC_STACKSIZE)
 				STK(target) = _stack._vals[oldstackbase+_arg1];
 			else

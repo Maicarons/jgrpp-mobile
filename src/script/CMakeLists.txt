@@ -5,7 +5,6 @@ if(OPTION_TOOLS_ONLY)
 endif()
 
 add_files(
-    script_cmd.h
     script_config.cpp
     script_config.hpp
     script_fatalerror.hpp

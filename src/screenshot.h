@@ -19,14 +19,21 @@ enum ScreenshotType : uint8_t {
 	SC_ZOOMEDIN,    ///< Fully zoomed in screenshot of the visible area.
 	SC_DEFAULTZOOM, ///< Zoomed to default zoom level screenshot of the visible area.
 	SC_WORLD,       ///< World screenshot.
+	SC_WORLD_ZOOM,  ///< World screenshot using current zoom level.
 	SC_HEIGHTMAP,   ///< Heightmap of the world.
 	SC_MINIMAP,     ///< Minimap screenshot.
+	SC_TOPOGRAPHY,  ///< Topography screenshot.
+	SC_INDUSTRY,    ///< Industry screenshot.
+	SC_SMALLMAP,    ///< Smallmap window screenshot.
 };
 
-bool MakeHeightmapScreenshot(std::string_view filename);
+bool MakeHeightmapScreenshot(const char *filename);
+bool MakeSmallMapScreenshot(unsigned int width, unsigned int height, class SmallMapWindow *window);
 void MakeScreenshotWithConfirm(ScreenshotType t);
-bool MakeScreenshot(ScreenshotType t, const std::string &name, uint32_t width = 0, uint32_t height = 0);
-bool MakeMinimapWorldScreenshot();
+bool MakeScreenshot(ScreenshotType t, std::string_view name, uint32_t width = 0, uint32_t height = 0);
+bool MakeMinimapWorldScreenshot(std::string_view name);
+bool MakeTopographyScreenshot(std::string_view name);
+bool MakeIndustryScreenshot(std::string_view name);
 
 extern std::string _screenshot_format_name;
 extern std::string _full_screenshot_path;

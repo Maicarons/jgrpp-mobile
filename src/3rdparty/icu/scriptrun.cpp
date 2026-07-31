@@ -152,7 +152,7 @@ UBool ScriptRun::next()
         // if it's an open character, push it onto the stack.
         // if it's a close character, find the matching open on the
         // stack, and use that script code. Any non-matching open
-        // characters above it on the stack will be poped.
+        // characters above it on the stack will be popped.
         if (pairIndex >= 0) {
             if ((pairIndex & 1) == 0) {
                 parenStack[++parenSP].pairIndex = pairIndex;
@@ -181,7 +181,8 @@ UBool ScriptRun::next()
                 // now that we have a final script code, fix any open
                 // characters we pushed before we knew the script code.
                 while (startSP < parenSP) {
-                    parenStack[++startSP].scriptCode = scriptCode;
+                    auto idx = ++startSP;
+                    if (idx >= 0) parenStack[idx].scriptCode = scriptCode;
                 }
             }
         } else {

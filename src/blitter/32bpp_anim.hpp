@@ -15,19 +15,19 @@
 /** The optimised 32 bpp blitter with palette animation. */
 class Blitter_32bppAnim : public Blitter_32bppOptimized {
 protected:
-	uint16_t *anim_buf;    ///< In this buffer we keep track of the 8bpp indexes so we can do palette animation
+	uint16_t *anim_buf;  ///< In this buffer we keep track of the 8bpp indexes so we can do palette animation
 	std::unique_ptr<uint16_t[]> anim_alloc; ///< The raw allocated buffer, not necessarily aligned correctly
 	int anim_buf_width;  ///< The width of the animation buffer.
-	int anim_buf_height; ///< The height of the animation buffer.
 	int anim_buf_pitch;  ///< The pitch of the animation buffer (width rounded up to 16 byte boundary).
+	int anim_buf_height; ///< The height of the animation buffer.
 	Palette palette;     ///< The current palette.
 
 public:
 	Blitter_32bppAnim() :
 		anim_buf(nullptr),
 		anim_buf_width(0),
-		anim_buf_height(0),
-		anim_buf_pitch(0)
+		anim_buf_pitch(0),
+		anim_buf_height(0)
 	{
 		this->palette = _cur_palette;
 	}
@@ -35,20 +35,27 @@ public:
 	void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) override;
 	void DrawColourMappingRect(void *dst, int width, int height, PaletteID pal) override;
 	void SetPixel(void *video, int x, int y, PixelColour colour) override;
+	void SetPixel32(void *video, int x, int y, PixelColour colour, uint32_t colour32) override;
 	void DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash) override;
+	void SetRect(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) override;
+	void SetRect32(void *video, int x, int y, const uint32_t *colours, uint lines, uint width, uint pitch) override;
+	void SetRectNoD7(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) override;
 	void DrawRect(void *video, int width, int height, PixelColour colour) override;
+	void DrawRectAt(void *video, int x, int y, int width, int height, PixelColour colour) override;
 	void CopyFromBuffer(void *video, const void *src, int width, int height) override;
 	void CopyToBuffer(const void *video, void *dst, int width, int height) override;
-	void ScrollBuffer(void *video, int &left, int &top, int &width, int &height, int scroll_x, int scroll_y) override;
+	void ScrollBuffer(void *video, int left, int top, int width, int height, int scroll_x, int scroll_y) override;
 	size_t BufferSize(uint width, uint height) override;
 	void PaletteAnimate(const Palette &palette) override;
 	Blitter::PaletteAnimation UsePaletteAnimation() override;
 
-	std::string_view GetName() override { return "32bpp-anim"; }
+	const char *GetName() const override { return "32bpp-anim"; }
 	void PostResize() override;
 
 	/**
 	 * Look up the colour in the current palette.
+	 * @param index The index into the palette.
+	 * @return The colour.
 	 */
 	inline Colour LookupColourInPalette(uint index)
 	{
@@ -64,7 +71,8 @@ public:
 		return across + (lines * this->anim_buf_pitch);
 	}
 
-	template <BlitterMode mode> void Draw(const Blitter::BlitterParams *bp, ZoomLevel zoom);
+	template <BlitterMode mode, bool no_anim_translucent> void Draw(const Blitter::BlitterParams *bp, ZoomLevel zoom);
+	template <typename F> void SetRectGeneric(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch, F filter);
 };
 
 /** Factory for the 32bpp blitter with animation. */

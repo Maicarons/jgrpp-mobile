@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _cargopacket_desc. */
 const SaveLoadCompat _cargopacket_sl_compat[] = {
 	SLC_VAR("source"),
@@ -24,5 +26,7 @@ const SaveLoadCompat _cargopacket_sl_compat[] = {
 	SLC_VAR("source_id"),
 	SLC_NULL(1, SL_MIN_VERSION, SLV_121),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_CARGOPACKET_H */

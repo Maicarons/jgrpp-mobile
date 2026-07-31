@@ -6,22 +6,8 @@
  */
 
 /**
- * @file game_info.h Convert NetworkGameInfo to Packet and back.
- */
-
-#ifndef NETWORK_CORE_GAME_INFO_H
-#define NETWORK_CORE_GAME_INFO_H
-
-#include "config.h"
-#include "core.h"
-#include "../../newgrf_config.h"
-#include "../../timer/timer_game_calendar.h"
-#include "../../timer/timer_game_tick.h"
-#include "../../landscape_type.h"
-
-#include <unordered_map>
-
-/*
+ * @file network_game_info.h Convert NetworkGameInfo to Packet and back.
+ *
  * NetworkGameInfo has several revisions which we still need to support on the
  * wire. The table below shows the version and size for each field of the
  * serialized NetworkGameInfo.
@@ -83,6 +69,16 @@
  *   1+       1       whether the server is dedicated (0 = no, 1 = yes)
  */
 
+#ifndef NETWORK_CORE_GAME_INFO_H
+#define NETWORK_CORE_GAME_INFO_H
+
+#include "config.h"
+#include "core.h"
+#include "../../newgrf_config.h"
+#include "../../date_type.h"
+#include "../../landscape_type.h"
+#include "../../3rdparty/robin_hood/robin_hood.h"
+
 /** The different types/ways a NewGRF can be serialized in the GameInfo since version 6. */
 enum NewGRFSerializationType {
 	NST_GRFID_MD5      = 0, ///< Unique GRF ID and MD5 checksum.
@@ -95,22 +91,22 @@ enum NewGRFSerializationType {
  * The game information that is sent from the server to the client.
  */
 struct NetworkServerGameInfo {
-	GRFConfigList grfconfig; ///< List of NewGRF files used
-	TimerGameCalendar::Date calendar_start; ///< When the game started.
-	TimerGameCalendar::Date calendar_date; ///< Current calendar date.
-	TimerGameTick::TickCounter ticks_playing; ///< Amount of ticks the game has been running unpaused.
-	uint16_t map_width;            ///< Map width
-	uint16_t map_height;           ///< Map height
+	GRFConfigList grfconfig;     ///< List of NewGRF files used
+	CalTime::Date calendar_start;///< When the game started.
+	CalTime::Date calendar_date; ///< Current calendar date.
+	uint64_t ticks_playing;      ///< Amount of ticks the game has been running unpaused.
+	uint32_t map_width;          ///< Map width
+	uint32_t map_height;         ///< Map height
 	std::string server_name;     ///< Server name
 	std::string server_revision; ///< The version number the server is using (e.g.: 'r304' or 0.5.0)
 	bool dedicated;              ///< Is this a dedicated server?
 	bool use_password;           ///< Is this server passworded?
-	uint8_t clients_on;             ///< Current count of clients on server
-	uint8_t clients_max;            ///< Max clients allowed on server
-	uint8_t companies_on;           ///< How many started companies do we have
-	uint8_t companies_max;          ///< Max companies allowed on server
-	uint8_t spectators_on;          ///< How many spectators do we have?
-	LandscapeType landscape;              ///< The used landscape
+	uint8_t clients_on;          ///< Current count of clients on server
+	uint8_t clients_max;         ///< Max clients allowed on server
+	uint8_t companies_on;        ///< How many started companies do we have
+	uint8_t companies_max;       ///< Max companies allowed on server
+	uint8_t spectators_on;       ///< How many spectators do we have?
+	LandscapeType landscape;     ///< The used landscape
 	int gamescript_version;      ///< Version of the gamescript.
 	std::string gamescript_name; ///< Name of the gamescript.
 };
@@ -133,13 +129,13 @@ struct NamedGRFIdentifier {
 	std::string name;    ///< The name of the NewGRF.
 };
 /** Lookup table for the GameInfo in case of #NST_LOOKUP_ID. */
-typedef std::unordered_map<uint32_t, NamedGRFIdentifier> GameInfoNewGRFLookupTable;
+typedef robin_hood::unordered_map<uint32_t, NamedGRFIdentifier> GameInfoNewGRFLookupTable;
 
 extern NetworkServerGameInfo _network_game_info;
 
 std::string_view GetNetworkRevisionString();
-bool IsNetworkCompatibleVersion(std::string_view other);
-void CheckGameCompatibility(NetworkGameInfo &ngi);
+bool IsNetworkCompatibleVersion(std::string_view other, bool extended = false);
+void CheckGameCompatibility(NetworkGameInfo &ngi, bool extended = false);
 
 void FillStaticNetworkServerGameInfo();
 const NetworkServerGameInfo &GetCurrentNetworkServerGameInfo();
@@ -149,6 +145,8 @@ void DeserializeGRFIdentifierWithName(Packet &p, NamedGRFIdentifier &grf);
 void SerializeGRFIdentifier(Packet &p, const GRFIdentifier &grf);
 
 void DeserializeNetworkGameInfo(Packet &p, NetworkGameInfo &info, const GameInfoNewGRFLookupTable *newgrf_lookup_table = nullptr);
+void DeserializeNetworkGameInfoExtended(Packet &p, NetworkGameInfo &info);
 void SerializeNetworkGameInfo(Packet &p, const NetworkServerGameInfo &info, bool send_newgrf_names = true);
+void SerializeNetworkGameInfoExtended(Packet &p, const NetworkServerGameInfo &info, uint16_t flags, uint16_t version, bool send_newgrf_names = true);
 
 #endif /* NETWORK_CORE_GAME_INFO_H */

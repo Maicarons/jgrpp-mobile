@@ -19,6 +19,16 @@ enum NewGRFInspectWidgets : WidgetID {
 	WID_NGRFI_VEH_CHAIN, ///< Display for vehicle chain.
 	WID_NGRFI_MAINPANEL, ///< Panel widget containing the actual data.
 	WID_NGRFI_SCROLLBAR, ///< Scrollbar.
+	WID_NGRFI_REFRESH,   ///< Refresh toggle.
+	WID_NGRFI_LOG_CONSOLE, ///< Log to console
+	WID_NGRFI_DUPLICATE, ///< Duplicate window
+	WID_NGRFI_SPRITE_DUMP, ///< Dump current sprite group
+	WID_NGRFI_SPRITE_DUMP_SEL, ///< Selection widget for WID_NGRFI_SPRITE_DUMP
+	WID_NGRFI_SPRITE_DUMP_UNOPT, ///< Dump unoptimised sprite group
+	WID_NGRFI_SPRITE_DUMP_UNOPT_SEL, ///< Selection widget for WID_NGRFI_SPRITE_DUMP_UNOPT
+	WID_NGRFI_SPRITE_DUMP_OPTIONS, ///< Options dropdown (sprite dump)
+	WID_NGRFI_MAIN_OPTIONS, ///< Options dropdown (main view)
+	WID_NGRFI_OPTIONS_SEL, ///< Selection widget for WID_NGRFI_SPRITE_DUMP_OPTIONS
 };
 
 /** Widgets of the #SpriteAlignerWindow class. */
@@ -37,8 +47,8 @@ enum SpriteAlignerWidgets : WidgetID {
 	WID_SA_PICKER,      ///< Sprite picker.
 	WID_SA_LIST,        ///< Queried sprite list.
 	WID_SA_SCROLLBAR,   ///< Scrollbar for sprite list.
-	WID_SA_ZOOM,        ///< Zoom level buttons (from ZoomLevel::Begin to ZoomLevel::Max).
-	WID_SA_ZOOM_LAST = WID_SA_ZOOM + to_underlying(ZoomLevel::Max), ///< Marker for last zoom level button.
+	WID_SA_ZOOM,        ///< Zoom level buttons (from ZoomLevel::Begin to ZoomLevel::SpriteMax).
+	WID_SA_ZOOM_LAST = WID_SA_ZOOM + to_underlying(ZoomLevel::SpriteMax), ///< Marker for last zoom level button.
 	WID_SA_RESET_REL,   ///< Reset relative sprite offset
 	WID_SA_CENTRE,      ///< Toggle centre sprite.
 	WID_SA_CROSSHAIR,   ///< Toggle crosshair.

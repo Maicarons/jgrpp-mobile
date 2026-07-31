@@ -25,6 +25,7 @@
 #endif
 
 #include "32bpp_sse_type.h"
+#include "../cpu.h"
 
 /** Base methods for 32bpp SSE blitters. */
 class Blitter_32bppSSE_Base {
@@ -51,28 +52,15 @@ public:
 		BT_NONE, ///< No specialisation for either case.
 	};
 
-	/** Helper for using specialised functions designed to prevent whenever it's possible things like:
-	 *  - IO (reading video buffer),
-	 *  - calculations (alpha blending),
-	 *  - heavy branching (remap lookups and animation buffer handling).
-	 */
-	enum class SpriteFlag : uint8_t {
-		Translucent, ///< The sprite has at least 1 translucent pixel.
-		NoRemap, ///< The sprite has no remappable colour pixel.
-		NoAnim, ///< The sprite has no palette animated pixel.
-	};
-
-	using SpriteFlags = EnumBitSet<SpriteFlag, uint8_t>;
-
 	/** Data stored about a (single) sprite. */
 	struct SpriteInfo {
-		uint32_t sprite_offset = 0;    ///< The offset to the sprite data.
-		uint32_t mv_offset = 0;        ///< The offset to the map value data.
-		uint16_t sprite_line_size = 0; ///< The size of a single line (pitch).
-		uint16_t sprite_width = 0;     ///< The width of the sprite.
+		uint32_t sprite_offset;    ///< The offset to the sprite data.
+		uint32_t mv_offset;        ///< The offset to the map value data.
+		uint16_t sprite_line_size; ///< The size of a single line (pitch).
+		uint16_t sprite_width;     ///< The width of the sprite.
 	};
 	struct SpriteData {
-		SpriteFlags flags{};
+		BlitterSpriteFlags flags{};
 		SpriteCollMap<SpriteInfo> infos{};
 		uint8_t data[]; ///< Data, all zoomlevels.
 	};
@@ -83,6 +71,11 @@ public:
 /** The SSE2 32 bpp blitter (without palette animation). */
 class Blitter_32bppSSE2 : public Blitter_32bppSimple, public Blitter_32bppSSE_Base {
 public:
+	Blitter_32bppSSE2()
+	{
+		this->SetSupportsMissingZoomLevels(true);
+	}
+
 	void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) override;
 	template <BlitterMode mode, Blitter_32bppSSE_Base::ReadMode read_mode, Blitter_32bppSSE_Base::BlockType bt_last, bool translucent>
 	void Draw(const Blitter::BlitterParams *bp, ZoomLevel zoom);
@@ -92,7 +85,7 @@ public:
 		return Blitter_32bppSSE_Base::Encode(sprite_type, sprite, allocator);
 	}
 
-	std::string_view GetName() override { return "32bpp-sse2"; }
+	const char *GetName() const override { return "32bpp-sse2"; }
 };
 
 /** Factory for the SSE2 32 bpp blitter (without palette animation). */

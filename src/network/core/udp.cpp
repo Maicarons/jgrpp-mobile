@@ -5,14 +5,12 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file core/udp.cpp Basic functions to receive and send UDP packets.
- */
+/** @file udp.cpp Basic functions to receive and send UDP packets. */
 
 #include "../../stdafx.h"
-#include "../../timer/timer_game_calendar.h"
+#include "../../date_func.h"
 #include "../../debug.h"
-#include "network_game_info.h"
+#include "../../core/random_func.hpp"
 #include "udp.h"
 
 #include "../../safeguards.h"
@@ -34,6 +32,8 @@ NetworkUDPSocketHandler::NetworkUDPSocketHandler(NetworkAddressList *bind)
 		this->bind.emplace_back("", 0, AF_INET);
 		this->bind.emplace_back("", 0, AF_INET6);
 	}
+
+	this->fragment_token = ((uint64_t) InteractiveRandom()) | (((uint64_t) InteractiveRandom()) << 32);
 }
 
 
@@ -71,9 +71,39 @@ void NetworkUDPSocketHandler::CloseSocket()
  * @param all  send the packet using all sockets that can send it
  * @param broadcast whether to send a broadcast message
  */
-void NetworkUDPSocketHandler::SendPacket(Packet &p, NetworkAddress &recv, bool all, bool broadcast)
+void NetworkUDPSocketHandler::SendPacket(Packet &p, NetworkAddress &recv, bool all, bool broadcast, bool short_mtu)
 {
 	if (this->sockets.empty()) this->Listen();
+
+	const uint MTU = short_mtu ? UDP_MTU_SHORT : UDP_MTU;
+
+	if (p.Size() > MTU) {
+		p.PrepareToSend();
+
+		uint64_t token = this->fragment_token++;
+		const uint PAYLOAD_MTU = MTU - (1 + 2 + 8 + 1 + 1 + 2);
+
+		const size_t packet_size = p.Size();
+		const uint8_t frag_count = (uint8_t)((packet_size + PAYLOAD_MTU - 1) / PAYLOAD_MTU);
+
+		Packet frag(this, PacketUDPType::ExtendedMulti);
+		uint8_t current_frag = 0;
+		size_t offset = 0;
+		while (offset < packet_size) {
+			uint16_t payload_size = (uint16_t)std::min<size_t>(PAYLOAD_MTU, packet_size - offset);
+			frag.Send_uint64(token);
+			frag.Send_uint8(current_frag);
+			frag.Send_uint8(frag_count);
+			frag.Send_uint16(payload_size);
+			frag.Send_binary(p.GetBufferData() + offset, payload_size);
+			current_frag++;
+			offset += payload_size;
+			this->SendPacket(frag, recv, all, broadcast, short_mtu);
+			frag.ResetState(PacketUDPType::ExtendedMulti);
+		}
+		assert_msg(current_frag == frag_count, "{}, {}", current_frag, frag_count);
+		return;
+	}
 
 	for (auto &s : this->sockets) {
 		/* Make a local copy because if we resolve it we cannot
@@ -97,10 +127,10 @@ void NetworkUDPSocketHandler::SendPacket(Packet &p, NetworkAddress &recv, bool a
 		ssize_t res = p.TransferOut([&](std::span<const uint8_t> buffer) {
 			return sendto(s.first, reinterpret_cast<const char *>(buffer.data()), static_cast<int>(buffer.size()), 0, reinterpret_cast<const struct sockaddr *>(send.GetAddress()), send.GetAddressLength());
 		});
-		Debug(net, 7, "sendto({})", send.GetAddressAsString());
+		Debug(net, 7, "sendto({})",  FormatNetworkAddress(&send));
 
 		/* Check for any errors, but ignore it otherwise */
-		if (res == -1) Debug(net, 1, "sendto({}) failed: {}", send.GetAddressAsString(), NetworkError::GetLast().AsString());
+		if (res == -1) Debug(net, 1, "sendto({}) failed with: {}", FormatNetworkAddress(&send), NetworkError::GetLast().AsString());
 
 		if (!all) break;
 	}
@@ -116,7 +146,7 @@ void NetworkUDPSocketHandler::ReceivePackets()
 			struct sockaddr_storage client_addr{};
 
 			/* The limit is UDP_MTU, but also allocate that much as we need to read the whole packet in one go. */
-			Packet p(this, UDP_MTU, UDP_MTU);
+			Packet p(Packet::ReadTag{}, this, UDP_MTU, UDP_MTU);
 			socklen_t client_len = sizeof(client_addr);
 
 			/* Try to receive anything */
@@ -128,13 +158,16 @@ void NetworkUDPSocketHandler::ReceivePackets()
 			/* Did we get the bytes for the base header of the packet? */
 			if (nbytes <= 0) break;    // No data, i.e. no packet
 			if (nbytes <= 2) continue; // Invalid data; try next packet
+#ifdef __EMSCRIPTEN__
+			client_len = FixAddrLenForEmscripten(client_addr);
+#endif
 
 			NetworkAddress address(client_addr, client_len);
 
 			/* If the size does not match the packet must be corrupted.
 			 * Otherwise it will be marked as corrupted later on. */
 			if (!p.ParsePacketSize() || static_cast<size_t>(nbytes) != p.Size()) {
-				Debug(net, 1, "Received a packet with mismatching size from {}", address.GetAddressAsString());
+				Debug(net, 1, "received a packet with mismatching size from {}, ({}, {})", FormatNetworkAddress(&address), (uint)nbytes, (uint)p.Size());
 				continue;
 			}
 			if (!p.PrepareToRead()) {
@@ -155,25 +188,92 @@ void NetworkUDPSocketHandler::ReceivePackets()
  */
 void NetworkUDPSocketHandler::HandleUDPPacket(Packet &p, NetworkAddress &client_addr)
 {
-	PacketUDPType type;
-
 	/* New packet == new client, which has not quit yet */
 	this->Reopen();
 
-	type = (PacketUDPType)p.Recv_uint8();
+	PacketUDPType type = static_cast<PacketUDPType>(p.Recv_uint8());
 
-	switch (this->HasClientQuit() ? PACKET_UDP_END : type) {
-		case PACKET_UDP_CLIENT_FIND_SERVER:   this->Receive_CLIENT_FIND_SERVER(p, client_addr);   break;
-		case PACKET_UDP_SERVER_RESPONSE:      this->Receive_SERVER_RESPONSE(p, client_addr);      break;
+	switch (type) {
+		case PacketUDPType::ClientFindServer: this->ReceiveClientFindServer(p, client_addr); break;
+		case PacketUDPType::ServerResponse: this->ReceiveServerResponse(p, client_addr); break;
+
+		case PacketUDPType::ExtendedMulti: this->ReceiveExtendedMulti(p, client_addr); break;
+		case PacketUDPType::ExtendedServerResponse: this->ReceiveExtendedServerResponse(p, client_addr); break;
 
 		default:
-			if (this->HasClientQuit()) {
-				Debug(net, 0, "[udp] Received invalid packet type {} from {}", type, client_addr.GetAddressAsString());
-			} else {
-				Debug(net, 0, "[udp] Received illegal packet from {}", client_addr.GetAddressAsString());
-			}
+			Debug(net, 0, "[udp] Received invalid packet type {} from {}", type, FormatNetworkAddress(client_addr));
 			break;
 	}
+}
+
+void NetworkUDPSocketHandler::ReceiveExtendedMulti(Packet &p, NetworkAddress &client_addr)
+{
+	uint64_t token        = p.Recv_uint64();
+	uint8_t index         = p.Recv_uint8 ();
+	uint8_t total         = p.Recv_uint8 ();
+	uint16_t payload_size = p.Recv_uint16();
+
+	Debug(net, 6, "[udp] received multi-part packet from {}: {}, {}/{}, {} bytes",
+			FormatNetworkAddress(client_addr), token, index, total, payload_size);
+
+	if (total == 0 || index >= total) return;
+	if (!p.CanReadFromPacket(payload_size)) return;
+
+	time_t cur_time = time(nullptr);
+
+	auto add_to_fragment = [&](FragmentSet &fs) {
+		fs.fragments[index].assign((const char *) p.GetBufferData() + p.GetRawPos(), payload_size);
+
+		uint total_payload = 0;
+		for (auto &frag : fs.fragments) {
+			if (!frag.size()) return;
+
+			total_payload += (uint)frag.size();
+		}
+
+		Debug(net, 6, "[udp] merged multi-part packet from {}: {}, {} bytes",
+				FormatNetworkAddress(client_addr), token, total_payload);
+
+		Packet merged(Packet::ReadTag{}, this, TCP_MTU, 0);
+		merged.ReserveBuffer(total_payload);
+		for (auto &frag : fs.fragments) {
+			merged.Send_binary((const uint8_t *)frag.data(), frag.size());
+		}
+		merged.ParsePacketSize();
+		if (!merged.PrepareToRead()) return;
+
+		/* If the size does not match the packet must be corrupted.
+		 * Otherwise it will be marked as corrupted later on. */
+		if (total_payload != merged.ReadRawPacketSize()) {
+			Debug(net, 1, "received an extended packet with mismatching size from {}, ({}, {})",
+					FormatNetworkAddress(client_addr), (uint)total_payload, (uint)merged.ReadRawPacketSize());
+		} else {
+			this->HandleUDPPacket(merged, client_addr);
+		}
+
+		fs = this->fragments.back();
+		this->fragments.pop_back();
+	};
+
+	uint i = 0;
+	while (i < this->fragments.size()) {
+		FragmentSet &fs = this->fragments[i];
+		if (fs.create_time < cur_time - 10) {
+			fs = this->fragments.back();
+			this->fragments.pop_back();
+			continue;
+		}
+
+		if (fs.token == token && fs.address == client_addr && fs.fragments.size() == total) {
+			add_to_fragment(fs);
+			return;
+		}
+		i++;
+	}
+
+	this->fragments.push_back({ token, client_addr, cur_time, {} });
+	this->fragments.back().fragments.resize(total);
+	add_to_fragment(this->fragments.back());
 }
 
 /**
@@ -183,8 +283,9 @@ void NetworkUDPSocketHandler::HandleUDPPacket(Packet &p, NetworkAddress &client_
  */
 void NetworkUDPSocketHandler::ReceiveInvalidPacket(PacketUDPType type, NetworkAddress &client_addr)
 {
-	Debug(net, 0, "[udp] Received packet type {} on wrong port from {}", type, client_addr.GetAddressAsString());
+	Debug(net, 0, "[udp] received packet type {} on wrong port from {}", type, FormatNetworkAddress(client_addr));
 }
 
-void NetworkUDPSocketHandler::Receive_CLIENT_FIND_SERVER(Packet &, NetworkAddress &client_addr) { this->ReceiveInvalidPacket(PACKET_UDP_CLIENT_FIND_SERVER, client_addr); }
-void NetworkUDPSocketHandler::Receive_SERVER_RESPONSE(Packet &, NetworkAddress &client_addr) { this->ReceiveInvalidPacket(PACKET_UDP_SERVER_RESPONSE, client_addr); }
+void NetworkUDPSocketHandler::ReceiveClientFindServer(Packet &, NetworkAddress &client_addr) { this->ReceiveInvalidPacket(PacketUDPType::ClientFindServer, client_addr); }
+void NetworkUDPSocketHandler::ReceiveServerResponse(Packet &, NetworkAddress &client_addr) { this->ReceiveInvalidPacket(PacketUDPType::ServerResponse, client_addr); }
+void NetworkUDPSocketHandler::ReceiveExtendedServerResponse(Packet &p, NetworkAddress &client_addr) { this->ReceiveInvalidPacket(PacketUDPType::ExtendedServerResponse, client_addr); }

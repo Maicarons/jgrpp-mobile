@@ -8,23 +8,34 @@
 /** @file newgrf_bytereader.cpp NewGRF byte buffer reader implementation. */
 
 #include "../stdafx.h"
+#include "../core/backup_type.hpp"
 #include "../string_func.h"
 #include "newgrf_bytereader.h"
 
 #include "../safeguards.h"
 
 /**
- * Read a value of the given number of bytes.
+ * Read a single DWord (32 bits).
+ * @note The buffer is NOT advanced.
  * @returns Value read from buffer.
  */
-uint32_t ByteReader::ReadVarSize(uint8_t size)
+uint32_t ByteReader::PeekDWord()
 {
-	switch (size) {
-		case 1: return this->ReadByte();
-		case 2: return this->ReadWord();
-		case 4: return this->ReadDWord();
-		default:
-			NOT_REACHED();
-			return 0;
-	}
+	AutoRestoreBackup backup(this->data, this->data);
+	return this->ReadDWord();
+}
+
+/**
+ * Read a string.
+ * @returns String read from the buffer.
+ */
+std::string_view ByteReader::ReadString()
+{
+	const char *string = reinterpret_cast<const char *>(this->data);
+	size_t string_length = ttd_strnlen(string, this->Remaining());
+
+	/* Skip past the terminating NUL byte if it is present, but not more than remaining. */
+	this->Skip(std::min(string_length + 1, this->Remaining()));
+
+	return std::string_view(string, string_length);
 }

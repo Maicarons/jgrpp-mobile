@@ -14,10 +14,6 @@
 #include "depot_type.h"
 #include "vehicle_type.h"
 
-CommandCost CmdRenameDepot(DoCommandFlags flags, DepotID depot_id, const std::string &text);
-
-DEF_CMD_TRAIT(CMD_RENAME_DEPOT, CmdRenameDepot, {}, CommandType::OtherManagement)
-
-void CcCloneVehicle(Commands cmd, const CommandCost &result, VehicleID veh_id);
+DEF_CMD_TUPLE_NT(Commands::RenameDepot, CmdRenameDepot, {}, CommandType::OtherManagement, CmdDataT<DepotID, std::string>)
 
 #endif /* DEPOT_CMD_H */

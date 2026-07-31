@@ -2,17 +2,19 @@
 #ifndef _SQUTILS_H_
 #define _SQUTILS_H_
 
-#include "../../fmt/format.h"
+#include "../../../string_func.h"
 #include "../../../script/script_fatalerror.hpp"
+#include <type_traits>
 
 void *sq_vm_malloc(SQUnsignedInteger size);
 void *sq_vm_realloc(void *p,SQUnsignedInteger oldsize,SQUnsignedInteger size);
 void sq_vm_free(void *p,SQUnsignedInteger size);
 
 #define sq_new(__ptr,__type) {__ptr=(__type *)sq_vm_malloc(sizeof(__type));new (__ptr) __type;}
-#define sq_delete(__ptr,__type) {__ptr->~__type();sq_vm_free(__ptr,sizeof(__type));}
+#define sq_delete(__ptr,__type) {__ptr->~__type();sq_vm_free(__ptr,sizeof(__type));static_assert(!std::is_base_of<SQRefCounted,__type>());}
+#define sq_delete_refcounted(__ptr,__type) {__ptr->~__type();__ptr->SQDeallocate(__ptr);}
 #define SQ_MALLOC(__size) sq_vm_malloc((__size));
-#define SQ_FREE(__ptr,__size) sq_vm_free((__ptr),(__size));
+#define SQ_FREE(__ptr,__size) {sq_vm_free((__ptr),(__size));static_assert(!std::is_base_of<SQRefCounted,std::remove_pointer_t<decltype(__ptr)>>());}
 #define SQ_REALLOC(__ptr,__oldsize,__size) sq_vm_realloc((__ptr),(__oldsize),(__size));
 
 //sqvector mini vector class, supports objects by value
@@ -93,7 +95,7 @@ public:
 	{
 		_vals[idx].~T();
 		if(idx < (_size - 1)) {
-			std::move(&_vals[idx + 1], &_vals[_size], &_vals[idx]);
+			memmove(static_cast<void *>(&_vals[idx]), &_vals[idx+1], sizeof(T) * (_size - (size_t)idx - 1));
 		}
 		_size--;
 	}
@@ -106,8 +108,8 @@ private:
 	{
 		newsize = (newsize > 0)?newsize:4;
 		if (newsize > SIZE_MAX / sizeof(T)) {
-			std::string msg = fmt::format("cannot resize to {}", newsize);
-			throw Script_FatalError(msg);
+			extern std::string SquirrelMakeCannotResizeError(size_t newsize);
+			throw Script_FatalError(SquirrelMakeCannotResizeError(newsize));
 		}
 		_vals = (T*)SQ_REALLOC(_vals, _allocated * sizeof(T), newsize * sizeof(T));
 		_allocated = (size_t)newsize;

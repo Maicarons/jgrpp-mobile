@@ -10,6 +10,7 @@
 #include "stdafx.h"
 #include "debug.h"
 #include "industry.h"
+#include "newgrf_analysis.h"
 #include "newgrf_badge.h"
 #include "newgrf_industries.h"
 #include "newgrf_town.h"
@@ -19,8 +20,8 @@
 #include "company_base.h"
 #include "error.h"
 #include "strings_func.h"
+#include "newgrf_dump.h"
 #include "core/random_func.hpp"
-#include "timer/timer_game_calendar.h"
 
 #include "table/strings.h"
 
@@ -90,16 +91,25 @@ uint32_t GetIndustryIDAtOffset(TileIndex tile, const Industry *i, uint32_t cur_g
 	return 0xFF << 8 | indtsp->grf_prop.subst_id; // so just give it the substitute
 }
 
-static uint32_t GetClosestIndustry(TileIndex tile, IndustryType type, const Industry *current)
+uint32_t IndustriesScopeResolver::GetClosestIndustry(IndustryType type) const
 {
-	uint32_t best_dist = UINT32_MAX;
+	if (type >= NUM_INDUSTRYTYPES) return UINT32_MAX;
 
-	for (const IndustryID &industry : Industry::industries[type]) {
-		if (industry == current->index) continue;
-
-		best_dist = std::min(best_dist, DistanceManhattan(tile, Industry::Get(industry)->location.tile));
+	if (this->location_distance_cache == nullptr) {
+		this->location_distance_cache = std::make_unique<IndustryLocationDistanceCache>();
+	} else if (this->location_distance_cache->valid.test(type)) {
+		return this->location_distance_cache->distances[type];
 	}
 
+	uint32_t best_dist = UINT32_MAX;
+	const IndustryID this_id = this->industry->index;
+	for (const IndustryLocationCacheEntry &entry : Industry::industries[type]) {
+		if (entry.id == this_id) continue;
+
+		best_dist = std::min(best_dist, DistanceManhattan(tile, entry.tile));
+	}
+	this->location_distance_cache->valid.set(type);
+	this->location_distance_cache->distances[type] = best_dist;
 	return best_dist;
 }
 
@@ -107,19 +117,17 @@ static uint32_t GetClosestIndustry(TileIndex tile, IndustryType type, const Indu
  * Implementation of both var 67 and 68
  * since the mechanism is almost the same, it is easier to regroup them on the same
  * function.
- * @param object ResolverObject owning the temporary storage.
  * @param param_set_id parameter given to the callback, which is the set id, or the local id, in our terminology
  * @param layout_filter on what layout do we filter?
  * @param town_filter Do we filter on the same town as the current industry?
- * @param current Industry for which the inquiry is made
  * @return the formatted answer to the callback : rr(reserved) cc(count) dddd(manhattan distance of closest sister)
  */
-static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &object, uint8_t param_set_id, uint8_t layout_filter, bool town_filter, const Industry *current)
+uint32_t IndustriesScopeResolver::GetCountAndDistanceOfClosestInstance(uint8_t param_set_id, uint8_t layout_filter, bool town_filter, uint32_t mask) const
 {
-	uint32_t grf_id = static_cast<uint32_t>(object.GetRegister(0x100)); ///< Get the GRFID of the definition to look for in register 100h
+	uint32_t grf_id = GetRegister(0x100);  ///< Get the GRFID of the definition to look for in register 100h
 	IndustryType industry_type;
 	uint32_t closest_dist = UINT32_MAX;
-	uint8_t count = 0;
+	uint count = 0;
 
 	/* Determine what will be the industry type to look for */
 	switch (grf_id) {
@@ -128,7 +136,7 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 			break;
 
 		case 0xFFFFFFFF: // current grf
-			grf_id = GetIndustrySpec(current->type)->grf_prop.grfid;
+			grf_id = GetIndustrySpec(this->industry->type)->grf_prop.grfid;
 			[[fallthrough]];
 
 		default: // use the grfid specified in register 100h
@@ -143,26 +151,53 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 	if (layout_filter == 0 && !town_filter) {
 		/* If the filter is 0, it could be because none was specified as well as being really a 0.
 		 * In either case, just do the regular var67 */
-		closest_dist = GetClosestIndustry(current->location.tile, industry_type, current);
-		count = ClampTo<uint8_t>(Industry::GetIndustryTypeCount(industry_type));
-	} else {
-		/* Count only those who match the same industry type and layout filter
-		 * Unfortunately, we have to do it manually */
-		for (const IndustryID &industry : Industry::industries[industry_type]) {
-			if (industry == current->index) continue;
+		if (mask & 0xFFFF) closest_dist = this->GetClosestIndustry(industry_type);
+		if (mask & 0xFF0000) count = ClampTo<uint8_t>(Industry::GetIndustryTypeCount(industry_type));
+	} else if (layout_filter == 0 && town_filter) {
+		/* Count only those which match the same industry type and town */
+		std::unique_ptr<IndustryLocationDistanceAndCountCache> &cache = this->town_location_distance_cache;
+		if (cache == nullptr) {
+			cache = std::make_unique<IndustryLocationDistanceAndCountCache>();
+			MemSetT(cache->distances, 0xFF, NUM_INDUSTRYTYPES);
+			MemSetT(cache->counts, 0, NUM_INDUSTRYTYPES);
+			const IndustryID this_id = this->industry->index;
+			for (const IndustryLocationCacheEntry &entry : this->industry->town->industry_cache) {
+				if (entry.id == this_id || entry.type >= NUM_INDUSTRYTYPES) continue;
 
-			const Industry *i = Industry::Get(industry);
-			if ((layout_filter == 0 || i->selected_layout == layout_filter) && (!town_filter || i->town == current->town)) {
-				closest_dist = std::min(closest_dist, DistanceManhattan(current->location.tile, i->location.tile));
+				uint dist = DistanceManhattan(this->tile, entry.tile);
+				if (dist < (uint)cache->distances[entry.type]) cache->distances[entry.type] = (uint16_t)dist;
+				cache->counts[entry.type] = SaturatingAdd<uint8_t>(cache->counts[entry.type], 1);
+			}
+		}
+		closest_dist = cache->distances[industry_type];
+		count = cache->counts[industry_type];
+	} else if (town_filter) {
+		/* Count only those who match the same industry type and layout filter using the town cache */
+		const IndustryID this_id = this->industry->index;
+		for (const IndustryLocationCacheEntry &entry : this->industry->town->industry_cache) {
+			if (entry.type == industry_type && entry.id != this_id && entry.selected_layout == layout_filter) {
+				closest_dist = std::min(closest_dist, DistanceManhattan(this->tile, entry.tile));
 				count++;
 			}
 		}
+		count = std::min<uint>(count, UINT8_MAX);
+	} else {
+		/* Count only those who match the same industry type and layout filter
+		 * Unfortunately, we have to do it manually */
+		const IndustryID this_id = this->industry->index;
+		for (const IndustryLocationCacheEntry &entry : Industry::industries[industry_type]) {
+			if (entry.id != this_id && entry.selected_layout == layout_filter) {
+				closest_dist = std::min(closest_dist, DistanceManhattan(this->tile, entry.tile));
+				count++;
+			}
+		}
+		count = std::min<uint>(count, UINT8_MAX);
 	}
 
-	return count << 16 | GB(closest_dist, 0, 16);
+	return count << 16 | std::min<uint>(closest_dist, 0xFFFF);
 }
 
-/* virtual */ uint32_t IndustriesScopeResolver::GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const
+/* virtual */ uint32_t IndustriesScopeResolver::GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const
 {
 	if (this->ro.callback == CBID_INDUSTRY_LOCATION) {
 		/* Variables available during construction check. */
@@ -208,9 +243,14 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 	const IndustrySpec *indspec = GetIndustrySpec(this->type);
 
 	if (this->industry == nullptr) {
+		/* Unconditionally allow these, with a dummy result, so that they can be considered always available for optimisation purposes */
+		if (variable == 0x67 || variable == 0x68) {
+			return 0 | 0xFFFF;
+		}
+
 		Debug(grf, 1, "Unhandled variable 0x{:X} (no available industry) in callback 0x{:x}", variable, this->ro.callback);
 
-		available = false;
+		extra.available = false;
 		return UINT_MAX;
 	}
 
@@ -247,7 +287,7 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 			const Company *c = Company::GetIfValid(this->industry->founder);
 			if (c != nullptr) {
 				is_ai = c->is_ai;
-				colours = c->GetCompanyRecolourOffset(LS_DEFAULT);
+				colours = c->GetCompanyRecolourOffset(LiveryScheme::Default);
 			}
 
 			return this->industry->founder.base() | (is_ai ? 0x10000 : 0) | (colours << 24);
@@ -271,7 +311,7 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 		/* Land info of nearby tiles */
 		case 0x62:
 			if (this->tile == INVALID_TILE) break;
-			return GetNearbyIndustryTileInformation(parameter, this->tile, IndustryID::Invalid(), false, this->ro.grffile->grf_version >= 8);
+			return GetNearbyIndustryTileInformation(parameter, this->tile, IndustryID::Invalid(), false, this->ro.grffile->grf_version >= 8, extra.mask);
 
 		/* Animation stage of nearby tiles */
 		case 0x63: {
@@ -284,12 +324,9 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 		}
 
 		/* Distance of nearest industry of given type */
-		case 0x64: {
+		case 0x64:
 			if (this->tile == INVALID_TILE) break;
-			IndustryType type = MapNewGRFIndustryType(parameter, indspec->grf_prop.grfid);
-			if (type >= NUM_INDUSTRYTYPES) return UINT32_MAX;
-			return GetClosestIndustry(this->tile, type, this->industry);
-		}
+			return this->GetClosestIndustry(MapNewGRFIndustryType(parameter, indspec->grf_prop.grfid));
 		/* Get town zone and Manhattan distance of closest town */
 		case 0x65: {
 			if (this->tile == INVALID_TILE) break;
@@ -310,11 +347,11 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 			uint8_t layout_filter = 0;
 			bool town_filter = false;
 			if (variable == 0x68) {
-				int32_t reg = this->ro.GetRegister(0x101);
+				uint32_t reg = GetRegister(0x101);
 				layout_filter = GB(reg, 0, 8);
 				town_filter = HasBit(reg, 8);
 			}
-			return GetCountAndDistanceOfClosestInstance(this->ro, parameter, layout_filter, town_filter, this->industry);
+			return this->GetCountAndDistanceOfClosestInstance(parameter, layout_filter, town_filter, extra.mask);
 		}
 
 		case 0x69:
@@ -325,17 +362,18 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 		case 0x70:
 		case 0x71: {
 			CargoType cargo = GetCargoTranslation(parameter, this->ro.grffile);
-			if (!IsValidCargoType(cargo)) return 0;
-			auto it = this->industry->GetCargoProduced(cargo);
-			if (it == std::end(this->industry->produced)) return 0; // invalid cargo
+			if (cargo == INVALID_CARGO) return 0;
+			int index = this->industry->GetCargoProducedIndex(cargo);
+			if (index < 0) return 0; // invalid cargo
+			const Industry::ProducedCargo &p = this->industry->produced[index];
 			switch (variable) {
-				case 0x69: return it->waiting;
-				case 0x6A: return it->history[THIS_MONTH].production;
-				case 0x6B: return it->history[THIS_MONTH].transported;
-				case 0x6C: return it->history[LAST_MONTH].production;
-				case 0x6D: return it->history[LAST_MONTH].transported;
-				case 0x70: return it->rate;
-				case 0x71: return it->history[LAST_MONTH].PctTransported();
+				case 0x69: return p.waiting;
+				case 0x6A: return p.history[THIS_MONTH].production;
+				case 0x6B: return p.history[THIS_MONTH].transported;
+				case 0x6C: return p.history[LAST_MONTH].production;
+				case 0x6D: return p.history[LAST_MONTH].transported;
+				case 0x70: return p.rate;
+				case 0x71: return p.history[LAST_MONTH].PctTransported();
 				default: NOT_REACHED();
 			}
 		}
@@ -344,11 +382,12 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 		case 0x6E:
 		case 0x6F: {
 			CargoType cargo = GetCargoTranslation(parameter, this->ro.grffile);
-			if (!IsValidCargoType(cargo)) return 0;
-			auto it = this->industry->GetCargoAccepted(cargo);
-			if (it == std::end(this->industry->accepted)) return 0; // invalid cargo
-			if (variable == 0x6E) return it->last_accepted.base();
-			if (variable == 0x6F) return it->waiting;
+			if (cargo == INVALID_CARGO) return 0;
+			int index = this->industry->GetCargoAcceptedIndex(cargo);
+			if (index < 0) return 0; // invalid cargo
+			const Industry::AcceptedCargo &a = this->industry->accepted[index];
+			if (variable == 0x6E) return a.last_accepted.base();
+			if (variable == 0x6F) return a.waiting;
 			NOT_REACHED();
 		}
 
@@ -406,24 +445,26 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 
 		case 0xA6: return indspec->grf_prop.local_id;
 		case 0xA7: return this->industry->founder.base();
-		case 0xA8: return this->industry->random_colour;
-		case 0xA9: return ClampTo<uint8_t>(this->industry->last_prod_year - EconomyTime::ORIGINAL_BASE_YEAR);
+		case 0xA8: return to_underlying(this->industry->random_colour);
+		case 0xA9: return ClampTo<uint8_t>(this->industry->last_prod_year - EconTime::ORIGINAL_BASE_YEAR);
 		case 0xAA: return this->industry->counter;
 		case 0xAB: return GB(this->industry->counter, 8, 8);
 		case 0xAC: return this->industry->was_cargo_delivered;
 
-		case 0xB0: return ClampTo<uint16_t>(this->industry->construction_date - CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR); // Date when built since 1920 (in days)
-		case 0xB3: return this->industry->construction_type; // Construction type
+		case 0xB0: return ClampTo<uint16_t>(this->industry->construction_date - CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR); // Date when built since 1920 (in days)
+		case 0xB3: return to_underlying(this->industry->construction_type); // Construction type
 		case 0xB4: {
-			if (this->industry->accepted.empty()) return 0;
-			auto it = std::max_element(std::begin(this->industry->accepted), std::end(this->industry->accepted), [](const auto &a, const auto &b) { return a.last_accepted < b.last_accepted; });
-			return ClampTo<uint16_t>(it->last_accepted - EconomyTime::DAYS_TILL_ORIGINAL_BASE_YEAR); // Date last cargo accepted since 1920 (in days)
+			const auto &acc = this->industry->Accepted();
+			if (acc.empty()) return 0;
+			auto it = std::max_element(acc.begin(), acc.end(), [](const auto &a, const auto &b) { return a.last_accepted < b.last_accepted; });
+			if (EconTime::UsingWallclockUnits()) return ClampTo<uint16_t>(it->last_accepted - EconTime::DAYS_TILL_ORIGINAL_BASE_YEAR_WALLCLOCK_MODE);
+			return ClampTo<uint16_t>(it->last_accepted - EconTime::DAYS_TILL_ORIGINAL_BASE_YEAR); // Date last cargo accepted since 1920 (in days)
 		}
 	}
 
 	Debug(grf, 1, "Unhandled industry variable 0x{:X}", variable);
 
-	available = false;
+	extra.available = false;
 	return UINT_MAX;
 }
 
@@ -448,7 +489,7 @@ static uint32_t GetCountAndDistanceOfClosestInstance(const ResolverObject &objec
 		/* Create storage on first modification. */
 		const IndustrySpec *indsp = GetIndustrySpec(this->industry->type);
 		assert(PersistentStorage::CanAllocateItem());
-		this->industry->psa = new PersistentStorage(indsp->grf_prop.grfid, GSF_INDUSTRIES, this->industry->location.tile);
+		this->industry->psa = PersistentStorage::Create(indsp->grf_prop.grfid, GrfSpecFeature::Industries, this->industry->location.tile);
 	}
 
 	this->industry->psa->StoreValue(pos, value);
@@ -506,7 +547,7 @@ TownScopeResolver *IndustriesResolverObject::GetTown()
 
 GrfSpecFeature IndustriesResolverObject::GetFeature() const
 {
-	return GSF_INDUSTRIES;
+	return GrfSpecFeature::Industries;
 }
 
 uint32_t IndustriesResolverObject::GetDebugID() const
@@ -522,13 +563,12 @@ uint32_t IndustriesResolverObject::GetDebugID() const
  * @param industry The industry to do the callback for.
  * @param type The type of industry to do the callback for.
  * @param tile The tile associated with the callback.
- * @param[out] regs100 Additional result values from registers 100+
  * @return The callback result.
  */
-uint16_t GetIndustryCallback(CallbackID callback, uint32_t param1, uint32_t param2, Industry *industry, IndustryType type, TileIndex tile, std::span<int32_t> regs100)
+uint16_t GetIndustryCallback(CallbackID callback, uint32_t param1, uint32_t param2, Industry *industry, IndustryType type, TileIndex tile)
 {
 	IndustriesResolverObject object(tile, industry, type, 0, callback, param1, param2);
-	return object.ResolveCallback(regs100);
+	return object.ResolveCallback();
 }
 
 /**
@@ -546,8 +586,7 @@ CommandCost CheckIfCallBackAllowsCreation(TileIndex tile, IndustryType type, siz
 {
 	const IndustrySpec *indspec = GetIndustrySpec(type);
 
-	Industry ind;
-	ind.index = IndustryID::Invalid();
+	Industry ind(IndustryID::Invalid());
 	ind.location.tile = tile;
 	ind.location.w = 0; // important to mark the industry invalid
 	ind.type = type;
@@ -557,21 +596,21 @@ CommandCost CheckIfCallBackAllowsCreation(TileIndex tile, IndustryType type, siz
 	ind.founder = founder;
 	ind.psa = nullptr;
 
-	IndustriesResolverObject object(tile, &ind, type, seed, CBID_INDUSTRY_LOCATION, 0, creation_type);
-	std::array<int32_t, 16> regs100;
-	uint16_t result = object.ResolveCallback(regs100);
+	IndustriesResolverObject object(tile, &ind, type, seed, CBID_INDUSTRY_LOCATION, 0, to_underlying(creation_type));
+	uint16_t result = object.ResolveCallback();
 
 	/* Unlike the "normal" cases, not having a valid result means we allow
 	 * the building of the industry, as that's how it's done in TTDP. */
 	if (result == CALLBACK_FAILED) return CommandCost();
 
-	return GetErrorMessageFromLocationCallbackResult(result, regs100, indspec->grf_prop.grffile, STR_ERROR_SITE_UNSUITABLE);
+	return GetErrorMessageFromLocationCallbackResult(result, GetRegisterRange(0x100), indspec->grf_prop.grffile, STR_ERROR_SITE_UNSUITABLE);
 }
 
 /**
  * Check with callback #CBID_INDUSTRY_PROBABILITY whether the industry can be built.
  * @param type Industry type to check.
  * @param creation_type Reason to construct a new industry.
+ * @param default_prob The default probability if the NewGRF doesn't override it.
  * @return If the industry has no callback or allows building, \c true is returned. Otherwise, \c false is returned.
  */
 uint32_t GetIndustryProbabilityCallback(IndustryType type, IndustryAvailabilityCallType creation_type, uint32_t default_prob)
@@ -579,7 +618,7 @@ uint32_t GetIndustryProbabilityCallback(IndustryType type, IndustryAvailabilityC
 	const IndustrySpec *indspec = GetIndustrySpec(type);
 
 	if (indspec->callback_mask.Test(IndustryCallbackMask::Probability)) {
-		uint16_t res = GetIndustryCallback(CBID_INDUSTRY_PROBABILITY, 0, creation_type, nullptr, type, INVALID_TILE);
+		uint16_t res = GetIndustryCallback(CBID_INDUSTRY_PROBABILITY, 0, to_underlying(creation_type), nullptr, type, INVALID_TILE);
 		if (res != CALLBACK_FAILED) {
 			if (indspec->grf_prop.grffile->grf_version < 8) {
 				/* Disallow if result != 0 */
@@ -597,6 +636,11 @@ uint32_t GetIndustryProbabilityCallback(IndustryType type, IndustryAvailabilityC
 	return default_prob;
 }
 
+static int32_t DerefIndProd(int field, bool use_register)
+{
+	return use_register ? (int32_t)GetRegister(field) : field;
+}
+
 /**
  * Get the industry production callback and apply it to the industry.
  * @param ind    the industry this callback has to be called for
@@ -611,10 +655,6 @@ void IndustryProductionCallback(Industry *ind, int reason)
 	if (spec->behaviour.Test(IndustryBehaviour::ProdMultiHandling)) multiplier = ind->prod_level;
 	object.callback_param2 = reason;
 
-	auto deref_ind_prod = [&object](int field, bool use_register) -> int32_t {
-		return use_register ? object.GetRegister(field) : field;
-	};
-
 	for (uint loop = 0;; loop++) {
 		/* limit the number of calls to break infinite loops.
 		 * 'loop' is provided as 16 bits to the newgrf, so abort when those are exceeded. */
@@ -622,21 +662,22 @@ void IndustryProductionCallback(Industry *ind, int reason)
 			/* display error message */
 			ShowErrorMessage(GetEncodedString(STR_NEWGRF_BUGGY, spec->grf_prop.grffile->filename),
 				GetEncodedString(STR_NEWGRF_BUGGY_ENDLESS_PRODUCTION_CALLBACK, std::monostate{}, spec->name),
-				WL_WARNING);
+				WarningLevel::Warning);
 
 			/* abort the function early, this error isn't critical and will allow the game to continue to run */
 			break;
 		}
 
 		SB(object.callback_param2, 8, 16, loop);
-		const auto *group = object.Resolve<IndustryProductionSpriteGroup>();
-		if (group == nullptr) break;
+		const SpriteGroup *tgroup = object.Resolve();
+		if (tgroup == nullptr || tgroup->type != SGT_INDUSTRY_PRODUCTION) break;
+		const IndustryProductionSpriteGroup *group = (const IndustryProductionSpriteGroup *)tgroup;
 
 		if (group->version == 0xFF) {
 			/* Result was marked invalid on load, display error message */
 			ShowErrorMessage(GetEncodedString(STR_NEWGRF_BUGGY, spec->grf_prop.grffile->filename),
 				GetEncodedString(STR_NEWGRF_BUGGY_INVALID_CARGO_PRODUCTION_CALLBACK, std::monostate{}, spec->name, ind->location.tile),
-				WL_WARNING);
+				WarningLevel::Warning);
 
 			/* abort the function early, this error isn't critical and will allow the game to continue to run */
 			break;
@@ -646,35 +687,35 @@ void IndustryProductionCallback(Industry *ind, int reason)
 
 		if (group->version < 2) {
 			/* Callback parameters map directly to industry cargo slot indices */
-			for (uint i = 0; i < group->num_input && i < ind->accepted.size(); i++) {
-				if (!IsValidCargoType(ind->accepted[i].cargo)) continue;
-				ind->accepted[i].waiting = ClampTo<uint16_t>(ind->accepted[i].waiting - deref_ind_prod(group->subtract_input[i], deref) * multiplier);
+			for (uint i = 0; i < group->num_input && i < ind->accepted_cargo_count; i++) {
+				if (ind->accepted[i].cargo == INVALID_CARGO) continue;
+				ind->accepted[i].waiting = ClampTo<uint16_t>(ind->accepted[i].waiting - DerefIndProd(group->subtract_input[i], deref) * multiplier);
 			}
-			for (uint i = 0; i < group->num_output && i < ind->produced.size(); i++) {
-				if (!IsValidCargoType(ind->produced[i].cargo)) continue;
-				ind->produced[i].waiting = ClampTo<uint16_t>(ind->produced[i].waiting + std::max(deref_ind_prod(group->add_output[i], deref), 0) * multiplier);
+			for (uint i = 0; i < group->num_output && i < ind->produced_cargo_count; i++) {
+				if (ind->produced[i].cargo == INVALID_CARGO) continue;
+				ind->produced[i].waiting = ClampTo<uint16_t>(ind->produced[i].waiting + std::max(DerefIndProd(group->add_output[i], deref), 0) * multiplier);
 			}
 		} else {
 			/* Callback receives list of cargos to apply for, which need to have their cargo slots in industry looked up */
 			for (uint i = 0; i < group->num_input; i++) {
-				auto it = ind->GetCargoAccepted(group->cargo_input[i]);
-				if (it == std::end(ind->accepted)) continue;
-				it->waiting = ClampTo<uint16_t>(it->waiting - deref_ind_prod(group->subtract_input[i], deref) * multiplier);
+				int cargo_index = ind->GetCargoAcceptedIndex(group->cargo_input[i]);
+				if (cargo_index < 0) continue;
+				ind->accepted[cargo_index].waiting = ClampTo<uint16_t>(ind->accepted[cargo_index].waiting - DerefIndProd(group->subtract_input[i], deref) * multiplier);
 			}
 			for (uint i = 0; i < group->num_output; i++) {
-				auto it = ind->GetCargoProduced(group->cargo_output[i]);
-				if (it == std::end(ind->produced)) continue;
-				it->waiting = ClampTo<uint16_t>(it->waiting + std::max(deref_ind_prod(group->add_output[i], deref), 0) * multiplier);
+				int cargo_index = ind->GetCargoProducedIndex(group->cargo_output[i]);
+				if (cargo_index < 0) continue;
+				ind->produced[cargo_index].waiting = ClampTo<uint16_t>(ind->produced[cargo_index].waiting + std::max(DerefIndProd(group->add_output[i], deref), 0) * multiplier);
 			}
 		}
 
-		int32_t again = deref_ind_prod(group->again, deref);
+		int32_t again = DerefIndProd(group->again, deref);
 		if (again == 0) break;
 
 		SB(object.callback_param2, 24, 8, again);
 	}
 
-	SetWindowDirty(WC_INDUSTRY_VIEW, ind->index);
+	SetWindowDirty(WindowClass::IndustryView, ind->index);
 }
 
 /**
@@ -696,4 +737,26 @@ bool IndustryTemporarilyRefusesCargo(Industry *ind, CargoType cargo_type)
 		if (res != CALLBACK_FAILED) return !ConvertBooleanCallback(indspec->grf_prop.grffile, CBID_INDUSTRY_REFUSE_CARGO, res);
 	}
 	return false;
+}
+
+void DumpIndustrySpriteGroup(const IndustrySpec *spec, SpriteGroupDumper &dumper)
+{
+	dumper.DumpStandardGRFFileProps(spec->grf_prop);
+}
+
+void DumpIndustryTileSpriteGroup(const IndustryTileSpec *spec, SpriteGroupDumper &dumper)
+{
+	dumper.DumpStandardGRFFileProps(spec->grf_prop);
+}
+
+void AnalyseIndustrySpriteGroups()
+{
+	for (IndustrySpec &spec : _industry_specs) {
+		const struct SpriteGroup *root_spritegroup = spec.grf_prop.GetSpriteGroup(false);
+		if (root_spritegroup != nullptr) {
+			IndustryLocationAnalyser analyser;
+			analyser.AnalyseGroup(root_spritegroup);
+			spec.behaviour.Set(IndustryBehaviour::ExpensiveLocationCallback, analyser.expensive_location_cb);
+		}
+	}
 }

@@ -11,7 +11,6 @@
 #define THREAD_H
 
 #include "debug.h"
-#include "crashlog.h"
 #include "error_func.h"
 #include <system_error>
 #include <thread>
@@ -32,6 +31,52 @@ inline void CSleep(int milliseconds)
  */
 void SetCurrentThreadName(const std::string &name);
 
+/**
+ * Get the name of the current thread, if any.
+ * @param buffer The output buffer.
+ */
+void GetCurrentThreadName(struct format_target &buffer);
+
+/**
+ * Set the current thread as the "main" thread
+ */
+void SetSelfAsMainThread();
+
+/**
+ * Set the current thread as the "game" thread
+ */
+void SetSelfAsGameThread();
+
+/**
+ * Perform per-thread setup
+ */
+void PerThreadSetup(bool non_main_thread);
+
+/**
+ * Setup thread functionality required for later calls to PerThreadSetup
+ */
+void PerThreadSetupInit();
+
+/**
+ * @return true if the current thread is definitely the "main" thread. If in doubt returns false.
+ */
+bool IsMainThread();
+
+/**
+ * @return true if the current thread is definitely a "non-main" thread. If in doubt returns false.
+ */
+bool IsNonMainThread();
+
+/**
+ * @return true if the current thread is definitely the "game" thread. If in doubt returns false.
+ */
+bool IsGameThread();
+
+/**
+ * @return true if the current thread is definitely a "non-game" thread. If in doubt returns false.
+ */
+bool IsNonGameThread();
+
 
 /**
  * Start a new thread.
@@ -50,7 +95,7 @@ inline bool StartNewThread(std::thread *thr, std::string_view name, TFn&& _Fx, T
 		static std::mutex thread_startup_mutex;
 		std::lock_guard<std::mutex> lock(thread_startup_mutex);
 
-		std::thread t([] (std::string name, TFn&& F, TArgs&&... A) {
+		std::thread t([] (std::string name, TFn&& F, TArgs&&... A) noexcept {
 				/* Delay starting the thread till the main thread is finished
 				 * with the administration. This prevent race-conditions on
 				 * startup. */
@@ -59,15 +104,10 @@ inline bool StartNewThread(std::thread *thr, std::string_view name, TFn&& _Fx, T
 				}
 
 				SetCurrentThreadName(name);
-				CrashLog::InitThread();
-				try {
-					/* Call user function with the given arguments. */
-					F(A...);
-				} catch (std::exception &e) {
-					FatalError("Unhandled exception in {} thread: {}", name, e.what());
-				} catch (...) {
-					NOT_REACHED();
-				}
+				PerThreadSetup(true);
+
+				/* Call user function with the given arguments. */
+				F(A...);
 			}, std::string{name}, std::forward<TFn>(_Fx), std::forward<TArgs>(_Ax)...);
 
 		if (thr != nullptr) {

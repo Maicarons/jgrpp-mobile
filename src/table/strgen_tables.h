@@ -5,10 +5,11 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file table/strgen_tables.h Tables of commands for strgen */
+/** @file strgen_tables.h Tables of commands for strgen. */
 
 #include "../core/enum_type.hpp"
 
+/** Flags describing how to process a string command. */
 enum class CmdFlag : uint8_t {
 	DontCount, ///< These commands aren't counted for comparison
 	Case, ///< These commands support cases
@@ -24,7 +25,7 @@ struct CmdStruct {
 	ParseCmdProc proc;
 	char32_t value;
 	uint8_t consumes;
-	std::optional<size_t> default_plural_offset;
+	std::optional<uint8_t> default_plural_offset;
 	CmdFlags flags;
 };
 
@@ -86,6 +87,8 @@ static const CmdStruct _cmd_structs[] = {
 	{"FORCE",             EmitSingleChar, SCC_FORCE,              1,  0, {}},
 	{"VELOCITY",          EmitSingleChar, SCC_VELOCITY,           1,  0, {}},
 	{"HEIGHT",            EmitSingleChar, SCC_HEIGHT,             1,  0, {}},
+	{"POWER_WEIGHT_RATIO",EmitSingleChar, SCC_POWER_WEIGHT_RATIO, 1,  0, {}},
+	{"FORCE_WEIGHT_RATIO",EmitSingleChar, SCC_FORCE_WEIGHT_RATIO, 1,  0, {}},
 
 	{"UNITS_DAYS_OR_SECONDS",   EmitSingleChar, SCC_UNITS_DAYS_OR_SECONDS,   1,  0, {CmdFlag::Gender}},
 	{"UNITS_MONTHS_OR_MINUTES", EmitSingleChar, SCC_UNITS_MONTHS_OR_MINUTES, 1,  0, {CmdFlag::Gender}},
@@ -100,13 +103,21 @@ static const CmdStruct _cmd_structs[] = {
 	{"DATE_LONG",         EmitSingleChar, SCC_DATE_LONG,          1, std::nullopt, {CmdFlag::Case}},
 	{"DATE_ISO",          EmitSingleChar, SCC_DATE_ISO,           1, std::nullopt, {}},
 
+	{"TIME_HHMM",         EmitSingleChar, SCC_TIME_HHMM,          1, std::nullopt, {}},
+	{"TT_TICKS",          EmitSingleChar, SCC_TT_TICKS,           1, std::nullopt, {}},
+	{"TT_TICKS_LONG",     EmitSingleChar, SCC_TT_TICKS_LONG,      1, std::nullopt, {}},
+	{"TT_TIME",           EmitSingleChar, SCC_TT_TIME,            1, std::nullopt, {}},
+	{"TT_TIME_ABS",       EmitSingleChar, SCC_TT_TIME_ABS,        1, std::nullopt, {}},
+
 	{"STRING",            EmitSingleChar, SCC_STRING,             1, std::nullopt, {CmdFlag::Case, CmdFlag::Gender}},
 	{"RAW_STRING",        EmitSingleChar, SCC_RAW_STRING_POINTER, 1, std::nullopt, {CmdFlag::Gender}},
 
 	/* Numbers */
 	{"COMMA",             EmitSingleChar, SCC_COMMA,              1,  0, {}}, // Number with comma
 	{"DECIMAL",           EmitSingleChar, SCC_DECIMAL,            2,  0, {}}, // Number with comma and fractional part. Second parameter is number of fractional digits, first parameter is number times 10**(second parameter).
+	{"DECIMAL1",          EmitSingleChar, SCC_DECIMAL1,           1,  0, {}}, // Decimal with fixed second parameter of 1
 	{"NUM",               EmitSingleChar, SCC_NUM,                1,  0, {}}, // Signed number
+	{"PLUS_NUM",          EmitSingleChar, SCC_PLUS_NUM,           1,  0, {}}, // Signed number, with sign (+ or -) shown for both positive and negative numbers
 	{"ZEROFILL_NUM",      EmitSingleChar, SCC_ZEROFILL_NUM,       2,  0, {}}, // Unsigned number with zero fill, e.g. "02". First parameter is number, second minimum length
 	{"BYTES",             EmitSingleChar, SCC_BYTES,              1,  0, {}}, // Unsigned number with "bytes", i.e. "1.02 MiB or 123 KiB"
 	{"HEX",               EmitSingleChar, SCC_HEX,                1,  0, {}}, // Hexadecimally printed number
@@ -125,6 +136,12 @@ static const CmdStruct _cmd_structs[] = {
 	{"COMPANY",           EmitSingleChar, SCC_COMPANY_NAME,       1, std::nullopt, {CmdFlag::Gender}},
 	{"COMPANY_NUM",       EmitSingleChar, SCC_COMPANY_NUM,        1, std::nullopt, {}},
 	{"PRESIDENT_NAME",    EmitSingleChar, SCC_PRESIDENT_NAME,     1, std::nullopt, {CmdFlag::Gender}},
+	{"TRSLOT",            EmitSingleChar, SCC_TR_SLOT_NAME,       1, std::nullopt, {CmdFlag::Gender}},
+	{"TRSLOTGROUP",       EmitSingleChar, SCC_TR_SLOT_GROUP_NAME, 1, std::nullopt, {CmdFlag::Gender}},
+	{"TRCOUNTER",         EmitSingleChar, SCC_TR_COUNTER_NAME,    1, std::nullopt, {CmdFlag::Gender}},
+
+	{"VP_TOWN_LABEL1",    EmitSingleChar, SCC_VIEWPORT_TOWN_LABEL1, 2, std::nullopt, {}},
+	{"VP_TOWN_LABEL2",    EmitSingleChar, SCC_VIEWPORT_TOWN_LABEL2, 2, std::nullopt, {}},
 
 	{"SPACE",             EmitSingleChar, ' ',                    0, std::nullopt, {CmdFlag::DontCount}},
 	{"",                  EmitSingleChar, '\n',                   0, std::nullopt, {CmdFlag::DontCount}},
@@ -149,6 +166,8 @@ static const CmdStruct _cmd_structs[] = {
 	{"TOWN_ICON",         EmitSingleChar, SCC_TOWN,               0, std::nullopt, {CmdFlag::DontCount}},
 	{"CITY_ICON",         EmitSingleChar, SCC_CITY,               0, std::nullopt, {CmdFlag::DontCount}},
 
+	{"CONSUME_ARG",       EmitSingleChar, SCC_CONSUME_ARG,        1,  0, {}},
+
 	/* The following are directional formatting codes used to get the RTL strings right:
 	 * http://www.unicode.org/unicode/reports/tr9/#Directional_Formatting_Codes */
 	{"LRM",               EmitSingleChar, CHAR_TD_LRM,            0, std::nullopt, {CmdFlag::DontCount}},
@@ -163,8 +182,8 @@ static const CmdStruct _cmd_structs[] = {
 /** Description of a plural form */
 struct PluralForm {
 	size_t plural_count;     ///< The number of plural forms
-	std::string_view description; ///< Human readable description of the form
-	std::string_view names; ///< Plural names
+	const char *description; ///< Human readable description of the form
+	const char *names;       ///< Plural names
 };
 
 /** The maximum number of plurals. */
@@ -202,7 +221,7 @@ static const PluralForm _plural_forms[] = {
  * a = array, i.e. list of strings
  */
  /** All pragmas used */
-static const std::string_view _pragmas[][4] = {
+static const char * const _pragmas[][4] = {
 	/*  name         flags  default   description */
 	{ "name",        "0",   "",       "English name for the language" },
 	{ "ownname",     "t",   "",       "Localised name for the language" },

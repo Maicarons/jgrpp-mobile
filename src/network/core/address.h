@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file core/address.h Wrapper for network addresses. */
+/** @file address.h Wrapper for network addresses. */
 
 #ifndef NETWORK_CORE_ADDRESS_H
 #define NETWORK_CORE_ADDRESS_H
@@ -15,6 +15,9 @@
 #include "../../company_type.h"
 #include "../../string_func.h"
 
+#include <map>
+#include <string>
+#include <vector>
 
 class NetworkAddress;
 typedef std::vector<NetworkAddress> NetworkAddressList; ///< Type for a list of addresses.
@@ -84,7 +87,8 @@ public:
 		this->SetPort(port);
 	}
 
-	const std::string &GetHostname();
+	const char *GetHostname();
+	void GetAddressAsString(struct format_target &buffer, bool with_family = true);
 	std::string GetAddressAsString(bool with_family = true);
 	const sockaddr_storage *GetAddress();
 
@@ -151,6 +155,7 @@ public:
 	/**
 	 * Compare the address of this class with the address of another.
 	 * @param address the other address.
+	 * @return The std::strong_ordering of the comparison.
 	 */
 	auto operator <=>(NetworkAddress &address)
 	{
@@ -164,6 +169,16 @@ public:
 	static NetworkAddress GetPeerAddress(SOCKET sock);
 	static NetworkAddress GetSockAddress(SOCKET sock);
 	static const std::string GetPeerName(SOCKET sock);
+};
+
+struct FormatNetworkAddress {
+	NetworkAddress *addr;
+	bool with_family;
+
+	FormatNetworkAddress(NetworkAddress *addr, bool with_family = true) : addr(addr), with_family(with_family) {}
+	FormatNetworkAddress(NetworkAddress &addr, bool with_family = true) : addr(&addr), with_family(with_family) {}
+
+	void fmt_format_value(struct format_target &output) const;
 };
 
 /**

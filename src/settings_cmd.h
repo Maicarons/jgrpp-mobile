@@ -10,12 +10,14 @@
 #ifndef SETTINGS_CMD_H
 #define SETTINGS_CMD_H
 
+#include "cheat_type.h"
 #include "command_type.h"
 
-CommandCost CmdChangeSetting(DoCommandFlags flags, const std::string &name, int32_t value);
-CommandCost CmdChangeCompanySetting(DoCommandFlags flags, const std::string &name, int32_t value);
+/* Enable string logging for setting commands */
+struct ChangeSettingCmdData final : public AutoFmtTupleCmdData<ChangeSettingCmdData, TCDF_STRINGS, std::string, int32_t> {};
 
-DEF_CMD_TRAIT(CMD_CHANGE_SETTING,         CmdChangeSetting,        CommandFlags({CommandFlag::Server, CommandFlag::NoEst}), CommandType::ServerSetting)
-DEF_CMD_TRAIT(CMD_CHANGE_COMPANY_SETTING, CmdChangeCompanySetting, CommandFlag::NoEst, CommandType::CompanySetting)
+DEF_CMD_TUPLE_NT(Commands::ChangeSetting,         CmdChangeSetting,        CMD_SERVER | CMD_NO_EST, CommandType::ServerSetting,  ChangeSettingCmdData)
+DEF_CMD_TUPLE_NT(Commands::ChangeCompanySetting,  CmdChangeCompanySetting,              CMD_NO_EST, CommandType::CompanySetting, ChangeSettingCmdData)
+DEF_CMD_TUPLE_NT(Commands::CheatSetting,          CmdCheatSetting,         CMD_SERVER | CMD_NO_EST, CommandType::Cheat,          CmdDataT<CheatNumbers, uint32_t>)
 
 #endif /* SETTINGS_CMD_H */

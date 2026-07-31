@@ -10,16 +10,18 @@
 #ifndef DATE_GUI_H
 #define DATE_GUI_H
 
-#include "timer/timer_game_economy.h"
+#include "date_type.h"
 #include "window_type.h"
 
 /**
- * Callback for when a date has been chosen
+ * Callback for when a tick has been chosen
  * @param w the window that sends the callback
- * @param date the date that has been chosen
+ * @param tick the tick that has been chosen
+ * @param callback_data callback data provided to the window
  */
-using SetDateCallback = std::function<void (const Window *w, TimerGameEconomy::Date date)>;
+typedef void SetTickCallback(const Window *w, StateTicks tick, void *callback_data);
 
-void ShowSetDateWindow(Window *parent, int window_number, TimerGameEconomy::Date initial_date, TimerGameEconomy::Year min_year, TimerGameEconomy::Year max_year, SetDateCallback &&callback);
+void ShowSetDateWindow(Window *parent, int window_number, StateTicks initial_tick, EconTime::Year min_year, EconTime::Year max_year, SetTickCallback *callback, void *callback_data = nullptr,
+		StringID button_text = STR_NULL, StringID button_tooltip = STR_NULL);
 
 #endif /* DATE_GUI_H */

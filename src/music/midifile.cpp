@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/* @file midifile.cpp Parser for standard MIDI files */
+/** @file midifile.cpp Parser for standard MIDI files. */
 
 #include "../stdafx.h"
 
@@ -198,7 +198,7 @@ static bool ReadTrackChunk(FileHandle &file, MidiFile &target)
 	if (fread(buf, sizeof(magic), 1, file) != 1) {
 		return false;
 	}
-	if (!std::ranges::equal(magic, buf)) {
+	if (memcmp(magic, buf, sizeof(magic)) != 0) {
 		return false;
 	}
 
@@ -408,9 +408,9 @@ static bool FixupMidiData(MidiFile &target)
  * @param[out] header filled with data read
  * @return true if the file could be opened and contained a header with correct format
  */
-bool MidiFile::ReadSMFHeader(const std::string &filename, SMFHeader &header)
+bool MidiFile::ReadSMFHeader(const char *filename, SMFHeader &header)
 {
-	auto file = FioFOpenFile(filename, "rb", Subdirectory::BASESET_DIR);
+	auto file = FioFOpenFile(filename, "rb", Subdirectory::Baseset);
 	if (!file.has_value()) return false;
 	bool result = ReadSMFHeader(*file, header);
 	return result;
@@ -449,7 +449,7 @@ bool MidiFile::ReadSMFHeader(FileHandle &file, SMFHeader &header)
  * @param filename name of the file to load
  * @returns true if loaded was successful
  */
-bool MidiFile::LoadFile(const std::string &filename)
+bool MidiFile::LoadFile(const char *filename)
 {
 	_midifile_instance = this;
 
@@ -457,7 +457,7 @@ bool MidiFile::LoadFile(const std::string &filename)
 	this->tempos.clear();
 	this->tickdiv = 0;
 
-	auto file = FioFOpenFile(filename, "rb", Subdirectory::BASESET_DIR);
+	auto file = FioFOpenFile(filename, "rb", Subdirectory::Baseset);
 	if (!file.has_value()) return false;
 
 	SMFHeader header;
@@ -623,6 +623,9 @@ struct MpsMachine {
 
 	/**
 	 * Play one frame of data from one channel
+	 * @param[out] outblock The block to the music to.
+	 * @param channel The channel of the block to play.
+	 * @return The new delay for playing.
 	 */
 	uint16_t PlayChannelFrame(MidiFile::DataBlock &outblock, int channel)
 	{
@@ -748,6 +751,8 @@ struct MpsMachine {
 
 	/**
 	 * Play one frame of data into a block.
+	 * @param[out] block The block to write to.
+	 * @return \c true iff there is data to play.
 	 */
 	bool PlayFrame(MidiFile::DataBlock &block)
 	{
@@ -774,6 +779,7 @@ struct MpsMachine {
 
 	/**
 	 * Perform playback of whole song.
+	 * @return Always \c true.
 	 */
 	bool PlayInto()
 	{
@@ -839,7 +845,7 @@ bool MidiFile::LoadSong(const MusicSongInfo &song)
 {
 	switch (song.filetype) {
 		case MTT_STANDARDMIDI:
-			return this->LoadFile(song.filename);
+			return this->LoadFile(song.filename.c_str());
 		case MTT_MPSMIDI:
 		{
 			auto songdata = GetMusicCatEntryData(song.filename, song.cat_index);
@@ -903,9 +909,9 @@ static void WriteVariableLen(FileHandle &f, uint32_t value)
  * @param filename Name of file to write to
  * @return True if the file was written to completion
  */
-bool MidiFile::WriteSMF(const std::string &filename)
+bool MidiFile::WriteSMF(const char *filename)
 {
-	auto of = FioFOpenFile(filename, "wb", Subdirectory::NO_DIRECTORY);
+	auto of = FioFOpenFile(filename, "wb", Subdirectory::None);
 	if (!of.has_value()) return false;
 	auto &f = *of;
 
@@ -1033,9 +1039,9 @@ bool MidiFile::WriteSMF(const std::string &filename)
 std::string MidiFile::GetSMFFile(const MusicSongInfo &song)
 {
 	if (song.filetype == MTT_STANDARDMIDI) {
-		std::string filename = FioFindFullPath(Subdirectory::BASESET_DIR, song.filename);
+		std::string filename = FioFindFullPath(Subdirectory::Baseset, song.filename);
 		if (!filename.empty()) return filename;
-		filename = FioFindFullPath(Subdirectory::OLD_GM_DIR, song.filename);
+		filename = FioFindFullPath(Subdirectory::OldGm, song.filename);
 		if (!filename.empty()) return filename;
 
 		return std::string();
@@ -1043,16 +1049,11 @@ std::string MidiFile::GetSMFFile(const MusicSongInfo &song)
 
 	if (song.filetype != MTT_MPSMIDI) return std::string();
 
-	std::string tempdirname = FioGetDirectory(Searchpath::SP_AUTODOWNLOAD_DIR, Subdirectory::BASESET_DIR);
+	std::string tempdirname = FioGetDirectory(Searchpath::AutodownloadDir, Subdirectory::Baseset);
 	{
-		std::string_view basename{song.filename};
-		auto fnstart = basename.rfind(PATHSEPCHAR);
-		if (fnstart != std::string_view::npos) basename.remove_prefix(fnstart + 1);
-
 		/* Remove all '.' characters from filename */
-		tempdirname.reserve(tempdirname.size() + basename.size());
-		for (auto c : basename) {
-			if (c != '.') tempdirname.append(1, c);
+		for (char rp : StrLastPathSegment(song.filename)) {
+			if (rp != '.') tempdirname += rp;
 		}
 	}
 
@@ -1074,7 +1075,7 @@ std::string MidiFile::GetSMFFile(const MusicSongInfo &song)
 		return std::string();
 	}
 
-	if (midifile.WriteSMF(output_filename)) {
+	if (midifile.WriteSMF(output_filename.c_str())) {
 		return output_filename;
 	} else {
 		return std::string();
@@ -1098,10 +1099,12 @@ static bool CmdDumpSMF(std::span<std::string_view> argv)
 		return false;
 	}
 
-	std::string filename = fmt::format("{}{}", FiosGetScreenshotDir(), argv[1]);
-	IConsolePrint(CC_INFO, "Dumping MIDI to '{}'.", filename);
+	format_buffer fnbuf;
+	fnbuf.format("{}{}", FiosGetScreenshotDir(), argv[1]);
 
-	if (_midifile_instance->WriteSMF(filename)) {
+	IConsolePrint(CC_INFO, "Dumping MIDI to: {}", fnbuf);
+
+	if (_midifile_instance->WriteSMF(fnbuf.c_str())) {
 		IConsolePrint(CC_INFO, "File written successfully.");
 		return true;
 	} else {

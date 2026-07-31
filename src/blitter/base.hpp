@@ -12,26 +12,54 @@
 
 #include "../spritecache.h"
 #include "../spriteloader/spriteloader.hpp"
+#include "../core/math_func.hpp"
+
+#include <utility>
 
 /** The modes of blitting we can do. */
 enum class BlitterMode : uint8_t {
-	Normal, ///< Perform the simple blitting.
-	ColourRemap, ///< Perform a colour remapping.
-	Transparent, ///< Perform transparency darkening remapping.
-	TransparentRemap, ///< Perform transparency colour remapping.
-	CrashRemap, ///< Perform a crash remapping.
-	BlackRemap, ///< Perform remapping to a completely blackened sprite
+	Normal,                     ///< Perform the simple blitting.
+	ColourRemap,                ///< Perform a colour remapping.
+	Transparent,                ///< Perform transparency darkening remapping.
+	TransparentRemap,           ///< Perform transparency colour remapping.
+	CrashRemap,                 ///< Perform a crash remapping.
+	BlackRemap,                 ///< Perform remapping to a completely blackened sprite
+	NormalWithBrightness,       ///< Perform a simple blitting with brightness adjustment
+	ColourRemapWithBrightness,  ///< Perform a colour remapping with brightness adjustment
 };
+
+/** Helper for using specialised functions designed to prevent whenever it's possible things like:
+ *  - IO (reading video buffer),
+ *  - calculations (alpha blending),
+ *  - heavy branching (remap lookups and animation buffer handling).
+ */
+enum BlitterSpriteFlags : uint8_t {
+	BSF_NONE        = 0,
+	BSF_TRANSLUCENT = 1 << 1, ///< The sprite has at least 1 translucent pixel.
+	BSF_NO_REMAP    = 1 << 2, ///< The sprite has no remappable colour pixel.
+	BSF_NO_ANIM     = 1 << 3, ///< The sprite has no palette animated pixel.
+};
+DECLARE_ENUM_AS_BIT_SET(BlitterSpriteFlags);
 
 /**
  * How all blitters should look like. Extend this class to make your own.
  */
 class Blitter : public SpriteEncoder {
+	uint8_t screen_depth = 0;
+
+protected:
+	void SetScreenDepth(uint8_t depth)
+	{
+		this->screen_depth = depth;
+		this->SetIs32BppSupported(depth > 8);
+	}
+
 public:
 	/** Parameters related to blitting. */
 	struct BlitterParams {
 		const void *sprite; ///< Pointer to the sprite how ever the encoder stored it
 		const uint8_t *remap;  ///< XXX -- Temporary storage for remap array
+		int brightness_adjust; ///< Brightness adjustment
 
 		int skip_left;      ///< How much pixels of the source to skip on the left (based on zoom of dst)
 		int skip_top;       ///< How much pixels of the source to skip on the top (based on zoom of dst)
@@ -56,16 +84,18 @@ public:
 	/**
 	 * Get the screen depth this blitter works for.
 	 *  This is either: 8, 16, 24 or 32.
+	 * @return Screen depth in bits per pixel.
 	 */
-	virtual uint8_t GetScreenDepth() = 0;
-
-	bool Is32BppSupported() override
+	inline uint8_t GetScreenDepth() const
 	{
-		return this->GetScreenDepth() > 8;
+		return this->screen_depth;
 	}
 
 	/**
 	 * Draw an image to the screen, given an amount of params defined above.
+	 * @param bp Parameters for the blitting of the image.
+	 * @param mode The blitting mode to perform.
+	 * @param zoom The zoom level to draw at.
 	 */
 	virtual void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) = 0;
 
@@ -100,6 +130,53 @@ public:
 	virtual void SetPixel(void *video, int x, int y, PixelColour colour) = 0;
 
 	/**
+	 * Draw a pixel with a given 32bpp colour on the video-buffer.
+	 * Fall back to an 8bpp colour if 32bpp colour is not available.
+	 * @param video The destination pointer (video-buffer).
+	 * @param x The x position within video-buffer.
+	 * @param y The y position within video-buffer.
+	 * @param colour A 8bpp mapping colour.
+	 * @param colour32 A 32bpp colour.
+	 */
+	virtual void SetPixel32(void *video, int x, int y, PixelColour colour, uint32_t colour32) = 0;
+
+	/**
+	 * Draw a rectangle of pixels on the video-buffer.
+	 * @param video The destination pointer (video-buffer).
+	 * @param x The x position within video-buffer.
+	 * @param y The y position within video-buffer.
+	 * @param colours A 8bpp colour mapping buffer.
+	 * @param lines The number of lines.
+	 * @param width The length of the lines.
+	 * @param pitch The pitch of the colours buffer
+	 */
+	virtual void SetRect(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) = 0;
+
+	/**
+	 * Draw a rectangle of pixels on the video-buffer (no LookupColourInPalette).
+	 * @param video The destination pointer (video-buffer).
+	 * @param x The x position within video-buffer.
+	 * @param y The y position within video-buffer.
+	 * @param colours A 32bpp colour buffer.
+	 * @param lines The number of lines.
+	 * @param width The length of the lines.
+	 * @param pitch The pitch of the colours buffer.
+	 */
+	virtual void SetRect32(void *video, int x, int y, const uint32_t *colours, uint lines, uint width, uint pitch) { NOT_REACHED(); };
+
+	/**
+	 * Draw a rectangle of pixels on the video-buffer, skipping any pixels with the value 0xD7.
+	 * @param video The destination pointer (video-buffer).
+	 * @param x The x position within video-buffer.
+	 * @param y The y position within video-buffer.
+	 * @param colours A 8bpp colour mapping buffer.
+	 * @param lines The number of lines.
+	 * @param width The length of the lines.
+	 * @param pitch The pitch of the colours buffer
+	 */
+	virtual void SetRectNoD7(void *video, int x, int y, const uint8_t *colours, uint lines, uint width, uint pitch) = 0;
+
+	/**
 	 * Make a single horizontal line in a single colour on the video-buffer.
 	 * @param video The destination pointer (video-buffer).
 	 * @param width The length of the line.
@@ -107,6 +184,17 @@ public:
 	 * @param colour A pixel colour.
 	 */
 	virtual void DrawRect(void *video, int width, int height, PixelColour colour) = 0;
+
+	/**
+	 * Make a single horizontal line in a single colour on the video-buffer.
+	 * @param video The destination pointer (video-buffer).
+	 * @param x The x position within video-buffer.
+	 * @param y The y position within video-buffer.
+	 * @param width The length of the line.
+	 * @param height The height of the line.
+	 * @param colour A 8bpp mapping colour.
+	 */
+	virtual void DrawRectAt(void *video, int x, int y, int width, int height, PixelColour colour) = 0;
 
 	/**
 	 * Draw a line with a given colour.
@@ -163,7 +251,7 @@ public:
 	 * @param scroll_x How much to scroll in X.
 	 * @param scroll_y How much to scroll in Y.
 	 */
-	virtual void ScrollBuffer(void *video, int &left, int &top, int &width, int &height, int scroll_x, int scroll_y) = 0;
+	virtual void ScrollBuffer(void *video, int left, int top, int width, int height, int scroll_x, int scroll_y) = 0;
 
 	/**
 	 * Calculate how much memory there is needed for an image of this size in the video-buffer.
@@ -188,6 +276,7 @@ public:
 
 	/**
 	 * Does this blitter require a separate animation buffer from the video backend?
+	 * @return \c true when the backend uses a separate buffer for animation.
 	 */
 	virtual bool NeedsAnimationBuffer()
 	{
@@ -196,19 +285,16 @@ public:
 
 	/**
 	 * Get the name of the blitter, the same as the Factory-instance returns.
+	 * @return The name.
 	 */
-	virtual std::string_view GetName() = 0;
+	virtual const char *GetName() const = 0;
 
 	/**
 	 * Post resize event
 	 */
 	virtual void PostResize() { };
 
-	virtual ~Blitter() = default;
-
 	template <typename SetPixelT> void DrawLineGeneric(int x, int y, int x2, int y2, int screen_width, int screen_height, int width, int dash, SetPixelT set_pixel);
-
-	template <typename T> static void MovePixels(const T *src, T *dst, size_t width, size_t height, ptrdiff_t pitch);
 };
 
 #endif /* BLITTER_BASE_HPP */

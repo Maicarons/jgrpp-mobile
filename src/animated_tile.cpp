@@ -8,65 +8,85 @@
 /** @file animated_tile.cpp Everything related to animated tiles. */
 
 #include "stdafx.h"
-#include "animated_tile_func.h"
-#include "animated_tile_map.h"
+#include "animated_tile.h"
+#include "core/alloc_func.hpp"
+#include "core/container_func.hpp"
 #include "tile_cmd.h"
 #include "viewport_func.h"
 #include "framerate_type.h"
+#include "date_func.h"
+#include "3rdparty/cpp-btree/btree_map.h"
+
+#include INCLUDE_FOR_PREFETCH_NTA
 
 #include "safeguards.h"
 
 /** The table/list with animated tiles. */
-std::vector<TileIndex> _animated_tiles;
+btree::btree_map<TileIndex, AnimatedTileInfo> _animated_tiles;
 
 /**
- * Stops animation on the given tile.
+ * Removes the given tile from the animated tile table.
  * @param tile the tile to remove
- * @param immediate immediately delete the tile from the animated tile list instead of waiting for the next tick.
  */
-void DeleteAnimatedTile(TileIndex tile, bool immediate)
+void DeleteAnimatedTile(TileIndex tile)
 {
-	if (immediate) {
-		if (GetAnimatedTileState(tile) == AnimatedTileState::None) return;
-
-		/* The tile may be switched to a non-animatable tile soon, so we should remove it from the
-		 * animated tile list early. */
-		SetAnimatedTileState(tile, AnimatedTileState::None);
-
-		/* To avoid having to move everything after this tile in the animated tile list, look for this tile
-		 * in the animated tile list and replace with last entry if not last. */
-		auto it = std::ranges::find(_animated_tiles, tile);
-		if (it == std::end(_animated_tiles)) return;
-
-		if (std::next(it) != std::end(_animated_tiles)) *it = _animated_tiles.back();
-		_animated_tiles.pop_back();
-
-		return;
+	auto to_remove = _animated_tiles.find(tile);
+	if (to_remove != _animated_tiles.end() && !to_remove->second.pending_deletion) {
+		to_remove->second.pending_deletion = true;
+		MarkTileDirtyByTile(tile, VMDF_NOT_MAP_MODE);
 	}
+}
 
-	/* If the tile was animated, mark it for deletion from the tile list on the next animation loop. */
-	if (GetAnimatedTileState(tile) == AnimatedTileState::Animated) SetAnimatedTileState(tile, AnimatedTileState::Deleted);
+static void UpdateAnimatedTileSpeed(TileIndex tile, AnimatedTileInfo &info)
+{
+	extern uint8_t GetAnimatedTileSpeed_Town(TileIndex tile);
+	extern uint8_t GetAnimatedTileSpeed_Station(TileIndex tile);
+	extern uint8_t GetAnimatedTileSpeed_Industry(TileIndex tile);
+	extern uint8_t GetNewObjectTileAnimationSpeed(TileIndex tile);
+
+	switch (GetTileType(tile)) {
+		case TileType::House:
+			info.speed = GetAnimatedTileSpeed_Town(tile);
+			break;
+
+		case TileType::Station:
+			info.speed = GetAnimatedTileSpeed_Station(tile);
+			break;
+
+		case TileType::Industry:
+			info.speed = GetAnimatedTileSpeed_Industry(tile);
+			break;
+
+		case TileType::Object:
+			info.speed = GetNewObjectTileAnimationSpeed(tile);
+			break;
+
+		default:
+			info.speed = 0;
+			break;
+	}
 }
 
 /**
- * Add the given tile to the animated tile table (if it does not exist yet).
+ * Add the given tile to the animated tile table (if it does not exist
+ * on that table yet). Also increases the size of the table if necessary.
  * @param tile the tile to make animated
- * @param mark_dirty whether to also mark the tile dirty.
  */
 void AddAnimatedTile(TileIndex tile, bool mark_dirty)
 {
-	if (mark_dirty) MarkTileDirtyByTile(tile);
+	if (mark_dirty) MarkTileDirtyByTile(tile, VMDF_NOT_MAP_MODE);
+	AnimatedTileInfo &info = _animated_tiles[tile];
+	UpdateAnimatedTileSpeed(tile, info);
+	info.pending_deletion = false;
+}
 
-	const AnimatedTileState state = GetAnimatedTileState(tile);
-
-	/* Tile is already animated so nothing needs to happen. */
-	if (state == AnimatedTileState::Animated) return;
-
-	/* Tile has no previous animation state, so add to the tile list. If the state is anything
-	 * other than None (e.g. Deleted) then the tile will still be in the list and does not need to be added again. */
-	if (state == AnimatedTileState::None) _animated_tiles.push_back(tile);
-
-	SetAnimatedTileState(tile, AnimatedTileState::Animated);
+int GetAnimatedTileSpeed(TileIndex tile)
+{
+	const auto iter = _animated_tiles.find(tile);
+	if (iter != _animated_tiles.end() && !iter->second.pending_deletion) {
+		return iter->second.speed;
+	}
+	return -1;
 }
 
 /**
@@ -74,29 +94,66 @@ void AddAnimatedTile(TileIndex tile, bool mark_dirty)
  */
 void AnimateAnimatedTiles()
 {
-	PerformanceAccumulator landscape_framerate(PFE_GL_LANDSCAPE);
+	extern void AnimateTile_Town(TileIndex tile);
+	extern void AnimateTile_Station(TileIndex tile);
+	extern void AnimateTile_Industry(TileIndex tile);
+	extern void AnimateTile_Object(TileIndex tile);
 
-	for (auto it = std::begin(_animated_tiles); it != std::end(_animated_tiles); /* nothing */) {
-		TileIndex &tile = *it;
+	PerformanceAccumulator framerate(PFE_GL_LANDSCAPE);
 
-		if (GetAnimatedTileState(tile) != AnimatedTileState::Animated) {
-			/* Tile should not be animated any more, mark it as not animated and erase it from the list. */
-			SetAnimatedTileState(tile, AnimatedTileState::None);
+	const uint32_t ticks = (uint) _scaled_tick_counter;
+	const uint8_t max_speed = (ticks == 0) ? 32 : FindFirstBit(ticks);
 
-			/* Removing the last entry, no need to swap and continue. */
-			if (std::next(it) == std::end(_animated_tiles)) {
-				_animated_tiles.pop_back();
-				break;
-			}
-
-			/* Replace the current list entry with the back of the list to avoid moving elements. */
-			*it = _animated_tiles.back();
-			_animated_tiles.pop_back();
+	auto iter = _animated_tiles.begin();
+	while (iter != _animated_tiles.end()) {
+		if (iter->second.pending_deletion) {
+			iter = _animated_tiles.erase(iter);
 			continue;
 		}
 
-		AnimateTile(tile);
-		++it;
+		auto next = iter;
+		++next;
+		if (next != _animated_tiles.end()) {
+			PREFETCH_NTA(&(next->second));
+		}
+
+		if (iter->second.speed <= max_speed) {
+			const TileIndex curr = iter->first;
+			switch (GetTileType(curr)) {
+				case TileType::House:
+					AnimateTile_Town(curr);
+					break;
+
+				case TileType::Station:
+					AnimateTile_Station(curr);
+					break;
+
+				case TileType::Industry:
+					AnimateTile_Industry(curr);
+					break;
+
+				case TileType::Object:
+					AnimateTile_Object(curr);
+					break;
+
+				default:
+					NOT_REACHED();
+			}
+		}
+		iter = next;
+	}
+}
+
+void UpdateAllAnimatedTileSpeeds()
+{
+	auto iter = _animated_tiles.begin();
+	while (iter != _animated_tiles.end()) {
+		if (iter->second.pending_deletion) {
+			iter = _animated_tiles.erase(iter);
+			continue;
+		}
+		UpdateAnimatedTileSpeed(iter->first, iter->second);
+		++iter;
 	}
 }
 

@@ -21,6 +21,7 @@ add_subdirectory(newgrf)
 add_subdirectory(os)
 add_subdirectory(pathfinder)
 add_subdirectory(saveload)
+add_subdirectory(sl)
 add_subdirectory(sound)
 add_subdirectory(spriteloader)
 add_subdirectory(table)
@@ -53,19 +54,15 @@ add_files(
 add_files(
     aircraft.h
     aircraft_cmd.cpp
-    aircraft_cmd.h
     aircraft_gui.cpp
     airport.cpp
     airport.h
-    airport_cmd.h
     airport_gui.cpp
     animated_tile.cpp
+    animated_tile.h
     animated_tile_func.h
-    animated_tile_map.h
     articulated_vehicles.cpp
     articulated_vehicles.h
-    autocompletion.cpp
-    autocompletion.h
     autoreplace.cpp
     autoreplace_base.h
     autoreplace_cmd.cpp
@@ -83,8 +80,6 @@ add_files(
     base_media_music.h
     base_media_sounds.h
     base_station_base.h
-    build_confirmation_func.h
-    build_confirmation_gui.cpp
     bitmap_type.h
     bmp.cpp
     bmp.h
@@ -93,7 +88,7 @@ add_files(
     bridge_gui.cpp
     bridge_map.cpp
     bridge_map.h
-    bridge_type.h
+    bridge_signal_map.h
     build_vehicle_gui.cpp
     cachecheck.cpp
     cargo_type.h
@@ -113,7 +108,13 @@ add_files(
     clear_func.h
     clear_map.h
     command.cpp
+    command_callback.cpp
     command_func.h
+    command_log.h
+    command_serialisation.h
+    command_settings_type.h
+    command_table.cpp
+    command_table.h
     command_type.h
     company_base.h
     company_cmd.cpp
@@ -134,17 +135,30 @@ add_files(
     cpu.h
     crashlog.cpp
     crashlog.h
+    crashlog_bfd.h
     currency.cpp
     currency.h
+    date.cpp
+    date_func.h
     date_gui.cpp
     date_gui.h
+    date_type.h
     debug.cpp
     debug.h
+    debug_dbg_assert.h
+    debug_desync.h
+    debug_settings.h
+    debug_tictoc.h
     dedicated.cpp
+    departures.cpp
+    departures_func.h
+    departures_gui.cpp
+    departures_gui.h
+    departures_type.h
     depot.cpp
     depot_base.h
+    depot_bridge.h
     depot_cmd.cpp
-    depot_cmd.h
     depot_func.h
     depot_gui.cpp
     depot_map.h
@@ -153,8 +167,8 @@ add_files(
     direction_type.h
     disaster_vehicle.cpp
     disaster_vehicle.h
-    dock_cmd.h
     dock_gui.cpp
+    dock_gui.h
     driver.cpp
     driver.h
     dropdown.cpp
@@ -163,7 +177,6 @@ add_files(
     dropdown_type.h
     economy.cpp
     economy_base.h
-    economy_cmd.h
     economy_func.h
     economy_type.h
     effectvehicle.cpp
@@ -177,11 +190,14 @@ add_files(
     engine_func.h
     engine_gui.cpp
     engine_gui.h
+    engine_override.h
     engine_type.h
-    error.h
     error.cpp
+    error.h
     error_func.h
     error_gui.cpp
+    event_logs.cpp
+    event_logs.h
     fileio.cpp
     fileio_func.h
     fileio_type.h
@@ -223,6 +239,7 @@ add_files(
     group_gui.h
     group_type.h
     gui.h
+    guitimer_func.h
     heightmap.cpp
     heightmap.h
     help_gui.cpp
@@ -244,21 +261,26 @@ add_files(
     ini.cpp
     ini_load.cpp
     ini_type.h
+    infrastructure.cpp
+    infrastructure_func.h
     intro_gui.cpp
     landscape.cpp
+    landscape_ppz.cpp
     landscape.h
     landscape_cmd.h
     landscape_type.h
     language.h
     league_base.h
-    league_cmd.h
     league_cmd.cpp
+    league_cmd.h
     league_gui.h
     league_gui.cpp
     league_type.h
     library_loader.h
     livery.h
+    load_check.h
     main_gui.cpp
+    maintenance_func.h
     map.cpp
     map_func.h
     map_type.h
@@ -279,6 +301,8 @@ add_files(
     newgrf_airporttiles.h
     newgrf_animation_base.h
     newgrf_animation_type.h
+    newgrf_analysis.cpp
+    newgrf_analysis.h
     newgrf_badge.cpp
     newgrf_badge.h
     newgrf_badge_config.cpp
@@ -286,6 +310,7 @@ add_files(
     newgrf_badge_gui.cpp
     newgrf_badge_gui.h
     newgrf_badge_type.h
+    newgrf_cache_check.h
     newgrf_callbacks.h
     newgrf_canal.cpp
     newgrf_canal.h
@@ -299,8 +324,11 @@ add_files(
     newgrf_config.h
     newgrf_debug.h
     newgrf_debug_gui.cpp
+    newgrf_dump.h
     newgrf_engine.cpp
     newgrf_engine.h
+    newgrf_extension.cpp
+    newgrf_extension.h
     newgrf_generic.cpp
     newgrf_generic.h
     newgrf_gui.cpp
@@ -310,6 +338,11 @@ add_files(
     newgrf_industries.h
     newgrf_industrytiles.cpp
     newgrf_industrytiles.h
+    newgrf_industrytiles_analysis.h
+    newgrf_newlandscape.cpp
+    newgrf_newlandscape.h
+    newgrf_newsignals.cpp
+    newgrf_newsignals.h
     newgrf_object.cpp
     newgrf_object.h
     newgrf_profiling.cpp
@@ -327,6 +360,7 @@ add_files(
     newgrf_spritegroup.h
     newgrf_station.cpp
     newgrf_station.h
+    newgrf_station_id.h
     newgrf_storage.cpp
     newgrf_storage.h
     newgrf_text.cpp
@@ -353,11 +387,17 @@ add_files(
     order_backup.cpp
     order_backup.h
     order_base.h
+    order_bulk.h
     order_cmd.cpp
     order_cmd.h
+    order_dest_func.h
+    order_enums_to_json.h
     order_func.h
     order_gui.cpp
     order_type.h
+    order_serialisation.cpp
+    order_serialisation.h
+    order_serialisation_gui.cpp
     osk_gui.cpp
     palette.cpp
     palette_func.h
@@ -366,6 +406,17 @@ add_files(
     picker_func.h
     picker_gui.cpp
     picker_gui.h
+    plans.cpp
+    plans_base.h
+    plans_cmd.cpp
+    plans_cmd.h
+    plans_func.h
+    plans_gui.cpp
+    plans_type.h
+    programmable_signals.cpp
+    programmable_signals_cmd.h
+    programmable_signals_gui.cpp
+    programmable_signals.h
     progress.cpp
     progress.h
     provider_manager.h
@@ -376,6 +427,7 @@ add_files(
     rail_cmd.h
     rail_gui.cpp
     rail_gui.h
+    rail_gui_type.h
     rail_map.h
     rail_type.h
     random_access_file.cpp
@@ -396,14 +448,19 @@ add_files(
     roadstop_base.h
     roadveh.h
     roadveh_cmd.cpp
-    roadveh_cmd.h
     roadveh_gui.cpp
     safeguards.h
+    schdispatch.h
+    schdispatch_cmd.cpp
+    schdispatch_gui.cpp
     screenshot_bmp.cpp
     screenshot_gui.cpp
     screenshot_gui.h
     screenshot.cpp
     screenshot.h
+    scope.h
+    scope_info.cpp
+    scope_info.h
     screenshot_type.h
     screenshot_pcx.cpp
     settingentry_gui.cpp
@@ -414,12 +471,11 @@ add_files(
     settings_gui.cpp
     settings_gui.h
     settings_internal.h
-    settings_table.h
     settings_table.cpp
+    settings_table.h
     settings_type.h
     ship.h
     ship_cmd.cpp
-    ship_cmd.h
     ship_gui.cpp
     signal.cpp
     signal_func.h
@@ -437,8 +493,10 @@ add_files(
     slider_func.h
     slope_func.h
     slope_type.h
+    smallmap_colours.h
     smallmap_gui.cpp
     smallmap_gui.h
+    smallmap_table.cpp
     social_integration.cpp
     social_integration.h
     sortlist_type.h
@@ -455,17 +513,15 @@ add_files(
     sprite.h
     spritecache.cpp
     spritecache.h
-    spritecache_internal.h
-    spritecache_type.h
     station.cpp
     station_base.h
     station_cmd.cpp
     station_cmd.h
+    station_container.h
     station_func.h
     station_gui.cpp
     station_gui.h
     station_kdtree.h
-    station_layout_type.h
     station_map.h
     station_type.h
     statusbar_gui.cpp
@@ -478,7 +534,9 @@ add_files(
     story_type.h
     string.cpp
     string_base.h
+    string_extra.cpp
     string_func.h
+    string_func_extra.h
     string_type.h
     stringfilter.cpp
     stringfilter_type.h
@@ -486,6 +544,7 @@ add_files(
     strings_func.h
     strings_internal.h
     strings_type.h
+    strings_type_trait.h
     subsidy.cpp
     subsidy_base.h
     subsidy_cmd.h
@@ -495,6 +554,16 @@ add_files(
     survey.cpp
     survey.h
     tar_type.h
+    tbtr_template_gui_main.cpp
+    tbtr_template_gui_create.cpp
+    tbtr_template_vehicle.cpp
+    tbtr_template_vehicle_cmd.h
+    tbtr_template_vehicle_func.cpp
+    tbtr_template_gui_main.h
+    tbtr_template_gui_create.h
+    tbtr_template_vehicle.h
+    tbtr_template_vehicle_func.h
+    tbtr_template_vehicle_type.h
     terraform_cmd.cpp
     terraform_cmd.h
     terraform_gui.cpp
@@ -526,7 +595,6 @@ add_files(
     toolbar_gui.h
     town.h
     town_cmd.cpp
-    town_cmd.h
     town_gui.cpp
     town_kdtree.h
     town_map.h
@@ -534,26 +602,36 @@ add_files(
     townname.cpp
     townname_func.h
     townname_type.h
+    tracerestrict.cpp
+    tracerestrict.h
+    tracerestrict_backup.h
+    tracerestrict_cmd.h
+    tracerestrict_id_type.h
+    tracerestrict_gui.cpp
     track_func.h
     track_type.h
     train.h
     train_cmd.cpp
     train_cmd.h
     train_gui.cpp
+    train_speed_adaptation.h
     transparency.h
     transparency_gui.cpp
     transparency_gui.h
     transport_type.h
     tree_cmd.cpp
-    tree_cmd.h
+    tree_func.h
     tree_gui.cpp
     tree_map.h
+    tree_type.h
+    tunnel_base.h
     tunnel_map.cpp
     tunnel_map.h
     tunnelbridge.h
     tunnelbridge_cmd.cpp
     tunnelbridge_cmd.h
     tunnelbridge_map.h
+    unit_conversion.h
     vehicle.cpp
     vehicle_base.h
     vehicle_cmd.cpp
@@ -565,7 +643,6 @@ add_files(
     vehicle_type.h
     vehiclelist.cpp
     vehiclelist.h
-    vehiclelist_cmd.h
     vehiclelist_func.h
     viewport.cpp
     viewport_cmd.h
@@ -576,6 +653,8 @@ add_files(
     viewport_type.h
     void_cmd.cpp
     void_map.h
+    walltime_func.cpp
+    walltime_func.h
     water.h
     water_cmd.cpp
     water_cmd.h
@@ -592,6 +671,12 @@ add_files(
     window_func.h
     window_gui.h
     window_type.h
+    window_type_trait.h
+    worker_thread.cpp
+    worker_thread.h
     zoom_func.h
     zoom_type.h
+    zoning.h
+    zoning_cmd.cpp
+    zoning_gui.cpp
 )

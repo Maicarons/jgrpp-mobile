@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file game_sl.cpp Handles the saveload part of the GameScripts */
+/** @file game_sl.cpp Handles the saveload part of the GameScripts. */
 
 #include "../stdafx.h"
 #include "../debug.h"
@@ -21,6 +21,10 @@
 #include "../game/game_text.hpp"
 
 #include "../safeguards.h"
+
+extern std::shared_ptr<GameStrings> _current_gamestrings_data;
+
+namespace upstream_sl {
 
 static std::string _game_saveload_name;
 static int         _game_saveload_version;
@@ -59,20 +63,20 @@ struct GSDTChunkHandler : ChunkHandler {
 		const std::vector<SaveLoad> slt = SlCompatTableHeader(_game_script_desc, _game_script_sl_compat);
 
 		/* Free all current data */
-		GameConfig::GetConfig(GameConfig::SSS_FORCE_GAME)->Change(std::nullopt);
+		GameConfig::GetConfig(GameConfig::ScriptSettingSource::ForceCurrentGame)->Change(std::nullopt);
 
 		if (SlIterateArray() == -1) return;
 
 		_game_saveload_version = -1;
 		SlObject(nullptr, slt);
 
-		if (_game_mode == GM_MENU || (_networking && !_network_server)) {
+		if (_game_mode == GameMode::Menu || (_networking && !_network_server)) {
 			GameInstance::LoadEmpty();
 			if (SlIterateArray() != -1) SlErrorCorrupt("Too many GameScript configs");
 			return;
 		}
 
-		GameConfig *config = GameConfig::GetConfig(GameConfig::SSS_FORCE_GAME);
+		GameConfig *config = GameConfig::GetConfig(GameConfig::ScriptSettingSource::ForceCurrentGame);
 		if (!_game_saveload_name.empty()) {
 			config->Change(_game_saveload_name, _game_saveload_version, false);
 			if (!config->HasScript()) {
@@ -112,8 +116,6 @@ struct GSDTChunkHandler : ChunkHandler {
 		SlAutolength(SaveReal_GSDT, 0);
 	}
 };
-
-extern std::shared_ptr<GameStrings> _current_gamestrings_data;
 
 static std::string _game_saveload_string;
 static uint32_t _game_saveload_strings;
@@ -198,3 +200,5 @@ static const ChunkHandlerRef game_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _game_chunk_handlers(game_chunk_handlers);
+
+}

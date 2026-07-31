@@ -20,6 +20,8 @@
 #include "../network/network_content.h"
 #include "../3rdparty/md5/md5.h"
 #include "../tar_type.h"
+#include "../core/format.hpp"
+#include "../scope_info.h"
 
 #include "../safeguards.h"
 
@@ -33,6 +35,8 @@ bool ScriptScanner::AddFile(const std::string &filename, size_t, const std::stri
 	this->main_script += "main.nut";
 
 	if (!FioCheckFileExists(filename, this->subdir) || !FioCheckFileExists(this->main_script, this->subdir)) return false;
+
+	SCOPE_INFO_FMT([&], "ScriptScanner::AddFile: {}, {}", filename, tar_filename);
 
 	this->ResetEngine();
 	try {
@@ -128,15 +132,17 @@ void ScriptScanner::RegisterScript(std::unique_ptr<ScriptInfo> &&info)
 	}
 }
 
-void ScriptScanner::GetConsoleList(std::back_insert_iterator<std::string> &output_iterator, bool newest_only) const
+std::string ScriptScanner::GetConsoleList(bool newest_only) const
 {
-	fmt::format_to(output_iterator, "List of {}:\n", this->GetScannerName());
+	std::string p = fmt::format("List of {}:\n", this->GetScannerName());
 	const ScriptInfoList &list = newest_only ? this->info_single_list : this->info_list;
 	for (const auto &item : list) {
 		ScriptInfo *i = item.second;
-		fmt::format_to(output_iterator, "{:>10} (v{:d}): {}\n", i->GetName(), i->GetVersion(), i->GetDescription());
+		fmt::format_to(std::back_inserter(p), "{:10} (v{}): {}\n", i->GetName(), i->GetVersion(), i->GetDescription());
 	}
-	fmt::format_to(output_iterator, "\n");
+	p += "\n";
+
+	return p;
 }
 
 /** Helper for creating a MD5sum of all files within of a script. */
@@ -147,6 +153,7 @@ struct ScriptFileChecksumCreator : FileScanner {
 	/**
 	 * Initialise the md5sum to be all zeroes,
 	 * so we can easily xor the data.
+	 * @param dir The directory to look in.
 	 */
 	ScriptFileChecksumCreator(Subdirectory dir) : dir(dir) {}
 
@@ -183,6 +190,7 @@ struct ScriptFileChecksumCreator : FileScanner {
  * @param ci The information to compare to.
  * @param md5sum Whether to check the MD5 checksum.
  * @param info The script to get the shortname and md5 sum from.
+ * @param dir The directory to look in for scripts.
  * @return True iff they're the same.
  */
 static bool IsSameScript(const ContentInfo &ci, bool md5sum, const ScriptInfo &info, Subdirectory dir)

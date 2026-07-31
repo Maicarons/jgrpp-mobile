@@ -10,7 +10,6 @@
 #include "../stdafx.h"
 #include "../debug.h"
 #include "squirrel_std.hpp"
-#include "../error_func.h"
 #include "../fileio_func.h"
 #include "../string_func.h"
 #include "script_fatalerror.hpp"
@@ -18,110 +17,82 @@
 #include <sqstdaux.h>
 #include <../squirrel/sqpcheader.h>
 #include <../squirrel/sqvm.h>
-#include "../core/math_func.hpp"
+#include "../core/alloc_func.hpp"
 #include "../core/string_consumer.hpp"
 
-#include "../safeguards.h"
-
-/*
- * If changing the call paths into the scripting engine, define this symbol to enable full debugging of allocations.
- * This lets you track whether the allocator context is being switched correctly in all call paths.
-#define SCRIPT_DEBUG_ALLOCATIONS
+/**
+ * In the memory allocator for Squirrel we want to directly use malloc/realloc, so when the OS
+ * does not have enough memory the game does not go into unrecoverable error mode and kill the
+ * whole game, but rather let the AI die though then we need to circumvent MallocT/ReallocT.
+ *
+ * So no #include "../safeguards.h" here as is required, but after the allocator's implementation.
  */
 
-struct ScriptAllocator {
-private:
-	std::allocator<uint8_t> allocator;
-	size_t allocated_size = 0; ///< Sum of allocated data size
-	size_t allocation_limit; ///< Maximum this allocator may use before allocations fail
-	/**
-	 * Whether the error has already been thrown, so to not throw secondary errors in
-	 * the handling of the allocation error. This as the handling of the error will
-	 * throw a Squirrel error so the Squirrel stack can be dumped, however that gets
-	 * allocated by this allocator and then you might end up in an infinite loop.
-	 */
-	bool error_thrown = false;
+static const size_t SAFE_LIMIT = 0x8000000; ///< 128 MiB, a safe choice for almost any situation
 
-	static const size_t SAFE_LIMIT = 0x8000000; ///< 128 MiB, a safe choice for almost any situation
+/* NB: Indented to reduce upstream diff */
 
-#ifdef SCRIPT_DEBUG_ALLOCATIONS
-	std::map<void *, size_t> allocations;
-#endif
-
-	/**
-	 * Checks whether an allocation is allowed by the memory limit set for the script.
-	 * @param requested_size The requested size that was requested to be allocated.
-	 * @throws Script_FatalError When memory may not be allocated (limit reached, except for error handling).
-	 */
-	void CheckAllocationAllowed(size_t requested_size)
+	void ScriptAllocator::CheckLimitFailed()
 	{
-		/* When an error has been thrown, we are allocating just a bit of memory for the stack trace. */
-		if (this->error_thrown) return;
-
-		if (this->allocated_size + requested_size <= this->allocation_limit) return;
-
-		/* Do not allow allocating more than the allocation limit. */
 		this->error_thrown = true;
-		std::string msg = fmt::format("Maximum memory allocation exceeded by {} bytes when allocating {} bytes",
-			this->allocated_size + requested_size - this->allocation_limit, requested_size);
-		throw Script_FatalError(msg);
+		throw Script_FatalError("Maximum memory allocation exceeded");
 	}
 
 	/**
-	 * Internal helper to allocate the given amount of bytes.
-	 * @param requested_size The requested size.
-	 * @return The allocated memory.
-	 * @throws Script_FatalError When memory could not be allocated.
+	 * Catch all validation for the allocation; did it allocate too much memory according
+	 * to the allocation limit or did the allocation at the OS level maybe fail? In those
+	 * error situations a Script_FatalError is thrown, but once that has been done further
+	 * allocations are allowed to make it possible for Squirrel to throw the error and
+	 * clean everything up.
+	 * @param requested_size The requested size that was requested to be allocated.
+	 * @param p              The pointer to the allocated object, or null if allocation failed.
 	 */
-	void *DoAlloc(SQUnsignedInteger requested_size)
+	void ScriptAllocator::CheckAllocation(size_t requested_size, void *p)
 	{
-		try {
-			void *p = this->allocator.allocate(requested_size);
-			assert(p != nullptr);
-			this->allocated_size += requested_size;
+		if (this->allocated_size + requested_size > this->allocation_limit && !this->error_thrown) {
+			/* Do not allow allocating more than the allocation limit, except when an error is
+			 * already as then the allocation is for throwing that error in Squirrel, the
+			 * associated stack trace information and while cleaning up the AI. */
+			/* Don't leak the rejected allocation. */
+			free(p);
+			this->error_thrown = true;
+			throw Script_FatalError(fmt::format("Maximum memory allocation exceeded by {} bytes when allocating {} bytes",
+					this->allocated_size + requested_size - this->allocation_limit, requested_size));
+		}
 
-#ifdef SCRIPT_DEBUG_ALLOCATIONS
-			assert(this->allocations.find(p) == this->allocations.end());
-			this->allocations[p] = requested_size;
-#endif
-			return p;
-		} catch (const std::bad_alloc &) {
+		if (p == nullptr) {
 			/* The OS did not have enough memory to allocate the object, regardless of the
 			 * limit imposed by OpenTTD on the amount of memory that may be allocated. */
 			if (this->error_thrown) {
 				/* The allocation is called in the error handling of a memory allocation
 				 * failure, then not being able to allocate that small amount of memory
 				 * means there is no other choice than to bug out completely. */
-				FatalError("Out of memory. Cannot allocate {} bytes", requested_size);
+				MallocError(requested_size);
 			}
 
 			this->error_thrown = true;
-			std::string msg = fmt::format("Out of memory. Cannot allocate {} bytes", requested_size);
-			throw Script_FatalError(msg);
+			throw Script_FatalError(fmt::format("Out of memory. Cannot allocate {} bytes", requested_size));
 		}
 	}
 
-public:
-	size_t GetAllocatedSize() const { return this->allocated_size; }
-
-	void CheckLimit() const
+	void *ScriptAllocator::Malloc(SQUnsignedInteger size)
 	{
-		if (this->allocated_size > this->allocation_limit) throw Script_FatalError("Maximum memory allocation exceeded");
+		void *p = malloc(size);
+
+		this->CheckAllocation(size, p);
+
+		this->allocated_size += size;
+
+#ifdef SCRIPT_DEBUG_ALLOCATIONS
+		assert(p != nullptr);
+		assert(this->allocations.find(p) == this->allocations.end());
+		this->allocations[p] = size;
+#endif
+
+		return p;
 	}
 
-	void Reset()
-	{
-		assert(this->allocated_size == 0);
-		this->error_thrown = false;
-	}
-
-	void *Malloc(SQUnsignedInteger size)
-	{
-		this->CheckAllocationAllowed(size);
-		return this->DoAlloc(size);
-	}
-
-	void *Realloc(void *p, SQUnsignedInteger oldsize, SQUnsignedInteger size)
+	void *ScriptAllocator::Realloc(void *p, SQUnsignedInteger oldsize, SQUnsignedInteger size)
 	{
 		if (p == nullptr) {
 			return this->Malloc(size);
@@ -131,19 +102,38 @@ public:
 			return nullptr;
 		}
 
-		this->CheckAllocationAllowed(size - oldsize);
+#ifdef SCRIPT_DEBUG_ALLOCATIONS
+		assert(this->allocations[p] == oldsize);
+		this->allocations.erase(p);
+#endif
+		/* Can't use realloc directly because memory limit check.
+		 * If memory exception is thrown, the old pointer is expected
+		 * to be valid for engine cleanup.
+		 */
+		void *new_p = malloc(size);
 
-		void *new_p = this->DoAlloc(size);
-		std::copy_n(static_cast<std::byte *>(p), std::min(oldsize, size), static_cast<std::byte *>(new_p));
-		this->Free(p, oldsize);
+		this->CheckAllocation(size - oldsize, new_p);
+
+		/* Memory limit test passed, we can copy data and free old pointer. */
+		memcpy(new_p, p, std::min(oldsize, size));
+		free(p);
+
+		this->allocated_size -= oldsize;
+		this->allocated_size += size;
+
+#ifdef SCRIPT_DEBUG_ALLOCATIONS
+		assert(new_p != nullptr);
+		assert(this->allocations.find(p) == this->allocations.end());
+		this->allocations[new_p] = size;
+#endif
 
 		return new_p;
 	}
 
-	void Free(void *p, SQUnsignedInteger size)
+	void ScriptAllocator::Free(void *p, SQUnsignedInteger size)
 	{
 		if (p == nullptr) return;
-		this->allocator.deallocate(reinterpret_cast<uint8_t*>(p), size);
+		free(p);
 		this->allocated_size -= size;
 
 #ifdef SCRIPT_DEBUG_ALLOCATIONS
@@ -152,30 +142,46 @@ public:
 #endif
 	}
 
-	ScriptAllocator()
+	ScriptAllocator::ScriptAllocator()
 	{
+		this->allocated_size = 0;
 		this->allocation_limit = static_cast<size_t>(_settings_game.script.script_max_memory_megabytes) << 20;
 		if (this->allocation_limit == 0) this->allocation_limit = SAFE_LIMIT; // in case the setting is somehow zero
+		this->error_thrown = false;
 	}
 
-	~ScriptAllocator()
+	ScriptAllocator::~ScriptAllocator()
 	{
 #ifdef SCRIPT_DEBUG_ALLOCATIONS
 		assert(this->allocations.empty());
 #endif
 	}
-};
+
+/**
+ * In the memory allocator for Squirrel we want to directly use malloc/realloc, so when the OS
+ * does not have enough memory the game does not go into unrecoverable error mode and kill the
+ * whole game, but rather let the AI die though then we need to circumvent MallocT/ReallocT.
+ * For the rest of this code, the safeguards should be in place though!
+ */
+#include "../safeguards.h"
 
 ScriptAllocator *_squirrel_allocator = nullptr;
 
+/* See 3rdparty/squirrel/squirrel/sqmem.cpp for the default allocator implementation, which this overrides */
+#ifndef SQUIRREL_DEFAULT_ALLOCATOR
 void *sq_vm_malloc(SQUnsignedInteger size) { return _squirrel_allocator->Malloc(size); }
 void *sq_vm_realloc(void *p, SQUnsignedInteger oldsize, SQUnsignedInteger size) { return _squirrel_allocator->Realloc(p, oldsize, size); }
 void sq_vm_free(void *p, SQUnsignedInteger size) { _squirrel_allocator->Free(p, size); }
+#endif
 
 size_t Squirrel::GetAllocatedMemory() const noexcept
 {
-	assert(this->allocator != nullptr);
-	return this->allocator->GetAllocatedSize();
+	return this->allocator.allocated_size;
+}
+
+void Squirrel::SetMemoryAllocationLimit(size_t limit) noexcept
+{
+	this->allocator.allocation_limit = limit;
 }
 
 
@@ -188,7 +194,7 @@ void Squirrel::CompileError(HSQUIRRELVM vm, std::string_view desc, std::string_v
 	engine->crashed = true;
 	SQPrintFunc *func = engine->print_func;
 	if (func == nullptr) {
-		Debug(misc, 0, "[Squirrel] Compile error: {}", msg);
+		Debug(script, 0, "[squirrel] Compile error: {}", StrTrimView(msg, StringConsumer::WHITESPACE_OR_NEWLINE));
 	} else {
 		(*func)(true, msg);
 	}
@@ -199,7 +205,7 @@ void Squirrel::ErrorPrintFunc(HSQUIRRELVM vm, std::string_view s)
 	/* Check if we have a custom print function */
 	SQPrintFunc *func = ((Squirrel *)sq_getforeignptr(vm))->print_func;
 	if (func == nullptr) {
-		fmt::print(stderr, "{}", s);
+		Debug(script, 0, "[squirrel] Error: {}", StrTrimView(s, StringConsumer::WHITESPACE_OR_NEWLINE));
 	} else {
 		(*func)(true, s);
 	}
@@ -216,7 +222,7 @@ void Squirrel::RunError(HSQUIRRELVM vm, std::string_view error)
 	Squirrel *engine = (Squirrel *)sq_getforeignptr(vm);
 	SQPrintFunc *func = engine->print_func;
 	if (func == nullptr) {
-		fmt::print(stderr, "{}", msg);
+		Debug(script, 0, "[squirrel] {}", StrTrimView(msg, StringConsumer::WHITESPACE_OR_NEWLINE));
 	} else {
 		(*func)(true, msg);
 	}
@@ -247,27 +253,51 @@ void Squirrel::PrintFunc(HSQUIRRELVM vm, std::string_view s)
 	/* Check if we have a custom print function */
 	SQPrintFunc *func = ((Squirrel *)sq_getforeignptr(vm))->print_func;
 	if (func == nullptr) {
-		fmt::print("{}", s);
+		Debug(script, 0, "[squirrel] {}", StrTrimView(s, StringConsumer::WHITESPACE_OR_NEWLINE));
 	} else {
 		(*func)(false, s);
 	}
 }
 
-void Squirrel::AddMethod(std::string_view method_name, SQFUNCTION proc, std::string_view params, void *userdata, int size)
+void Squirrel::AddMethod(std::string_view method_name, SQFUNCTION proc, std::string_view params, void *userdata, int size, bool suspendable)
 {
 	ScriptAllocatorScope alloc_scope(this);
 
-	sq_pushstring(this->vm, method_name);
+	if (suspendable) {
+		format_buffer_sized<128> buf;
+		buf.format("@{}@", method_name);
+		sq_pushstring(this->vm, buf);
+	} else {
+		sq_pushstring(this->vm, method_name);
+	}
 
 	if (size != 0) {
 		void *ptr = sq_newuserdata(vm, size);
-		std::copy_n(static_cast<std::byte *>(userdata), size, static_cast<std::byte *>(ptr));
+		memcpy(ptr, userdata, size);
 	}
 
 	sq_newclosure(this->vm, proc, size != 0 ? 1 : 0);
 	if (!params.empty()) sq_setparamscheck(this->vm, params.size(), params);
 	sq_setnativeclosurename(this->vm, -1, method_name);
 	sq_newslot(this->vm, -3, SQFalse);
+
+	if (suspendable) {
+		std::string squirrel_script = fmt::format(
+			"function {0}(...)\n"
+			"{{\n"
+			"    local args = [this];\n"
+			"    for(local i = 0; i < vargc; i++) args.push(vargv[i]);\n"
+			"    while(this[\"@{0}@\"].acall(args)); \n"
+			"}}\n"
+			"return {0};\n", method_name);
+
+		sq_pushstring(this->vm, method_name);
+		if (SQ_FAILED(sq_compilebuffer(this->vm, squirrel_script, method_name, SQTrue))) NOT_REACHED();
+		sq_pushroottable(this->vm);
+		if (SQ_FAILED(sq_call(this->vm, 1, SQTrue, SQTrue))) NOT_REACHED();
+		sq_remove(this->vm, -2);
+		sq_newslot(this->vm, -3, SQFalse);
+	}
 }
 
 void Squirrel::AddConst(std::string_view var_name, SQInteger value)
@@ -305,8 +335,8 @@ void Squirrel::AddClassBegin(std::string_view class_name, std::string_view paren
 	sq_pushstring(this->vm, class_name);
 	sq_pushstring(this->vm, parent_class);
 	if (SQ_FAILED(sq_get(this->vm, -3))) {
-		Debug(misc, 0, "[squirrel] Failed to initialize class '{}' based on parent class '{}'", class_name, parent_class);
-		Debug(misc, 0, "[squirrel] Make sure that '{}' exists before trying to define '{}'", parent_class, class_name);
+		Debug(script, 0, "[squirrel] Failed to initialize class '{}' based on parent class '{}'", class_name, parent_class);
+		Debug(script, 0, "[squirrel] Make sure that '{}' exists before trying to define '{}'", parent_class, class_name);
 		return;
 	}
 	sq_newclass(this->vm, SQTrue);
@@ -318,6 +348,21 @@ void Squirrel::AddClassEnd()
 
 	sq_newslot(vm, -3, SQFalse);
 	sq_pop(vm, 1);
+}
+
+void Squirrel::AddScopedEnumBegin(std::string_view enum_name)
+{
+	ScriptAllocatorScope alloc_scope(this);
+
+	sq_pushstring(this->vm, enum_name);
+	sq_newclass(this->vm, SQFalse);
+}
+
+void Squirrel::AddScopedEnumEnd()
+{
+	ScriptAllocatorScope alloc_scope(this);
+
+	sq_newslot(vm, -3, SQFalse);
 }
 
 bool Squirrel::MethodExists(HSQOBJECT instance, std::string_view method_name)
@@ -356,7 +401,7 @@ bool Squirrel::Resume(int suspend)
 
 	this->crashed = !sq_resumecatch(this->vm, suspend);
 	this->overdrawn_ops = -this->vm->_ops_till_suspend;
-	this->allocator->CheckLimit();
+	this->allocator.CheckLimit();
 	return this->vm->_suspended != 0;
 }
 
@@ -377,7 +422,7 @@ bool Squirrel::CallMethod(HSQOBJECT instance, std::string_view method_name, HSQO
 {
 	assert(!this->crashed);
 	ScriptAllocatorScope alloc_scope(this);
-	this->allocator->CheckLimit();
+	this->allocator.CheckLimit();
 
 	/* Store the stack-location for the return value. We need to
 	 * restore this after saving or the stack will be corrupted
@@ -390,7 +435,7 @@ bool Squirrel::CallMethod(HSQOBJECT instance, std::string_view method_name, HSQO
 	/* Find the function-name inside the script */
 	sq_pushstring(this->vm, method_name);
 	if (SQ_FAILED(sq_get(this->vm, -2))) {
-		Debug(misc, 0, "[squirrel] Could not find '{}' in the class", method_name);
+		Debug(script, 0, "[squirrel] Could not find '{}' in the class", method_name);
 		sq_settop(this->vm, top);
 		return false;
 	}
@@ -454,14 +499,14 @@ bool Squirrel::CallBoolMethod(HSQOBJECT instance, std::string_view method_name, 
 	}
 
 	if (SQ_FAILED(sq_get(vm, -2))) {
-		Debug(misc, 0, "[squirrel] Failed to find class by the name '{}{}'", prepend_API_name ? engine->GetAPIName() : "", class_name);
+		Debug(script, 0, "[squirrel] Failed to find class by the name '{}{}'", prepend_API_name ? engine->GetAPIName() : "", class_name);
 		sq_settop(vm, oldtop);
 		return false;
 	}
 
 	/* Create the instance */
 	if (SQ_FAILED(sq_createinstance(vm, -1))) {
-		Debug(misc, 0, "[squirrel] Failed to create instance for class '{}{}'", prepend_API_name ? engine->GetAPIName() : "", class_name);
+		Debug(script, 0, "[squirrel] Failed to create instance for class '{}{}'", prepend_API_name ? engine->GetAPIName() : "", class_name);
 		sq_settop(vm, oldtop);
 		return false;
 	}
@@ -508,7 +553,7 @@ bool Squirrel::CreateClassInstance(const std::string &class_name, void *real_ins
 }
 
 Squirrel::Squirrel(std::string_view api_name) :
-	api_name(api_name), allocator(std::make_unique<ScriptAllocator>())
+	api_name(api_name)
 {
 	this->Initialize();
 }
@@ -525,7 +570,7 @@ void Squirrel::Initialize()
 
 	/* Handle compile-errors ourself, so we can display it nicely */
 	sq_setcompilererrorhandler(this->vm, &Squirrel::CompileError);
-	sq_notifyallexceptions(this->vm, _debug_script_level > 5);
+	sq_notifyallexceptions(this->vm, GetDebugLevel(DebugLevelID::script) > 5);
 	/* Set a good print-function */
 	sq_setprintfunc(this->vm, &Squirrel::PrintFunc);
 	/* Handle runtime-errors ourself, so we can display it nicely */
@@ -626,11 +671,11 @@ SQRESULT Squirrel::LoadFile(HSQUIRRELVM vm, const std::string &filename, SQBool 
 	std::optional<FileHandle> file = std::nullopt;
 	size_t size;
 	if (this->GetAPIName().starts_with("AI")) {
-		file = FioFOpenFile(filename, "rb", AI_DIR, &size);
-		if (!file.has_value()) file = FioFOpenFile(filename, "rb", AI_LIBRARY_DIR, &size);
+		file = FioFOpenFile(filename, "rb", Subdirectory::Ai, &size);
+		if (!file.has_value()) file = FioFOpenFile(filename, "rb", Subdirectory::AiLibrary, &size);
 	} else if (this->GetAPIName().starts_with("GS")) {
-		file = FioFOpenFile(filename, "rb", GAME_DIR, &size);
-		if (!file.has_value()) file = FioFOpenFile(filename, "rb", GAME_LIBRARY_DIR, &size);
+		file = FioFOpenFile(filename, "rb", Subdirectory::Gs, &size);
+		if (!file.has_value()) file = FioFOpenFile(filename, "rb", Subdirectory::GsLibrary, &size);
 	} else {
 		NOT_REACHED();
 	}
@@ -706,7 +751,7 @@ bool Squirrel::LoadScript(HSQUIRRELVM vm, const std::string &script, bool in_roo
 	}
 
 	vm->_ops_till_suspend = ops_left;
-	Debug(misc, 0, "[squirrel] Failed to compile '{}'", script);
+	Debug(script, 0, "[squirrel] Failed to compile '{}'", script);
 	return false;
 }
 
@@ -734,8 +779,10 @@ void Squirrel::Uninitialize()
 	sq_pop(this->vm, 1);
 	sq_close(this->vm);
 
+	assert(this->allocator.allocated_size == 0);
+
 	/* Reset memory allocation errors. */
-	this->allocator->Reset();
+	this->allocator.error_thrown = false;
 }
 
 void Squirrel::Reset()
@@ -795,4 +842,9 @@ bool Squirrel::CanSuspend()
 SQInteger Squirrel::GetOpsTillSuspend()
 {
 	return this->vm->_ops_till_suspend;
+}
+
+std::string SquirrelMakeCannotResizeError(size_t newsize)
+{
+	return fmt::format("cannot resize to {}", newsize);
 }

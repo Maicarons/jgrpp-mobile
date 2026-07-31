@@ -11,15 +11,12 @@
 #define ENGINE_CMD_H
 
 #include "command_type.h"
+#include "company_type.h"
+#include "engine_type.h"
 
-CommandCost CmdWantEnginePreview(DoCommandFlags flags, EngineID engine_id);
-CommandCost CmdEngineCtrl(DoCommandFlags flags, EngineID engine_id, CompanyID company_id, bool allow);
-CommandCost CmdRenameEngine(DoCommandFlags flags, EngineID engine_id, const std::string &text);
-CommandCost CmdSetVehicleVisibility(DoCommandFlags flags, EngineID engine_id, bool hide);
-
-DEF_CMD_TRAIT(CMD_WANT_ENGINE_PREVIEW,    CmdWantEnginePreview,    {},          CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_ENGINE_CTRL,            CmdEngineCtrl,           CommandFlag::Deity,  CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_RENAME_ENGINE,          CmdRenameEngine,         CommandFlag::Server, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_SET_VEHICLE_VISIBILITY, CmdSetVehicleVisibility, {},          CommandType::CompanySetting)
+DEF_CMD_TUPLE_NT(Commands::WantEnginePreview,    CmdWantEnginePreview,            {}, CommandType::VehicleManagement, CmdDataT<EngineID>)
+DEF_CMD_TUPLE_NT(Commands::EngineControl,        CmdEngineCtrl,            CMD_DEITY, CommandType::VehicleManagement, CmdDataT<EngineID, CompanyID, bool>)
+DEF_CMD_TUPLE_NT(Commands::RenameEngine,         CmdRenameEngine,         CMD_SERVER, CommandType::OtherManagement,   CmdDataT<EngineID, std::string>)
+DEF_CMD_TUPLE_NT(Commands::SetVehicleVisibility, CmdSetVehicleVisibility,         {}, CommandType::CompanySetting,    CmdDataT<EngineID, bool>)
 
 #endif /* ENGINE_CMD_H */

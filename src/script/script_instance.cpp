@@ -9,7 +9,7 @@
 
 #include "../stdafx.h"
 #include "../debug.h"
-#include "../saveload/saveload.h"
+#include "../sl/saveload.h"
 
 #include "../script/squirrel_class.hpp"
 #include "../script/squirrel_std.hpp"
@@ -24,13 +24,17 @@
 #include "api/script_event.hpp"
 #include "api/script_log.hpp"
 
-#include "../company_type.h"
+#include "../company_base.h"
+#include "../company_func.h"
 #include "../fileio_func.h"
-#include "../goal_type.h"
 #include "../league_type.h"
+#include "../goal_type.h"
+#include "../group_type.h"
 #include "../signs_type.h"
 #include "../story_type.h"
-#include "../misc/endian_buffer.hpp"
+#include "../vehicle_type.h"
+
+#include "../core/format.hpp"
 
 #include "../safeguards.h"
 
@@ -48,7 +52,7 @@ static void PrintFunc(bool error_msg, std::string_view message)
 	ScriptController::Print(error_msg, std::string{message});
 }
 
-ScriptInstance::ScriptInstance(std::string_view api_name)
+ScriptInstance::ScriptInstance(std::string_view api_name, ScriptType script_type) : api_name(api_name), script_type(script_type)
 {
 	this->storage = std::make_unique<ScriptStorage>();
 	this->engine = std::make_unique<Squirrel>(api_name);
@@ -78,6 +82,12 @@ void ScriptInstance::Initialize(const std::string &main_script, const std::strin
 			if (this->engine->IsSuspended()) ScriptLog::Error("This script took too long to load script. AI is not started.");
 			this->Died();
 			return;
+		}
+
+		if (this->script_type == ScriptType::GS) {
+			if (instance_name == "BeeRewardClass") {
+				this->LoadCompatibilityScript("brgs", Subdirectory::Gs);
+			}
 		}
 
 		/* Create the main-class */
@@ -139,6 +149,10 @@ bool ScriptInstance::LoadCompatibilityScripts(Subdirectory dir, std::span<const 
 	/* Downgrade the API till we are the same version as the script. The last
 	 * entry in the list is always the current version, so skip that one. */
 	for (auto it = std::rbegin(api_versions) + 1; it != std::rend(api_versions); ++it) {
+		if (*it == "13") {
+			/* 13 and below */
+			this->allow_text_param_mismatch = true;
+		}
 		if (!this->LoadCompatibilityScript(*it, dir)) return false;
 
 		if (*it == this->api_version) break;
@@ -182,7 +196,7 @@ void ScriptInstance::Died()
 	this->instance.reset();
 }
 
-void ScriptInstance::GameLoop()
+void ScriptInstance::GameLoop() noexcept
 {
 	ScriptObject::ActiveInstance active(*this);
 
@@ -239,7 +253,7 @@ void ScriptInstance::GameLoop()
 				}
 			}
 			/* Start the script by calling Start() */
-			if (!this->engine->CallMethod(*this->instance, "Start",  _settings_game.script.script_max_opcode_till_suspend) || !this->engine->IsSuspended()) this->Died();
+			if (!this->engine->CallMethod(*this->instance, "Start", this->GetMaxOpsTillSuspend()) || !this->engine->IsSuspended()) this->Died();
 		} catch (Script_Suspend &e) {
 			this->suspend  = e.GetSuspendTime();
 			this->callback = e.GetSuspendCallback();
@@ -260,7 +274,7 @@ void ScriptInstance::GameLoop()
 
 	/* Continue the VM */
 	try {
-		if (!this->engine->Resume(_settings_game.script.script_max_opcode_till_suspend)) this->Died();
+		if (!this->engine->Resume(this->GetMaxOpsTillSuspend())) this->Died();
 	} catch (Script_Suspend &e) {
 		this->suspend  = e.GetSuspendTime();
 		this->callback = e.GetSuspendCallback();
@@ -272,7 +286,7 @@ void ScriptInstance::GameLoop()
 	}
 }
 
-void ScriptInstance::CollectGarbage()
+void ScriptInstance::CollectGarbage() noexcept
 {
 	if (this->is_started && !this->IsDead()) {
 		ScriptObject::ActiveInstance active(*this);
@@ -287,42 +301,42 @@ void ScriptInstance::CollectGarbage()
 
 /* static */ void ScriptInstance::DoCommandReturnVehicleID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<VehicleID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<VehicleID>(::VehicleID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnSignID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<SignID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<SignID>(::SignID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnGroupID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<GroupID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<GroupID>(::GroupID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnGoalID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<GoalID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<GoalID>(::GoalID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnStoryPageID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<StoryPageID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<StoryPageID>(::StoryPageID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnStoryPageElementID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<StoryPageElementID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<StoryPageElementID>(::StoryPageElementID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnLeagueTableElementID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<LeagueTableElementID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<LeagueTableElementID>(::LeagueTableElementID::Invalid()));
 }
 
 /* static */ void ScriptInstance::DoCommandReturnLeagueTableID(ScriptInstance &instance)
 {
-	instance.engine->InsertResult(EndianBufferReader::ToValue<LeagueTableID>(ScriptObject::GetLastCommandResData()));
+	instance.engine->InsertResult(ScriptObject::GetLastCommandResultData<LeagueTableID>(::LeagueTableID::Invalid()));
 }
 
 
@@ -360,14 +374,7 @@ ScriptLogTypes::LogData &ScriptInstance::GetLogData()
  *  - null:    No data.
  */
 
-static uint8_t _script_sl_byte; ///< Used as source/target by the script saveload code to store/load a single byte.
-
-/** SaveLoad array that saves/loads exactly one byte. */
-static const SaveLoad _script_byte[] = {
-	SLEG_VAR("type", _script_sl_byte, SLE_UINT8),
-};
-
-/* static */ bool ScriptInstance::SaveObject(HSQUIRRELVM vm, SQInteger index, int max_depth, bool test)
+/* static */ bool ScriptInstance::SaveObject(HSQUIRRELVM vm, SQInteger index, int max_depth)
 {
 	if (max_depth == 0) {
 		ScriptLog::Error("Savedata can only be nested to 25 deep. No data saved."); // SQUIRREL_MAX_DEPTH = 25
@@ -376,24 +383,15 @@ static const SaveLoad _script_byte[] = {
 
 	switch (sq_gettype(vm, index)) {
 		case OT_INTEGER: {
-			if (!test) {
-				_script_sl_byte = SQSL_INT;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_INT);
 			SQInteger res;
 			sq_getinteger(vm, index, &res);
-			if (!test) {
-				int64_t value = (int64_t)res;
-				SlCopy(&value, 1, SLE_INT64);
-			}
+			SlWriteUint64((int64_t)res);
 			return true;
 		}
 
 		case OT_STRING: {
-			if (!test) {
-				_script_sl_byte = SQSL_STRING;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_STRING);
 			std::string_view view;
 			sq_getstring(vm, index, view);
 			size_t len = view.size() + 1;
@@ -401,23 +399,17 @@ static const SaveLoad _script_byte[] = {
 				ScriptLog::Error("Maximum string length is 254 chars. No data saved.");
 				return false;
 			}
-			if (!test) {
-				_script_sl_byte = (uint8_t)len;
-				SlObject(nullptr, _script_byte);
-				SlCopy(const_cast<char *>(view.data()), len, SLE_CHAR);
-			}
+			SlWriteByte((uint8_t)len);
+			SlCopyBytesWrite(view.data(), len);
 			return true;
 		}
 
 		case OT_ARRAY: {
-			if (!test) {
-				_script_sl_byte = SQSL_ARRAY;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_ARRAY);
 			sq_pushnull(vm);
 			while (SQ_SUCCEEDED(sq_next(vm, index - 1))) {
 				/* Store the value */
-				bool res = SaveObject(vm, -1, max_depth - 1, test);
+				bool res = SaveObject(vm, -1, max_depth - 1);
 				sq_pop(vm, 2);
 				if (!res) {
 					sq_pop(vm, 1);
@@ -425,22 +417,16 @@ static const SaveLoad _script_byte[] = {
 				}
 			}
 			sq_pop(vm, 1);
-			if (!test) {
-				_script_sl_byte = SQSL_ARRAY_TABLE_END;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_ARRAY_TABLE_END);
 			return true;
 		}
 
 		case OT_TABLE: {
-			if (!test) {
-				_script_sl_byte = SQSL_TABLE;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_TABLE);
 			sq_pushnull(vm);
 			while (SQ_SUCCEEDED(sq_next(vm, index - 1))) {
 				/* Store the key + value */
-				bool res = SaveObject(vm, -2, max_depth - 1, test) && SaveObject(vm, -1, max_depth - 1, test);
+				bool res = SaveObject(vm, -2, max_depth - 1) && SaveObject(vm, -1, max_depth - 1);
 				sq_pop(vm, 2);
 				if (!res) {
 					sq_pop(vm, 1);
@@ -448,47 +434,32 @@ static const SaveLoad _script_byte[] = {
 				}
 			}
 			sq_pop(vm, 1);
-			if (!test) {
-				_script_sl_byte = SQSL_ARRAY_TABLE_END;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_ARRAY_TABLE_END);
 			return true;
 		}
 
 		case OT_BOOL: {
-			if (!test) {
-				_script_sl_byte = SQSL_BOOL;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_BOOL);
 			SQBool res;
 			sq_getbool(vm, index, &res);
-			if (!test) {
-				_script_sl_byte = res ? 1 : 0;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(res ? 1 : 0);
 			return true;
 		}
 
 		case OT_NULL: {
-			if (!test) {
-				_script_sl_byte = SQSL_NULL;
-				SlObject(nullptr, _script_byte);
-			}
+			SlWriteByte(SQSL_NULL);
 			return true;
 		}
 
-		case OT_INSTANCE:{
-			if (!test) {
-				_script_sl_byte = SQSL_INSTANCE;
-				SlObject(nullptr, _script_byte);
-			}
+		case OT_INSTANCE: {
+			SlWriteByte(SQSL_INSTANCE);
 			SQInteger top = sq_gettop(vm);
 			try {
 				ScriptObject *obj = static_cast<ScriptObject *>(Squirrel::GetRealInstance(vm, -1, "Object"));
 				if (!obj->SaveObject(vm)) throw std::exception();
 				if (sq_gettop(vm) != top + 2) throw std::exception();
-				if (sq_gettype(vm, -2) != OT_STRING || !SaveObject(vm, -2, max_depth - 1, test)) throw std::exception();
-				if (!SaveObject(vm, -1, max_depth - 1, test)) throw std::exception();
+				if (sq_gettype(vm, -2) != OT_STRING || !SaveObject(vm, -2, max_depth - 1)) throw std::exception();
+				if (!SaveObject(vm, -1, max_depth - 1)) throw std::exception();
 				sq_settop(vm, top);
 				return true;
 			} catch (...) {
@@ -506,8 +477,7 @@ static const SaveLoad _script_byte[] = {
 
 /* static */ void ScriptInstance::SaveEmpty()
 {
-	_script_sl_byte = 0;
-	SlObject(nullptr, _script_byte);
+	SlWriteByte(0);
 }
 
 void ScriptInstance::Save()
@@ -522,10 +492,9 @@ void ScriptInstance::Save()
 
 	HSQUIRRELVM vm = this->engine->GetVM();
 	if (this->is_save_data_on_stack) {
-		_script_sl_byte = 1;
-		SlObject(nullptr, _script_byte);
+		SlWriteByte(1);
 		/* Save the data that was just loaded. */
-		SaveObject(vm, -1, SQUIRREL_MAX_DEPTH, false);
+		SaveObject(vm, -1, SQUIRREL_MAX_DEPTH);
 	} else if (!this->is_started) {
 		SaveEmpty();
 		return;
@@ -562,10 +531,11 @@ void ScriptInstance::Save()
 			return;
 		}
 		sq_pushobject(vm, savedata);
-		if (SaveObject(vm, -1, SQUIRREL_MAX_DEPTH, true)) {
-			_script_sl_byte = 1;
-			SlObject(nullptr, _script_byte);
-			SaveObject(vm, -1, SQUIRREL_MAX_DEPTH, false);
+		bool saved = SlConditionallySave([&]() {
+			SlWriteByte(1);
+			return SaveObject(vm, -1, SQUIRREL_MAX_DEPTH);
+		});
+		if (saved) {
 			this->is_save_data_on_stack = true;
 		} else {
 			SaveEmpty();
@@ -573,8 +543,7 @@ void ScriptInstance::Save()
 		}
 	} else {
 		ScriptLog::Warning("Save function is not implemented");
-		_script_sl_byte = 0;
-		SlObject(nullptr, _script_byte);
+		SlWriteByte(0);
 	}
 }
 
@@ -582,7 +551,7 @@ void ScriptInstance::Pause()
 {
 	/* Suspend script. */
 	HSQUIRRELVM vm = this->engine->GetVM();
-	Squirrel::DecreaseOps(vm, _settings_game.script.script_max_opcode_till_suspend);
+	Squirrel::DecreaseOps(vm, this->GetOpsTillSuspend());
 
 	this->is_paused = true;
 }
@@ -599,48 +568,52 @@ bool ScriptInstance::IsPaused()
 
 /* static */ bool ScriptInstance::LoadObjects(ScriptData *data)
 {
-	SlObject(nullptr, _script_byte);
-	switch (_script_sl_byte) {
+	uint8_t type = SlReadByte();
+	switch (type) {
 		case SQSL_INT: {
 			int64_t value;
-			SlCopy(&value, 1, IsSavegameVersionBefore(SLV_SCRIPT_INT64) ? SLE_FILE_I32 | SLE_VAR_I64 : SLE_INT64);
+			if (IsSavegameVersionBefore(SLV_SCRIPT_INT64) && SlXvIsFeatureMissing(XSLFI_SCRIPT_INT64)) {
+				value = (int32_t)SlReadUint32();
+			} else {
+				value = (int64_t)SlReadUint64();
+			}
 			if (data != nullptr) data->push_back(static_cast<SQInteger>(value));
 			return true;
 		}
 
 		case SQSL_STRING: {
-			SlObject(nullptr, _script_byte);
-			static char buf[std::numeric_limits<decltype(_script_sl_byte)>::max()];
-			SlCopy(buf, _script_sl_byte, SLE_CHAR);
-			if (data != nullptr) data->push_back(StrMakeValid(std::string_view(buf, _script_sl_byte)));
+			uint8_t len = SlReadByte();
+			char buf[std::numeric_limits<decltype(len)>::max()];
+			SlCopyBytesRead(buf, len);
+			if (data != nullptr) data->push_back(StrMakeValid(std::string_view(buf, len)));
 			return true;
 		}
 
 		case SQSL_ARRAY:
 		case SQSL_TABLE: {
-			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(_script_sl_byte));
+			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(type));
 			while (LoadObjects(data));
 			return true;
 		}
 
 		case SQSL_BOOL: {
-			SlObject(nullptr, _script_byte);
-			if (data != nullptr) data->push_back(static_cast<SQBool>(_script_sl_byte != 0));
+			uint8_t sl_byte = SlReadByte();
+			if (data != nullptr) data->push_back(static_cast<SQBool>(sl_byte != 0));
 			return true;
 		}
 
 		case SQSL_NULL: {
-			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(_script_sl_byte));
+			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(type));
 			return true;
 		}
 
 		case SQSL_INSTANCE: {
-			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(_script_sl_byte));
+			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(type));
 			return true;
 		}
 
 		case SQSL_ARRAY_TABLE_END: {
-			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(_script_sl_byte));
+			if (data != nullptr) data->push_back(static_cast<SQSaveLoadType>(type));
 			return false;
 		}
 
@@ -650,7 +623,7 @@ bool ScriptInstance::IsPaused()
 
 /* static */ bool ScriptInstance::LoadObjects(HSQUIRRELVM vm, ScriptData *data)
 {
-	ScriptDataVariant value = data->front();
+	ScriptDataVariant value = std::move(data->front());
 	data->pop_front();
 
 	struct visitor {
@@ -722,9 +695,9 @@ bool ScriptInstance::IsPaused()
 
 /* static */ void ScriptInstance::LoadEmpty()
 {
-	SlObject(nullptr, _script_byte);
+	uint8_t sl_byte = SlReadByte();
 	/* Check if there was anything saved at all. */
-	if (_script_sl_byte == 0) return;
+	if (sl_byte == 0) return;
 
 	LoadObjects(nullptr);
 }
@@ -736,9 +709,9 @@ bool ScriptInstance::IsPaused()
 		return nullptr;
 	}
 
-	SlObject(nullptr, _script_byte);
+	uint8_t sl_byte = SlReadByte();
 	/* Check if there was anything saved at all. */
-	if (_script_sl_byte == 0) return nullptr;
+	if (sl_byte == 0) return nullptr;
 
 	ScriptData *data = new ScriptData();
 	data->push_back((SQInteger)version);
@@ -810,26 +783,45 @@ SQInteger ScriptInstance::GetOpsTillSuspend()
 	return this->engine->GetOpsTillSuspend();
 }
 
-bool ScriptInstance::DoCommandCallback(const CommandCost &result, const CommandDataBuffer &data, CommandDataBuffer result_data, Commands cmd)
+void ScriptInstance::LimitOpsTillSuspend(SQInteger suspend)
+{
+	SQInteger current = this->GetOpsTillSuspend();
+	if (suspend < current) {
+		/* Reduce script ops. */
+		HSQUIRRELVM vm = this->engine->GetVM();
+		Squirrel::DecreaseOps(vm, current - suspend);
+	}
+}
+
+uint32_t ScriptInstance::GetMaxOpsTillSuspend() const
+{
+	if (this->script_type == ScriptType::GS && _pause_mode.Test(PauseMode::GameScript)) {
+		/* Boost opcodes till suspend when paused due to game script */
+		return std::min<uint32_t>(250000, _settings_game.script.script_max_opcode_till_suspend * 10);
+	}
+	return _settings_game.script.script_max_opcode_till_suspend;
+}
+
+bool ScriptInstance::DoCommandCallback(const CommandCost &result, Commands cmd, TileIndex tile, const CommandPayloadBase &payload, CallbackParameter param)
 {
 	ScriptObject::ActiveInstance active(*this);
 
-	if (!ScriptObject::CheckLastCommand(data, cmd)) {
+	if (!ScriptObject::CheckLastCommand(cmd, tile, param)) {
 		Debug(script, 1, "DoCommandCallback terminating a script, last command does not match expected command");
 		return false;
 	}
 
 	ScriptObject::SetLastCommandRes(result.Succeeded());
-	ScriptObject::SetLastCommandResData(std::move(result_data));
 
 	if (result.Failed()) {
 		ScriptObject::SetLastError(ScriptError::StringToError(result.GetErrorMessage()));
 	} else {
 		ScriptObject::IncreaseDoCommandCosts(result.GetCost());
 		ScriptObject::SetLastCost(result.GetCost());
+		ScriptObject::SetLastCommandResultData(result.GetResultDataWithType());
 	}
 
-	ScriptObject::SetLastCommand({}, CMD_END);
+	ScriptObject::SetLastCommand(Commands::End, INVALID_TILE, 0);
 
 	return true;
 }
@@ -845,6 +837,11 @@ size_t ScriptInstance::GetAllocatedMemory() const
 {
 	if (this->engine == nullptr) return this->last_allocated_memory;
 	return this->engine->GetAllocatedMemory();
+}
+
+void ScriptInstance::SetMemoryAllocationLimit(size_t limit) const
+{
+	if (this->engine != nullptr) this->engine->SetMemoryAllocationLimit(limit);
 }
 
 void ScriptInstance::ReleaseSQObject(HSQOBJECT *obj)

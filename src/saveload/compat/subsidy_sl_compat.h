@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _subsidies_desc. */
 const SaveLoadCompat _subsidies_sl_compat[] = {
 	SLC_VAR("cargo_type"),
@@ -22,5 +24,7 @@ const SaveLoadCompat _subsidies_sl_compat[] = {
 	SLC_VAR("src"),
 	SLC_VAR("dst"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_SUBSIDY_H */

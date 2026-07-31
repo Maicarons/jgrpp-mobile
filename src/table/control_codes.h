@@ -29,6 +29,8 @@ enum StringControlCode : uint16_t {
 	SCC_ENCODED_NUMERIC, ///< Encoded numeric parameter.
 	SCC_ENCODED_STRING, ///< Encoded string parameter.
 
+	SCC_ENCODED_RAW_STRING, ///< Internal-only control code for pass-through encoded string
+
 	/* Font selection codes, must be in same order as FontSize enum */
 	SCC_FIRST_FONT,
 	SCC_NORMALFONT = SCC_FIRST_FONT, ///< Switch to normal size font
@@ -52,6 +54,12 @@ enum StringControlCode : uint16_t {
 	SCC_COMPANY_NAME,
 	SCC_PRESIDENT_NAME,
 	SCC_ENGINE_NAME,
+	SCC_TR_SLOT_NAME,
+	SCC_TR_SLOT_GROUP_NAME,
+	SCC_TR_COUNTER_NAME,
+
+	SCC_VIEWPORT_TOWN_LABEL1,
+	SCC_VIEWPORT_TOWN_LABEL2,
 
 	SCC_CURRENCY_SHORT,
 	SCC_CURRENCY_LONG,
@@ -70,6 +78,9 @@ enum StringControlCode : uint16_t {
 	SCC_VELOCITY,
 	SCC_HEIGHT,
 
+	SCC_POWER_WEIGHT_RATIO,
+	SCC_FORCE_WEIGHT_RATIO,
+
 	SCC_UNITS_DAYS_OR_SECONDS,
 	SCC_UNITS_MONTHS_OR_MINUTES,
 	SCC_UNITS_YEARS_OR_PERIODS,
@@ -79,6 +90,12 @@ enum StringControlCode : uint16_t {
 	SCC_DATE_SHORT,
 	SCC_DATE_LONG,
 	SCC_DATE_ISO,
+
+	SCC_TIME_HHMM,
+	SCC_TT_TICKS,
+	SCC_TT_TICKS_LONG,
+	SCC_TT_TIME,
+	SCC_TT_TIME_ABS,
 
 	/* Must be consecutive */
 	SCC_STRING1,
@@ -93,7 +110,9 @@ enum StringControlCode : uint16_t {
 	SCC_STRING,
 	SCC_COMMA,
 	SCC_DECIMAL,
+	SCC_DECIMAL1,
 	SCC_NUM,
+	SCC_PLUS_NUM,
 	SCC_ZEROFILL_NUM,
 	SCC_HEX,
 	SCC_BYTES,
@@ -127,6 +146,8 @@ enum StringControlCode : uint16_t {
 	SCC_COLOUR,
 	SCC_PUSH_COLOUR,
 	SCC_POP_COLOUR,
+
+	SCC_CONSUME_ARG,
 
 	/**
 	 * The next variables are part of a NewGRF subsystem for creating text strings.

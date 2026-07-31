@@ -18,6 +18,7 @@ enum BuildTreesWidgets : WidgetID {
 	WID_BT_MODE_FOREST_SM,  ///< Select small forest planting mode.
 	WID_BT_MODE_FOREST_LG,  ///< Select large forest planting mode.
 	WID_BT_MANY_RANDOM,     ///< Button to build many random trees.
+	WID_BT_REMOVE_ALL,      ///< Button to remove all trees.
 	WID_BT_TYPE_BUTTON_FIRST, ///< First tree type selection button. (This must be last in the enum.)
 };
 

@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file object_sl.cpp Code handling saving and loading of objects */
+/** @file object_sl.cpp Code handling saving and loading of objects. */
 
 #include "../stdafx.h"
 
@@ -18,13 +18,15 @@
 
 #include "../safeguards.h"
 
+namespace upstream_sl {
+
 static const SaveLoad _object_desc[] = {
 	    SLE_VAR(Object, location.tile,              SLE_UINT32),
 	    SLE_VAR(Object, location.w,                 SLE_FILE_U8 | SLE_VAR_U16),
 	    SLE_VAR(Object, location.h,                 SLE_FILE_U8 | SLE_VAR_U16),
 	    SLE_REF(Object, town,                       REF_TOWN),
 	    SLE_VAR(Object, build_date,                 SLE_UINT32),
-	SLE_CONDVAR(Object, colour,                     SLE_UINT8,                  SLV_148, SL_MAX_VERSION),
+	SLE_CONDVARNAME(Object, recolour_offset, "colour", SLE_UINT8, SLV_148, SL_MAX_VERSION),
 	SLE_CONDVAR(Object, view,                       SLE_UINT8,                  SLV_155, SL_MAX_VERSION),
 	SLE_CONDVAR(Object, type,                       SLE_UINT16,                 SLV_186, SL_MAX_VERSION),
 };
@@ -49,7 +51,7 @@ struct OBJSChunkHandler : ChunkHandler {
 
 		int index;
 		while ((index = SlIterateArray()) != -1) {
-			Object *o = new (ObjectID(index)) Object();
+			Object *o = Object::CreateAtIndex(ObjectID(index));
 			SlObject(o, slt);
 		}
 	}
@@ -58,7 +60,7 @@ struct OBJSChunkHandler : ChunkHandler {
 	{
 		for (Object *o : Object::Iterate()) {
 			SlObject(o, _object_desc);
-			if (IsSavegameVersionBefore(SLV_148) && !IsTileType(o->location.tile, MP_OBJECT)) {
+			if (IsSavegameVersionBefore(SLV_148) && !IsTileType(o->location.tile, TileType::Object)) {
 				/* Due to a small bug stale objects could remain. */
 				delete o;
 			}
@@ -78,3 +80,5 @@ static const ChunkHandlerRef object_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _object_chunk_handlers(object_chunk_handlers);
+
+}

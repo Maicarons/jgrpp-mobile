@@ -9,6 +9,7 @@
 
 #include "../stdafx.h"
 #include "../debug.h"
+#include "../date_func.h"
 #include "../currency.h"
 #include "../landscape.h"
 #include "../language.h"
@@ -20,7 +21,11 @@
 #include "../newgrf_badge_type.h"
 #include "../newgrf_cargo.h"
 #include "../newgrf_engine.h"
+#include "../newgrf_extension.h"
+#include "../newgrf_object.h"
 #include "../newgrf_sound.h"
+#include "../object_type.h"
+#include "../station_base.h"
 #include "../vehicle_base.h"
 #include "../rail.h"
 #include "newgrf_bytereader.h"
@@ -46,7 +51,7 @@ static ChangeInfoResult LoadTranslationTable(uint first, uint last, ByteReader &
 {
 	if (first != 0) {
 		GrfMsg(1, "LoadTranslationTable: {} translation table must start at zero", name);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	std::vector<T> &translation_table = gettable(*_cur_gps.grffile);
@@ -64,14 +69,14 @@ static ChangeInfoResult LoadTranslationTable(uint first, uint last, ByteReader &
 		override_table = translation_table;
 	}
 
-	return CIR_SUCCESS;
+	return ChangeInfoResult::Success;
 }
 
 static ChangeInfoResult LoadBadgeTranslationTable(uint first, uint last, ByteReader &buf, std::vector<BadgeID> &translation_table, std::string_view name)
 {
 	if (first != 0 && first != std::size(translation_table)) {
 		GrfMsg(1, "LoadBadgeTranslationTable: {} translation table must start at zero or {}", name, std::size(translation_table));
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	if (first == 0) translation_table.clear();
@@ -81,7 +86,7 @@ static ChangeInfoResult LoadBadgeTranslationTable(uint first, uint last, ByteRea
 		translation_table.push_back(GetOrCreateBadge(label).index);
 	}
 
-	return CIR_SUCCESS;
+	return ChangeInfoResult::Success;
 }
 
 /**
@@ -102,10 +107,11 @@ static std::string ReadDWordAsString(ByteReader &reader)
  * @param first ID of the first global var.
  * @param last ID of the last global var.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
 	/* Properties which are handled as a whole */
 	switch (prop) {
@@ -131,14 +137,14 @@ static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, Byt
 	}
 
 	/* Properties which are handled per item */
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 	for (uint id = first; id < last; ++id) {
 		switch (prop) {
 			case 0x08: { // Cost base factor
 				int factor = buf.ReadByte();
 
-				if (id < PR_END) {
-					_cur_gps.grffile->price_base_multipliers[id] = std::min<int>(factor - 8, MAX_PRICE_MODIFIER);
+				if (id < to_underlying(Price::End)) {
+					_cur_gps.grffile->price_base_multipliers[static_cast<Price>(id)] = std::min<int>(factor - 8, MAX_PRICE_MODIFIER);
 				} else {
 					GrfMsg(1, "GlobalVarChangeInfo: Price {} out of range, ignoring", id);
 				}
@@ -148,7 +154,7 @@ static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, Byt
 			case 0x0A: { // Currency display names
 				uint curidx = GetNewgrfCurrencyIdConverted(id);
 				if (curidx < CURRENCY_END) {
-					AddStringForMapping(GRFStringID{buf.ReadWord()}, [curidx](StringID str) {
+					AddStringForMapping(GRFStringID{buf.ReadWord()}, curidx, [](StringID str, uint curidx) {
 						_currency_specs[curidx].name = str;
 						_currency_specs[curidx].code.clear();
 					});
@@ -216,7 +222,7 @@ static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, Byt
 
 			case 0x0F: { //  Euro introduction dates
 				uint curidx = GetNewgrfCurrencyIdConverted(id);
-				TimerGameCalendar::Year year_euro{buf.ReadWord()};
+				CalTime::Year year_euro{buf.ReadWord()};
 
 				if (curidx < CURRENCY_END) {
 					_currency_specs[curidx].to_euro = year_euro;
@@ -324,8 +330,36 @@ static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, Byt
 				break;
 			}
 
+			case A0RPI_GLOBALVAR_EXTRA_STATION_NAMES: {
+				if (MappedPropertyLengthMismatch(buf, 4, mapping_entry)) break;
+				GRFStringID str = GRFStringID{buf.ReadWord()};
+				uint16_t flags = buf.ReadWord();
+				if (_extra_station_names.size() < MAX_EXTRA_STATION_NAMES) {
+					size_t idx = _extra_station_names.size();
+					ExtraStationNameInfo &info = _extra_station_names.emplace_back();
+					AddStringForMapping(str, idx, [](StringID str, size_t idx) { _extra_station_names[idx].str = str; });
+					info.flags = flags;
+				}
+				break;
+			}
+
+			case A0RPI_GLOBALVAR_EXTRA_STATION_NAMES_PROBABILITY: {
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				_extra_station_names_probability = buf.ReadByte();
+				break;
+			}
+
+			case A0RPI_GLOBALVAR_LIGHTHOUSE_GENERATE_AMOUNT:
+			case A0RPI_GLOBALVAR_TRANSMITTER_GENERATE_AMOUNT: {
+				if (MappedPropertyLengthMismatch(buf, 1, mapping_entry)) break;
+				extern std::vector<ObjectSpec> _object_specs;
+				ObjectType type = (prop == A0RPI_GLOBALVAR_LIGHTHOUSE_GENERATE_AMOUNT) ? OBJECT_LIGHTHOUSE : OBJECT_TRANSMITTER;
+				_object_specs[type].generate_amount = buf.ReadByte();
+				break;
+			}
+
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -333,7 +367,7 @@ static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, Byt
 	return ret;
 }
 
-static ChangeInfoResult GlobalVarReserveInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult GlobalVarReserveInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
 	/* Properties which are handled as a whole */
 	switch (prop) {
@@ -359,7 +393,7 @@ static ChangeInfoResult GlobalVarReserveInfo(uint first, uint last, int prop, By
 	}
 
 	/* Properties which are handled per item */
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	for (uint id = first; id < last; ++id) {
 		switch (prop) {
@@ -398,8 +432,15 @@ static ChangeInfoResult GlobalVarReserveInfo(uint first, uint last, int prop, By
 				}
 				break;
 
+			case A0RPI_GLOBALVAR_EXTRA_STATION_NAMES:
+			case A0RPI_GLOBALVAR_EXTRA_STATION_NAMES_PROBABILITY:
+			case A0RPI_GLOBALVAR_LIGHTHOUSE_GENERATE_AMOUNT:
+			case A0RPI_GLOBALVAR_TRANSMITTER_GENERATE_AMOUNT:
+				buf.Skip(buf.ReadExtendedByte());
+				break;
+
 			default:
-				ret = CIR_UNKNOWN;
+				ret = HandleAction0PropertyDefault(buf, prop);
 				break;
 		}
 	}
@@ -421,19 +462,31 @@ static ChangeInfoResult GlobalVarReserveInfo(uint first, uint last, int prop, By
  */
 bool GetGlobalVariable(uint8_t param, uint32_t *value, const GRFFile *grffile)
 {
+	if (_sprite_group_resolve_check_veh_check) {
+		switch (param) {
+			case 0x00:
+			case 0x02:
+			case 0x09:
+			case 0x0A:
+			case 0x20:
+			case 0x23:
+				_sprite_group_resolve_check_veh_check = false;
+				break;
+		}
+	}
+
 	switch (param) {
 		case 0x00: // current date
-			*value = std::max(TimerGameCalendar::date - CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR, TimerGameCalendar::Date(0)).base();
+			*value = std::max<CalTime::DateDelta>(CalTime::CurDate() - CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR, CalTime::DateDelta{0}).base();
 			return true;
 
 		case 0x01: // current year
-			*value = (Clamp(TimerGameCalendar::year, CalendarTime::ORIGINAL_BASE_YEAR, CalendarTime::ORIGINAL_MAX_YEAR) - CalendarTime::ORIGINAL_BASE_YEAR).base();
+			*value = (Clamp(CalTime::CurYear(), CalTime::ORIGINAL_BASE_YEAR, CalTime::ORIGINAL_MAX_YEAR) - CalTime::ORIGINAL_BASE_YEAR).base();
 			return true;
 
 		case 0x02: { // detailed date information: month of year (bit 0-7), day of month (bit 8-12), leap year (bit 15), day of year (bit 16-24)
-			TimerGameCalendar::YearMonthDay ymd = TimerGameCalendar::ConvertDateToYMD(TimerGameCalendar::date);
-			TimerGameCalendar::Date start_of_year = TimerGameCalendar::ConvertYMDToDate(ymd.year, 0, 1);
-			*value = ymd.month | (ymd.day - 1) << 8 | (TimerGameCalendar::IsLeapYear(ymd.year) ? 1 << 15 : 0) | (TimerGameCalendar::date - start_of_year).base() << 16;
+			CalTime::Date start_of_year = CalTime::ConvertYMDToDate(CalTime::CurYear(), 0, 1);
+			*value = CalTime::CurMonth() | (CalTime::CurDay() - 1) << 8 | (CalTime::IsLeapYear(CalTime::CurYear()) ? 1 << 15 : 0) | (CalTime::CurDate() - start_of_year).base() << 16;
 			return true;
 		}
 
@@ -446,11 +499,11 @@ bool GetGlobalVariable(uint8_t param, uint32_t *value, const GRFFile *grffile)
 			return true;
 
 		case 0x09: // date fraction
-			*value = TimerGameCalendar::date_fract * 885;
+			*value = CalTime::CurDateFract() * 885;
 			return true;
 
 		case 0x0A: // animation counter
-			*value = GB(TimerGameTick::counter, 0, 16);
+			*value = GB(_scaled_tick_counter, 0, 16);
 			return true;
 
 		case 0x0B: { // TTDPatch version
@@ -463,7 +516,7 @@ bool GetGlobalVariable(uint8_t param, uint32_t *value, const GRFFile *grffile)
 		}
 
 		case 0x0D: // TTD Version, 00=DOS, 01=Windows
-			*value = GetGRFConfig(grffile->grfid)->palette & GRFP_USE_MASK;
+			*value = (GetGRFConfig(grffile->grfid)->palette & GRFP_USE_MASK) | grffile->var8D_overlay;
 			return true;
 
 		case 0x0E: // Y-offset for train sprites
@@ -488,7 +541,7 @@ bool GetGlobalVariable(uint8_t param, uint32_t *value, const GRFFile *grffile)
 			return true;
 
 		case 0x12: // Game mode
-			*value = _game_mode;
+			*value = to_underlying(_game_mode);
 			return true;
 
 		/* case 0x13: // Tile refresh offset to left    not implemented */
@@ -505,8 +558,8 @@ bool GetGlobalVariable(uint8_t param, uint32_t *value, const GRFFile *grffile)
 			*value = 0x3F; // constant fake value to avoid desync
 			return true;
 
-		case 0x1D: // TTD Platform, 00=TTDPatch, 01=OpenTTD
-			*value = 1;
+		case 0x1D: // TTD Platform, 00=TTDPatch, 01=OpenTTD, also used for feature tests (bits 31..4)
+			*value = 1 | grffile->var9D_overlay;
 			return true;
 
 		case 0x1E: { // Miscellaneous GRF features
@@ -542,16 +595,16 @@ bool GetGlobalVariable(uint8_t param, uint32_t *value, const GRFFile *grffile)
 			return true;
 
 		case 0x23: // long format date
-			*value = TimerGameCalendar::date.base();
+			*value = CalTime::CurDate().base();
 			return true;
 
 		case 0x24: // long format year
-			*value = TimerGameCalendar::year.base();
+			*value = CalTime::CurYear().base();
 			return true;
 
 		default: return false;
 	}
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_GLOBALVAR>::Reserve(uint first, uint last, int prop, ByteReader &buf) { return GlobalVarReserveInfo(first, last, prop, buf); }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_GLOBALVAR>::Activation(uint first, uint last, int prop, ByteReader &buf) { return GlobalVarChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::GlobalVar>::Reserve(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return GlobalVarReserveInfo(first, last, prop, mapping_entry, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::GlobalVar>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return GlobalVarChangeInfo(first, last, prop, mapping_entry, buf); }

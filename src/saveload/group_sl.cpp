@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file group_sl.cpp Code handling saving and loading of groups */
+/** @file group_sl.cpp Code handling saving and loading of groups. */
 
 #include "../stdafx.h"
 #include "../group.h"
@@ -15,6 +15,8 @@
 #include "compat/group_sl_compat.h"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 static const SaveLoad _group_desc[] = {
 	 SLE_CONDVAR(Group, name,               SLE_NAME,                       SL_MIN_VERSION,  SLV_84),
@@ -50,7 +52,7 @@ struct GRPSChunkHandler : ChunkHandler {
 		int index;
 
 		while ((index = SlIterateArray()) != -1) {
-			Group *g = new (GroupID(index)) Group();
+			Group *g = Group::CreateAtIndex(GroupID(index));
 			SlObject(g, slt);
 
 			if (IsSavegameVersionBefore(SLV_189)) g->parent = GroupID::Invalid();
@@ -64,3 +66,5 @@ static const ChunkHandlerRef group_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _group_chunk_handlers(group_chunk_handlers);
+
+}

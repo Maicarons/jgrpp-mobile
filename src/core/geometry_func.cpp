@@ -28,6 +28,20 @@ Dimension maxdim(const Dimension &d1, const Dimension &d2)
 }
 
 /**
+ * Compute sum of both dimensions.
+ * @param d1 First dimension.
+ * @param d2 Second dimension.
+ * @return The sum of both dimensions.
+ */
+Dimension adddim(const Dimension &d1, const Dimension &d2)
+{
+	Dimension d;
+	d.width  = d1.width + d2.width;
+	d.height = d1.height + d2.height;
+	return d;
+}
+
+/**
  * Compute the bounding rectangle around two rectangles.
  * @param r1 First rectangle.
  * @param r2 Second rectangle.

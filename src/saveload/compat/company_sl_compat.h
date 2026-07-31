@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for SlCompanyOldAIBuildRec. */
 const SaveLoadCompat _company_old_ai_buildrec_compat[] = {
 	SLC_NULL(2, SL_MIN_VERSION, SLV_6),
@@ -106,7 +108,7 @@ const SaveLoadCompat _company_sl_compat[] = {
 	SLC_VAR("location_of_HQ"),
 	SLC_VAR("last_build_coordinate"),
 	SLC_VAR("inaugurated_year"),
-	SLC_NULL(4, SL_MIN_VERSION, SLV_TABLE_CHUNKS),
+	SLC_VAR("share_owners"),
 	SLC_VAR("num_valid_stat_ent"),
 	SLC_VAR("months_of_bankruptcy"),
 	SLC_VAR("bankrupt_asked"),
@@ -125,5 +127,7 @@ const SaveLoadCompat _company_sl_compat[] = {
 	SLC_VAR("old_economy"),
 	SLC_VAR("liveries"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_COMPANY_H */

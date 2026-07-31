@@ -5,11 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file os_abstraction.h Network stuff has many things that needs to be
- *                        included and/or implemented by default.
- *                        All those things are in this file.
- */
+/** @file os_abstraction.h Includes and/or implementations for the network stuff. */
 
 #ifndef NETWORK_CORE_OS_ABSTRACTION_H
 #define NETWORK_CORE_OS_ABSTRACTION_H
@@ -57,6 +53,19 @@ typedef unsigned long in_addr_t;
 	typedef int socklen_t;
 #	define IPPROTO_IPV6 41
 #endif /* !(__MINGW32__ && __CYGWIN__) */
+
+#if defined(__MINGW32__)
+#ifndef AI_ADDRCONFIG
+#define AI_ADDRCONFIG 0x400
+#endif
+#ifndef IPPROTO_IPV6
+#define IPPROTO_IPV6 41
+#endif
+#ifndef IPV6_V6ONLY
+#define IPV6_V6ONLY 27
+#endif
+#endif /* __MINGW32__ */
+
 #endif /* _WIN32 */
 
 /* UNIX stuff */
@@ -67,6 +76,9 @@ typedef unsigned long in_addr_t;
 #	define SOCKET int
 #	define INVALID_SOCKET -1
 #	define closesocket close
+#	define SD_RECEIVE SHUT_RD
+#	define SD_SEND SHUT_WR
+#	define SD_BOTH SHUT_RDWR
 /* Need this for FIONREAD on solaris */
 #	define BSD_COMP
 
@@ -131,28 +143,41 @@ inline socklen_t FixAddrLenForEmscripten(struct sockaddr_storage &address)
 }
 #endif
 
-
 bool SetNonBlocking(SOCKET d);
+bool SetBlocking(SOCKET d);
 bool SetNoDelay(SOCKET d);
 bool SetReusePort(SOCKET d);
+bool ShutdownSocket(SOCKET d, bool read, bool write, uint linger_timeout);
 NetworkError GetSocketError(SOCKET d);
 
 /* Make sure these structures have the size we expect them to be */
 static_assert(sizeof(in_addr)  ==  4); ///< IPv4 addresses should be 4 bytes.
 static_assert(sizeof(in6_addr) == 16); ///< IPv6 addresses should be 16 bytes.
 
+/** Helper for #Packet::TransferOut that writes data to a socket. */
 struct SocketSender {
-	SOCKET sock;
+	SOCKET sock; ///< The socket we're sending data to.
 
+	/**
+	 * Write the buffer to the socket.
+	 * @param buffer The buffer to write.
+	 * @return The number of elements/bytes that were written, or -1 upon an error.
+	 */
 	ssize_t operator()(std::span<const uint8_t> buffer)
 	{
 		return send(this->sock, reinterpret_cast<const char *>(buffer.data()), static_cast<int>(buffer.size()), 0);
 	}
 };
 
+/** Helper for #Packet::TransferIn that reads data from a socket. */
 struct SocketReceiver {
-	SOCKET sock;
+	SOCKET sock; ///< The socket we're receiving data from.
 
+	/**
+	 * Read data from the socket into the buffer.
+	 * @param buffer The buffer to read into.
+	 * @return The number of elements/bytes that were read, or -1 upon an error.
+	 */
 	ssize_t operator()(std::span<uint8_t> buffer)
 	{
 		return recv(this->sock, reinterpret_cast<char *>(buffer.data()), static_cast<int>(buffer.size()), 0);

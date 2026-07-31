@@ -28,7 +28,6 @@ static FBlitter_32bppSSE4_Anim iFBlitter_32bppSSE4_Anim;
  * @param bp further blitting parameters
  * @param zoom zoom level at which we are drawing
  */
-IGNORE_UNINITIALIZED_WARNING_START
 template <BlitterMode mode, Blitter_32bppSSE2::ReadMode read_mode, Blitter_32bppSSE2::BlockType bt_last, bool translucent, bool animated>
 GNU_TARGET("sse4.1")
 inline void Blitter_32bppSSE4_Anim::Draw(const BlitterParams *bp, ZoomLevel zoom)
@@ -364,6 +363,75 @@ bmcr_alpha_blend_single:
 					anim++;
 				}
 				break;
+
+			case BlitterMode::NormalWithBrightness:
+				for (uint x = (uint) bp->width; x > 0; x--) {
+					if (src->a == 0) {
+					} else if (src->a == 255) {
+						MapValue mv = *src_mv;
+						if (src_mv->m >= PALETTE_ANIM_START) {
+							mv.v = Clamp(mv.v + bp->brightness_adjust, 0, 255);
+							*dst = AdjustBrightneSSE(LookupColourInPalette(mv.m), mv.v);
+						} else {
+							*dst = AdjustBrightneSSE(src->data, DEFAULT_BRIGHTNESS + bp->brightness_adjust);
+						}
+						*anim = *(const uint16_t*) &mv;
+					} else {
+						*anim = 0;
+						__m128i srcABCD;
+						__m128i dstABCD = _mm_cvtsi32_si128(dst->data);
+						if (src_mv->m >= PALETTE_ANIM_START) {
+							Colour colour = AdjustBrightneSSE(LookupColourInPalette(src_mv->m), Clamp(src_mv->v + bp->brightness_adjust, 0, 255));
+							colour.a = src->a;
+							srcABCD = _mm_cvtsi32_si128(colour.data);
+						} else {
+							srcABCD = _mm_cvtsi32_si128(AdjustBrightneSSE(src->data, DEFAULT_BRIGHTNESS + bp->brightness_adjust).data);
+						}
+						dst->data = _mm_cvtsi128_si32(AlphaBlendTwoPixels(srcABCD, dstABCD, a_cm, pack_low_cm, a_am));
+					}
+					src_mv++;
+					dst++;
+					src++;
+					anim++;
+				}
+				break;
+
+			case BlitterMode::ColourRemapWithBrightness:
+				for (uint x = (uint) bp->width; x > 0; x--) {
+					/* In case the m-channel is zero, do not remap this pixel in any way. */
+					__m128i srcABCD;
+					if (src->a == 0) {
+					} else if (src_mv->m) {
+						MapValue mv = *src_mv;
+						mv.v = Clamp(mv.v + bp->brightness_adjust, 0, 255);
+						const uint r = remap[mv.m];
+						*anim = (animated && src->a == 255) ? r | ((uint16_t) mv.v << 8) : 0;
+						if (r != 0) {
+							Colour remapped_colour = AdjustBrightneSSE(this->LookupColourInPalette(r), mv.v);
+							if (src->a == 255) {
+								*dst = remapped_colour;
+							} else {
+								remapped_colour.a = src->a;
+								srcABCD = _mm_cvtsi32_si128(remapped_colour.data);
+								goto bmcr_alpha_blend_single_brightness;
+							}
+						}
+					} else {
+						*anim = 0;
+						srcABCD = _mm_cvtsi32_si128(AdjustBrightneSSE(src->data, DEFAULT_BRIGHTNESS + bp->brightness_adjust).data);
+						if (src->a < 255) {
+bmcr_alpha_blend_single_brightness:
+							__m128i dstABCD = _mm_cvtsi32_si128(dst->data);
+							srcABCD = AlphaBlendTwoPixels(srcABCD, dstABCD, a_cm, pack_low_cm, a_am);
+						}
+						dst->data = _mm_cvtsi128_si32(srcABCD);
+					}
+					src_mv++;
+					dst++;
+					src++;
+					anim++;
+				}
+				break;
 		}
 
 next_line:
@@ -373,7 +441,6 @@ next_line:
 		anim_line += this->anim_buf_pitch;
 	}
 }
-IGNORE_UNINITIALIZED_WARNING_STOP
 
 /**
  * Draws a sprite to a (screen) buffer. Calls adequate templated function.
@@ -390,49 +457,62 @@ void Blitter_32bppSSE4_Anim::Draw(Blitter::BlitterParams *bp, BlitterMode mode, 
 		return;
 	}
 
-	const Blitter_32bppSSE_Base::SpriteFlags sprite_flags = ((const Blitter_32bppSSE_Base::SpriteData *) bp->sprite)->flags;
+	const BlitterSpriteFlags sprite_flags = ((const Blitter_32bppSSE_Base::SpriteData *) bp->sprite)->flags;
 	switch (mode) {
 		default: {
 bm_normal:
 			if (bp->skip_left != 0 || bp->width <= MARGIN_NORMAL_THRESHOLD) {
 				const BlockType bt_last = (BlockType) (bp->width & 1);
 				if (bt_last == BT_EVEN) {
-					if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_EVEN, true, false>(bp, zoom);
-					else                           Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_EVEN, true, true>(bp, zoom);
+					if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_EVEN, true, false>(bp, zoom);
+					else                            Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_EVEN, true, true>(bp, zoom);
 				} else {
-					if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_ODD, true, false>(bp, zoom);
-					else                           Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_ODD, true, true>(bp, zoom);
+					if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_ODD, true, false>(bp, zoom);
+					else                            Draw<BlitterMode::Normal, RM_WITH_SKIP, BT_ODD, true, true>(bp, zoom);
 				}
 			} else {
 #ifdef POINTER_IS_64BIT
-				if (sprite_flags.Test(SpriteFlag::Translucent)) {
-					if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, false>(bp, zoom);
-					else                           Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, true>(bp, zoom);
+				if (sprite_flags & BSF_TRANSLUCENT) {
+					if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, false>(bp, zoom);
+					else                            Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, true>(bp, zoom);
 				} else {
-					if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, false, false>(bp, zoom);
-					else                           Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, false, true>(bp, zoom);
+					if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, false, false>(bp, zoom);
+					else                            Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, false, true>(bp, zoom);
 				}
 #else
-				if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, false>(bp, zoom);
-				else                           Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, true>(bp, zoom);
+				if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, false>(bp, zoom);
+				else                            Draw<BlitterMode::Normal, RM_WITH_MARGIN, BT_NONE, true, true>(bp, zoom);
 #endif
 			}
 			break;
 		}
+
 		case BlitterMode::ColourRemap:
-			if (sprite_flags.Test(SpriteFlag::NoRemap)) goto bm_normal;
+			if (sprite_flags & BSF_NO_REMAP) goto bm_normal;
 			if (bp->skip_left != 0 || bp->width <= MARGIN_REMAP_THRESHOLD) {
-				if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::ColourRemap, RM_WITH_SKIP, BT_NONE, true, false>(bp, zoom);
-				else                           Draw<BlitterMode::ColourRemap, RM_WITH_SKIP, BT_NONE, true, true>(bp, zoom);
+				if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::ColourRemap, RM_WITH_SKIP, BT_NONE, true, false>(bp, zoom);
+				else                            Draw<BlitterMode::ColourRemap, RM_WITH_SKIP, BT_NONE, true, true>(bp, zoom);
 			} else {
-				if (sprite_flags.Test(SpriteFlag::NoAnim)) Draw<BlitterMode::ColourRemap, RM_WITH_MARGIN, BT_NONE, true, false>(bp, zoom);
-				else                           Draw<BlitterMode::ColourRemap, RM_WITH_MARGIN, BT_NONE, true, true>(bp, zoom);
+				if (sprite_flags & BSF_NO_ANIM) Draw<BlitterMode::ColourRemap, RM_WITH_MARGIN, BT_NONE, true, false>(bp, zoom);
+				else                            Draw<BlitterMode::ColourRemap, RM_WITH_MARGIN, BT_NONE, true, true>(bp, zoom);
 			}
 			break;
+
 		case BlitterMode::Transparent: Draw<BlitterMode::Transparent, RM_NONE, BT_NONE, true, true>(bp, zoom); return;
 		case BlitterMode::TransparentRemap: Draw<BlitterMode::TransparentRemap, RM_NONE, BT_NONE, true, true>(bp, zoom); return;
 		case BlitterMode::CrashRemap: Draw<BlitterMode::CrashRemap, RM_NONE, BT_NONE, true, true>(bp, zoom); return;
 		case BlitterMode::BlackRemap: Draw<BlitterMode::BlackRemap, RM_NONE, BT_NONE, true, true>(bp, zoom); return;
+
+		case BlitterMode::ColourRemapWithBrightness:
+			if (!(sprite_flags & BSF_NO_REMAP)) {
+				Draw<BlitterMode::ColourRemapWithBrightness, RM_NONE, BT_NONE, true, true>(bp, zoom);
+				return;
+			}
+			[[fallthrough]];
+
+		case BlitterMode::NormalWithBrightness:
+			Draw<BlitterMode::NormalWithBrightness, RM_NONE, BT_NONE, true, true>(bp, zoom);
+			return;
 	}
 }
 

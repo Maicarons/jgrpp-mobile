@@ -18,6 +18,7 @@ set(TABLE_INI_SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/news_display_settings.ini
         ${CMAKE_CURRENT_SOURCE_DIR}/old_gameopt_settings.ini
         ${CMAKE_CURRENT_SOURCE_DIR}/pathfinding_settings.ini
+        ${CMAKE_CURRENT_SOURCE_DIR}/scenario_settings.ini
         ${CMAKE_CURRENT_SOURCE_DIR}/script_settings.ini
         ${CMAKE_CURRENT_SOURCE_DIR}/win32_settings.ini
         ${CMAKE_CURRENT_SOURCE_DIR}/window_settings.ini
@@ -31,12 +32,12 @@ endif()
 # Generate a command and target to create the settings table
 add_custom_command_timestamp(OUTPUT ${TABLE_BINARY_DIR}/settings.h
         COMMAND ${CMAKE_COMMAND} -E make_directory ${TABLE_BINARY_DIR}
-        COMMAND settingsgen
+        COMMAND hostsettingsgen
                 -o ${TABLE_BINARY_DIR}/settings.h
                 -b ${CMAKE_SOURCE_DIR}/src/table/settings.h.preamble
                 -a ${CMAKE_SOURCE_DIR}/src/table/settings.h.postamble
                 ${TABLE_INI_SOURCE_FILES}
-        DEPENDS settingsgen ${TABLE_INI_SOURCE_FILES}
+        DEPENDS hostsettingsgen ${TABLE_INI_SOURCE_FILES}
                 ${CMAKE_SOURCE_DIR}/src/table/settings.h.preamble
                 ${CMAKE_SOURCE_DIR}/src/table/settings.h.postamble
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

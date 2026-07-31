@@ -41,39 +41,17 @@
 #endif
 
 #include <algorithm>
-#include <array>
-#include <bit>
-#include <cassert>
-#include <cctype>
-#include <cerrno>
-#include <climits>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <cstdio>
+#include <cstdint>
+#include <cstddef>
 #include <cstring>
 #include <cstdlib>
-#include <cwchar>
-#include <deque>
-#include <exception>
-#include <functional>
-#include <iterator>
-#include <list>
-#include <limits>
-#include <map>
+#include <climits>
+#include <cassert>
 #include <memory>
-#include <numeric>
-#include <optional>
-#include <set>
-#include <source_location>
 #include <span>
-#include <stdexcept>
 #include <string>
-#include <type_traits>
-#include <variant>
-#include <vector>
-
-using namespace std::literals::string_view_literals;
+#include <inttypes.h>
 
 #if defined(UNIX) || defined(__MINGW32__)
 #	include <sys/types.h>
@@ -82,7 +60,14 @@ using namespace std::literals::string_view_literals;
 /* Stuff for GCC */
 #if defined(__GNUC__) || (defined(__clang__) && !defined(_MSC_VER))
 #	define CDECL
+	#define WARN_TIME_FORMAT(string) __attribute__ ((format (strftime, string, 0)))
 #endif /* __GNUC__ || __clang__ */
+
+#if __GNUC__ > 11 || (__GNUC__ == 11 && __GNUC_MINOR__ >= 1)
+#      define NOACCESS(args) __attribute__ ((access (none, args)))
+#else
+#      define NOACCESS(args)
+#endif
 
 #if defined(_WIN32)
 #	define WIN32_LEAN_AND_MEAN     // Exclude rarely-used stuff from Windows headers
@@ -93,6 +78,14 @@ using namespace std::literals::string_view_literals;
 #	define EMPTY_BASES __declspec(empty_bases)
 #else
 #	define EMPTY_BASES
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1929
+#	define NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#elif defined(__has_cpp_attribute) && __has_cpp_attribute(no_unique_address)
+#	define NO_UNIQUE_ADDRESS [[no_unique_address]]
+#else
+#	define NO_UNIQUE_ADDRESS
 #endif
 
 /* Stuff for MSVC */
@@ -114,6 +107,7 @@ using namespace std::literals::string_view_literals;
 #	pragma warning(disable: 6246)   // code analyzer: Local declaration of 'statspec' hides declaration of the same name in outer scope. For additional information, see previous declaration at ...
 
 #	define CDECL _cdecl
+#	define WARN_TIME_FORMAT(string)
 
 #	if defined(_WIN32) && !defined(_WIN64)
 #		if !defined(_W64)
@@ -157,14 +151,27 @@ using namespace std::literals::string_view_literals;
 
 #if !defined(STRGEN) && !defined(SETTINGSGEN)
 #	if defined(_WIN32)
+		char *getcwd(char *buf, size_t size);
+#		include <io.h>
+#		include <tchar.h>
+
+#		define unlink(file) _wunlink(OTTD2FS(file).c_str())
+
 		std::string FS2OTTD(std::wstring_view name);
 		std::wstring OTTD2FS(std::string_view name);
+		using fs_string = std::wstring;
+		using fs_char = wchar_t;
 #	elif defined(WITH_ICONV)
+#		define unlink(file) unlink(OTTD2FS(file).c_str())
 		std::string FS2OTTD(std::string_view name);
 		std::string OTTD2FS(std::string_view name);
+		using fs_string = std::string;
+		using fs_char = char;
 #	else
-		static inline std::string FS2OTTD(std::string_view name) { return std::string{name}; }
-		static inline std::string OTTD2FS(std::string_view name) { return std::string{name}; }
+		template <typename T> std::string FS2OTTD(T &&name) { return std::string{std::forward<T>(name)}; }
+		template <typename T> std::string OTTD2FS(T &&name) { return std::string{std::forward<T>(name)}; }
+		using fs_string = std::string;
+		using fs_char = char;
 #	endif /* _WIN32 or WITH_ICONV */
 #endif /* STRGEN || SETTINGSGEN */
 
@@ -186,7 +193,7 @@ using namespace std::literals::string_view_literals;
 #endif
 #define PACK(type_dec) PACK_N(type_dec, 1)
 
-/*
+/** @def debug_inline
  * When making a (pure) debug build, the compiler will by default disable
  * inlining of functions. This has a detrimental effect on the performance of
  * debug builds, especially when more and more trivial (wrapper) functions get
@@ -265,10 +272,38 @@ char (&ArraySizeHelper(T (&array)[N]))[N];
  * Unlike sizeof this function returns the number of elements
  * of the given type.
  *
- * @param x The pointer to the first element of the array
+ * @param array The pointer to the first element of the array
  * @return The number of elements
  */
 #define lengthof(array) (sizeof(ArraySizeHelper(array)))
+
+/**
+ * Get the end element of an fixed size array.
+ *
+ * @param x The pointer to the first element of the array
+ * @return The pointer past to the last element of the array
+ */
+#define endof(x) (&x[lengthof(x)])
+
+/**
+ * Get the last element of an fixed size array.
+ *
+ * @param x The pointer to the first element of the array
+ * @return The pointer to the last element of the array
+ */
+#define lastof(x) (&x[lengthof(x) - 1])
+
+#if !defined(offsetof)
+#	define offsetof(s, m) (((size_t)&reinterpret_cast<const volatile char&>((((s*)(char*)8)->m))) - 8)
+#endif /* offsetof */
+
+/**
+ * Gets the size of a variable within a class.
+ * @param base     The class the variable is in.
+ * @param variable The variable to get the size of.
+ * @return the size of the variable
+ */
+#define cpp_sizeof(base, variable) (sizeof(std::declval<base>().variable))
 
 
 /* take care of some name clashes on MacOS */
@@ -276,22 +311,90 @@ char (&ArraySizeHelper(T (&array)[N]))[N];
 #	define GetString OTTD_GetString
 #	define DrawString OTTD_DrawString
 #	define CloseConnection OTTD_CloseConnection
+#	define DateDelta OTTD_DateDelta
 #endif /* __APPLE__ */
 
 #if defined(__GNUC__) || defined(__clang__)
+#	define likely(x)     __builtin_expect(!!(x), 1)
+#	define unlikely(x)   __builtin_expect(!!(x), 0)
 #	define GNU_TARGET(x) [[gnu::target(x)]]
 #else
+#	define likely(x)     (x)
+#	define unlikely(x)   (x)
 #	define GNU_TARGET(x)
 #endif /* __GNUC__ || __clang__ */
 
-[[noreturn]] void NOT_REACHED(const std::source_location location = std::source_location::current());
-[[noreturn]] void AssertFailedError(std::string_view expression, const std::source_location location = std::source_location::current());
-
-/* For non-debug builds with assertions enabled use the special assertion handler. */
-#if defined(NDEBUG) && defined(WITH_ASSERT)
-#	undef assert
-#	define assert(expression) do { if (!(expression)) [[unlikely]] AssertFailedError(#expression); } while (false)
+#if !defined(__has_builtin)
+#	define WITH_BUILTIN_ASSUME 0
+#elif __has_builtin(__builtin_assume)
+#	define WITH_BUILTIN_ASSUME 1
+#else
+#	define WITH_BUILTIN_ASSUME 0
 #endif
+
+inline void builtin_assume(bool condition)
+{
+#if WITH_BUILTIN_ASSUME
+	__builtin_assume(condition);
+#elif defined(_MSC_VER)
+	__assume(condition);
+#elif defined(__GNUC__) || defined(__clang__)
+	if (!condition) __builtin_unreachable();
+#endif
+}
+
+#if defined(__has_builtin)
+#define HAS_BUILTIN(...) __has_builtin(__VA_ARGS__)
+#else
+#define HAS_BUILTIN(...) 0
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((aligned(1))) typedef uint16_t unaligned_uint16;
+__attribute__((aligned(1))) typedef uint32_t unaligned_uint32;
+__attribute__((aligned(1))) typedef uint64_t unaligned_uint64;
+#else
+typedef uint16_t unaligned_uint16;
+typedef uint32_t unaligned_uint32;
+typedef uint64_t unaligned_uint64;
+#endif /* __GNUC__ || __clang__ */
+
+/* Upstream: For the FMT library we only want to use the headers, not link to some library. */
+//#define FMT_HEADER_ONLY
+
+/* JSON: Don't include IO stream headers/support */
+#define JSON_NO_IO
+
+/* cpp-btree: Don't include IO stream headers, dump support */
+#define BTREE_NO_IOSTREAM
+
+[[noreturn]] void assert_str_error(int line, const char *file, const char *expr, std::string_view str);
+[[noreturn]] void assert_str_error(int line, const char *file, const char *expr, const char *str);
+[[noreturn]] void assert_str_error(int line, const char *file, const char *expr);
+[[noreturn]] void not_reached_error(int line, const char *file);
+#define NOT_REACHED() not_reached_error(__LINE__, __FILE__);
+
+/* Asserts are enabled if NDEBUG isn't defined or WITH_ASSERT is defined. */
+#if !defined(NDEBUG) || defined(WITH_ASSERT)
+#	undef assert
+#	define assert(expression) do { if (unlikely(!(expression))) assert_str_error(__LINE__, __FILE__, #expression); } while (false)
+#	define assert_tile(expression, tile) do { if (unlikely(!(expression))) assert_tile_error(__LINE__, __FILE__, #expression, tile); } while (false)
+#	define assert_str(expression, str) do { if (unlikely(!(expression))) assert_str_error(__LINE__, __FILE__, #expression, str); } while (false)
+#else
+#	undef assert
+#	define assert(expression)
+#	define assert_tile(expression, tile)
+#	define assert_str(expression, str)
+#endif
+#if (!defined(NDEBUG) || defined(WITH_ASSERT)) && defined(DBG_ASSERTS)
+#	define WITH_FULL_ASSERTS
+#	define dbg_assert(expression) assert(expression)
+#	define dbg_assert_tile(expression, tile) assert_tile(expression, tile)
+#else
+#	define dbg_assert(expression)
+#	define dbg_assert_tile(expression, tile)
+#endif
+
 
 /* Define JSON_ASSERT, which is used by nlohmann-json. Otherwise the header-file
  * will re-include assert.h, and reset the assert macro. */
@@ -307,25 +410,38 @@ char (&ArraySizeHelper(T (&array)[N]))[N];
 #	define MAX_PATH 260
 #endif
 
-#if defined(_MSC_VER) && !defined(_DEBUG)
-#	define IGNORE_UNINITIALIZED_WARNING_START __pragma(warning(push)) __pragma(warning(disable:4700))
-#	define IGNORE_UNINITIALIZED_WARNING_STOP __pragma(warning(pop))
-#elif defined(__GNUC__) && !defined(_DEBUG)
-#	define HELPER0(x) #x
-#	define HELPER1(x) HELPER0(GCC diagnostic ignored x)
-#	define HELPER2(y) HELPER1(#y)
-#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
-#	define IGNORE_UNINITIALIZED_WARNING_START \
-		_Pragma("GCC diagnostic push") \
-		_Pragma(HELPER2(-Wuninitialized)) \
-		_Pragma(HELPER2(-Wmaybe-uninitialized))
-#	define IGNORE_UNINITIALIZED_WARNING_STOP _Pragma("GCC diagnostic pop")
-#endif
+/**
+ * Version of the standard free that accepts const pointers.
+ * @param ptr The data to free.
+ */
+inline void free(const void *ptr)
+{
+	free(const_cast<void *>(ptr));
+}
+
+/**
+ * Using _mm_prefetch() with gcc implies the compile flag -msse.
+ * This is not the case with __builtin_prefetch() so the latter can be used in normal .cpp files.
+ */
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+	#define INCLUDE_FOR_PREFETCH_NTA <xmmintrin.h>
+	#define PREFETCH_NTA(address) _mm_prefetch((const char *) (address), _MM_HINT_NTA);
+#elif defined(__GNUC__) || defined(__clang__)
+	#define INCLUDE_FOR_PREFETCH_NTA "stdafx.h"
+	#define PREFETCH_NTA(address) __builtin_prefetch((const void *) (address), 0, 0);
+#else
+	#define INCLUDE_FOR_PREFETCH_NTA "stdafx.h"
+	#define PREFETCH_NTA(address)
 #endif
 
-#ifndef IGNORE_UNINITIALIZED_WARNING_START
-#	define IGNORE_UNINITIALIZED_WARNING_START
-#	define IGNORE_UNINITIALIZED_WARNING_STOP
+#if defined(DEDICATED)
+inline constexpr bool IsHeadless() { return true; }
+#else
+inline bool IsHeadless()
+{
+	extern bool _network_dedicated;
+	return _network_dedicated;
+}
 #endif
 
 #endif /* STDAFX_H */

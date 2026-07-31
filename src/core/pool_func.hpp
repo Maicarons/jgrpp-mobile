@@ -10,21 +10,20 @@
 #ifndef POOL_FUNC_HPP
 #define POOL_FUNC_HPP
 
-#include "bitmath_func.hpp"
-#include "math_func.hpp"
+#include "alloc_func.hpp"
+#include "mem_func.hpp"
 #include "pool_type.hpp"
-#include "../error_func.h"
-
-#include "../saveload/saveload_error.hpp" // SlErrorCorruptFmt
+#include "math_func.hpp"
+#include "bitmath_func.hpp"
 
 /**
  * Helper for defining the method's signature.
  * @param type The return type of the method.
  */
 #define DEFINE_POOL_METHOD(type) \
-	template <class Titem, typename Tindex, size_t Tgrowth_step, PoolType Tpool_type, bool Tcache> \
+	template <class Titem, typename Tindex, size_t Tgrowth_step, PoolType Tpool_type, bool Tcache, typename Tops> \
 	requires std::is_base_of_v<PoolIDBase, Tindex> \
-	type Pool<Titem, Tindex, Tgrowth_step, Tpool_type, Tcache>
+	type Pool<Titem, Tindex, Tgrowth_step, Tpool_type, Tcache, Tops>
 
 /**
  * Resizes the pool so 'index' can be addressed
@@ -34,22 +33,21 @@
  */
 DEFINE_POOL_METHOD(inline void)::ResizeFor(size_t index)
 {
-	assert(index >= this->data.size());
-	assert(index < MAX_SIZE);
+	dbg_assert(index >= this->size);
+	dbg_assert(index < MAX_SIZE);
 
-	size_t old_size = this->data.size();
-	size_t new_size = std::min(MAX_SIZE, Align(index + 1, Tgrowth_step));
+	size_t new_size = std::min<size_t>(MAX_SIZE, Align(std::max<size_t>(index + 1, (this->size * 3) / 2), std::max<uint>(64, static_cast<uint>(Tgrowth_step))));
 
-	this->data.resize(new_size);
-	this->used_bitmap.resize(Align(new_size, BITMAP_SIZE) / BITMAP_SIZE);
-	if (old_size % BITMAP_SIZE != 0) {
-		/* Already-allocated bits above old size are now unused. */
-		this->used_bitmap[old_size / BITMAP_SIZE] &= ~((~static_cast<BitmapStorage>(0)) << (old_size % BITMAP_SIZE));
+	this->data = ReallocT(this->data, new_size);
+	MemSetT(this->data + this->size, 0, new_size - this->size);
+
+	this->free_bitmap = ReallocT(this->free_bitmap, CeilDivT<size_t>(new_size, 64));
+	MemSetT(this->free_bitmap + CeilDivT<size_t>(this->size, 64), 0, CeilDivT<size_t>(new_size, 64) - CeilDivT<size_t>(this->size, 64));
+	if (new_size % 64 != 0) {
+		this->free_bitmap[new_size / 64] |= (~((uint64_t) 0)) << (new_size % 64);
 	}
-	if (new_size % BITMAP_SIZE != 0) {
-		/* Bits above new size are considered used. */
-		this->used_bitmap[new_size / BITMAP_SIZE] |= (~static_cast<BitmapStorage>(0)) << (new_size % BITMAP_SIZE);
-	}
+
+	this->size = new_size;
 }
 
 /**
@@ -58,20 +56,27 @@ DEFINE_POOL_METHOD(inline void)::ResizeFor(size_t index)
  */
 DEFINE_POOL_METHOD(inline size_t)::FindFirstFree()
 {
-	for (auto it = std::next(std::begin(this->used_bitmap), this->first_free / BITMAP_SIZE); it != std::end(this->used_bitmap); ++it) {
-		BitmapStorage available = ~(*it);
+	size_t bitmap_index = this->first_free / 64;
+	size_t bitmap_end = CeilDivT<size_t>(this->first_unused, 64);
+
+	for (; bitmap_index < bitmap_end; bitmap_index++) {
+		uint64_t available = ~this->free_bitmap[bitmap_index];
 		if (available == 0) continue;
-		return std::distance(std::begin(this->used_bitmap), it) * BITMAP_SIZE + FindFirstBit(available);
+		return (bitmap_index * 64) + FindFirstBit(available);
 	}
 
-	assert(this->first_unused == this->data.size());
+	if (this->first_unused < this->size) {
+		return this->first_unused;
+	}
+
+	dbg_assert(this->first_unused == this->size);
 
 	if (this->first_unused < MAX_SIZE) {
 		this->ResizeFor(this->first_unused);
 		return this->first_unused;
 	}
 
-	assert(this->first_unused == MAX_SIZE);
+	dbg_assert(this->first_unused == MAX_SIZE);
 
 	return NO_FREE_ITEM;
 }
@@ -82,49 +87,50 @@ DEFINE_POOL_METHOD(inline size_t)::FindFirstFree()
  * @param index index of item
  * @pre index < this->size
  * @pre this->Get(index) == nullptr
+ * @return The resulting allocation and pool-type index.
  */
-DEFINE_POOL_METHOD(inline void *)::AllocateItem(size_t size, size_t index)
+DEFINE_POOL_METHOD(inline void *)::AllocateItem(size_t size, size_t index, Pool::ParamType param)
 {
-	assert(this->data[index] == nullptr);
+	dbg_assert(this->data[index] == Tops::NullValue());
 
 	this->first_unused = std::max(this->first_unused, index + 1);
 	this->items++;
 
 	Titem *item;
 	if (Tcache && this->alloc_cache != nullptr) {
-		assert(sizeof(Titem) == size);
+		dbg_assert(sizeof(Titem) == size);
 		item = reinterpret_cast<Titem *>(this->alloc_cache);
 		this->alloc_cache = this->alloc_cache->next;
 	} else {
-		item = reinterpret_cast<Titem *>(this->allocator.allocate(size));
+		item = reinterpret_cast<Titem *>(MallocT<uint8_t>(size));
 	}
-	this->data[index] = item;
-	SetBit(this->used_bitmap[index / BITMAP_SIZE], index % BITMAP_SIZE);
+	this->data[index] = Tops::PutPtr(item, param);
+	SetBit(this->free_bitmap[index / 64], index % 64);
 	/* MSVC complains about casting to narrower type, so first cast to the base type... then to the strong type. */
-	item->index = static_cast<Tindex>(static_cast<Tindex::BaseType>(index));
 	return item;
 }
 
 /**
  * Allocates new item
  * @param size size of item
- * @return pointer to allocated item
+ * @return The resulting allocation and pool-type index.
  * @note FatalError() on failure! (no free item)
  */
-DEFINE_POOL_METHOD(void *)::GetNew(size_t size)
+DEFINE_POOL_METHOD(AllocationResult<Tindex>)::GetNew(size_t size, Pool::ParamType param)
 {
 	size_t index = this->FindFirstFree();
 
-#ifdef WITH_ASSERT
-	assert(this->checked != 0);
+#ifdef WITH_FULL_ASSERTS
+	dbg_assert(this->checked != 0);
 	this->checked--;
-#endif /* WITH_ASSERT */
+#endif /* WITH_FULL_ASSERTS */
 	if (index == NO_FREE_ITEM) {
-		FatalError("{}: no more free items", this->name);
+		[[noreturn]] extern void PoolNoMoreFreeItemsError(std::string_view name);
+		PoolNoMoreFreeItemsError(this->name);
 	}
 
 	this->first_free = index + 1;
-	return this->AllocateItem(size, index);
+	return { this->AllocateItem(size, index, param), static_cast<Tindex>(static_cast<Tindex::BaseType>(index)) };
 }
 
 /**
@@ -132,72 +138,75 @@ DEFINE_POOL_METHOD(void *)::GetNew(size_t size)
  * @param size size of item
  * @param index index of item
  * @return pointer to allocated item
- * @note SlErrorCorruptFmt() on failure! (index out of range or already used)
+ * @note SlErrorCorrupt() on failure! (index out of range or already used)
  */
-DEFINE_POOL_METHOD(void *)::GetNew(size_t size, size_t index)
+DEFINE_POOL_METHOD(void *)::GetNew(size_t size, size_t index, Pool::ParamType param)
 {
-	if (index >= MAX_SIZE) {
-		SlErrorCorruptFmt("{} index {} out of range ({})", this->name, index, MAX_SIZE);
+	if (unlikely(index >= MAX_SIZE)) {
+		[[noreturn]] extern void PoolOutOfRangeError(std::string_view name, size_t index, size_t max_size);
+		PoolOutOfRangeError(this->name, index, MAX_SIZE);
 	}
 
-	if (index >= this->data.size()) this->ResizeFor(index);
+	if (index >= this->size) this->ResizeFor(index);
 
-	if (this->data[index] != nullptr) {
-		SlErrorCorruptFmt("{} index {} already in use", this->name, index);
+	if (unlikely(this->data[index] != Tops::NullValue())) {
+		[[noreturn]] extern void PoolIndexAlreadyInUseError(std::string_view name, size_t index);
+		PoolIndexAlreadyInUseError(this->name, index);
 	}
 
-	return this->AllocateItem(size, index);
+	return this->AllocateItem(size, index, param);
 }
 
 /**
  * Deallocates memory used by this index and marks item as free
- * @param size the size of the freed object
  * @param index item to deallocate
  * @pre unit is allocated (non-nullptr)
  * @note 'delete nullptr' doesn't cause call of this function, so it is safe
  */
-DEFINE_POOL_METHOD(void)::FreeItem(size_t size, size_t index)
+DEFINE_POOL_METHOD(void)::FreeItem(size_t index)
 {
-	assert(index < this->data.size());
-	assert(this->data[index] != nullptr);
+	dbg_assert(index < this->size);
+	dbg_assert(this->data[index] != Tops::NullValue());
 	if (Tcache) {
 		AllocCache *ac = reinterpret_cast<AllocCache *>(this->data[index]);
 		ac->next = this->alloc_cache;
 		this->alloc_cache = ac;
 	} else {
-		this->allocator.deallocate(reinterpret_cast<uint8_t*>(this->data[index]), size);
+		free(Tops::GetPtr(this->data[index]));
 	}
-	this->data[index] = nullptr;
+	this->data[index] = Tops::NullValue();
+	ClrBit(this->free_bitmap[index / 64], index % 64);
 	this->first_free = std::min(this->first_free, index);
 	this->items--;
-	if (!this->cleaning) {
-		ClrBit(this->used_bitmap[index / BITMAP_SIZE], index % BITMAP_SIZE);
-		Titem::PostDestructor(index);
-	}
+	if (!this->cleaning) Titem::PostDestructor(index);
 }
 
 /** Destroys all items in the pool and resets all member variables. */
 DEFINE_POOL_METHOD(void)::CleanPool()
 {
 	this->cleaning = true;
+	Titem::PreCleanPool();
 	for (size_t i = 0; i < this->first_unused; i++) {
 		delete this->Get(i); // 'delete nullptr;' is very valid
 	}
-	assert(this->items == 0);
-	this->data.clear();
-	this->data.shrink_to_fit();
-	this->used_bitmap.clear();
-	this->used_bitmap.shrink_to_fit();
-	this->first_unused = this->first_free = 0;
+	dbg_assert(this->items == 0);
+	free(this->data);
+	free(this->free_bitmap);
+	this->first_unused = this->first_free = this->size = 0;
+	this->data = nullptr;
+	this->free_bitmap = nullptr;
 	this->cleaning = false;
 
 	if (Tcache) {
 		while (this->alloc_cache != nullptr) {
 			AllocCache *ac = this->alloc_cache;
 			this->alloc_cache = ac->next;
-			this->allocator.deallocate(reinterpret_cast<uint8_t*>(ac), sizeof(Titem));
+			free(ac);
 		}
 	}
+
+	/* Ensure that item type has necessary constructors/destructors defined. */
+	static_assert(!std::is_aggregate_v<Titem>);
 }
 
 #undef DEFINE_POOL_METHOD
@@ -208,9 +217,9 @@ DEFINE_POOL_METHOD(void)::CleanPool()
  * forcefully instantiated.
  */
 #define INSTANTIATE_POOL_METHODS(name) \
-	template void * name ## Pool::GetNew(size_t size); \
-	template void * name ## Pool::GetNew(size_t size, size_t index); \
-	template void name ## Pool::FreeItem(size_t size, size_t index); \
+	template AllocationResult<name ## Pool::IndexType> name ## Pool::GetNew(size_t size, name ## Pool::ParamType param); \
+	template void * name ## Pool::GetNew(size_t size, size_t index, name ## Pool::ParamType param); \
+	template void name ## Pool::FreeItem(size_t index); \
 	template void name ## Pool::CleanPool();
 
 #endif /* POOL_FUNC_HPP */

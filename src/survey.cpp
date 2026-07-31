@@ -11,14 +11,13 @@
 
 #include "survey.h"
 
-#include "settings_table.h"
 #include "network/network.h"
 #include "rev.h"
 #include "settings_type.h"
+#include "settings_internal.h"
 #include "timer/timer_game_tick.h"
-#include "timer/timer_game_calendar.h"
-#include "timer/timer_game_economy.h"
-#include "3rdparty/fmt/ranges.h"
+#include "sl/saveload.h"
+#include "date_func.h"
 
 #include "currency.h"
 #include "fontcache.h"
@@ -39,6 +38,10 @@
 #include "blitter/factory.hpp"
 
 #include "social_integration.h"
+
+#include "core/format.hpp"
+
+#include <bit>
 
 #ifdef WITH_ALLEGRO
 #	include <allegro.h>
@@ -64,12 +67,15 @@
 #ifdef WITH_LIBLZMA
 #	include <lzma.h>
 #endif
+#ifdef WITH_ZSTD
+#include <zstd.h>
+#endif
 #ifdef WITH_LZO
 #include <lzo/lzo1x.h>
 #endif
-#if defined(WITH_SDL) || defined(WITH_SDL2)
-#	include <SDL.h>
-#endif /* WITH_SDL || WITH_SDL2 */
+#ifdef WITH_SDL2
+#include <SDL.h>
+#endif /* WITH_SDL2 */
 #ifdef WITH_ZLIB
 # include <zlib.h>
 #endif
@@ -79,12 +85,14 @@
 
 #include "safeguards.h"
 
+#ifndef DOXYGEN_API
+
 NLOHMANN_JSON_SERIALIZE_ENUM(GRFStatus, {
-	{GRFStatus::GCS_UNKNOWN, "unknown"},
-	{GRFStatus::GCS_DISABLED, "disabled"},
-	{GRFStatus::GCS_NOT_FOUND, "not found"},
-	{GRFStatus::GCS_INITIALISED, "initialised"},
-	{GRFStatus::GCS_ACTIVATED, "activated"},
+	{GRFStatus::Unknown, "unknown"},
+	{GRFStatus::Disabled, "disabled"},
+	{GRFStatus::NotFound, "not found"},
+	{GRFStatus::Initialised, "initialised"},
+	{GRFStatus::Activated, "activated"},
 })
 
 NLOHMANN_JSON_SERIALIZE_ENUM(SocialIntegrationPlugin::State, {
@@ -97,43 +105,15 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SocialIntegrationPlugin::State, {
 	{SocialIntegrationPlugin::State::INVALID_SIGNATURE, "invalid_signature"},
 })
 
+#endif /* DOXYGEN_API */
 
 /** Lookup table to convert a VehicleType to a string. */
-static const std::string _vehicle_type_to_string[] = {
+static constexpr VehicleTypeIndexArray<std::string_view> _vehicle_type_to_string = {
 	"train",
 	"roadveh",
 	"ship",
 	"aircraft",
 };
-
-/**
- * List of all the generic setting tables.
- *
- * There are a few tables that are special and not processed like the rest:
- * - _currency_settings
- * - _misc_settings
- * - _company_settings
- * - _win32_settings
- * As such, they are not part of this list.
- */
-static auto &GenericSettingTables()
-{
-	static const SettingTable _generic_setting_tables[] = {
-		_difficulty_settings,
-		_economy_settings,
-		_game_settings,
-		_gui_settings,
-		_linkgraph_settings,
-		_locale_settings,
-		_multimedia_settings,
-		_network_settings,
-		_news_display_settings,
-		_pathfinding_settings,
-		_script_settings,
-		_world_settings,
-	};
-	return _generic_setting_tables;
-}
 
 /**
  * Convert a settings table to JSON.
@@ -145,14 +125,15 @@ static auto &GenericSettingTables()
  */
 static void SurveySettingsTable(nlohmann::json &survey, const SettingTable &table, void *object, bool skip_if_default)
 {
-	for (auto &desc : table) {
-		const SettingDesc *sd = GetSettingDesc(desc);
+	format_buffer buf;
+	for (auto &sd : table) {
 		/* Skip any old settings we no longer save/load. */
-		if (!SlIsObjectCurrentlyValid(sd->save.version_from, sd->save.version_to)) continue;
+		if (!SlIsObjectCurrentlyValid(sd->save.version_from, sd->save.version_to, sd->save.ext_feature_test)) continue;
 
-		const auto &name = sd->GetName();
 		if (skip_if_default && sd->IsDefaultValue(object)) continue;
-		survey[name] = sd->FormatValue(object);
+		sd->FormatValue(buf, object);
+		survey[sd->name] = buf;
+		buf.clear();
 	}
 }
 
@@ -160,18 +141,13 @@ static void SurveySettingsTable(nlohmann::json &survey, const SettingTable &tabl
  * Convert settings to JSON.
  *
  * @param survey The JSON object.
+ * @param skip_if_default If true, skip any settings that are on their default value.
  */
 void SurveySettings(nlohmann::json &survey, bool skip_if_default)
 {
-	SurveySettingsTable(survey, _misc_settings, nullptr, skip_if_default);
-#if defined(_WIN32) && !defined(DEDICATED)
-	SurveySettingsTable(survey, _win32_settings, nullptr, skip_if_default);
-#endif
-	for (auto &table : GenericSettingTables()) {
-		SurveySettingsTable(survey, table, &_settings_game, skip_if_default);
-	}
-	SurveySettingsTable(survey, _currency_settings, &GetCustomCurrency(), skip_if_default);
-	SurveySettingsTable(survey, _company_settings, &_settings_client.company, skip_if_default);
+	IterateSettingsTables([&](const SettingTable &table, void *object) {
+		SurveySettingsTable(survey, table, object, skip_if_default);
+	});
 }
 
 /**
@@ -184,6 +160,9 @@ void SurveyCompiler(nlohmann::json &survey)
 #if defined(_MSC_VER)
 	survey["name"] = "MSVC";
 	survey["version"] = _MSC_VER;
+#elif defined(__clang__)
+	survey["name"] = "clang";
+	survey["version"] = __clang_version__;
 #elif defined(__ICC) && defined(__GNUC__)
 	survey["name"] = "ICC";
 	survey["version"] = __ICC;
@@ -242,7 +221,11 @@ void SurveyOpenTTD(nlohmann::json &survey)
 void SurveyGameSession(nlohmann::json &survey)
 {
 	survey["id"] = _game_session_stats.savegame_id;
-	survey["seconds"] = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - _game_session_stats.start_time).count();
+	if (_game_session_stats.start_time.has_value()) {
+		survey["seconds"] = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - _game_session_stats.start_time.value()).count();
+	} else {
+		survey["seconds"] = 0;
+	}
 	if (_game_session_stats.savegame_size.has_value()) {
 		survey["savegame_size"] = _game_session_stats.savegame_size.value();
 	}
@@ -257,7 +240,7 @@ void SurveyConfiguration(nlohmann::json &survey)
 {
 	survey["network"] = _networking ? (_network_server ? "server" : "client") : "no";
 	if (_current_language != nullptr) {
-		survey["language"]["filename"] = FS2OTTD(_current_language->file.filename().native());
+		survey["language"]["filename"] = StrLastPathSegment(_current_language->file);
 		survey["language"]["name"] = _current_language->name;
 		survey["language"]["isocode"] = _current_language->isocode;
 	}
@@ -275,7 +258,7 @@ void SurveyConfiguration(nlohmann::json &survey)
 		survey["video_info"] = VideoDriver::GetInstance()->GetInfoString();
 	}
 	if (BaseGraphics::GetUsedSet() != nullptr) {
-		survey["graphics_set"] = fmt::format("{}.{}", BaseGraphics::GetUsedSet()->name, fmt::join(BaseGraphics::GetUsedSet()->version, "."));
+		survey["graphics_set"] = fmt::format("{}.{}", BaseGraphics::GetUsedSet()->name, BaseGraphics::GetUsedSet()->FormatVersion());
 		const GRFConfig *extra_cfg = BaseGraphics::GetUsedSet()->GetExtraConfig();
 		if (extra_cfg != nullptr && !extra_cfg->param.empty()) {
 			survey["graphics_set_parameters"] = std::span<const uint32_t>(extra_cfg->param);
@@ -284,10 +267,10 @@ void SurveyConfiguration(nlohmann::json &survey)
 		}
 	}
 	if (BaseMusic::GetUsedSet() != nullptr) {
-		survey["music_set"] = fmt::format("{}.{}", BaseMusic::GetUsedSet()->name, fmt::join(BaseMusic::GetUsedSet()->version, "."));
+		survey["music_set"] = fmt::format("{}.{}", BaseMusic::GetUsedSet()->name, BaseMusic::GetUsedSet()->FormatVersion());
 	}
 	if (BaseSounds::GetUsedSet() != nullptr) {
-		survey["sound_set"] = fmt::format("{}.{}", BaseSounds::GetUsedSet()->name, fmt::join(BaseSounds::GetUsedSet()->version, "."));
+		survey["sound_set"] = fmt::format("{}.{}", BaseSounds::GetUsedSet()->name, BaseSounds::GetUsedSet()->FormatVersion());
 	}
 }
 
@@ -298,10 +281,10 @@ void SurveyConfiguration(nlohmann::json &survey)
  */
 void SurveyFont(nlohmann::json &survey)
 {
-	survey["small"] = FontCache::Get(FS_SMALL)->GetFontName();
-	survey["medium"] = FontCache::Get(FS_NORMAL)->GetFontName();
-	survey["large"] = FontCache::Get(FS_LARGE)->GetFontName();
-	survey["mono"] = FontCache::Get(FS_MONO)->GetFontName();
+	survey["small"] = FontCache::Get(FontSize::Small)->GetFontName();
+	survey["medium"] = FontCache::Get(FontSize::Normal)->GetFontName();
+	survey["large"] = FontCache::Get(FontSize::Large)->GetFontName();
+	survey["mono"] = FontCache::Get(FontSize::Monospace)->GetFontName();
 }
 
 /**
@@ -320,7 +303,7 @@ void SurveyCompanies(nlohmann::json &survey)
 			company["script"] = fmt::format("{}.{}", c->ai_info->GetName(), c->ai_info->GetVersion());
 		}
 
-		for (VehicleType type = VEH_BEGIN; type < VEH_COMPANY_END; type++) {
+		for (VehicleType type = VehicleType::Begin; type < VehicleType::CompanyEnd; type++) {
 			uint amount = c->group_all[type].num_vehicle;
 			company["vehicles"][_vehicle_type_to_string[type]] = amount;
 		}
@@ -342,13 +325,10 @@ void SurveyCompanies(nlohmann::json &survey)
  */
 void SurveyTimers(nlohmann::json &survey)
 {
-	survey["ticks"] = TimerGameTick::counter;
+	survey["ticks"] = _scaled_tick_counter;
 
-	TimerGameEconomy::YearMonthDay economy_ymd = TimerGameEconomy::ConvertDateToYMD(TimerGameEconomy::date);
-	survey["economy"] = fmt::format("{:04}-{:02}-{:02} ({})", economy_ymd.year, economy_ymd.month + 1, economy_ymd.day, TimerGameEconomy::date_fract);
-
-	TimerGameCalendar::YearMonthDay ymd = TimerGameCalendar::ConvertDateToYMD(TimerGameCalendar::date);
-	survey["calendar"] = fmt::format("{:04}-{:02}-{:02} ({})", ymd.year, ymd.month + 1, ymd.day, TimerGameCalendar::date_fract);
+	survey["calendar"] = fmt::format("{:04}-{:02}-{:02} ({})", CalTime::CurYear(), CalTime::CurMonth() + 1, CalTime::CurDay(), CalTime::CurDateFract());
+	survey["economy"] = fmt::format("{:04}-{:02}-{:02} ({})", EconTime::CurYear(), EconTime::CurMonth() + 1, EconTime::CurDay(), EconTime::CurDateFract());
 }
 
 /**
@@ -362,7 +342,7 @@ void SurveyGrfs(nlohmann::json &survey)
 		auto grfid = fmt::format("{:08x}", std::byteswap(c->ident.grfid));
 		auto &grf = survey[std::move(grfid)];
 
-		grf["md5sum"] = FormatArrayAsHex(c->ident.md5sum);
+		grf["md5sum"] = FormatArrayAsHex(c->ident.md5sum, true);
 		grf["status"] = c->status;
 
 		if ((c->palette & GRFP_GRF_MASK) == GRFP_GRF_UNSET) grf["palette"] = "unset";
@@ -432,6 +412,10 @@ void SurveyLibraries(nlohmann::json &survey)
 	survey["lzma"] = lzma_version_string();
 #endif
 
+#ifdef WITH_ZSTD
+	survey["zstd"] = ZSTD_versionString();
+#endif
+
 #ifdef WITH_LZO
 	survey["lzo"] = lzo_version_string();
 #endif
@@ -440,10 +424,7 @@ void SurveyLibraries(nlohmann::json &survey)
 	survey["png"] = png_get_libpng_ver(nullptr);
 #endif /* WITH_PNG */
 
-#ifdef WITH_SDL
-	const SDL_version *sdl_v = SDL_Linked_Version();
-	survey["sdl"] = fmt::format("{}.{}.{}", sdl_v->major, sdl_v->minor, sdl_v->patch);
-#elif defined(WITH_SDL2)
+#ifdef WITH_SDL2
 	SDL_version sdl2_v;
 	SDL_GetVersion(&sdl2_v);
 	survey["sdl2"] = fmt::format("{}.{}.{}", sdl2_v.major, sdl2_v.minor, sdl2_v.patch);
@@ -478,6 +459,13 @@ void SurveyPlugins(nlohmann::json &survey)
 			{"state", plugin->state},
 		});
 	}
+}
+
+const char *PluginStateToString(SocialIntegrationPlugin::State state)
+{
+	const char *output = "";
+	to_json<const char *>(output, state);
+	return output;
 }
 
 /**

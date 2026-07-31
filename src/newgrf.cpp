@@ -9,12 +9,14 @@
 
 #include "stdafx.h"
 #include "core/backup_type.hpp"
+#include "core/bit_cast.hpp"
 #include "core/container_func.hpp"
 #include "company_manager_face.h"
 #include "debug.h"
 #include "fileio_func.h"
 #include "engine_func.h"
 #include "engine_base.h"
+#include "engine_override.h"
 #include "bridge.h"
 #include "town.h"
 #include "newgrf_engine.h"
@@ -34,6 +36,9 @@
 #include "newgrf_airporttiles.h"
 #include "newgrf_airport.h"
 #include "newgrf_object.h"
+#include "newgrf_newsignals.h"
+#include "newgrf_newlandscape.h"
+#include "newgrf_extension.h"
 #include "network/core/config.h"
 #include "smallmap_gui.h"
 #include "genworld.h"
@@ -41,12 +46,22 @@
 #include "vehicle_base.h"
 #include "road.h"
 #include "newgrf_roadstop.h"
+#include "debug_settings.h"
+#include "scope_info.h"
 #include "newgrf/newgrf_bytereader.h"
 #include "newgrf/newgrf_internal_vehicle.h"
 #include "newgrf/newgrf_internal.h"
+#include "newgrf/newgrf_optimiser_internal.h"
 #include "newgrf/newgrf_stringmapping.h"
 
 #include "table/strings.h"
+#include "table/pricebase.h"
+
+#include "3rdparty/cpp-btree/btree_map.h"
+#include "3rdparty/robin_hood/robin_hood.h"
+
+#include <ranges>
+#include <variant>
 
 #include "safeguards.h"
 
@@ -61,6 +76,7 @@
 
 /** List of all loaded GRF files */
 static std::vector<GRFFile> _grf_files;
+static robin_hood::unordered_map<uint32_t, GRFFile *> _grf_file_map;
 
 std::span<const GRFFile> GetAllGRFFiles()
 {
@@ -74,6 +90,22 @@ GrfMiscBits _misc_grf_features{};
 GRFLoadedFeatures _loaded_newgrf_features;
 
 GrfProcessingState _cur_gps;
+GrfProcessingOptimiserState _cur_grf_optimise_state;
+
+/** Clear temporary data before processing the next file in the current loading stage */
+void GrfProcessingState::ClearDataForNextFile()
+{
+	this->nfo_line = 0;
+	this->skip_sprites = 0;
+
+	for (auto &it : this->spritesets) {
+		it.clear();
+	}
+
+	this->spritegroups.clear();
+
+	_cur_grf_optimise_state.ClearDataForNextFile();
+}
 
 TypedIndexContainer<std::vector<GRFTempEngineData>, EngineID> _gted;  ///< Temporary engine data used during NewGRF loading
 
@@ -81,19 +113,21 @@ TypedIndexContainer<std::vector<GRFTempEngineData>, EngineID> _gted;  ///< Tempo
  * Debug() function dedicated to newGRF debugging messages
  * Function is essentially the same as Debug(grf, severity, ...) with the
  * addition of file:line information when parsing grf files.
- * NOTE: for the above reason(s) GrfMsg() should ONLY be used for
+ * @note for the above reason(s) GrfMsg() should ONLY be used for
  * loading/parsing grf files, not for runtime debug messages as there
  * is no file information available during that time.
  * @param severity debugging severity level, see debug.h
  * @param msg the message
+ * @param msg format arguments
  */
-void GrfMsgI(int severity, const std::string &msg)
+void GrfInfoVFmt(int severity, fmt::string_view msg, fmt::format_args args)
 {
-	if (_cur_gps.grfconfig == nullptr) {
-		Debug(grf, severity, "{}", msg);
-	} else {
-		Debug(grf, severity, "[{}:{}] {}", _cur_gps.grfconfig->filename, _cur_gps.nfo_line, msg);
+	format_buffer buf;
+	if (_cur_gps.grfconfig != nullptr) {
+		buf.format("[{}:{}] ", _cur_gps.grfconfig->filename, _cur_gps.nfo_line);
 	}
+	buf.vformat(msg, args);
+	debug_print(DebugLevelID::grf, severity, buf);
 }
 
 /**
@@ -103,9 +137,20 @@ void GrfMsgI(int severity, const std::string &msg)
  */
 GRFFile *GetFileByGRFID(uint32_t grfid)
 {
-	auto it = std::ranges::find(_grf_files, grfid, &GRFFile::grfid);
-	if (it != std::end(_grf_files)) return &*it;
+	auto iter = _grf_file_map.find(grfid);
+	if (iter != _grf_file_map.end()) return iter->second;
 	return nullptr;
+}
+
+/**
+ * Obtain a NewGRF file by its grfID,  expect it to usually be the current GRF's grfID
+ * @param grfid The grfID to obtain the file for
+ * @return The file.
+ */
+GRFFile *GetFileByGRFIDExpectCurrent(uint32_t grfid)
+{
+	if (_cur_gps.grffile != nullptr && _cur_gps.grffile->grfid == grfid) return _cur_gps.grffile;
+	return GetFileByGRFID(grfid);
 }
 
 /**
@@ -120,7 +165,10 @@ static GRFFile *GetFileByFilename(const std::string &filename)
 	return nullptr;
 }
 
-/** Reset all NewGRFData that was used only while processing data */
+/**
+ * Reset all NewGRFData that was used only while processing data.
+ * @param gf The file to reset the data for.
+ */
 static void ClearTemporaryNewGRFData(GRFFile *gf)
 {
 	gf->labels.clear();
@@ -142,7 +190,7 @@ GRFError *DisableGrf(StringID message, GRFConfig *config)
 		file = _cur_gps.grffile;
 	}
 
-	config->status = GCS_DISABLED;
+	config->status = GRFStatus::Disabled;
 	if (file != nullptr) ClearTemporaryNewGRFData(file);
 	if (config == _cur_gps.grfconfig) _cur_gps.skip_sprites = -1;
 
@@ -171,7 +219,7 @@ void DisableStaticNewGRFInfluencingNonStaticNewGRFs(GRFConfig &c)
 	error->data = _cur_gps.grfconfig->GetName();
 }
 
-static std::map<uint32_t, uint32_t> _grf_id_overrides;
+static robin_hood::unordered_flat_map<uint32_t, uint32_t> _grf_id_overrides;
 
 /**
  * Set the override for a NewGRF
@@ -241,13 +289,21 @@ Engine *GetNewEngine(const GRFFile *file, VehicleType type, uint16_t internal_id
 	}
 
 	/* Check if there is an unreserved slot */
-	EngineID engine = _engine_mngr.UseUnreservedID(type, internal_id, scope_grfid, static_access);
+	EngineID engine = _engine_mngr.GetID(type, internal_id, INVALID_GRFID);
 	if (engine != EngineID::Invalid()) {
 		Engine *e = Engine::Get(engine);
 
 		if (!e->grf_prop.HasGrfFile()) {
 			e->grf_prop.SetGRFFile(file);
 			GrfMsg(5, "Replaced engine at index {} for GRFID {:x}, type {}, index {}", e->index, std::byteswap(file->grfid), type, internal_id);
+		}
+
+		/* Reserve the engine slot */
+		if (!static_access) {
+			_engine_mngr.RemoveFromIndex(engine);
+			EngineIDMapping &eid = _engine_mngr.mappings[engine];
+			eid.grfid = scope_grfid; // Note: this is INVALID_GRFID if dynamic_engines is disabled, so no reservation
+			_engine_mngr.AddToIndex(engine);
 		}
 
 		return e;
@@ -263,17 +319,24 @@ Engine *GetNewEngine(const GRFFile *file, VehicleType type, uint16_t internal_id
 	size_t engine_pool_size = Engine::GetPoolSize();
 
 	/* ... it's not, so create a new one based off an existing engine */
-	Engine *e = new Engine(type, internal_id);
+	Engine *e = Engine::Create(type, internal_id);
 	e->grf_prop.SetGRFFile(file);
 
 	/* Reserve the engine slot */
-	_engine_mngr.SetID(type, internal_id, scope_grfid, std::min<uint8_t>(internal_id, _engine_counts[type]), e->index);
+	assert(_engine_mngr.mappings.size() == e->index);
+	_engine_mngr.mappings.push_back({
+			scope_grfid, // Note: this is INVALID_GRFID if dynamic_engines is disabled, so no reservation
+			internal_id,
+			type,
+			std::min<uint8_t>(internal_id, GetOriginalEngineCount(type)) // substitute_id == _engine_counts[subtype] means "no substitute"
+	});
+	_engine_mngr.AddToIndex(e->index);
 
 	if (engine_pool_size != Engine::GetPoolSize()) {
 		/* Resize temporary engine data ... */
 		_gted.resize(Engine::GetPoolSize());
 	}
-	if (type == VEH_TRAIN) {
+	if (type == VehicleType::Train) {
 		_gted[e->index].railtypelabels.clear();
 		for (RailType rt : e->VehInfo<RailVehicleInfo>().railtypes) _gted[e->index].railtypelabels.push_back(GetRailTypeInfo(rt)->label);
 	}
@@ -306,18 +369,17 @@ EngineID GetNewEngineID(const GRFFile *file, VehicleType type, uint16_t internal
 	return _engine_mngr.GetID(type, internal_id, scope_grfid);
 }
 
-
-
-
 /**
  * Translate the refit mask. refit_mask is uint32_t as it has not been mapped to CargoTypes.
+ * @param refit_mask The bitmask to convert.
+ * @return The converted CargoTypes.
  */
 CargoTypes TranslateRefitMask(uint32_t refit_mask)
 {
-	CargoTypes result = 0;
+	CargoTypes result{};
 	for (uint8_t bit : SetBitIterator(refit_mask)) {
 		CargoType cargo = GetCargoTranslation(bit, _cur_gps.grffile, true);
-		if (IsValidCargoType(cargo)) SetBit(result, cargo);
+		if (IsValidCargoType(cargo)) result.Set(cargo);
 	}
 	return result;
 }
@@ -333,14 +395,14 @@ void ConvertTTDBasePrice(uint32_t base_pointer, std::string_view error_location,
 {
 	/* Special value for 'none' */
 	if (base_pointer == 0) {
-		*index = INVALID_PRICE;
+		*index = Price::Invalid;
 		return;
 	}
 
 	static const uint32_t start = 0x4B34; ///< Position of first base price
 	static const uint32_t size  = 6;      ///< Size of each base price record
 
-	if (base_pointer < start || (base_pointer - start) % size != 0 || (base_pointer - start) / size >= PR_END) {
+	if (base_pointer < start || (base_pointer - start) % size != 0 || (base_pointer - start) / size >= to_underlying(Price::End)) {
 		GrfMsg(1, "{}: Unsupported running cost base 0x{:04X}, ignoring", error_location, base_pointer);
 		return;
 	}
@@ -366,6 +428,99 @@ void ConvertTTDBasePrice(uint32_t base_pointer, std::string_view error_location,
 	return &it->second;
 }
 
+GrfSpecFeatureRef ReadFeature(uint8_t raw_byte, bool allow_48)
+{
+	if (unlikely(HasBit(_cur_gps.grffile->ctrl_flags, GFCF_HAVE_FEATURE_ID_REMAP))) {
+		const GRFFeatureMapRemapSet &remap = _cur_gps.grffile->feature_id_remaps;
+		if (remap.remapped_ids[raw_byte]) {
+			auto iter = remap.mapping.find(raw_byte);
+			const GRFFeatureMapRemapEntry &def = iter->second;
+			if (def.feature == GrfSpecFeature::ErrorOnUse) {
+				GrfMsg(0, "Error: Unimplemented mapped feature: {}, mapped to: {:02X}", def.name, raw_byte);
+				GRFError *error = DisableGrf(STR_NEWGRF_ERROR_UNIMPLEMETED_MAPPED_FEATURE_ID);
+				error->data = stredup(def.name);
+				error->param_value[1] = to_underlying(GrfSpecFeature::Invalid);
+				error->param_value[2] = raw_byte;
+			} else if (def.feature == GrfSpecFeature::Invalid) {
+				GrfMsg(2, "Ignoring unimplemented mapped feature: {}, mapped to: {:02X}", def.name, raw_byte);
+			}
+			return { def.feature, raw_byte };
+		}
+	}
+
+	GrfSpecFeature feature;
+	if (raw_byte >= to_underlying(GrfSpecFeature::RealFeatureEnd) && !(allow_48 && raw_byte == 0x48)) {
+		feature = GrfSpecFeature::Invalid;
+	} else {
+		feature = static_cast<GrfSpecFeature>(raw_byte);
+	}
+	return { feature, raw_byte };
+}
+
+static const EnumIndexArray<const char *, GrfSpecFeature, GrfSpecFeature::End> _feature_names{
+	"Trains",
+	"RoadVehicles",
+	"Ships",
+	"Aircraft",
+	"Stations",
+	"Canals",
+	"Bridges",
+	"Houses",
+	"GlobalVar",
+	"IndustryTiles",
+	"Industries",
+	"Cargoes",
+	"SoundEffects",
+	"Airports",
+	"Signals",
+	"Objects",
+	"RailTypes",
+	"AirportTiles",
+	"RoadTypes",
+	"TramTypes",
+	"RoadStops",
+	"Badges",
+	"NewLandscape",
+	"FakeTowns",
+};
+
+void GetFeatureStringFormatter::fmt_format_value(format_target &output) const
+{
+	if (this->feature.id < GrfSpecFeature::End) {
+		output.format("0x{:02X} ({})", this->feature.raw_byte, _feature_names[this->feature.id]);
+	} else {
+		if (unlikely(HasBit(_cur_gps.grffile->ctrl_flags, GFCF_HAVE_FEATURE_ID_REMAP))) {
+			const GRFFeatureMapRemapSet &remap = _cur_gps.grffile->feature_id_remaps;
+			if (remap.remapped_ids[this->feature.raw_byte]) {
+				auto iter = remap.mapping.find(this->feature.raw_byte);
+				const GRFFeatureMapRemapEntry &def = iter->second;
+				output.format("0x{:02X} ({})", this->feature.raw_byte, def.name);
+				return;
+			}
+		}
+		output.format("0x{:02X}", this->feature.raw_byte);
+	}
+}
+
+GetFeatureStringFormatter GetFeatureString(GrfSpecFeatureRef feature)
+{
+	return GetFeatureStringFormatter(feature);
+}
+
+GetFeatureStringFormatter GetFeatureString(GrfSpecFeature feature)
+{
+	uint8_t raw_byte = to_underlying(feature);
+	if (feature >= GrfSpecFeature::RealFeatureEnd) {
+		for (const auto &entry : _cur_gps.grffile->feature_id_remaps.mapping) {
+			if (entry.second.feature == feature) {
+				raw_byte = entry.second.raw_id;
+				break;
+			}
+		}
+	}
+	return GetFeatureStringFormatter(GrfSpecFeatureRef{ feature, raw_byte });
+}
+
 /**
  * Set the current NewGRF as unsafe for static use
  * @note Used during safety scan on unsafe actions.
@@ -384,6 +539,11 @@ static void ResetNewGRF()
 	_cur_gps.grfconfig = nullptr;
 	_cur_gps.grffile = nullptr;
 	_grf_files.clear();
+	_grf_file_map.clear();
+	_new_signals_grfs.clear();
+	_new_signal_styles.fill({});
+	_num_new_signal_styles = 0;
+	_new_landscape_rocks_grfs.clear();
 
 	/* We store pointers to GRFFiles in many places, so need to ensure that the pointers do not become invalid
 	 * due to vector reallocation. Should not happen due to loading taking place in multiple stages, but
@@ -428,7 +588,7 @@ void ResetNewGRFData()
 	_gted.resize(Engine::GetPoolSize());
 
 	/* Fill rail type label temporary data for default trains */
-	for (const Engine *e : Engine::IterateType(VEH_TRAIN)) {
+	for (const Engine *e : Engine::IterateType(VehicleType::Train)) {
 		_gted[e->index].railtypelabels.clear();
 		for (RailType rt : e->VehInfo<RailVehicleInfo>().railtypes) _gted[e->index].railtypelabels.push_back(GetRailTypeInfo(rt)->label);
 	}
@@ -442,7 +602,7 @@ void ResetNewGRFData()
 	/* Reset price base data */
 	ResetPriceBaseMultipliers();
 
-	/* Reset the curencies array */
+	/* Reset the currencies array */
 	ResetCurrencies();
 
 	/* Reset the house array */
@@ -486,10 +646,10 @@ void ResetNewGRFData()
 	/* Reset misc GRF features and train list display variables */
 	_misc_grf_features = {};
 
-	_loaded_newgrf_features.has_2CC           = false;
-	_loaded_newgrf_features.used_liveries     = 1 << LS_DEFAULT;
-	_loaded_newgrf_features.shore             = SHORE_REPLACE_NONE;
-	_loaded_newgrf_features.tram              = TRAMWAY_REPLACE_DEPOT_NONE;
+	_loaded_newgrf_features.has_2CC = false;
+	_loaded_newgrf_features.used_liveries = LiveryScheme::Default;
+	_loaded_newgrf_features.shore = ShoreReplacement::None;
+	_loaded_newgrf_features.tram = TramDepotReplacement::None;
 
 	/* Clear all GRF overrides */
 	_grf_id_overrides.clear();
@@ -497,6 +657,9 @@ void ResetNewGRFData()
 	InitializeSoundPool();
 	_spritegroup_pool.CleanPool();
 	ResetCallbacks(false);
+	_deterministic_sg_shadows.clear();
+	_randomized_sg_shadows.clear();
+	_grfs_loaded_with_sg_shadow_enable = HasBit(_misc_debug_flags, MDF_NEWGRF_SG_SAVE_RAW);
 }
 
 /**
@@ -518,17 +681,17 @@ void ResetPersistentNewGRFData()
  * @param grffile GRF file.
  * @returns Readonly cargo translation table to use.
  */
- std::span<const CargoLabel> GetCargoTranslationTable(const GRFFile &grffile)
- {
-	 /* Always use the translation table if it's installed. */
-	 if (!grffile.cargo_list.empty()) return grffile.cargo_list;
+std::span<const CargoLabel> GetCargoTranslationTable(const GRFFile &grffile)
+{
+	/* Always use the translation table if it's installed. */
+	if (!grffile.cargo_list.empty()) return grffile.cargo_list;
 
-	 /* Pre-v7 use climate-dependent "slot" table. */
-	 if (grffile.grf_version < 7) return GetClimateDependentCargoTranslationTable();
+	/* Pre-v7 use climate-dependent "slot" table. */
+	if (grffile.grf_version < 7) return GetClimateDependentCargoTranslationTable();
 
-	 /* Otherwise use climate-independent "bitnum" table. */
-	 return GetClimateIndependentCargoTranslationTable();
- }
+	/* Otherwise use climate-independent "bitnum" table. */
+	return GetClimateIndependentCargoTranslationTable();
+}
 
 /**
  * Construct the Cargo Mapping
@@ -561,7 +724,9 @@ static void InitNewGRFFile(const GRFConfig &config)
 	}
 
 	assert(_grf_files.size() < _grf_files.capacity()); // We must not invalidate pointers.
-	_cur_gps.grffile = &_grf_files.emplace_back(config);
+	newfile = &_grf_files.emplace_back(config);
+	_cur_gps.grffile = newfile;
+	_grf_file_map[newfile->grfid] = newfile;
 }
 
 /**
@@ -576,6 +741,15 @@ GRFFile::GRFFile(const GRFConfig &config)
 	/* Initialise local settings to defaults */
 	this->traininfo_vehicle_pitch = 0;
 	this->traininfo_vehicle_width = TRAININFO_DEFAULT_VEHICLE_WIDTH;
+
+	this->new_signals_group = nullptr;
+	this->new_signal_ctrl_flags = 0;
+	this->new_signal_extra_aspects = 0;
+	this->new_signal_style_mask = 1;
+	this->current_new_signal_style = nullptr;
+
+	this->new_rocks_group = nullptr;
+	this->new_landscape_ctrl_flags = 0;
 
 	/* Mark price_base_multipliers as 'not set' */
 	this->price_base_multipliers.fill(INVALID_PRICE_MODIFIER);
@@ -646,9 +820,9 @@ static CargoLabel GetActiveCargoLabel(const std::variant<CargoLabel, MixedCargoT
  */
 static void CalculateRefitMasks()
 {
-	CargoTypes original_known_cargoes = 0;
-	for (CargoType cargo_type = 0; cargo_type != NUM_CARGO; ++cargo_type) {
-		if (IsDefaultCargo(cargo_type)) SetBit(original_known_cargoes, cargo_type);
+	CargoTypes original_known_cargoes{};
+	for (CargoType cargo_type{}; cargo_type != NUM_CARGO; ++cargo_type) {
+		if (IsDefaultCargo(cargo_type)) original_known_cargoes.Set(cargo_type);
 	}
 
 	for (Engine *e : Engine::Iterate()) {
@@ -664,7 +838,7 @@ static void CalculateRefitMasks()
 		/* If the NewGRF did not set any cargo properties, we apply default values. */
 		if (_gted[engine].defaultcargo_grf == nullptr) {
 			/* If the vehicle has any capacity, apply the default refit masks */
-			if (e->type != VEH_TRAIN || e->VehInfo<RailVehicleInfo>().capacity != 0) {
+			if (e->type != VehicleType::Train || e->VehInfo<RailVehicleInfo>().capacity != 0) {
 				static constexpr LandscapeType T = LandscapeType::Temperate;
 				static constexpr LandscapeType A = LandscapeType::Arctic;
 				static constexpr LandscapeType S = LandscapeType::Tropic;
@@ -690,11 +864,11 @@ static void CalculateRefitMasks()
 					{{         Y}, CT_CANDY,      {CargoClass::PieceGoods, CargoClass::Express}, {CargoClass::Liquid, CargoClass::Passengers}},
 				};
 
-				if (e->type == VEH_AIRCRAFT) {
+				if (e->type == VehicleType::Aircraft) {
 					/* Aircraft default to "light" cargoes */
 					_gted[engine].cargo_allowed = {CargoClass::Passengers, CargoClass::Mail, CargoClass::Armoured, CargoClass::Express};
 					_gted[engine].cargo_disallowed = {CargoClass::Liquid};
-				} else if (e->type == VEH_SHIP) {
+				} else if (e->type == VehicleType::Ship) {
 					CargoLabel label = GetActiveCargoLabel(ei->cargo_label);
 					switch (label.base()) {
 						case CT_PASSENGERS.base():
@@ -720,7 +894,7 @@ static void CalculateRefitMasks()
 							break;
 					}
 					e->VehInfo<ShipVehicleInfo>().old_refittable = true;
-				} else if (e->type == VEH_TRAIN && e->VehInfo<RailVehicleInfo>().railveh_type != RAILVEH_WAGON) {
+				} else if (e->type == VehicleType::Train && e->VehInfo<RailVehicleInfo>().railveh_type != RailVehicleType::Wagon) {
 					/* Train engines default to all cargoes, so you can build single-cargo consists with fast engines.
 					 * Trains loading multiple cargoes may start stations accepting unwanted cargoes. */
 					_gted[engine].cargo_allowed = {CargoClass::Passengers, CargoClass::Mail, CargoClass::Armoured, CargoClass::Express, CargoClass::Bulk, CargoClass::PieceGoods, CargoClass::Liquid};
@@ -743,32 +917,33 @@ static void CalculateRefitMasks()
 			}
 			_gted[engine].UpdateRefittability(_gted[engine].cargo_allowed.Any());
 
-			if (IsValidCargoType(ei->cargo_type)) ClrBit(_gted[engine].ctt_exclude_mask, ei->cargo_type);
+			if (IsValidCargoType(ei->cargo_type)) _gted[engine].ctt_exclude_mask.Reset(ei->cargo_type);
 		}
 
 		/* Compute refittability */
 		{
-			CargoTypes mask = 0;
-			CargoTypes not_mask = 0;
+			CargoTypes mask{};
+			CargoTypes not_mask{};
 			CargoTypes xor_mask = ei->refit_mask;
 
 			/* If the original masks set by the grf are zero, the vehicle shall only carry the default cargo.
 			 * Note: After applying the translations, the vehicle may end up carrying no defined cargo. It becomes unavailable in that case. */
-			only_defaultcargo = _gted[engine].refittability != GRFTempEngineData::NONEMPTY;
+			only_defaultcargo = _gted[engine].refittability != GRFTempEngineData::Refittability::NonEmpty;
 
 			if (_gted[engine].cargo_allowed.Any()) {
 				/* Build up the list of cargo types from the set cargo classes. */
 				for (const CargoSpec *cs : CargoSpec::Iterate()) {
-					if (cs->classes.Any(_gted[engine].cargo_allowed) && cs->classes.All(_gted[engine].cargo_allowed_required)) SetBit(mask, cs->Index());
-					if (cs->classes.Any(_gted[engine].cargo_disallowed)) SetBit(not_mask, cs->Index());
+					if (cs->classes.Any(_gted[engine].cargo_allowed) && cs->classes.All(_gted[engine].cargo_allowed_required)) mask.Set(cs->Index());
+					if (cs->classes.Any(_gted[engine].cargo_disallowed)) not_mask.Set(cs->Index());
 				}
 			}
 
-			ei->refit_mask = ((mask & ~not_mask) ^ xor_mask) & _cargo_mask;
+			CargoTypes invalid_mask = CargoTypes{_cargo_mask}.Flip();
+			ei->refit_mask = mask.Reset(not_mask).Flip(xor_mask).Reset(invalid_mask);
 
 			/* Apply explicit refit includes/excludes. */
-			ei->refit_mask |= _gted[engine].ctt_include_mask;
-			ei->refit_mask &= ~_gted[engine].ctt_exclude_mask;
+			ei->refit_mask.Set(_gted[engine].ctt_include_mask);
+			ei->refit_mask.Reset(_gted[engine].ctt_exclude_mask);
 
 			/* Custom refit mask callback. */
 			const GRFFile *file = _gted[e->index].defaultcargo_grf;
@@ -781,8 +956,8 @@ static void CalculateRefitMasks()
 						case CALLBACK_FAILED:
 						case 0:
 							break; // Do nothing.
-						case 1: SetBit(ei->refit_mask, cs->Index()); break;
-						case 2: ClrBit(ei->refit_mask, cs->Index()); break;
+						case 1: ei->refit_mask.Set(cs->Index()); break;
+						case 2: ei->refit_mask.Reset(cs->Index()); break;
 
 						default: ErrorUnknownCallbackResult(file->grfid, CBID_VEHICLE_CUSTOM_REFIT, callback);
 					}
@@ -791,24 +966,24 @@ static void CalculateRefitMasks()
 		}
 
 		/* Clear invalid cargoslots (from default vehicles or pre-NewCargo GRFs) */
-		if (IsValidCargoType(ei->cargo_type) && !HasBit(_cargo_mask, ei->cargo_type)) ei->cargo_type = INVALID_CARGO;
+		if (IsValidCargoType(ei->cargo_type) && !_cargo_mask.Test(ei->cargo_type)) ei->cargo_type = INVALID_CARGO;
 
 		/* Ensure that the vehicle is either not refittable, or that the default cargo is one of the refittable cargoes.
 		 * Note: Vehicles refittable to no cargo are handle differently to vehicle refittable to a single cargo. The latter might have subtypes. */
-		if (!only_defaultcargo && (e->type != VEH_SHIP || e->VehInfo<ShipVehicleInfo>().old_refittable) && IsValidCargoType(ei->cargo_type) && !HasBit(ei->refit_mask, ei->cargo_type)) {
+		if (!only_defaultcargo && (e->type != VehicleType::Ship || e->VehInfo<ShipVehicleInfo>().old_refittable) && IsValidCargoType(ei->cargo_type) && !ei->refit_mask.Test(ei->cargo_type)) {
 			ei->cargo_type = INVALID_CARGO;
 		}
 
 		/* Check if this engine's cargo type is valid. If not, set to the first refittable
 		 * cargo type. Finally disable the vehicle, if there is still no cargo. */
-		if (!IsValidCargoType(ei->cargo_type) && ei->refit_mask != 0) {
+		if (!IsValidCargoType(ei->cargo_type) && ei->refit_mask.Any()) {
 			/* Figure out which CTT to use for the default cargo, if it is 'first refittable'. */
 			const GRFFile *file = _gted[engine].defaultcargo_grf;
 			if (file == nullptr) file = e->GetGRF();
 			if (file != nullptr && file->grf_version >= 8 && !file->cargo_list.empty()) {
 				/* Use first refittable cargo from cargo translation table */
 				uint8_t best_local_slot = UINT8_MAX;
-				for (CargoType cargo_type : SetCargoBitIterator(ei->refit_mask)) {
+				for (CargoType cargo_type : ei->refit_mask) {
 					uint8_t local_slot = file->cargo_map[cargo_type];
 					if (local_slot < best_local_slot) {
 						best_local_slot = local_slot;
@@ -819,22 +994,22 @@ static void CalculateRefitMasks()
 
 			if (!IsValidCargoType(ei->cargo_type)) {
 				/* Use first refittable cargo slot */
-				ei->cargo_type = (CargoType)FindFirstBit(ei->refit_mask);
+				ei->cargo_type = *ei->refit_mask.begin();
 			}
 		}
-		if (!IsValidCargoType(ei->cargo_type) && e->type == VEH_TRAIN && e->VehInfo<RailVehicleInfo>().railveh_type != RAILVEH_WAGON && e->VehInfo<RailVehicleInfo>().capacity == 0) {
+		if (!IsValidCargoType(ei->cargo_type) && e->type == VehicleType::Train && e->VehInfo<RailVehicleInfo>().railveh_type != RailVehicleType::Wagon && e->VehInfo<RailVehicleInfo>().capacity == 0) {
 			/* For train engines which do not carry cargo it does not matter if their cargo type is invalid.
 			 * Fallback to the first available instead, if the cargo type has not been changed (as indicated by
 			 * cargo_label not being CT_INVALID). */
 			if (GetActiveCargoLabel(ei->cargo_label) != CT_INVALID) {
-				ei->cargo_type = static_cast<CargoType>(FindFirstBit(_standard_cargo_mask));
+				ei->cargo_type = *_standard_cargo_mask.begin();
 			}
 		}
 		if (!IsValidCargoType(ei->cargo_type)) ei->climates = {};
 
 		/* Clear refit_mask for not refittable ships */
-		if (e->type == VEH_SHIP && !e->VehInfo<ShipVehicleInfo>().old_refittable) {
-			ei->refit_mask = 0;
+		if (e->type == VehicleType::Ship && !e->VehInfo<ShipVehicleInfo>().old_refittable) {
+			ei->refit_mask.Reset();
 		}
 	}
 }
@@ -855,8 +1030,8 @@ static void FinaliseEngineArray()
 {
 	for (Engine *e : Engine::Iterate()) {
 		if (e->GetGRF() == nullptr) {
-			auto found = std::ranges::find(_engine_mngr.mappings[e->type], e->index, &EngineIDMapping::engine);
-			if (found == std::end(_engine_mngr.mappings[e->type]) || found->grfid != INVALID_GRFID || found->internal_id != found->substitute_id) {
+			const EngineIDMapping &eid = _engine_mngr.mappings[e->index];
+			if (eid.grfid != INVALID_GRFID || eid.internal_id != eid.substitute_id) {
 				e->info.string_id = STR_NEWGRF_INVALID_ENGINE;
 			}
 		}
@@ -869,35 +1044,35 @@ static void FinaliseEngineArray()
 		if (!e->info.climates.Test(_settings_game.game_creation.landscape)) continue;
 
 		switch (e->type) {
-			case VEH_TRAIN:
+			case VehicleType::Train:
 				for (RailType rt : e->VehInfo<RailVehicleInfo>().railtypes) {
-					AppendCopyableBadgeList(e->badges, GetRailTypeInfo(rt)->badges, GSF_TRAINS);
+					AppendCopyableBadgeList(e->badges, GetRailTypeInfo(rt)->badges, GrfSpecFeature::Trains);
 				}
 				break;
-			case VEH_ROAD: AppendCopyableBadgeList(e->badges, GetRoadTypeInfo(e->VehInfo<RoadVehicleInfo>().roadtype)->badges, GSF_ROADVEHICLES); break;
+			case VehicleType::Road: AppendCopyableBadgeList(e->badges, GetRoadTypeInfo(e->VehInfo<RoadVehicleInfo>().roadtype)->badges, GrfSpecFeature::RoadVehicles); break;
 			default: break;
 		}
 
 		/* Skip wagons, there livery is defined via the engine */
-		if (e->type != VEH_TRAIN || e->VehInfo<RailVehicleInfo>().railveh_type != RAILVEH_WAGON) {
+		if (e->type != VehicleType::Train || e->VehInfo<RailVehicleInfo>().railveh_type != RailVehicleType::Wagon) {
 			LiveryScheme ls = GetEngineLiveryScheme(e->index, EngineID::Invalid(), nullptr);
-			SetBit(_loaded_newgrf_features.used_liveries, ls);
+			_loaded_newgrf_features.used_liveries.Set(ls);
 			/* Note: For ships and roadvehicles we assume that they cannot be refitted between passenger and freight */
 
-			if (e->type == VEH_TRAIN) {
-				SetBit(_loaded_newgrf_features.used_liveries, LS_FREIGHT_WAGON);
+			if (e->type == VehicleType::Train) {
+				_loaded_newgrf_features.used_liveries.Set(LiveryScheme::FreightWagon);
 				switch (ls) {
-					case LS_STEAM:
-					case LS_DIESEL:
-					case LS_ELECTRIC:
-					case LS_MONORAIL:
-					case LS_MAGLEV:
-						SetBit(_loaded_newgrf_features.used_liveries, LS_PASSENGER_WAGON_STEAM + ls - LS_STEAM);
+					case LiveryScheme::Steam:
+					case LiveryScheme::Diesel:
+					case LiveryScheme::Electric:
+					case LiveryScheme::Monorail:
+					case LiveryScheme::Maglev:
+						_loaded_newgrf_features.used_liveries.Set(LiveryScheme::PassengerWagonSteam + ls - LiveryScheme::Steam);
 						break;
 
-					case LS_DMU:
-					case LS_EMU:
-						SetBit(_loaded_newgrf_features.used_liveries, LS_PASSENGER_WAGON_DIESEL + ls - LS_DMU);
+					case LiveryScheme::DMU:
+					case LiveryScheme::EMU:
+						_loaded_newgrf_features.used_liveries.Set(LiveryScheme::PassengerWagonDiesel + ls - LiveryScheme::DMU);
 						break;
 
 					default: NOT_REACHED();
@@ -923,7 +1098,7 @@ static void FinaliseEngineArray()
 			/* Engine looped back on itself, so clear the variant. */
 			e->info.variant_id = EngineID::Invalid();
 
-			GrfMsg(1, "FinaliseEngineArray: Variant of engine {:x} in '{}' loops back on itself", e->grf_prop.local_id, e->GetGRF()->filename);
+			GrfMsg(1, "FinaliseEngineArray: Variant of engine {:x} in '{}' loops back on itself", _engine_mngr.mappings[e->index].internal_id, e->GetGRF()->filename);
 			break;
 		}
 
@@ -937,12 +1112,12 @@ static void FinaliseEngineArray()
 void FinaliseCargoArray()
 {
 	for (CargoSpec &cs : CargoSpec::array) {
-		if (cs.town_production_effect == INVALID_TPE) {
+		if (cs.town_production_effect == TownProductionEffect::Invalid) {
 			/* Set default town production effect by cargo label. */
 			switch (cs.label.base()) {
-				case CT_PASSENGERS.base(): cs.town_production_effect = TPE_PASSENGERS; break;
-				case CT_MAIL.base():       cs.town_production_effect = TPE_MAIL; break;
-				default:                   cs.town_production_effect = TPE_NONE; break;
+				case CT_PASSENGERS.base(): cs.town_production_effect = TownProductionEffect::Passengers; break;
+				case CT_MAIL.base():       cs.town_production_effect = TownProductionEffect::Mail; break;
+				default:                   cs.town_production_effect = TownProductionEffect::None; break;
 			}
 		}
 		if (!cs.IsValid()) {
@@ -1012,7 +1187,7 @@ static bool IsHouseSpecValid(HouseSpec &hs, const HouseSpec *next1, const HouseS
  */
 static void EnsureEarlyHouse(HouseZones bitmask)
 {
-	TimerGameCalendar::Year min_year = CalendarTime::MAX_YEAR;
+	CalTime::Year min_year = CalTime::MAX_YEAR;
 
 	for (const auto &hs : HouseSpec::Specs()) {
 		if (!hs.enabled) continue;
@@ -1025,7 +1200,7 @@ static void EnsureEarlyHouse(HouseZones bitmask)
 	for (auto &hs : HouseSpec::Specs()) {
 		if (!hs.enabled) continue;
 		if (!hs.building_availability.All(bitmask)) continue;
-		if (hs.min_year == min_year) hs.min_year = CalendarTime::MIN_YEAR;
+		if (hs.min_year == min_year) hs.min_year = CalTime::MIN_YEAR;
 	}
 }
 
@@ -1097,8 +1272,8 @@ static void FinaliseHouseArray()
 	}
 
 	HouseZones climate_mask = GetClimateMaskForLandscape();
-	for (HouseZone climate : climate_mask) {
-		for (HouseZone zone : HZ_ZONE_ALL) {
+	for (HouseZone climate : climate_mask.IterateSetBits()) {
+		for (HouseZone zone = HouseZone::TownEdge; zone != HouseZone::TownEnd; ++zone) {
 			EnsureEarlyHouse({climate, zone});
 		}
 	}
@@ -1214,12 +1389,12 @@ struct InvokeGrfActionHandler {
 	static void Invoke(ByteReader &buf, GrfLoadingStage stage)
 	{
 		switch (stage) {
-			case GLS_FILESCAN: GrfActionHandler<TAction>::FileScan(buf); break;
-			case GLS_SAFETYSCAN: GrfActionHandler<TAction>::SafetyScan(buf); break;
-			case GLS_LABELSCAN: GrfActionHandler<TAction>::LabelScan(buf); break;
-			case GLS_INIT: GrfActionHandler<TAction>::Init(buf); break;
-			case GLS_RESERVE: GrfActionHandler<TAction>::Reserve(buf); break;
-			case GLS_ACTIVATION: GrfActionHandler<TAction>::Activation(buf); break;
+			case GrfLoadingStage::FileScan: GrfActionHandler<TAction>::FileScan(buf); break;
+			case GrfLoadingStage::SafetyScan: GrfActionHandler<TAction>::SafetyScan(buf); break;
+			case GrfLoadingStage::LabelScan: GrfActionHandler<TAction>::LabelScan(buf); break;
+			case GrfLoadingStage::Init: GrfActionHandler<TAction>::Init(buf); break;
+			case GrfLoadingStage::Reserve: GrfActionHandler<TAction>::Reserve(buf); break;
+			case GrfLoadingStage::Activation: GrfActionHandler<TAction>::Activation(buf); break;
 			default: NOT_REACHED();
 		}
 	}
@@ -1249,26 +1424,26 @@ struct InvokeGrfActionHandler {
  * XXX: We consider GRF files trusted. It would be trivial to exploit OTTD by
  * a crafted invalid GRF file. We should tell that to the user somehow, or
  * better make this more robust in the future. */
-static void DecodeSpecialSprite(ReusableBuffer<uint8_t> &allocator, uint num, GrfLoadingStage stage)
+static void DecodeSpecialSprite(uint8_t *buf, uint num, GrfLoadingStage stage)
 {
-	uint8_t *buf;
-	auto it = _grf_line_to_action6_sprite_override.find({_cur_gps.grfconfig->ident.grfid, _cur_gps.nfo_line});
+	GRFLocation location(_cur_gps.grfconfig->ident.grfid, _cur_gps.nfo_line);
+
+	GRFLineToSpriteOverride::iterator it = _grf_line_to_action6_sprite_override.find(location);
+	_action6_override_active = (it != _grf_line_to_action6_sprite_override.end());
 	if (it == _grf_line_to_action6_sprite_override.end()) {
 		/* No preloaded sprite to work with; read the
 		 * pseudo sprite content. */
-		buf = allocator.Allocate(num);
 		_cur_gps.file->ReadBlock(buf, num);
 	} else {
 		/* Use the preloaded sprite data. */
-		buf = it->second.data();
-		assert(it->second.size() == num);
+		buf = it->second.get();
 		GrfMsg(7, "DecodeSpecialSprite: Using preloaded pseudo sprite data");
 
 		/* Skip the real (original) content of this action. */
 		_cur_gps.file->SeekTo(num, SEEK_CUR);
 	}
 
-	ByteReader br(buf, num);
+	ByteReader br(buf, buf + num);
 
 	try {
 		uint8_t action = br.ReadByte();
@@ -1297,7 +1472,7 @@ static void LoadNewGRFFileFromFile(GRFConfig &config, GrfLoadingStage stage, Spr
 	AutoRestoreBackup cur_file(_cur_gps.file, &file);
 	AutoRestoreBackup cur_config(_cur_gps.grfconfig, &config);
 
-	Debug(grf, 2, "LoadNewGRFFile: Reading NewGRF-file '{}'", config.filename);
+	Debug(grf, 2, "LoadNewGRFFile: Reading NewGRF-file '{}'", config.GetDisplayPath());
 
 	uint8_t grf_container_version = file.GetContainerVersion();
 	if (grf_container_version == 0) {
@@ -1305,7 +1480,7 @@ static void LoadNewGRFFileFromFile(GRFConfig &config, GrfLoadingStage stage, Spr
 		return;
 	}
 
-	if (stage == GLS_INIT || stage == GLS_ACTIVATION) {
+	if (stage == GrfLoadingStage::Init || stage == GrfLoadingStage::Activation) {
 		/* We need the sprite offsets in the init stage for NewGRF sounds
 		 * and in the activation stage for real sprites. */
 		ReadGRFSpriteOffsets(file);
@@ -1336,7 +1511,7 @@ static void LoadNewGRFFileFromFile(GRFConfig &config, GrfLoadingStage stage, Spr
 
 	_cur_gps.ClearDataForNextFile();
 
-	ReusableBuffer<uint8_t> allocator;
+	ReusableBuffer<uint8_t> buf;
 
 	while ((num = (grf_container_version >= 2 ? file.ReadDword() : file.ReadWord())) != 0) {
 		uint8_t type = file.ReadByte();
@@ -1351,7 +1526,7 @@ static void LoadNewGRFFileFromFile(GRFConfig &config, GrfLoadingStage stage, Spr
 					break;
 				}
 
-				DecodeSpecialSprite(allocator, num, stage);
+				DecodeSpecialSprite(buf.Allocate(num), num, stage);
 
 				/* Stop all processing if we are to skip the remaining sprites */
 				if (_cur_gps.skip_sprites == -1) break;
@@ -1401,36 +1576,42 @@ void LoadNewGRFFile(GRFConfig &config, GrfLoadingStage stage, Subdirectory subdi
 	 * During activation, only actions 0, 1, 2, 3, 4, 5, 7, 8, 9, 0A and 0B are
 	 * carried out.  All others are ignored, because they only need to be
 	 * processed once at initialization.  */
-	if (stage != GLS_FILESCAN && stage != GLS_SAFETYSCAN && stage != GLS_LABELSCAN) {
+	if (stage != GrfLoadingStage::FileScan && stage != GrfLoadingStage::SafetyScan && stage != GrfLoadingStage::LabelScan) {
 		_cur_gps.grffile = GetFileByFilename(filename);
 		if (_cur_gps.grffile == nullptr) UserError("File '{}' lost in cache.\n", filename);
-		if (stage == GLS_RESERVE && config.status != GCS_INITIALISED) return;
-		if (stage == GLS_ACTIVATION && !config.flags.Test(GRFConfigFlag::Reserved)) return;
+		if (stage == GrfLoadingStage::Reserve && config.status != GRFStatus::Initialised) return;
+		if (stage == GrfLoadingStage::Activation && !config.flags.Test(GRFConfigFlag::Reserved)) return;
 	}
+
+	SCOPE_INFO_FMT([&], "LoadNewGRFFile: {}, {}", filename, stage);
 
 	bool needs_palette_remap = config.palette & GRFP_USE_MASK;
 	if (temporary) {
 		SpriteFile temporarySpriteFile(filename, subdir, needs_palette_remap);
 		LoadNewGRFFileFromFile(config, stage, temporarySpriteFile);
 	} else {
-		LoadNewGRFFileFromFile(config, stage, OpenCachedSpriteFile(filename, subdir, needs_palette_remap));
+		SpriteFile &file = OpenCachedSpriteFile(filename, subdir, needs_palette_remap);
+		LoadNewGRFFileFromFile(config, stage, file);
+		if (!config.flags.Test(GRFConfigFlag::System)) file.flags |= SFF_USERGRF;
+		if (config.ident.grfid == std::byteswap<uint32_t>(0xFFFFFFFE)) file.flags |= SFF_OPENTTDGRF;
+		if (config.ident.grfid == std::byteswap<uint32_t>(0xFF4F5432)) file.flags |= SFF_OPENGFX2;
 	}
 }
 
 /**
  * Relocates the old shore sprites at new positions.
  *
- * 1. If shore sprites are neither loaded by Action5 nor ActionA, the extra sprites from openttd(w/d).grf are used. (SHORE_REPLACE_ONLY_NEW)
- * 2. If a newgrf replaces some shore sprites by ActionA. The (maybe also replaced) grass tiles are used for corner shores. (SHORE_REPLACE_ACTION_A)
- * 3. If a newgrf replaces shore sprites by Action5 any shore replacement by ActionA has no effect. (SHORE_REPLACE_ACTION_5)
+ * 1. If shore sprites are neither loaded by Action5 nor ActionA, the extra sprites from openttd(w/d).grf are used. (ShoreReplacement::OnlyNew)
+ * 2. If a newgrf replaces some shore sprites by ActionA. The (maybe also replaced) grass tiles are used for corner shores. (ShoreReplacement::ActionA)
+ * 3. If a newgrf replaces shore sprites by Action5 any shore replacement by ActionA has no effect. (ShoreReplacement::Action5)
  */
 static void ActivateOldShore()
 {
 	/* Use default graphics, if no shore sprites were loaded.
 	 * Should not happen, as the base set's extra grf should include some. */
-	if (_loaded_newgrf_features.shore == SHORE_REPLACE_NONE) _loaded_newgrf_features.shore = SHORE_REPLACE_ACTION_A;
+	if (_loaded_newgrf_features.shore == ShoreReplacement::None) _loaded_newgrf_features.shore = ShoreReplacement::ActionA;
 
-	if (_loaded_newgrf_features.shore != SHORE_REPLACE_ACTION_5) {
+	if (_loaded_newgrf_features.shore != ShoreReplacement::Action5) {
 		DupSprite(SPR_ORIGINALSHORE_START +  1, SPR_SHORE_BASE +  1); // SLOPE_W
 		DupSprite(SPR_ORIGINALSHORE_START +  2, SPR_SHORE_BASE +  2); // SLOPE_S
 		DupSprite(SPR_ORIGINALSHORE_START +  6, SPR_SHORE_BASE +  3); // SLOPE_SW
@@ -1441,7 +1622,7 @@ static void ActivateOldShore()
 		DupSprite(SPR_ORIGINALSHORE_START +  5, SPR_SHORE_BASE + 12); // SLOPE_NE
 	}
 
-	if (_loaded_newgrf_features.shore == SHORE_REPLACE_ACTION_A) {
+	if (_loaded_newgrf_features.shore == ShoreReplacement::ActionA) {
 		DupSprite(SPR_FLAT_GRASS_TILE + 16, SPR_SHORE_BASE +  0); // SLOPE_STEEP_S
 		DupSprite(SPR_FLAT_GRASS_TILE + 17, SPR_SHORE_BASE +  5); // SLOPE_STEEP_W
 		DupSprite(SPR_FLAT_GRASS_TILE +  7, SPR_SHORE_BASE +  7); // SLOPE_WSE
@@ -1463,7 +1644,7 @@ static void ActivateOldShore()
  */
 static void ActivateOldTramDepot()
 {
-	if (_loaded_newgrf_features.tram == TRAMWAY_REPLACE_DEPOT_WITH_TRACK) {
+	if (_loaded_newgrf_features.tram == TramDepotReplacement::WithTrack) {
 		DupSprite(SPR_ROAD_DEPOT               + 0, SPR_TRAMWAY_DEPOT_NO_TRACK + 0); // use road depot graphics for "no tracks"
 		DupSprite(SPR_TRAMWAY_DEPOT_WITH_TRACK + 1, SPR_TRAMWAY_DEPOT_NO_TRACK + 1);
 		DupSprite(SPR_ROAD_DEPOT               + 2, SPR_TRAMWAY_DEPOT_NO_TRACK + 2); // use road depot graphics for "no tracks"
@@ -1478,14 +1659,15 @@ static void ActivateOldTramDepot()
  */
 static void FinalisePriceBaseMultipliers()
 {
-	extern const PriceBaseSpec _price_base_specs[];
 	/** Features, to which '_grf_id_overrides' applies. Currently vehicle features only. */
-	static constexpr GrfSpecFeatures override_features{GSF_TRAINS, GSF_ROADVEHICLES, GSF_SHIPS, GSF_AIRCRAFT};
+	static constexpr GrfSpecFeatures override_features{GrfSpecFeature::Trains, GrfSpecFeature::RoadVehicles, GrfSpecFeature::Ships, GrfSpecFeature::Aircraft};
 
 	/* Evaluate grf overrides */
 	int num_grfs = (uint)_grf_files.size();
-	std::vector<int> grf_overrides(num_grfs, -1);
+	TempBufferST<int> grf_overrides(num_grfs);
 	for (int i = 0; i < num_grfs; i++) {
+		grf_overrides[i] = -1;
+
 		GRFFile &source = _grf_files[i];
 		auto it = _grf_id_overrides.find(source.grfid);
 		if (it == std::end(_grf_id_overrides)) continue;
@@ -1508,7 +1690,7 @@ static void FinalisePriceBaseMultipliers()
 		source.grf_features.Set(features);
 		dest.grf_features.Set(features);
 
-		for (Price p = PR_BEGIN; p < PR_END; p++) {
+		for (Price p = Price::Begin; p < Price::End; p++) {
 			/* No price defined -> nothing to do */
 			if (!features.Test(_price_base_specs[p].grf_feature) || source.price_base_multipliers[p] == INVALID_PRICE_MODIFIER) continue;
 			Debug(grf, 3, "'{}' overrides price base multiplier {} of '{}'", source.filename, p, dest.filename);
@@ -1526,7 +1708,7 @@ static void FinalisePriceBaseMultipliers()
 		source.grf_features.Set(features);
 		dest.grf_features.Set(features);
 
-		for (Price p = PR_BEGIN; p < PR_END; p++) {
+		for (Price p = Price::Begin; p < Price::End; p++) {
 			/* Already a price defined -> nothing to do */
 			if (!features.Test(_price_base_specs[p].grf_feature) || dest.price_base_multipliers[p] != INVALID_PRICE_MODIFIER) continue;
 			Debug(grf, 3, "Price base multiplier {} from '{}' propagated to '{}'", p, source.filename, dest.filename);
@@ -1544,7 +1726,7 @@ static void FinalisePriceBaseMultipliers()
 		source.grf_features.Set(features);
 		dest.grf_features.Set(features);
 
-		for (Price p = PR_BEGIN; p < PR_END; p++) {
+		for (Price p = Price::Begin; p < Price::End; p++) {
 			if (!features.Test(_price_base_specs[p].grf_feature)) continue;
 			if (source.price_base_multipliers[p] != dest.price_base_multipliers[p]) {
 				Debug(grf, 3, "Price base multiplier {} from '{}' propagated to '{}'", p, dest.filename, source.filename);
@@ -1557,9 +1739,9 @@ static void FinalisePriceBaseMultipliers()
 	for (auto &file : _grf_files) {
 		if (file.grf_version >= 8) continue;
 		PriceMultipliers &price_base_multipliers = file.price_base_multipliers;
-		for (Price p = PR_BEGIN; p < PR_END; p++) {
+		for (Price p = Price::Begin; p < Price::End; p++) {
 			Price fallback_price = _price_base_specs[p].fallback_price;
-			if (fallback_price != INVALID_PRICE && price_base_multipliers[p] == INVALID_PRICE_MODIFIER) {
+			if (fallback_price != Price::Invalid && price_base_multipliers[p] == INVALID_PRICE_MODIFIER) {
 				/* No price multiplier has been set.
 				 * So copy the multiplier from the fallback price, maybe a multiplier was set there. */
 				price_base_multipliers[p] = price_base_multipliers[fallback_price];
@@ -1570,7 +1752,7 @@ static void FinalisePriceBaseMultipliers()
 	/* Decide local/global scope of price base multipliers */
 	for (auto &file : _grf_files) {
 		PriceMultipliers &price_base_multipliers = file.price_base_multipliers;
-		for (Price p = PR_BEGIN; p < PR_END; p++) {
+		for (Price p = Price::Begin; p < Price::End; p++) {
 			if (price_base_multipliers[p] == INVALID_PRICE_MODIFIER) {
 				/* No multiplier was set; set it to a neutral value */
 				price_base_multipliers[p] = 0;
@@ -1578,11 +1760,11 @@ static void FinalisePriceBaseMultipliers()
 				if (!file.grf_features.Test(_price_base_specs[p].grf_feature)) {
 					/* The grf does not define any objects of the feature,
 					 * so it must be a difficulty setting. Apply it globally */
-					Debug(grf, 3, "'{}' sets global price base multiplier {}", file.filename, p);
+					Debug(grf, 3, "'{}' sets global price base multiplier {} to {}", file.filename, p, price_base_multipliers[p]);
 					SetPriceBaseMultiplier(p, price_base_multipliers[p]);
 					price_base_multipliers[p] = 0;
 				} else {
-					Debug(grf, 3, "'{}' sets local price base multiplier {}", file.filename, p);
+					Debug(grf, 3, "'{}' sets local price base multiplier {} to {}", file.filename, p, price_base_multipliers[p]);
 				}
 			}
 		}
@@ -1609,17 +1791,17 @@ static void FinaliseBadges()
 		for (Engine *e : Engine::Iterate()) {
 			if (e->grf_prop.grffile != &file) continue;
 			e->badges.push_back(badge->index);
-			badge->features.Set(static_cast<GrfSpecFeature>(GSF_TRAINS + e->type));
+			badge->features.Set(GetGrfSpecFeature(e->type));
 		}
 
-		AddBadgeToSpecs(file.stations, GSF_STATIONS, *badge);
-		AddBadgeToSpecs(file.housespec, GSF_HOUSES, *badge);
-		AddBadgeToSpecs(file.industryspec, GSF_INDUSTRIES, *badge);
-		AddBadgeToSpecs(file.indtspec, GSF_INDUSTRYTILES, *badge);
-		AddBadgeToSpecs(file.objectspec, GSF_OBJECTS, *badge);
-		AddBadgeToSpecs(file.airportspec, GSF_AIRPORTS, *badge);
-		AddBadgeToSpecs(file.airtspec, GSF_AIRPORTTILES, *badge);
-		AddBadgeToSpecs(file.roadstops, GSF_ROADSTOPS, *badge);
+		AddBadgeToSpecs(file.stations, GrfSpecFeature::Stations, *badge);
+		AddBadgeToSpecs(file.housespec, GrfSpecFeature::Houses, *badge);
+		AddBadgeToSpecs(file.industryspec, GrfSpecFeature::Industries, *badge);
+		AddBadgeToSpecs(file.indtspec, GrfSpecFeature::IndustryTiles, *badge);
+		AddBadgeToSpecs(file.objectspec, GrfSpecFeature::Objects, *badge);
+		AddBadgeToSpecs(file.airportspec, GrfSpecFeature::Airports, *badge);
+		AddBadgeToSpecs(file.airtspec, GrfSpecFeature::AirportTiles, *badge);
+		AddBadgeToSpecs(file.roadstops, GrfSpecFeature::RoadStops, *badge);
 	}
 
 	ApplyBadgeFeaturesToClassBadges();
@@ -1633,6 +1815,8 @@ static void AfterLoadGRFs()
 {
 	/* Cached callback groups are no longer needed. */
 	ResetCallbacks(true);
+
+	ReleaseVarAction2OptimisationCaches();
 
 	FinaliseStringMapping();
 
@@ -1692,25 +1876,26 @@ static void AfterLoadGRFs()
 	/* Set up custom rail types */
 	InitRailTypes();
 	InitRoadTypes();
+	InitRoadTypesCaches();
 
-	for (Engine *e : Engine::IterateType(VEH_ROAD)) {
+	for (Engine *e : Engine::IterateType(VehicleType::Road)) {
 		if (_gted[e->index].rv_max_speed != 0) {
 			/* Set RV maximum speed from the mph/0.8 unit value */
 			e->VehInfo<RoadVehicleInfo>().max_speed = _gted[e->index].rv_max_speed * 4;
 		}
 
-		RoadTramType rtt = e->info.misc_flags.Test(EngineMiscFlag::RoadIsTram) ? RTT_TRAM : RTT_ROAD;
+		RoadTramType rtt = e->info.misc_flags.Test(EngineMiscFlag::RoadIsTram) ? RoadTramType::Tram : RoadTramType::Road;
 
 		const GRFFile *file = e->GetGRF();
 		if (file == nullptr || _gted[e->index].roadtramtype == 0) {
-			e->VehInfo<RoadVehicleInfo>().roadtype = (rtt == RTT_TRAM) ? ROADTYPE_TRAM : ROADTYPE_ROAD;
+			e->VehInfo<RoadVehicleInfo>().roadtype = (rtt == RoadTramType::Tram) ? ROADTYPE_TRAM : ROADTYPE_ROAD;
 			continue;
 		}
 
 		/* Remove +1 offset. */
 		_gted[e->index].roadtramtype--;
 
-		const std::vector<RoadTypeLabel> *list = (rtt == RTT_TRAM) ? &file->tramtype_list : &file->roadtype_list;
+		const std::vector<RoadTypeLabel> *list = (rtt == RoadTramType::Tram) ? &file->tramtype_list : &file->roadtype_list;
 		if (_gted[e->index].roadtramtype < list->size())
 		{
 			RoadTypeLabel rtl = (*list)[_gted[e->index].roadtramtype];
@@ -1725,7 +1910,7 @@ static void AfterLoadGRFs()
 		e->info.climates = {};
 	}
 
-	for (Engine *e : Engine::IterateType(VEH_TRAIN)) {
+	for (Engine *e : Engine::IterateType(VehicleType::Train)) {
 		RailTypes railtypes{};
 		for (RailTypeLabel label : _gted[e->index].railtypelabels) {
 			auto rt = GetRailTypeByLabel(label);
@@ -1741,6 +1926,8 @@ static void AfterLoadGRFs()
 		}
 	}
 
+	InitRailTypesIndirectCompatibility();
+
 	SetYearEngineAgingStops();
 
 	FinalisePriceBaseMultipliers();
@@ -1748,6 +1935,11 @@ static void AfterLoadGRFs()
 	/* Deallocate temporary loading data */
 	_gted.clear();
 	_grm_sprites.clear();
+
+	ObjectClass::PrepareIndices();
+	StationClass::PrepareIndices();
+	AirportClass::PrepareIndices();
+	RoadStopClass::PrepareIndices();
 }
 
 /**
@@ -1761,28 +1953,24 @@ void LoadNewGRF(SpriteID load_index, uint num_baseset)
 	 * so all NewGRFs are loaded equally. For this we use the
 	 * start date of the game and we set the counters, etc. to
 	 * 0 so they're the same too. */
-	TimerGameCalendar::Date date            = TimerGameCalendar::date;
-	TimerGameCalendar::Year year            = TimerGameCalendar::year;
-	TimerGameCalendar::DateFract date_fract = TimerGameCalendar::date_fract;
-
-	TimerGameEconomy::Date economy_date = TimerGameEconomy::date;
-	TimerGameEconomy::Year economy_year = TimerGameEconomy::year;
-	TimerGameEconomy::DateFract economy_date_fract = TimerGameEconomy::date_fract;
-
-	uint64_t tick_counter  = TimerGameTick::counter;
-	uint8_t display_opt     = _display_opt;
+	CalTime::State cal_state = CalTime::Detail::now;
+	EconTime::State econ_state = EconTime::Detail::now;
+	uint8_t tick_skip_counter = DateDetail::_tick_skip_counter;
+	uint64_t tick_counter = _tick_counter;
+	uint64_t scaled_tick_counter = _scaled_tick_counter;
+	StateTicks state_ticks = _state_ticks;
+	StateTicksDelta state_ticks_offset = DateDetail::_state_ticks_offset;
+	DisplayOptions display_opt = _display_opt;
 
 	if (_networking) {
-		TimerGameCalendar::year = _settings_game.game_creation.starting_year;
-		TimerGameCalendar::date = TimerGameCalendar::ConvertYMDToDate(TimerGameCalendar::year, 0, 1);
-		TimerGameCalendar::date_fract = 0;
-
-		TimerGameEconomy::year = TimerGameEconomy::Year{_settings_game.game_creation.starting_year.base()};
-		TimerGameEconomy::date = TimerGameEconomy::ConvertYMDToDate(TimerGameEconomy::year, 0, 1);
-		TimerGameEconomy::date_fract = 0;
-
-		TimerGameTick::counter = 0;
-		_display_opt  = 0;
+		CalTime::Detail::now = CalTime::Detail::NewState(_settings_game.game_creation.starting_year);
+		EconTime::Detail::now = EconTime::Detail::NewState(ToEconTimeCast(_settings_game.game_creation.starting_year));
+		_tick_counter = 0;
+		_scaled_tick_counter = 0;
+		_state_ticks = StateTicks{0};
+		_display_opt.Reset();
+		UpdateCachedSnowLine();
+		RecalculateStateTicksOffset();
 	}
 
 	InitializePatchFlags();
@@ -1797,7 +1985,10 @@ void LoadNewGRF(SpriteID load_index, uint num_baseset)
 	 * have been enabled.
 	 */
 	for (const auto &c : _grfconfig) {
-		if (c->status != GCS_NOT_FOUND) c->status = GCS_UNKNOWN;
+		if (c->status != GRFStatus::NotFound) c->status = GRFStatus::Unknown;
+		if (_settings_client.gui.newgrf_disable_big_gui && (c->ident.grfid == std::byteswap<uint32_t>(0x52577801) || c->ident.grfid == std::byteswap<uint32_t>(0x55464970))) {
+			c->status = GRFStatus::Disabled;
+		}
 	}
 
 	_cur_gps.spriteid = load_index;
@@ -1805,18 +1996,18 @@ void LoadNewGRF(SpriteID load_index, uint num_baseset)
 	/* Load newgrf sprites
 	 * in each loading stage, (try to) open each file specified in the config
 	 * and load information from it. */
-	for (GrfLoadingStage stage = GLS_LABELSCAN; stage <= GLS_ACTIVATION; stage++) {
+	for (GrfLoadingStage stage = GrfLoadingStage::LabelScan; stage <= GrfLoadingStage::Activation; stage++) {
 		/* Set activated grfs back to will-be-activated between reservation- and activation-stage.
 		 * This ensures that action7/9 conditions 0x06 - 0x0A work correctly. */
 		for (const auto &c : _grfconfig) {
-			if (c->status == GCS_ACTIVATED) c->status = GCS_INITIALISED;
+			if (c->status == GRFStatus::Activated) c->status = GRFStatus::Initialised;
 		}
 
-		if (stage == GLS_RESERVE) {
+		if (stage == GrfLoadingStage::Reserve) {
 			static const std::pair<uint32_t, uint32_t> default_grf_overrides[] = {
-				{ std::byteswap(0x44442202), std::byteswap(0x44440111) }, // UKRS addons modifies UKRS
-				{ std::byteswap(0x6D620402), std::byteswap(0x6D620401) }, // DBSetXL ECS extension modifies DBSetXL
-				{ std::byteswap(0x4D656f20), std::byteswap(0x4D656F17) }, // LV4cut modifies LV4
+				{ std::byteswap<uint32_t>(0x44442202), std::byteswap<uint32_t>(0x44440111) }, // UKRS addons modifies UKRS
+				{ std::byteswap<uint32_t>(0x6D620402), std::byteswap<uint32_t>(0x6D620401) }, // DBSetXL ECS extension modifies DBSetXL
+				{ std::byteswap<uint32_t>(0x4D656f20), std::byteswap<uint32_t>(0x4D656F17) }, // LV4cut modifies LV4
 			};
 			for (const auto &grf_override : default_grf_overrides) {
 				SetNewGRFOverride(grf_override.first, grf_override.second);
@@ -1828,22 +2019,22 @@ void LoadNewGRF(SpriteID load_index, uint num_baseset)
 
 		_cur_gps.stage = stage;
 		for (const auto &c : _grfconfig) {
-			if (c->status == GCS_DISABLED || c->status == GCS_NOT_FOUND) continue;
-			if (stage > GLS_INIT && c->flags.Test(GRFConfigFlag::InitOnly)) continue;
+			if (c->status == GRFStatus::Disabled || c->status == GRFStatus::NotFound) continue;
+			if (stage > GrfLoadingStage::Init && c->flags.Test(GRFConfigFlag::InitOnly)) continue;
 
-			Subdirectory subdir = num_grfs < num_baseset ? BASESET_DIR : NEWGRF_DIR;
+			Subdirectory subdir = num_grfs < num_baseset ? Subdirectory::Baseset : Subdirectory::NewGrf;
 			if (!FioCheckFileExists(c->filename, subdir)) {
 				Debug(grf, 0, "NewGRF file is missing '{}'; disabling", c->filename);
-				c->status = GCS_NOT_FOUND;
+				c->status = GRFStatus::NotFound;
 				continue;
 			}
 
-			if (stage == GLS_LABELSCAN) InitNewGRFFile(*c);
+			if (stage == GrfLoadingStage::LabelScan) InitNewGRFFile(*c);
 
 			if (!c->flags.Test(GRFConfigFlag::Static) && !c->flags.Test(GRFConfigFlag::System)) {
-				if (num_non_static == NETWORK_MAX_GRF_COUNT) {
+				if (num_non_static == MAX_NON_STATIC_GRF_COUNT) {
 					Debug(grf, 0, "'{}' is not loaded as the maximum number of non-static GRFs has been reached", c->filename);
-					c->status = GCS_DISABLED;
+					c->status = GRFStatus::Disabled;
 					c->errors.emplace_back(STR_NEWGRF_ERROR_MSG_FATAL, 0, STR_NEWGRF_ERROR_TOO_MANY_NEWGRFS_LOADED);
 					continue;
 				}
@@ -1853,15 +2044,16 @@ void LoadNewGRF(SpriteID load_index, uint num_baseset)
 			num_grfs++;
 
 			LoadNewGRFFile(*c, stage, subdir, false);
-			if (stage == GLS_RESERVE) {
+			if (stage == GrfLoadingStage::Reserve) {
 				c->flags.Set(GRFConfigFlag::Reserved);
-			} else if (stage == GLS_ACTIVATION) {
+			} else if (stage == GrfLoadingStage::Activation) {
 				c->flags.Reset(GRFConfigFlag::Reserved);
-				assert(GetFileByGRFID(c->ident.grfid) == _cur_gps.grffile);
+				assert_msg(GetFileByGRFID(c->ident.grfid) == _cur_gps.grffile, "{:08X}", std::byteswap(c->ident.grfid));
 				ClearTemporaryNewGRFData(_cur_gps.grffile);
 				BuildCargoTranslationMap();
+				HandleVarAction2OptimisationPasses();
 				Debug(sprite, 2, "LoadNewGRF: Currently {} sprites are loaded", _cur_gps.spriteid);
-			} else if (stage == GLS_INIT && c->flags.Test(GRFConfigFlag::InitOnly)) {
+			} else if (stage == GrfLoadingStage::Init && c->flags.Test(GRFConfigFlag::InitOnly)) {
 				/* We're not going to activate this, so free whatever data we allocated */
 				ClearTemporaryNewGRFData(_cur_gps.grffile);
 			}
@@ -1879,14 +2071,83 @@ void LoadNewGRF(SpriteID load_index, uint num_baseset)
 	AfterLoadGRFs();
 
 	/* Now revert back to the original situation */
-	TimerGameCalendar::year = year;
-	TimerGameCalendar::date = date;
-	TimerGameCalendar::date_fract = date_fract;
-
-	TimerGameEconomy::year = economy_year;
-	TimerGameEconomy::date = economy_date;
-	TimerGameEconomy::date_fract = economy_date_fract;
-
-	TimerGameTick::counter = tick_counter;
+	CalTime::Detail::now = cal_state;
+	EconTime::Detail::now = econ_state;
+	DateDetail::_tick_skip_counter = tick_skip_counter;
+	_tick_counter = tick_counter;
+	_scaled_tick_counter = scaled_tick_counter;
+	_state_ticks = state_ticks;
+	DateDetail::_state_ticks_offset = state_ticks_offset;
 	_display_opt  = display_opt;
+	UpdateCachedSnowLine();
+}
+
+const char *GetExtendedVariableNameById(int id)
+{
+	extern const GRFVariableMapDefinition _grf_action2_remappable_variables[];
+	for (const GRFVariableMapDefinition *info = _grf_action2_remappable_variables; info->name != nullptr; info++) {
+		if (id == info->id) {
+			return info->name;
+		}
+	}
+
+	extern const GRFNameOnlyVariableMapDefinition _grf_action2_internal_variable_names[];
+	for (const GRFNameOnlyVariableMapDefinition *info = _grf_action2_internal_variable_names; info->name != nullptr; info++) {
+		if (id == info->id) {
+			return info->name;
+		}
+	}
+
+	return nullptr;
+}
+
+static bool IsLabelPrintable(uint32_t l)
+{
+	for (uint i = 0; i < 4; i++) {
+		if ((l & 0xFF) < 0x20 || (l & 0xFF) > 0x7F) return false;
+		l >>= 8;
+	}
+	return true;
+}
+
+const char *NewGRFLabelDumper::Label(uint32_t label)
+{
+	if (IsLabelPrintable(label)) {
+		format_to_fixed_z::format_to(this->buffer, lastof(this->buffer), "{:c}{:c}{:c}{:c}", label >> 24, label >> 16, label >> 8, label);
+	} else {
+		format_to_fixed_z::format_to(this->buffer, lastof(this->buffer), "0x{:08X}", label);
+	}
+	return this->buffer;
+}
+
+/**
+ * Get the \c GrfSpecFeature associated with a \c VehicleType
+ * @param type The vehicle type.
+ * @return the \c GrfSpecFeature
+ */
+GrfSpecFeature GetGrfSpecFeature(VehicleType type)
+{
+	switch (type) {
+		case VehicleType::Train: return GrfSpecFeature::Trains;
+		case VehicleType::Road: return GrfSpecFeature::RoadVehicles;
+		case VehicleType::Ship: return GrfSpecFeature::Ships;
+		case VehicleType::Aircraft: return GrfSpecFeature::Aircraft;
+		default: return GrfSpecFeature::Invalid;
+	}
+}
+
+/**
+ * Get the \c VehicleType associated with a \c GrfSpecFeature
+ * @param feature The feature.
+ * @return the \c VehicleType
+ */
+VehicleType GetVehicleType(GrfSpecFeature feature)
+{
+	switch (feature) {
+		case GrfSpecFeature::Trains: return VehicleType::Train;
+		case GrfSpecFeature::RoadVehicles: return VehicleType::Road;
+		case GrfSpecFeature::Ships: return VehicleType::Ship;
+		case GrfSpecFeature::Aircraft: return VehicleType::Aircraft;
+		default: return VehicleType::Invalid;
+	}
 }

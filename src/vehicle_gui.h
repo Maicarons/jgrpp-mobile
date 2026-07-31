@@ -12,14 +12,15 @@
 
 #include "window_type.h"
 #include "vehicle_type.h"
-#include "vehicle_gui_base.h"
-#include "vehiclelist.h"
 #include "order_type.h"
 #include "station_type.h"
 #include "engine_type.h"
 #include "company_type.h"
+#include "dropdown_func.h"
+#include <bitset>
+#include <vector>
 
-void ShowVehicleRefitWindow(const Vehicle *v, VehicleOrderID order, Window *parent, bool auto_refit = false);
+void ShowVehicleRefitWindow(const Vehicle *v, VehicleOrderID order, Window *parent, bool auto_refit = false, bool is_virtual_train = false);
 
 /** The tabs in the train details window */
 enum TrainDetailsWindowTabs : uint8_t {
@@ -27,6 +28,7 @@ enum TrainDetailsWindowTabs : uint8_t {
 	TDW_TAB_INFO,      ///< Tab with name and value of the vehicles
 	TDW_TAB_CAPACITY,  ///< Tab with cargo capacity of the vehicles
 	TDW_TAB_TOTALS,    ///< Tab with sum of total cargo transported
+	TDW_TAB_PERF,      ///< Tab with empty/full train performance statistics
 };
 DECLARE_ENUM_AS_ADDABLE(TrainDetailsWindowTabs)
 
@@ -36,14 +38,15 @@ enum VehicleInvalidateWindowData : int {
 	VIWD_MODIFY_ORDERS     = -2, ///< Other order modifications.
 	VIWD_CONSIST_CHANGED   = -3, ///< Vehicle composition was changed.
 	VIWD_AUTOREPLACE       = -4, ///< Autoreplace replaced the vehicle.
+	VIWD_ROUTE_OVERLAY     = -5, ///< Route overlay mode change.
 };
 
 /** Extra information about refitted cargo and capacity */
 struct TestedEngineDetails {
-	Money cost;           ///< Refit cost
-	CargoType cargo;        ///< Cargo type
-	uint capacity;        ///< Cargo capacity
-	uint16_t mail_capacity; ///< Mail capacity if available
+	Money cost{};                ///< Refit cost
+	CargoType cargo{};           ///< Cargo type
+	uint capacity{};             ///< Cargo capacity
+	uint16_t mail_capacity{};    ///< Mail capacity if available
 	CargoArray all_capacities{}; ///< Capacities for all cargoes
 
 	void FillDefaultCapacities(const Engine *e);
@@ -57,6 +60,7 @@ void DrawShipImage(const Vehicle *v, const Rect &r, VehicleID selection, EngineI
 void DrawAircraftImage(const Vehicle *v, const Rect &r, VehicleID selection, EngineImageType image_type);
 
 void ShowBuildVehicleWindow(TileIndex tile, VehicleType type);
+void ShowTemplateTrainBuildVehicleWindow(Train **virtual_train);
 
 uint ShowRefitOptionsList(int left, int right, int y, EngineID engine);
 StringID GetCargoSubtypeText(const Vehicle *v);
@@ -66,6 +70,8 @@ void ShowVehicleListWindow(CompanyID company, VehicleType vehicle_type);
 void ShowVehicleListWindow(CompanyID company, VehicleType vehicle_type, StationID station);
 void ShowVehicleListWindow(CompanyID company, VehicleType vehicle_type, TileIndex depot_tile);
 
+void DirtyVehicleListWindowForVehicle(const Vehicle *v);
+
 /**
  * Get the height of a single vehicle in the GUIs.
  * @param type the vehicle type to look at
@@ -73,7 +79,7 @@ void ShowVehicleListWindow(CompanyID company, VehicleType vehicle_type, TileInde
  */
 inline uint GetVehicleHeight(VehicleType type)
 {
-	return (type == VEH_TRAIN || type == VEH_ROAD) ? 14 : 24;
+	return (type == VehicleType::Train || type == VehicleType::Road) ? 14 : 24;
 }
 
 int GetSingleVehicleWidth(const Vehicle *v, EngineImageType image_type);
@@ -98,21 +104,27 @@ inline WindowClass GetWindowClassForVehicleType(VehicleType vt)
 {
 	switch (vt) {
 		default: NOT_REACHED();
-		case VEH_TRAIN:    return WC_TRAINS_LIST;
-		case VEH_ROAD:     return WC_ROADVEH_LIST;
-		case VEH_SHIP:     return WC_SHIPS_LIST;
-		case VEH_AIRCRAFT: return WC_AIRCRAFT_LIST;
+		case VehicleType::Train: return WindowClass::TrainList;
+		case VehicleType::Road: return WindowClass::RoadVehicleList;
+		case VehicleType::Ship: return WindowClass::ShipList;
+		case VehicleType::Aircraft: return WindowClass::AircraftList;
 	}
 }
 
+void InvalidateVehicleListWindows(VehicleType vt);
+
+typedef std::vector<const Vehicle *> VehicleList;
+struct GUIVehicleGroup;
+
 /* Unified window procedure */
 void ShowVehicleViewWindow(const Vehicle *v);
+void DirtySharedVehicleViewWindowTitles(const Vehicle *v);
 bool VehicleClicked(const Vehicle *v);
 bool VehicleClicked(VehicleList::const_iterator begin, VehicleList::const_iterator end);
 bool VehicleClicked(const GUIVehicleGroup &vehgroup);
 void StartStopVehicle(const Vehicle *v, bool texteffect);
 
-Vehicle *CheckClickOnVehicle(const struct Viewport &vp, int x, int y);
+Vehicle *CheckClickOnVehicle(const struct Viewport *vp, int x, int y);
 void StopGlobalFollowVehicle(const Vehicle *v);
 
 void DrawVehicleImage(const Vehicle *v, const Rect &r, VehicleID selection, EngineImageType image_type, int skip);

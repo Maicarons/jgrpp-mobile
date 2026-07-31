@@ -54,6 +54,14 @@ enum SQMetaMethod{
 
 #define MINPOWER2 4
 
+struct SQAllocationTag{};
+
+struct SQSizedAllocationTag {
+	size_t alloc_size;
+
+	SQSizedAllocationTag(size_t alloc_size) : alloc_size(alloc_size) {}
+};
+
 struct SQRefCounted
 {
 	SQRefCounted() {}
@@ -63,20 +71,44 @@ struct SQRefCounted
 	struct SQWeakRef *_weakref = nullptr;
 	virtual void Release()=0;
 
+	inline void *operator new(size_t size, SQRefCounted *place) = delete;
+	inline void operator delete(void *ptr, SQRefCounted *place) = delete;
+
 	/* Placement new/delete to prevent memory leaks if constructor throws an exception. */
-	inline void *operator new([[maybe_unused]] size_t size, void *ptr, [[maybe_unused]] size_t real_size)
+	inline void *operator new(size_t size, SQAllocationTag tag)
 	{
-		assert(size <= real_size);
-		return ptr;
+		size += sizeof(size_t);
+		size_t *ptr = (size_t *)SQ_MALLOC(size);
+		*ptr = size;
+		return ptr + 1;
 	}
 
-	inline void operator delete(void *ptr, void *, size_t real_size)
+	inline static void SQDeallocate(void *ptr)
 	{
-		SQ_FREE(ptr, real_size);
+		size_t *base = static_cast<size_t *>(ptr) - 1;
+		SQ_FREE(base, *base);
+	}
+
+	inline void operator delete(void *ptr, SQAllocationTag tag)
+	{
+		SQDeallocate(ptr);
+	}
+
+	inline void *operator new(size_t size, SQSizedAllocationTag sized_tag)
+	{
+		size_t alloc_size = sized_tag.alloc_size + sizeof(size_t);
+		size_t *ptr = (size_t *)SQ_MALLOC(alloc_size);
+		*ptr = alloc_size;
+		return ptr + 1;
+	}
+
+	inline void operator delete(void *ptr, SQSizedAllocationTag sized_tag)
+	{
+		SQDeallocate(ptr);
 	}
 
 	/* Never used but required. */
-	inline void operator delete(void *) { NOT_REACHED(); }
+	inline void operator delete(void *ptr) { NOT_REACHED(); }
 };
 
 struct SQWeakRef : SQRefCounted

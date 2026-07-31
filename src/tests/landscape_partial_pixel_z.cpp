@@ -13,6 +13,7 @@
 
 #include "../landscape.h"
 #include "../slope_func.h"
+#include <array>
 
 #include "../safeguards.h"
 

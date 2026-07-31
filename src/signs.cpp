@@ -15,6 +15,7 @@
 #include "strings_func.h"
 #include "core/pool_func.hpp"
 #include "viewport_kdtree.h"
+#include "network/network.h"
 
 #include "table/strings.h"
 
@@ -37,13 +38,16 @@ Sign::~Sign()
  */
 void Sign::UpdateVirtCoord()
 {
+	if (IsHeadless()) return;
 	Point pt = RemapCoords(this->x, this->y, this->z);
 
-	if (this->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeSign(this->index));
+	if (_viewport_sign_kdtree_valid && this->sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeSign(this->index));
 
-	this->sign.UpdatePosition(pt.x, pt.y - 6 * ZOOM_BASE, GetString(STR_WHITE_SIGN, this->index));
+	bool shown = _display_opt.Test(DisplayOption::ShowSigns) && !(this->IsCompetitorOwned() && !_display_opt.Test(DisplayOption::ShowCompetitorSigns));
+	auto params = MakeParameters(this->index);
+	this->sign.UpdatePosition(shown ? ZoomLevel::SpriteMax : ZoomLevel::End, pt.x, pt.y - 6 * ZOOM_BASE, params, STR_WHITE_SIGN);
 
-	_viewport_sign_kdtree.Insert(ViewportSignKdtreeItem::MakeSign(this->index));
+	if (_viewport_sign_kdtree_valid) _viewport_sign_kdtree.Insert(ViewportSignKdtreeItem::MakeSign(this->index));
 }
 
 /** Update the coordinates of all signs */
@@ -61,6 +65,6 @@ void UpdateAllSignVirtCoords()
  */
 bool CompanyCanEditSign(const Sign *si)
 {
-	if (si->owner == OWNER_DEITY && _current_company != OWNER_DEITY && _game_mode != GM_EDITOR) return false;
+	if (si->owner == OWNER_DEITY && _current_company != OWNER_DEITY && _game_mode != GameMode::Editor) return false;
 	return true;
 }

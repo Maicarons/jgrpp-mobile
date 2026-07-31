@@ -8,12 +8,14 @@ add_files(
     newgrf_act0_globalvar.cpp
     newgrf_act0_houses.cpp
     newgrf_act0_industries.cpp
+    newgrf_act0_newlandscape.cpp
     newgrf_act0_objects.cpp
     newgrf_act0_railtypes.cpp
     newgrf_act0_roadstops.cpp
     newgrf_act0_roadtypes.cpp
     newgrf_act0_roadvehs.cpp
     newgrf_act0_ships.cpp
+    newgrf_act0_signals.cpp
     newgrf_act0_sounds.cpp
     newgrf_act0_stations.cpp
     newgrf_act0_trains.cpp
@@ -41,6 +43,8 @@ add_files(
     newgrf_bytereader.h
     newgrf_internal_vehicle.h
     newgrf_internal.h
+    newgrf_optimiser.cpp
+    newgrf_optimiser_internal.h
     newgrf_stringmapping.cpp
     newgrf_stringmapping.h
 )

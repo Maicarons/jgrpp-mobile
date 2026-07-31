@@ -12,6 +12,7 @@
 
 #include "cheat_type.h"
 
+bool CheatWindowMayBeShown();
 void ShowCheatWindow();
 
 

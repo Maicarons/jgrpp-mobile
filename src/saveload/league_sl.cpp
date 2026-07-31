@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file league_sl.cpp Code handling saving and loading of league tables */
+/** @file league_sl.cpp Code handling saving and loading of league tables. */
 
 #include "../stdafx.h"
 
@@ -14,6 +14,8 @@
 #include "../league_base.h"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 static const SaveLoad _league_table_elements_desc[] = {
 	    SLE_VAR(LeagueTableElement, table,       SLE_UINT8),
@@ -45,7 +47,7 @@ struct LEAEChunkHandler : ChunkHandler {
 
 		int index;
 		while ((index = SlIterateArray()) != -1) {
-			LeagueTableElement *lte = new (LeagueTableElementID(index)) LeagueTableElement();
+			LeagueTableElement *lte = LeagueTableElement::CreateAtIndex(LeagueTableElementID(index));
 			SlObject(lte, slt);
 		}
 	}
@@ -76,7 +78,7 @@ struct LEATChunkHandler : ChunkHandler {
 
 		int index;
 		while ((index = SlIterateArray()) != -1) {
-			LeagueTable *lt = new (LeagueTableID(index)) LeagueTable();
+			LeagueTable *lt = LeagueTable::CreateAtIndex(LeagueTableID(index));
 			SlObject(lt, slt);
 		}
 	}
@@ -90,3 +92,5 @@ static const ChunkHandlerRef league_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _league_chunk_handlers(league_chunk_handlers);
+
+}

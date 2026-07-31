@@ -13,6 +13,7 @@
 #include "script_company.hpp"
 #include "script_error.hpp"
 #include "../../signs_type.h"
+#include <optional>
 
 /**
  * Class that handles all sign related functions.

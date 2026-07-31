@@ -5,10 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file railtypes.h
- * All the railtype-specific information is stored here.
- */
+/** @file railtypes.h All the railtype-specific information is stored here. */
 
 #ifndef RAILTYPES_H
 #define RAILTYPES_H
@@ -67,6 +64,9 @@ static const RailTypeInfo _original_railtypes[] = {
 		/* Compatible railtypes */
 		{RAILTYPE_RAIL, RAILTYPE_ELECTRIC},
 
+		/* Computed compatible railtypes */
+		{},
+
 		/* bridge offset */
 		0,
 
@@ -78,6 +78,12 @@ static const RailTypeInfo _original_railtypes[] = {
 
 		/* flags */
 		{},
+
+		/* control flags */
+		{},
+
+		/* signal extra aspects */
+		0,
 
 		/* cost multiplier */
 		8,
@@ -101,7 +107,7 @@ static const RailTypeInfo _original_railtypes[] = {
 		PC_GREY,
 
 		/* introduction date */
-		CalendarTime::INVALID_DATE,
+		CalTime::INVALID_DATE,
 
 		/* railtypes required for this to be introduced */
 		{},
@@ -169,6 +175,9 @@ static const RailTypeInfo _original_railtypes[] = {
 		/* Compatible railtypes */
 		{RAILTYPE_RAIL, RAILTYPE_ELECTRIC},
 
+		/* Computed compatible railtypes */
+		{},
+
 		/* bridge offset */
 		0,
 
@@ -180,6 +189,12 @@ static const RailTypeInfo _original_railtypes[] = {
 
 		/* flags */
 		{RailTypeFlag::Catenary},
+
+		/* control flags */
+		{},
+
+		/* signal extra aspects */
+		0,
 
 		/* cost multiplier */
 		12,
@@ -203,7 +218,7 @@ static const RailTypeInfo _original_railtypes[] = {
 		PC_GREY,
 
 		/* introduction date */
-		CalendarTime::INVALID_DATE,
+		CalTime::INVALID_DATE,
 
 		/* railtypes required for this to be introduced */
 		{},
@@ -267,6 +282,9 @@ static const RailTypeInfo _original_railtypes[] = {
 		/* Compatible Railtypes */
 		{RAILTYPE_MONO},
 
+		/* Computed compatible railtypes */
+		{},
+
 		/* bridge offset */
 		16,
 
@@ -278,6 +296,12 @@ static const RailTypeInfo _original_railtypes[] = {
 
 		/* flags */
 		{},
+
+		/* control flags */
+		{},
+
+		/* signal extra aspects */
+		0,
 
 		/* cost multiplier */
 		16,
@@ -301,7 +325,7 @@ static const RailTypeInfo _original_railtypes[] = {
 		PC_GREY,
 
 		/* introduction date */
-		CalendarTime::INVALID_DATE,
+		CalTime::INVALID_DATE,
 
 		/* railtypes required for this to be introduced */
 		{},
@@ -365,6 +389,9 @@ static const RailTypeInfo _original_railtypes[] = {
 		/* Compatible Railtypes */
 		{RAILTYPE_MAGLEV},
 
+		/* Computed compatible railtypes */
+		{},
+
 		/* bridge offset */
 		24,
 
@@ -376,6 +403,12 @@ static const RailTypeInfo _original_railtypes[] = {
 
 		/* flags */
 		{},
+
+		/* control flags */
+		{},
+
+		/* signal extra aspects */
+		0,
 
 		/* cost multiplier */
 		24,
@@ -399,7 +432,7 @@ static const RailTypeInfo _original_railtypes[] = {
 		PC_GREY,
 
 		/* introduction date */
-		CalendarTime::INVALID_DATE,
+		CalTime::INVALID_DATE,
 
 		/* railtypes required for this to be introduced */
 		{},

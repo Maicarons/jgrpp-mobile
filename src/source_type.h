@@ -36,9 +36,26 @@ public:
 	SourceID id; ///< Index of industry/town/HQ, Source::Invalid if unknown/invalid.
 	SourceType type; ///< Type of \c source_id.
 
-	Source() = default;
-	Source(ConvertibleThroughBase auto id, SourceType type) : id(id.base()), type(type) {}
-	Source(SourceID id, SourceType type) : id(id), type(type) {}
+	template <SourceType TYPE>
+	static constexpr Source Make(IndustryID id)
+	{
+		static_assert(TYPE == SourceType::Industry);
+		return { id.base(), TYPE };
+	}
+
+	template <SourceType TYPE>
+	static constexpr Source Make(TownID id)
+	{
+		static_assert(TYPE == SourceType::Town);
+		return { id.base(), TYPE };
+	}
+
+	template <SourceType TYPE>
+	static constexpr Source Make(CompanyID id)
+	{
+		static_assert(TYPE == SourceType::Headquarters);
+		return { id.base(), TYPE };
+	}
 
 	constexpr CompanyID ToCompanyID() const { assert(this->type == SourceType::Headquarters); return static_cast<CompanyID>(this->id); }
 	constexpr IndustryID ToIndustryID() const { assert(this->type == SourceType::Industry); return static_cast<IndustryID>(this->id); }
@@ -46,13 +63,20 @@ public:
 
 	constexpr void MakeInvalid() { this->id = Source::Invalid; }
 	constexpr void SetIndex(SourceID index) { this->id = index; }
-	constexpr void SetIndex(ConvertibleThroughBase auto index) { this->id = index.base(); }
 
 	constexpr bool IsValid() const noexcept { return this->id != Source::Invalid; }
 	auto operator<=>(const Source &source) const = default;
 
 	NewsReference GetNewsReference() const;
 	StringID GetFormat() const;
+
+	template <typename T>
+	void Serialise(T &&buffer) const { buffer.Send_generic_seq(this->id, this->type); }
+
+	template <typename T, typename V>
+	bool Deserialise(T &buffer, V &&default_string_validation) { buffer.Recv_generic_seq(default_string_validation, this->id, this->type); return true; }
+
+	void fmt_format_value(struct format_target &output) const;
 };
 
 #endif /* SOURCE_TYPE_H */

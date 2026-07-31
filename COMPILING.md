@@ -4,12 +4,12 @@
 
 OpenTTD makes use of the following external libraries:
 
-- (encouraged) breakpad: creates minidumps on crash
 - (encouraged) zlib: (de)compressing of old (0.3.0-1.0.5) savegames, content downloads,
    heightmaps
 - (encouraged) liblzma: (de)compressing of savegames (1.1.0 and later)
 - (encouraged) libpng: making screenshots and loading heightmaps
 - (optional) liblzo2: (de)compressing of old (pre 0.3.0) savegames
+- (optional) libzstd: (de)compressing of multiplayer join savegames, if available
 
 For Linux, the following additional libraries are used:
 
@@ -50,8 +50,8 @@ by following the `Quick Start` instructions of their
 After this, you can install the dependencies OpenTTD needs. We advise to use
 the `static` versions, and OpenTTD currently needs the following dependencies:
 
-- breakpad
 - liblzma
+- libzstd
 - libpng
 - lzo
 - zlib

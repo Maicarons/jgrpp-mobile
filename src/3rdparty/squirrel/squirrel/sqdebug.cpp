@@ -3,7 +3,7 @@
  */
 
 #include "../../../stdafx.h"
-#include "../../fmt/format.h"
+#include "../../../core/format.hpp"
 
 #include <squirrel.h>
 #include "sqpcheader.h"
@@ -11,8 +11,6 @@
 #include "sqfuncproto.h"
 #include "sqclosure.h"
 #include "sqstring.h"
-
-#include "../../../string_func.h"
 
 #include "../../../safeguards.h"
 
@@ -63,9 +61,9 @@ SQRESULT sq_stackinfos(HSQUIRRELVM v, SQInteger level, SQStackInfos *si)
 	return SQ_ERROR;
 }
 
-void SQVM::Raise_Error(const std::string &msg)
+void SQVM::Raise_Error(std::string_view str)
 {
-	_lasterror = SQString::Create(_ss(this),msg);
+	_lasterror = SQString::Create(_ss(this),str);
 }
 
 void SQVM::Raise_Error(SQObjectPtr &desc)
@@ -77,10 +75,16 @@ SQString *SQVM::PrintObjVal(const SQObject &o)
 {
 	switch(type(o)) {
 	case OT_STRING: return _string(o);
-	case OT_INTEGER:
-		return SQString::Create(_ss(this), fmt::format("{}", _integer(o)));
-	case OT_FLOAT:
-		return SQString::Create(_ss(this), fmt::format("{:.14g}", _float(o)));
+	case OT_INTEGER: {
+		format_buffer_sized<64> buf;
+		buf.format("{}", _integer(o));
+		return SQString::Create(_ss(this), buf);
+	}
+	case OT_FLOAT: {
+		format_buffer_sized<64> buf;
+		buf.format("{:.14g}", _float(o));
+		return SQString::Create(_ss(this), buf);
+	}
 	default:
 		return SQString::Create(_ss(this), GetTypeName(o));
 	}

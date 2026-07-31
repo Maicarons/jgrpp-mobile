@@ -29,14 +29,16 @@ bool _video_vsync; ///< Whether we should use vsync (only if active video driver
 
 void VideoDriver::GameLoop()
 {
-	this->next_game_tick += this->GetGameInterval();
-
-	/* Avoid next_game_tick getting behind more and more if it cannot keep up. */
 	auto now = std::chrono::steady_clock::now();
-	if (this->next_game_tick < now - ALLOWED_DRIFT * this->GetGameInterval()) this->next_game_tick = now;
 
 	{
-		std::lock_guard<std::mutex> lock(this->game_state_mutex);
+		std::lock_guard<std::recursive_mutex> lock(this->game_state_mutex);
+
+		const auto interval = this->GetGameInterval();
+		this->next_game_tick += interval;
+
+		/* Avoid next_game_tick getting behind more and more if it cannot keep up. */
+		if (this->next_game_tick < now - ALLOWED_DRIFT * interval) this->next_game_tick = now;
 
 		::GameLoop();
 	}
@@ -80,8 +82,23 @@ void VideoDriver::GameLoopPause()
 	this->game_state_mutex.lock();
 }
 
+/* static */ bool VideoDriver::EmergencyAcquireGameLock(uint tries, uint delay_ms)
+{
+	VideoDriver *drv = VideoDriver::GetInstance();
+	if (drv == nullptr) return true;
+
+
+	for (uint i = 0; i < tries; i++) {
+		if (drv->game_state_mutex.try_lock()) return true;
+		CSleep(delay_ms);
+	}
+
+	return false;
+}
+
 /* static */ void VideoDriver::GameThreadThunk(VideoDriver *drv)
 {
+	SetSelfAsGameThread();
 	drv->GameThread();
 }
 
@@ -90,6 +107,8 @@ void VideoDriver::StartGameThread()
 	if (this->is_game_threaded) {
 		this->is_game_threaded = StartNewThread(&this->game_thread, "ottd:game", &VideoDriver::GameThreadThunk, this);
 	}
+
+	if (!this->is_game_threaded) SetSelfAsGameThread();
 
 	Debug(driver, 1, "using {}thread for game-loop", this->is_game_threaded ? "" : "no ");
 }
@@ -105,13 +124,6 @@ void VideoDriver::Tick()
 {
 	if (!this->is_game_threaded && std::chrono::steady_clock::now() >= this->next_game_tick) {
 		this->GameLoop();
-		if (_game_speed > 100) {
-			// Fast forward by frame skipping, won't be as fast as a separate game thread, but better than nothing
-			this->GameLoop();
-			this->GameLoop();
-			this->GameLoop();
-			this->GameLoop();
-		}
 
 		/* For things like dedicated server, don't run a separate draw-tick. */
 		if (!this->HasGUI()) {
@@ -123,17 +135,31 @@ void VideoDriver::Tick()
 
 	auto now = std::chrono::steady_clock::now();
 	if (this->HasGUI() && now >= this->next_draw_tick) {
-		this->next_draw_tick += this->GetDrawInterval();
-		/* Avoid next_draw_tick getting behind more and more if it cannot keep up. */
-		if (this->next_draw_tick < now - ALLOWED_DRIFT * this->GetDrawInterval()) this->next_draw_tick = now;
-
 		/* Locking video buffer can block (especially with vsync enabled), do it before taking game state lock. */
 		this->LockVideoBuffer();
 
 		{
 			/* Tell the game-thread to stop so we can have a go. */
 			std::lock_guard<std::mutex> lock_wait(this->game_thread_wait_mutex);
-			std::lock_guard<std::mutex> lock_state(this->game_state_mutex);
+			std::lock_guard<std::recursive_mutex> lock_state(this->game_state_mutex);
+
+			this->next_draw_tick += this->GetDrawInterval();
+			/* Avoid next_draw_tick getting behind more and more if it cannot keep up. */
+			if (this->next_draw_tick < now - ALLOWED_DRIFT * this->GetDrawInterval()) this->next_draw_tick = now;
+
+			this->InputLoop();
+
+			const bool fast_forward_key_active = this->fast_forward_key_pressed && !_networking && _game_mode != GameMode::Menu &&
+					!FocusedWindowSuppressesTabToFastForward();
+
+			/* Check if the fast-forward button is still pressed. */
+			if (fast_forward_key_active) {
+				ChangeGameSpeed(true);
+				this->fast_forward_via_key = true;
+			} else if (this->fast_forward_via_key) {
+				ChangeGameSpeed(false);
+				this->fast_forward_via_key = false;
+			}
 
 			/* Keep the interactive randomizer a bit more random by requesting
 			 * new values when-ever we can. */
@@ -142,28 +168,22 @@ void VideoDriver::Tick()
 			this->DrainCommandQueue();
 
 			while (this->PollEvent()) {}
-			this->InputLoop();
-
-			/* Check if the fast-forward button is still pressed. */
-			if (fast_forward_key_pressed && !_networking && _game_mode != GM_MENU) {
-				ChangeGameSpeed(true);
-				this->fast_forward_via_key = true;
-			} else if (this->fast_forward_via_key) {
-				ChangeGameSpeed(false);
-				this->fast_forward_via_key = false;
-			}
-
 			::InputLoop();
 
 			/* Prevent drawing when switching mode, as windows can be removed when they should still appear. */
-			if (_game_mode == GM_BOOTSTRAP || _switch_mode == SM_NONE || HasModalProgress()) {
+			if (_game_mode == GameMode::Bootstrap || _switch_mode == SwitchMode::None || HasModalProgress()) {
 				::UpdateWindows();
 			}
 
 			this->PopulateSystemSprites();
 		}
 
-		this->CheckPaletteAnim();
+		{
+			extern std::mutex _cur_palette_mutex;
+			std::lock_guard<std::mutex> lock_state(_cur_palette_mutex);
+			this->CheckPaletteAnim();
+		}
+
 		this->Paint();
 
 		this->UnlockVideoBuffer();
@@ -189,6 +209,11 @@ void VideoDriver::SleepTillNextTick()
 	if (next_tick > now) {
 		std::this_thread::sleep_for(next_tick - now);
 	}
+}
+
+void VideoDriver::InvalidateGameOptionsWindow()
+{
+	InvalidateWindowClassesData(WindowClass::GameOptions, 3);
 }
 
 /**

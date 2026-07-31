@@ -19,6 +19,7 @@
 #include "random_access_file_type.h"
 #include "debug.h"
 #include "settings_type.h"
+#include "core/alloc_func.hpp"
 
 #include "safeguards.h"
 
@@ -78,6 +79,7 @@ size_t GetSoundPoolAllocatedMemory()
 /**
  * Extract meta data from a NewGRF sound.
  * @param sound Sound to load.
+ * @param sound_id Identifier of the sound to load.
  * @return True if a valid sound was loaded.
  */
 bool LoadNewGRFSound(SoundEntry &sound, SoundID sound_id)
@@ -98,8 +100,8 @@ bool LoadNewGRFSound(SoundEntry &sound, SoundID sound_id)
 	if (file.ReadByte() != 0xFF) return false;
 
 	uint8_t name_len = file.ReadByte();
-	std::string name(name_len + 1, '\0');
-	file.ReadBlock(name.data(), name_len + 1);
+	TempBufferST<char> name(name_len + 1);
+	file.ReadBlock(name, name_len + 1);
 
 	/* Test string termination */
 	if (name[name_len] != '\0') {
@@ -107,7 +109,7 @@ bool LoadNewGRFSound(SoundEntry &sound, SoundID sound_id)
 		return false;
 	}
 
-	if (LoadSoundData(sound, true, sound_id, StrMakeValid(name))) return true;
+	if (LoadSoundData(sound, true, sound_id, StrMakeValid(name.get()))) return true;
 
 	Debug(grf, 1, "LoadNewGRFSound [{}]: does not contain any sound data", file.GetSimplifiedFilename());
 
@@ -142,7 +144,8 @@ SoundID GetNewGRFSoundID(const GRFFile *file, SoundID sound_id)
  */
 bool PlayVehicleSound(const Vehicle *v, VehicleSoundEvent event, bool force)
 {
-	if (!_settings_client.sound.vehicle && !force) return true;
+	if (IsHeadless()) return true;
+	if ((!_settings_client.sound.vehicle || _settings_client.music.effect_vol == 0) && !force) return true;
 
 	const GRFFile *file = v->GetGRF();
 	uint16_t callback;

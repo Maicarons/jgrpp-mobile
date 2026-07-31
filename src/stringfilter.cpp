@@ -14,6 +14,7 @@
 #include "core/string_builder.hpp"
 #include "stringfilter_type.h"
 #include "gfx_func.h"
+#include "core/alloc_func.hpp"
 
 #include "safeguards.h"
 
@@ -33,10 +34,10 @@ void StringFilter::SetFilterTerm(std::string_view str)
 	this->word_matches = 0;
 
 	char32_t state = STATE_WHITESPACE;
-	std::string word;
+	format_buffer_sized<128> word;
 	StringBuilder builder(word);
 	auto add_word = [this, &word]() {
-		if (!word.empty()) this->word_index.emplace_back(std::move(word), false);
+		if (!word.empty()) this->word_index.emplace_back(word.to_string(), false);
 		word.clear();
 	};
 
@@ -72,6 +73,10 @@ void StringFilter::SetFilterTerm(std::string_view str)
 
 	/* Add the last word of the string. */
 	add_word();
+
+#ifdef WITH_LOCALE_STRING
+	StringFilterSetupLocale(*this);
+#endif
 }
 
 /**
@@ -95,6 +100,13 @@ void StringFilter::ResetState()
  */
 void StringFilter::AddLine(std::string_view str)
 {
+	if (str.empty() || this->GetState()) return;
+#ifdef WITH_LOCALE_STRING
+	if (this->locale_aware) {
+		if (StringFilterAddLocaleLine(*this, str)) return;
+	}
+#endif
+
 	bool match_case = this->case_sensitive != nullptr && *this->case_sensitive;
 	for (WordState &ws : this->word_index) {
 		if (!ws.match) {

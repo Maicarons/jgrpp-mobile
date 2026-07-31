@@ -8,6 +8,7 @@
 /** @file mixer.cpp Mixing of sound samples. */
 
 #include "stdafx.h"
+#include <math.h>
 #include <mutex>
 #include <atomic>
 #include "core/math_func.hpp"
@@ -17,19 +18,23 @@
 
 #include "safeguards.h"
 
+#include <mutex>
+
 struct MixerChannel {
-	/* pointer to allocated buffer memory */
+	/** Pointer to allocated buffer memory. */
 	std::shared_ptr<std::vector<std::byte>> memory;
 
-	/* current position in memory */
+	/** Current position in memory. */
 	uint32_t pos;
 	uint32_t frac_pos;
 	uint32_t frac_speed;
 	uint32_t samples_left;
 
-	/* Mixing volume */
+	/** @{
+	 * Mixing volume. */
 	int volume_left;
 	int volume_right;
+	/** @} */
 
 	bool is16bit;
 };

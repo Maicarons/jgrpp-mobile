@@ -193,7 +193,7 @@ SQSharedState::~SQSharedState()
 			t = nx;
 		}
 	}
-//	assert(_gc_chain==nullptr); //just to proove a theory
+//	assert(_gc_chain==nullptr); //just to prove a theory
 	while(_gc_chain){
 		_gc_chain->_uiRef--;
 		_gc_chain->Release();
@@ -272,7 +272,7 @@ SQInteger SQSharedState::CollectGarbage(SQVM *)
 
 	SQGCMarkerQueue queue;
 	queue.Enqueue(vms);
-#ifdef WITH_ASSERT
+#ifdef WITH_FULL_ASSERTS
 	SQInteger x = _table(_thread(_root_vm)->_roottable)->CountUsed();
 #endif
 	_refs_table.EnqueueMarkObject(queue);
@@ -320,7 +320,7 @@ SQInteger SQSharedState::CollectGarbage(SQVM *)
 		t = t->_next;
 	}
 	_gc_chain = tchain;
-#ifdef WITH_ASSERT
+#ifdef WITH_FULL_ASSERTS
 	SQInteger z = _table(_thread(_root_vm)->_roottable)->CountUsed();
 	assert(z == x);
 #endif
@@ -552,8 +552,7 @@ SQString *SQStringTable::Add(std::string_view new_string)
 		if(s->View() == new_string) return s; //found
 	}
 
-	SQString *t=(SQString *)SQ_MALLOC(len+sizeof(SQString));
-	new (t, len+sizeof(SQString)) SQString(new_string);
+	SQString *t = new (SQSizedAllocationTag(len + sizeof(SQString))) SQString(new_string);
 	t->_next = _strings[slot];
 	_strings[slot] = t;
 	_slotused++;
@@ -603,9 +602,7 @@ void SQStringTable::Remove(SQString *bs)
 			else
 				_strings[h] = s->_next;
 			_slotused--;
-			size_t slen = s->View().size();
-			s->~SQString();
-			SQ_FREE(s,sizeof(SQString) + slen);
+			sq_delete_refcounted(s, SQString);
 			return;
 		}
 		prev = s;

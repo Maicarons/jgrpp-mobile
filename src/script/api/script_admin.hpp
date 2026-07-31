@@ -10,6 +10,7 @@
 #ifndef SCRIPT_ADMIN_HPP
 #define SCRIPT_ADMIN_HPP
 
+#include <string>
 #include "script_object.hpp"
 
 /**

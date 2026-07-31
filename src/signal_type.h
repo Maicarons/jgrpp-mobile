@@ -11,37 +11,68 @@
 #define SIGNAL_TYPE_H
 
 #include "core/enum_type.hpp"
+#include "track_type.h"
+#include "tile_type.h"
+#include "zoom_type.h"
 
 /** Variant of the signal, i.e. how does the signal look? */
-enum SignalVariant : uint8_t {
-	SIG_ELECTRIC  = 0, ///< Light signal
-	SIG_SEMAPHORE = 1, ///< Old-fashioned semaphore signal
+enum class SignalVariant : uint8_t {
+	Electric = 0, ///< Light signal.
+	Semaphore = 1, ///< Old-fashioned semaphore signal.
+	End, ///< End marker.
 };
 
 
 /** Type of signal, i.e. how does the signal behave? */
-enum SignalType : uint8_t {
-	SIGTYPE_BLOCK      = 0, ///< block signal
-	SIGTYPE_ENTRY      = 1, ///< presignal block entry
-	SIGTYPE_EXIT       = 2, ///< presignal block exit
-	SIGTYPE_COMBO      = 3, ///< presignal inter-block
-	SIGTYPE_PBS        = 4, ///< normal pbs signal
-	SIGTYPE_PBS_ONEWAY = 5, ///< no-entry signal
-
-	SIGTYPE_END,
-	SIGTYPE_LAST       = SIGTYPE_PBS_ONEWAY,
-	SIGTYPE_LAST_NOPBS = SIGTYPE_COMBO,
+enum class SignalType : uint8_t {
+	Block      = 0, ///< block signal.
+	Entry      = 1, ///< presignal block entry.
+	Exit       = 2, ///< presignal block exit.
+	Combo      = 3, ///< presignal inter-block.
+	Path       = 4, ///< normal path signal.
+	PathOneWay = 5, ///< no-entry path signal.
+	Prog       = 6, ///< programmable presignal.
+	NoEntry    = 7, ///< no-entry signal.
+	End,            ///< End marker.
 };
-DECLARE_ENUM_AS_ADDABLE(SignalType)
+using SignalTypeMask = EnumBitSet<SignalType, uint8_t>;
+
+/** Reference to a signal
+ *
+ * A reference to a signal by its tile and track
+ */
+struct SignalReference {
+	TileIndex tile;
+	Track track;
+
+	inline SignalReference(TileIndex t, Track tr) : tile(t), track(tr) {}
+
+	bool operator==(const SignalReference &) const = default;
+	auto operator<=>(const SignalReference &) const = default;
+};
 
 /**
  * These are states in which a signal can be. Currently these are only two, so
  * simple boolean logic will do. But do try to compare to this enum instead of
  * normal boolean evaluation, since that will make future additions easier.
  */
-enum SignalState : uint8_t {
-	SIGNAL_STATE_RED   = 0, ///< The signal is red
-	SIGNAL_STATE_GREEN = 1, ///< The signal is green
+enum class SignalState : uint8_t {
+	Red = 0, ///< The signal is red
+	Green = 1, ///< The signal is green
+	End, ///< End marker.
 };
+
+/** Signal groups to cycle through. */
+enum SignalCycleGroups : uint8_t {
+	SCG_CURRENT_GROUP = 0,
+	SCG_BLOCK         = 1 << 0,
+	SCG_PBS           = 1 << 1,
+};
+DECLARE_ENUM_AS_BIT_SET(SignalCycleGroups)
+
+static const int SIGNAL_DIRTY_LEFT   = 14 * ZOOM_BASE;
+static const int SIGNAL_DIRTY_RIGHT  = 14 * ZOOM_BASE;
+static const int SIGNAL_DIRTY_TOP    = 30 * ZOOM_BASE;
+static const int SIGNAL_DIRTY_BOTTOM =  5 * ZOOM_BASE;
 
 #endif /* SIGNAL_TYPE_H */

@@ -11,6 +11,10 @@
 #define POOL_TYPE_HPP
 
 #include "enum_type.hpp"
+#include "pool_id_type.hpp"
+#include "../debug_dbg_assert.h"
+#include <limits>
+#include <vector>
 
 /** Various types of a pool. */
 enum class PoolType : uint8_t {
@@ -24,60 +28,8 @@ static constexpr PoolTypes PT_ALL = {PoolType::Normal, PoolType::NetworkClient, 
 
 typedef std::vector<struct PoolBase *> PoolVector; ///< Vector of pointers to PoolBase
 
-/** Non-templated base for #PoolID for use with type trait queries. */
-struct PoolIDBase {};
-
-/**
- * Templated helper to make a PoolID a single POD value.
- *
- * Example usage:
- *
- *   using MyType = PoolID<int, struct MyTypeTag, 16, 0xFF>;
- *
- * @tparam TBaseType Type of the derived class (i.e. the concrete usage of this class).
- * @tparam TTag An unique struct to keep types of the same TBaseType distinct.
- * @tparam TEnd The PoolID at the end of the pool (equivalent to size).
- * @tparam TInvalid The PoolID denoting an invalid value.
- */
-template <typename TBaseType, typename TTag, TBaseType TEnd, TBaseType TInvalid>
-struct EMPTY_BASES PoolID : PoolIDBase {
-	using BaseType = TBaseType;
-
-	constexpr PoolID() = default;
-	constexpr PoolID(const PoolID &) = default;
-	constexpr PoolID(PoolID &&) = default;
-
-	explicit constexpr PoolID(const TBaseType &value) : value(value) {}
-
-	constexpr PoolID &operator =(const PoolID &rhs) { this->value = rhs.value; return *this; }
-	constexpr PoolID &operator =(PoolID &&rhs) { this->value = std::move(rhs.value); return *this; }
-
-	/* Only allow conversion to BaseType via method. */
-	constexpr TBaseType base() const noexcept { return this->value; }
-
-	static constexpr PoolID Begin() { return PoolID{}; }
-	static constexpr PoolID End() { return PoolID{static_cast<TBaseType>(TEnd)}; }
-	static constexpr PoolID Invalid() { return PoolID{static_cast<TBaseType>(TInvalid)}; }
-
-	constexpr auto operator++() { ++this->value; return this; }
-	constexpr auto operator+(const std::integral auto &val) const { return this->value + val; }
-	constexpr auto operator-(const std::integral auto &val) const { return this->value - val; }
-	constexpr auto operator%(const std::integral auto &val) const { return this->value % val; }
-
-	constexpr bool operator==(const PoolID<TBaseType, TTag, TEnd, TInvalid> &rhs) const { return this->value == rhs.value; }
-	constexpr auto operator<=>(const PoolID<TBaseType, TTag, TEnd, TInvalid> &rhs) const { return this->value <=> rhs.value; }
-
-	constexpr bool operator==(const size_t &rhs) const { return this->value == rhs; }
-	constexpr auto operator<=>(const size_t &rhs) const { return this->value <=> rhs; }
-private:
-	/* Do not explicitly initialize. */
-	TBaseType value;
-};
-
-template <typename T> requires std::is_base_of_v<PoolIDBase, T>
-constexpr auto operator+(const std::integral auto &val, const T &pool_id) { return pool_id + val; }
-template <typename Te, typename Tp> requires std::is_enum_v<Te> && std::is_base_of_v<PoolIDBase, Tp>
-constexpr auto operator+(const Te &val, const Tp &pool_id) { return pool_id + to_underlying(val); }
+template <typename Tindex>
+using AllocationResult = std::pair<void *, Tindex>;
 
 /** Base class for base of all pools. */
 struct PoolBase {
@@ -115,8 +67,22 @@ private:
 	/**
 	 * Dummy private copy constructor to prevent compilers from
 	 * copying the structure, which fails due to GetPools().
+	 * @param other The pool not to copy from.
 	 */
 	PoolBase(const PoolBase &other);
+};
+
+struct DefaultPoolItemParam{};
+
+template <class Titem>
+struct DefaultPoolOps {
+	using Tptr = Titem *;
+	using Tparam_type = DefaultPoolItemParam;
+
+	static constexpr Titem *GetPtr(Titem *ptr) { return ptr; }
+	static constexpr Titem *PutPtr(Titem *ptr, DefaultPoolItemParam param) { return ptr; }
+	static constexpr Titem *NullValue() { return nullptr; }
+	static constexpr DefaultPoolItemParam DefaultItemParam() { return {}; }
 };
 
 /**
@@ -125,33 +91,54 @@ private:
  * @tparam Tindex       Type of the index for this pool
  * @tparam Tgrowth_step Size of growths; if the pool is full increase the size by this amount
  * @tparam Tpool_type   Type of this pool
- * @tparam Tcache       Whether to perform 'alloc' caching, i.e. don't actually deallocated/allocate just reuse the memory
+ * @tparam Tcache       Whether to perform 'alloc' caching, i.e. don't actually free/malloc just reuse the memory
  * @warning when Tcache is enabled *all* instances of this pool's item must be of the same size.
  */
-template <class Titem, typename Tindex, size_t Tgrowth_step, PoolType Tpool_type = PoolType::Normal, bool Tcache = false>
+template <class Titem, typename Tindex, size_t Tgrowth_step, PoolType Tpool_type = PoolType::Normal, bool Tcache = false, typename Tops = DefaultPoolOps<Titem> >
 requires std::is_base_of_v<PoolIDBase, Tindex>
 struct Pool : PoolBase {
+	using ParamType = typename Tops::Tparam_type;
+	using PtrType = typename Tops::Tptr;
+	using IndexType = Tindex;
+
+private:
+	/** Some helper functions to get the maximum value of the provided index. */
+	template <typename T>
+	static constexpr size_t GetMaxIndexValue(T) { return std::numeric_limits<T>::max(); }
+	template <typename T> requires std::is_enum_v<T>
+	static constexpr size_t GetMaxIndexValue(T) { return std::numeric_limits<std::underlying_type_t<T>>::max(); }
+	template <typename T> requires std::is_base_of_v<PoolIDBase, T>
+	static constexpr size_t GetMaxIndexValue(T) { return std::numeric_limits<typename T::BaseType>::max(); }
 public:
 	static constexpr size_t MAX_SIZE = Tindex::End().base(); ///< Make template parameter accessible from outside
 
-	using BitmapStorage = size_t;
-	static constexpr size_t BITMAP_SIZE = std::numeric_limits<BitmapStorage>::digits;
+	std::string_view name;   ///< Name of this pool
 
-	const std::string_view name{}; ///< Name of this pool
-
-	size_t first_free = 0; ///< No item with index lower than this is free (doesn't say anything about this one!)
+	size_t size = 0;         ///< Current allocated size
+	size_t first_free = 0;   ///< No item with index lower than this is free (doesn't say anything about this one!)
 	size_t first_unused = 0; ///< This and all higher indexes are free (doesn't say anything about first_unused-1 !)
-	size_t items = 0; ///< Number of used indexes (non-nullptr)
-#ifdef WITH_ASSERT
-	size_t checked = 0; ///< Number of items we checked for
+	size_t items = 0;        ///< Number of used indexes (non-nullptr)
+#ifdef WITH_FULL_ASSERTS
+	size_t checked = 0;      ///< Number of items we checked for
 #endif /* WITH_ASSERT */
-	bool cleaning = false; ///< True if cleaning pool (deleting all items)
+	bool cleaning = false;   ///< True if cleaning pool (deleting all items)
 
-	std::vector<Titem *> data{}; ///< Pointers to Titem
-	std::vector<BitmapStorage> used_bitmap{}; ///< Bitmap of used indices.
+	PtrType *data = nullptr;         ///< Pointer to array of Tops::Tptr (by default: pointers to Titem)
+	uint64_t *free_bitmap = nullptr; ///< Pointer to free bitmap
 
 	Pool(std::string_view name) : PoolBase(Tpool_type), name(name) {}
 	void CleanPool() override;
+
+	inline PtrType &GetRawRef(size_t index)
+	{
+		dbg_assert_msg(index < this->first_unused, "index: {}, first_unused: {}, name: {}", index, this->first_unused, this->name);
+		return this->data[index];
+	}
+
+	inline PtrType GetRaw(size_t index)
+	{
+		return this->GetRawRef(index);
+	}
 
 	/**
 	 * Returns Titem with given index
@@ -161,8 +148,7 @@ public:
 	 */
 	inline Titem *Get(size_t index)
 	{
-		assert(index < this->first_unused);
-		return this->data[index];
+		return Tops::GetPtr(this->GetRaw(index));
 	}
 
 	/**
@@ -172,7 +158,7 @@ public:
 	 */
 	inline bool IsValidID(size_t index)
 	{
-		return index < this->first_unused && this->Get(index) != nullptr;
+		return index < this->first_unused && this->GetRaw(index) != Tops::NullValue();
 	}
 
 	/**
@@ -183,7 +169,7 @@ public:
 	inline bool CanAllocate(size_t n = 1)
 	{
 		bool ret = this->items <= MAX_SIZE - n;
-#ifdef WITH_ASSERT
+#ifdef WITH_FULL_ASSERTS
 		this->checked = ret ? n : 0;
 #endif /* WITH_ASSERT */
 		return ret;
@@ -281,71 +267,97 @@ public:
 	 * Base class for all PoolItems
 	 * @tparam Tpool The pool this item is going to be part of
 	 */
-	template <struct Pool<Titem, Tindex, Tgrowth_step, Tpool_type, Tcache> *Tpool>
+	template <struct Pool<Titem, Tindex, Tgrowth_step, Tpool_type, Tcache, Tops> *Tpool>
 	struct PoolItem {
-		Tindex index; ///< Index of this pool item
+		using PoolItemBase = PoolItem<Tpool>;
 
-		/** Type of the pool this item is going to be part of */
-		typedef struct Pool<Titem, Tindex, Tgrowth_step, Tpool_type, Tcache> Pool;
+		const Tindex index; ///< Index of this pool item
 
 		/**
-		 * Allocates space for new Titem
-		 * @param size size of Titem
-		 * @return pointer to allocated memory
-		 * @note can never fail (return nullptr), use CanAllocate() to check first!
+		 * Construct the item.
+		 * @param index The index of this PoolItem in the pool.
 		 */
-		inline void *operator new(size_t size)
+		PoolItem(Tindex index) : index(index) {}
+
+		/** Type of the pool this item is going to be part of */
+		typedef struct Pool<Titem, Tindex, Tgrowth_step, Tpool_type, Tcache, Tops> Pool;
+
+protected:
+		static inline AllocationResult<Tindex> NewWithParam(size_t size, ParamType param)
 		{
-			return Tpool->GetNew(size);
+			return Tpool->GetNew(size, param);
 		}
+
+		static inline void *NewWithParam(size_t size, size_t index, ParamType param)
+		{
+			return Tpool->GetNew(size, index, param);
+		}
+
+		static inline Tindex AsIndexType(size_t index)
+		{
+			/* MSVC complains about casting to narrower type, so first cast to the base type... then to the strong type. */
+			static_cast<Tindex>(static_cast<Tindex::BaseType>(index));
+		}
+
+public:
+		/** Do not use new PoolItem, but rather PoolItem::Create. */
+		inline void *operator new(size_t) = delete;
+
+		/** Do not use new (index) PoolItem(...), but rather PoolItem::CreateAtIndex(index, ...). */
+		inline void *operator new(size_t size, Tindex index) = delete;
+
+		/** Do not use new (address) PoolItem(...). */
+		inline void *operator new(size_t, void *ptr) = delete;
 
 		/**
 		 * Marks Titem as free. Its memory is released
 		 * @param p memory to free
 		 * @note the item has to be allocated in the pool!
 		 */
-		inline void operator delete(void *p, size_t size)
+		inline void operator delete(void *p)
 		{
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#if !defined(__clang__) && !defined(__ICC)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#endif /* __GNUC__ */
 			if (p == nullptr) return;
 			Titem *pn = static_cast<Titem *>(p);
-			assert(pn == Tpool->Get(Pool::GetRawIndex(pn->index)));
-			Tpool->FreeItem(size, Pool::GetRawIndex(pn->index));
+			dbg_assert_msg(pn == Tpool->Get(Pool::GetRawIndex(pn->index)), "name: {}", Tpool->name);
+			Tpool->FreeItem(Pool::GetRawIndex(pn->index));
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 		}
 
 		/**
-		 * Allocates space for new Titem with given index
-		 * @param size size of Titem
-		 * @param index index of item
-		 * @return pointer to allocated memory
-		 * @note can never fail (return nullptr), use CanAllocate() to check first!
-		 * @pre index has to be unused! Else it will crash
+		 * Creates a new T-object in the associated pool.
+		 * @param args The arguments to the constructor.
+		 * @return The created object.
 		 */
-		inline void *operator new(size_t size, Tindex index)
+		template <typename T = Titem, typename... Targs>
+		requires std::is_base_of_v<Titem, T>
+		static inline T *Create(Targs &&... args)
 		{
-			return Tpool->GetNew(size, index.base());
+			auto [data, index] = Tpool->GetNew(sizeof(T), Tops::DefaultItemParam());
+			return ::new (data) T(index, std::forward<Targs&&>(args)...);
 		}
 
 		/**
-		 * Allocates space for new Titem at given memory address
-		 * @param ptr where are we allocating the item?
-		 * @return pointer to allocated memory (== ptr)
-		 * @note use of this is strongly discouraged
-		 * @pre the memory must not be allocated in the Pool!
+		 * Creates a new T-object in the associated pool.
+		 * @param index The to allocate the object at.
+		 * @param args The arguments to the constructor.
+		 * @return The created object.
 		 */
-		inline void *operator new(size_t, void *ptr)
+		template <typename T = Titem, typename... Targs>
+		requires std::is_base_of_v<Titem, T>
+		static inline T *CreateAtIndex(Tindex index, Targs &&... args)
 		{
-			for (size_t i = 0; i < Tpool->first_unused; i++) {
-				/* Don't allow creating new objects over existing.
-				 * Even if we called the destructor and reused this memory,
-				 * we don't know whether 'size' and size of currently allocated
-				 * memory are the same (because of possible inheritance).
-				 * Use { size_t index = item->index; delete item; new (index) item; }
-				 * instead to make sure destructor is called and no memory leaks. */
-				assert(ptr != Tpool->data[i]);
-			}
-			return ptr;
+			void *data = Tpool->GetNew(sizeof(T), Pool::GetRawIndex(index), Tops::DefaultItemParam());
+			return ::new (data) T(index, std::forward<Targs&&>(args)...);
 		}
-
 
 		/** Helper functions so we can use PoolItem::Function() instead of _poolitem_pool.Function() */
 
@@ -429,6 +441,13 @@ public:
 		static inline void PostDestructor([[maybe_unused]] size_t index) { }
 
 		/**
+		 * Dummy function called before a pool is about to be cleaned.
+		 * If you want to use it, override it in PoolItem's subclass.
+		 * @note it's called only when CleaningPool()
+		 */
+		static inline void PreCleanPool() { }
+
+		/**
 		 * Returns an iterable ensemble of all valid Titem
 		 * @param from index of the first Titem to consider
 		 * @return an iterable ensemble of all valid Titem
@@ -449,17 +468,16 @@ private:
 	};
 
 	/** Cache of freed pointers */
-	AllocCache *alloc_cache = nullptr;
-	std::allocator<uint8_t> allocator{};
+	AllocCache *alloc_cache;
 
-	void *AllocateItem(size_t size, size_t index);
+	void *AllocateItem(size_t size, size_t index, ParamType param);
 	void ResizeFor(size_t index);
 	size_t FindFirstFree();
 
-	void *GetNew(size_t size);
-	void *GetNew(size_t size, size_t index);
+	AllocationResult<Tindex> GetNew(size_t size, ParamType param);
+	void *GetNew(size_t size, size_t index, ParamType param);
 
-	void FreeItem(size_t size, size_t index);
+	void FreeItem(size_t index);
 
 	static constexpr size_t GetRawIndex(size_t index) { return index; }
 	template <typename T> requires std::is_base_of_v<PoolIDBase, T>

@@ -21,6 +21,8 @@
 #include <unicode/uscript.h>
 #include <array>
 
+#include <array>
+
 U_NAMESPACE_BEGIN
 
 struct ScriptRecord

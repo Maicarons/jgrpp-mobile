@@ -1,8 +1,10 @@
 add_test_files(
     alternating_iterator.cpp
     bitmath_func.cpp
+    command.cpp
     enum_over_optimisation.cpp
     flatset_type.cpp
+    format_target.cpp
     history_func.cpp
     landscape_partial_pixel_z.cpp
     math_func.cpp
@@ -10,12 +12,15 @@ add_test_files(
     mock_fontcache.h
     mock_spritecache.cpp
     mock_spritecache.h
-    string_builder.cpp
+    serialisation.cpp
     string_consumer.cpp
-    string_inplace.cpp
     string_func.cpp
+    strings_func.cpp
+    test_bitset.cpp
     test_main.cpp
+    test_map.cpp
     test_network_crypto.cpp
+    test_network_debug.cpp
     test_script_admin.cpp
     test_window_desc.cpp
     tilearea.cpp

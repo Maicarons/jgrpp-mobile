@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file animated_tile_sl.cpp Code handling saving and loading of animated tiles */
+/** @file animated_tile_sl.cpp Code handling saving and loading of animated tiles. */
 
 #include "../stdafx.h"
 
@@ -13,13 +13,17 @@
 #include "compat/animated_tile_sl_compat.h"
 
 #include "../tile_type.h"
+#include "../animated_tile.h"
+#include "../core/alloc_func.hpp"
 
 #include "../safeguards.h"
 
-extern std::vector<TileIndex> _animated_tiles;
+namespace upstream_sl {
+
+static std::vector <TileIndex> _tmp_animated_tiles;
 
 static const SaveLoad _animated_tile_desc[] = {
-	 SLEG_VECTOR("tiles", _animated_tiles, SLE_UINT32),
+	 SLEG_VECTOR("tiles", _tmp_animated_tiles, SLE_UINT32),
 };
 
 struct ANITChunkHandler : ChunkHandler {
@@ -27,10 +31,8 @@ struct ANITChunkHandler : ChunkHandler {
 
 	void Save() const override
 	{
-		SlTableHeader(_animated_tile_desc);
-
-		SlSetArrayIndex(0);
-		SlGlobList(_animated_tile_desc);
+		// removed
+		NOT_REACHED();
 	}
 
 	void Load() const override
@@ -43,16 +45,17 @@ struct ANITChunkHandler : ChunkHandler {
 
 			for (int i = 0; i < 256; i++) {
 				if (anim_list[i] == 0) break;
-				_animated_tiles.push_back(anim_list[i]);
+				_animated_tiles[anim_list[i]] = {};
 			}
 			return;
 		}
 
 		if (IsSavegameVersionBefore(SLV_RIFF_TO_ARRAY)) {
-			size_t count = SlGetFieldLength() / sizeof(_animated_tiles.front());
+			size_t count = SlGetFieldLength() / sizeof(uint32_t);
 			_animated_tiles.clear();
-			_animated_tiles.resize(_animated_tiles.size() + count);
-			SlCopy(_animated_tiles.data(), count, SLE_UINT32);
+			for (uint i = 0; i < count; i++) {
+				_animated_tiles[TileIndex(SlReadUint32())] = {};
+			}
 			return;
 		}
 
@@ -61,6 +64,11 @@ struct ANITChunkHandler : ChunkHandler {
 		if (SlIterateArray() == -1) return;
 		SlGlobList(slt);
 		if (SlIterateArray() != -1) SlErrorCorrupt("Too many ANIT entries");
+
+		for (TileIndex t : _tmp_animated_tiles) {
+			_animated_tiles[t] = {};
+		}
+		_tmp_animated_tiles.clear();
 	}
 };
 
@@ -71,3 +79,5 @@ static const ChunkHandlerRef animated_tile_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _animated_tile_chunk_handlers(animated_tile_chunk_handlers);
+
+}

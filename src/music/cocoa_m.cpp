@@ -5,10 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file cocoa_m.cpp
- * @brief MIDI music player for MacOS X using CoreAudio.
- */
+/** @file cocoa_m.cpp MIDI music player for MacOS X using CoreAudio. */
 
 
 #ifdef WITH_COCOA
@@ -26,10 +23,6 @@
 
 #include "../safeguards.h"
 
-#if !defined(HAVE_OSX_1011_SDK)
-#define kMusicSequenceFile_AnyType 0
-#endif
-
 static FMusicDriver_Cocoa iFMusicDriver_Cocoa;
 
 
@@ -37,7 +30,7 @@ static MusicPlayer    _player = nullptr;
 static MusicSequence  _sequence = nullptr;
 static MusicTimeStamp _seq_length = 0;
 static bool           _playing = false;
-static uint8_t           _volume = 127;
+static uint8_t        _volume = 127;
 
 
 /** Set the volume of the current sequence. */
@@ -79,11 +72,11 @@ static void DoSetVolume()
 /**
  * Initialized the MIDI player, including QuickTime initialization.
  */
-std::optional<std::string_view> MusicDriver_Cocoa::Start(const StringList &)
+const char *MusicDriver_Cocoa::Start(const StringList &)
 {
 	if (NewMusicPlayer(&_player) != noErr) return "failed to create music player";
 
-	return std::nullopt;
+	return nullptr;
 }
 
 

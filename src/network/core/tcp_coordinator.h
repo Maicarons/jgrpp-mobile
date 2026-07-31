@@ -5,9 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file tcp_coordinator.h Basic functions to receive and send TCP packets to/from the Game Coordinator server.
- */
+/** @file tcp_coordinator.h Basic functions to receive and send TCP packets to/from the Game Coordinator server. */
 
 #ifndef NETWORK_CORE_TCP_COORDINATOR_H
 #define NETWORK_CORE_TCP_COORDINATOR_H
@@ -18,32 +16,37 @@
 #include "network_game_info.h"
 
 /**
- * Enum with all types of TCP Game Coordinator packets. The order MUST not be changed.
+ * Enum with all types of TCP Game Coordinator packets.
  *
- * GC     -> packets from Game Coordinator to either Client or Server.
- * SERVER -> packets from Server to Game Coordinator.
- * CLIENT -> packets from Client to Game Coordinator.
- * SERCLI -> packets from either the Server or Client to Game Coordinator.
- **/
-enum PacketCoordinatorType : uint8_t {
-	PACKET_COORDINATOR_GC_ERROR,              ///< Game Coordinator indicates there was an error.
-	PACKET_COORDINATOR_SERVER_REGISTER,       ///< Server registration.
-	PACKET_COORDINATOR_GC_REGISTER_ACK,       ///< Game Coordinator accepts the registration.
-	PACKET_COORDINATOR_SERVER_UPDATE,         ///< Server sends an set intervals an update of the server.
-	PACKET_COORDINATOR_CLIENT_LISTING,        ///< Client is requesting a listing of all public servers.
-	PACKET_COORDINATOR_GC_LISTING,            ///< Game Coordinator returns a listing of all public servers.
-	PACKET_COORDINATOR_CLIENT_CONNECT,        ///< Client wants to connect to a server based on an invite code.
-	PACKET_COORDINATOR_GC_CONNECTING,         ///< Game Coordinator informs the client of the token assigned to the connection attempt.
-	PACKET_COORDINATOR_SERCLI_CONNECT_FAILED, ///< Client/server tells the Game Coordinator the current connection attempt failed.
-	PACKET_COORDINATOR_GC_CONNECT_FAILED,     ///< Game Coordinator informs client/server it has given up on the connection attempt.
-	PACKET_COORDINATOR_CLIENT_CONNECTED,      ///< Client informs the Game Coordinator the connection with the server is established.
-	PACKET_COORDINATOR_GC_DIRECT_CONNECT,     ///< Game Coordinator tells client to directly connect to the hostname:port of the server.
-	PACKET_COORDINATOR_GC_STUN_REQUEST,       ///< Game Coordinator tells client/server to initiate a STUN request.
-	PACKET_COORDINATOR_SERCLI_STUN_RESULT,    ///< Client/server informs the Game Coordinator of the result of the STUN request.
-	PACKET_COORDINATOR_GC_STUN_CONNECT,       ///< Game Coordinator tells client/server to connect() reusing the STUN local address.
-	PACKET_COORDINATOR_GC_NEWGRF_LOOKUP,      ///< Game Coordinator informs client about NewGRF lookup table updates needed for GC_LISTING.
-	PACKET_COORDINATOR_GC_TURN_CONNECT,       ///< Game Coordinator tells client/server to connect to a specific TURN server.
-	PACKET_COORDINATOR_END,                   ///< Must ALWAYS be on the end of this list!! (period)
+ * GameCoordinator -> packets from Game Coordinator to either Client or Server.
+ * Server -> packets from Server to Game Coordinator.
+ * Client -> packets from Client to Game Coordinator.
+ * ServerOrClient -> packets from either the Server or Client to Game Coordinator.
+ *
+ * @important The order MUST not be changed.
+ */
+enum class PacketCoordinatorType : uint8_t {
+	GameCoordinatorError, ///< Game Coordinator indicates there was an error.
+	ServerRegister, ///< Server registration.
+	GameCoordinatorRegisterAck, ///< Game Coordinator accepts the registration.
+	ServerUpdate, ///< Server sends an set intervals an update of the server.
+	ClientListing, ///< Client is requesting a listing of all public servers.
+	GameCoordinatorListing, ///< Game Coordinator returns a listing of all public servers.
+	ClientConnect, ///< Client wants to connect to a server based on an invite code.
+	GameCoordinatorConnecting, ///< Game Coordinator informs the client of the token assigned to the connection attempt.
+	ServerOrClientConnectFailed, ///< Client/server tells the Game Coordinator the current connection attempt failed.
+	GameCoordinatorConnectFailed, ///< Game Coordinator informs client/server it has given up on the connection attempt.
+	ClientConnected, ///< Client informs the Game Coordinator the connection with the server is established.
+	GameCoordinatorDirectConnect, ///< Game Coordinator tells client to directly connect to the hostname:port of the server.
+	GameCoordinatorStunRequest, ///< Game Coordinator tells client/server to initiate a STUN request.
+	ServerOrClientStunResult, ///< Client/server informs the Game Coordinator of the result of the STUN request.
+	GameCoordinatorStunConnect, ///< Game Coordinator tells client/server to connect() reusing the STUN local address.
+	GameCoordinatorNewGRFLookup, ///< Game Coordinator informs client about NewGRF lookup table updates needed for GC_LISTING.
+	GameCoordinatorTurnConnect, ///< Game Coordinator tells client/server to connect to a specific TURN server.
+};
+/** Mark PacketCoordinatorType as PacketType. */
+template <> struct IsEnumPacketType<PacketCoordinatorType> {
+	static constexpr bool value = true; ///< This is an enumeration of a PacketType.
 };
 
 /**
@@ -77,13 +80,13 @@ protected:
 	 * permanent error causing the connection to be dropped, or in response
 	 * to a request that is invalid.
 	 *
-	 *  uint8_t   Type of error (see NetworkCoordinatorErrorType).
+	 *  uint8_t Type of error (see NetworkCoordinatorErrorType).
 	 *  string  Details of the error.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_ERROR(Packet &p);
+	virtual bool ReceiveGameCoordinatorError(Packet &p);
 
 	/**
 	 * Server is starting a multiplayer game and wants to let the
@@ -92,49 +95,49 @@ protected:
 	 *  uint8_t   Game Coordinator protocol version.
 	 *  uint8_t   Type of game (see ServerGameType).
 	 *  uint16_t  Local port of the server.
-	 *  string  Invite code the server wants to use (can be empty; coordinator will assign a new invite code).
-	 *  string  Secret that belongs to the invite code (empty if invite code is empty).
+	 *  string    Invite code the server wants to use (can be empty; coordinator will assign a new invite code).
+	 *  string    Secret that belongs to the invite code (empty if invite code is empty).
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_SERVER_REGISTER(Packet &p);
+	virtual bool ReceiveServerRegister(Packet &p);
 
 	/**
 	 * Game Coordinator acknowledges the registration.
 	 *
 	 *  string  Invite code that can be used to join this server.
 	 *  string  Secret that belongs to the invite code (only needed if reusing the invite code on next SERVER_REGISTER).
-	 *  uint8_t   Type of connection was detected (see ConnectionType).
+	 *  uint8_t Type of connection was detected (see ConnectionType).
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_REGISTER_ACK(Packet &p);
+	virtual bool ReceiveGameCoordinatorRegisterAck(Packet &p);
 
 	/**
 	 * Send an update of the current state of the server to the Game Coordinator.
 	 *
-	 *  uint8_t   Game Coordinator protocol version.
+	 *  uint8_t Game Coordinator protocol version.
 	 *  Serialized NetworkGameInfo. See game_info.hpp for details.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_SERVER_UPDATE(Packet &p);
+	virtual bool ReceiveServerUpdate(Packet &p);
 
 	/**
 	 * Client requests a list of all public servers.
 	 *
 	 *  uint8_t   Game Coordinator protocol version.
 	 *  uint8_t   Game-info version used by this client.
-	 *  string  Revision of the client.
+	 *  string    Revision of the client.
 	 *  uint32_t  (Game Coordinator protocol >= 4) Cursor as received from GC_NEWGRF_LOOKUP, or zero.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_LISTING(Packet &p);
+	virtual bool ReceiveClientListing(Packet &p);
 
 	/**
 	 * Game Coordinator replies with a list of all public servers. Multiple
@@ -149,18 +152,18 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_LISTING(Packet &p);
+	virtual bool ReceiveGameCoordinatorListing(Packet &p);
 
 	/**
 	 * Client wants to connect to a Server.
 	 *
-	 *  uint8_t   Game Coordinator protocol version.
+	 *  uint8_t Game Coordinator protocol version.
 	 *  string  Invite code of the Server to join.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_CONNECT(Packet &p);
+	virtual bool ReceiveClientConnect(Packet &p);
 
 	/**
 	 * Game Coordinator informs the Client under what token it will start the
@@ -172,19 +175,19 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_CONNECTING(Packet &p);
+	virtual bool ReceiveGameCoordinatorConnecting(Packet &p);
 
 	/**
 	 * Client or Server failed to connect to the remote side.
 	 *
-	 *  uint8_t   Game Coordinator protocol version.
+	 *  uint8_t Game Coordinator protocol version.
 	 *  string  Token to track the current connect request.
-	 *  uint8_t   Tracking number to track current connect request.
+	 *  uint8_t Tracking number to track current connect request.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_SERCLI_CONNECT_FAILED(Packet &p);
+	virtual bool ReceiveServerOrClientConnectFailed(Packet &p);
 
 	/**
 	 * Game Coordinator informs the Client that it failed to find a way to
@@ -196,33 +199,33 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_CONNECT_FAILED(Packet &p);
+	virtual bool ReceiveGameCoordinatorConnectFailed(Packet &p);
 
 	/**
 	 * Client informs the Game Coordinator the connection with the Server is
 	 * established. The Client will disconnect from the Game Coordinator next.
 	 *
-	 *  uint8_t   Game Coordinator protocol version.
+	 *  uint8_t Game Coordinator protocol version.
 	 *  string  Token to track the current connect request.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_CLIENT_CONNECTED(Packet &p);
+	virtual bool ReceiveClientConnected(Packet &p);
 
 	/**
 	 * Game Coordinator requests that the Client makes a direct connection to
 	 * the indicated peer, which is a Server.
 	 *
-	 *  string  Token to track the current connect request.
+	 *  string    Token to track the current connect request.
 	 *  uint8_t   Tracking number to track current connect request.
-	 *  string  Hostname of the peer.
+	 *  string    Hostname of the peer.
 	 *  uint16_t  Port of the peer.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_DIRECT_CONNECT(Packet &p);
+	virtual bool ReceiveGameCoordinatorDirectConnect(Packet &p);
 
 	/**
 	 * Game Coordinator requests the client/server to do a STUN request to the
@@ -237,36 +240,36 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_STUN_REQUEST(Packet &p);
+	virtual bool ReceiveGameCoordinatorStunRequest(Packet &p);
 
 	/**
 	 * Client/server informs the Game Coordinator the result of a STUN request.
 	 *
 	 *  uint8_t   Game Coordinator protocol version.
-	 *  string  Token to track the current connect request.
+	 *  string    Token to track the current connect request.
 	 *  uint8_t   Interface number, as given during STUN request.
-	 *  bool    Whether the STUN connection was successful.
+	 *  bool      Whether the STUN connection was successful.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_SERCLI_STUN_RESULT(Packet &p);
+	virtual bool ReceiveServerOrClientStunResult(Packet &p);
 
 	/**
 	 * Game Coordinator informs the client/server of its STUN peer (the host:ip
 	 * of the other side). It should start a connect() to this peer ASAP with
 	 * the local address as used with the STUN request.
 	 *
-	 *  string  Token to track the current connect request.
+	 *  string    Token to track the current connect request.
 	 *  uint8_t   Tracking number to track current connect request.
 	 *  uint8_t   Interface number, as given during STUN request.
-	 *  string  Host of the peer.
+	 *  string    Host of the peer.
 	 *  uint16_t  Port of the peer.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_STUN_CONNECT(Packet &p);
+	virtual bool ReceiveGameCoordinatorStunConnect(Packet &p);
 
 	/**
 	 * Game Coordinator informs the client of updates for the NewGRFs lookup table
@@ -278,7 +281,7 @@ protected:
 	 *      uint32_t   Lookup table index for the NewGRF.
 	 *      uint32_t   Unique NewGRF ID.
 	 *      uint8_t[16] MD5 checksum of the NewGRF
-	 *      string   Name of the NewGRF.
+	 *      string      Name of the NewGRF.
 	 *
 	 * The lookup table built using these packets are used by the deserialisation
 	 * of the NewGRFs for servers in the GC_LISTING. These updates are additive,
@@ -289,21 +292,21 @@ protected:
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_NEWGRF_LOOKUP(Packet &p);
+	virtual bool ReceiveGameCoordinatorNewGRFLookup(Packet &p);
 
 	/**
 	 * Game Coordinator requests that we make a connection to the indicated
 	 * peer, which is a TURN server.
 	 *
-	 *  string  Token to track the current connect request.
+	 *  string    Token to track the current connect request.
 	 *  uint8_t   Tracking number to track current connect request.
-	 *  string  Ticket to hand over to the TURN server.
-	 *  string  Connection string of the TURN server.
+	 *  string    Ticket to hand over to the TURN server.
+	 *  string    Connection string of the TURN server.
 	 *
 	 * @param p The packet that was just received.
 	 * @return True upon success, otherwise false.
 	 */
-	virtual bool Receive_GC_TURN_CONNECT(Packet &p);
+	virtual bool ReceiveGameCoordinatorTurnConnect(Packet &p);
 
 	bool HandlePacket(Packet &p);
 public:

@@ -93,11 +93,11 @@ jobs:
       shell: bash
       run: |
         echo "::group::Prepare metadata files"
-        cmake -DGENERATE_OTTDREV=1 -P cmake/scripts/FindVersion.cmake
+        cmake -DGENERATE_OTTDREV=.ottdrev -P cmake/scripts/FindVersion.cmake
         TZ='UTC' date +"%Y-%m-%d %H:%M UTC" > .release_date
-        cat .ottdrev | cut -f 1 -d$'\t' > .version
+        head -1 .ottdrev | cut -f 1 -d$'\t' > .version
 
-        if [ $(cat .ottdrev | cut -f 5 -d$'\t') = '1' ]; then
+        if [ $(head -1 .ottdrev | cut -f 5 -d$'\t') = '1' ]; then
           # Assume that all tags are always releases. Why else make a tag?
           IS_TAG="true"
 
@@ -142,7 +142,7 @@ jobs:
         echo "::endgroup::"
 
         echo "Release Date: $(cat .release_date)"
-        echo "Revision: $(cat .ottdrev)"
+        echo "Revision: $(cat .ottdrev-vc)"
         echo "Version: $(cat .version)"
         echo "Is tag: ${IS_TAG}"
         echo "Folder on CDN: ${FOLDER}"
@@ -202,14 +202,14 @@ jobs:
         echo "::endgroup::"
 
     - name: Store bundles
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: openttd-source
         path: build/bundles/*
         retention-days: 5
 
     - name: Store source (for other jobs)
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: internal-source
         path: source.tar.gz

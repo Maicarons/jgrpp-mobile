@@ -10,6 +10,7 @@
 #include "stdafx.h"
 #include "fileio_func.h"
 #include "debug.h"
+#include <string>
 
 std::string _log_file; ///< Filename to reroute output of a forked OpenTTD to
 std::optional<FileHandle> _log_fd; ///< File to reroute output of a forked OpenTTD to
@@ -19,6 +20,8 @@ std::optional<FileHandle> _log_fd; ///< File to reroute output of a forked OpenT
 #include <unistd.h>
 
 #include "safeguards.h"
+
+#define PRINTF_PID_T "%d"
 
 void DedicatedFork()
 {

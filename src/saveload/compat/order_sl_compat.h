@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _order_desc. */
 const SaveLoadCompat _order_sl_compat[] = {
 	SLC_VAR("type"),
@@ -48,5 +50,7 @@ const SaveLoadCompat _order_backup_sl_compat[] = {
 	SLC_VAR("vehicle_flags"),
 	SLC_VAR("orders"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_ORDER_H */

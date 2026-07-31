@@ -52,6 +52,7 @@ foreach(API "ai;AI" "game;GS" "template;Template")
                         -DSCRIPT_API_SOURCE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/squirrel_export.sq.hpp.in
                         -DSCRIPT_API_BINARY_FILE=${SCRIPT_API_BINARY_FILE}
                         -DSCRIPT_API_FILE=${SCRIPT_API_FILE}
+                        -DSQUIRREL_EXPORT_SQQ_HPP=${SCRIPT_API_FILE_NAME}.sq.hpp
                         -DAPIUC=${APIUC}
                         -DAPILC=${APILC}
                         -P ${CMAKE_SOURCE_DIR}/cmake/scripts/SquirrelExport.cmake
@@ -176,6 +177,7 @@ add_files(
     script_industrylist.hpp
     script_industrytype.hpp
     script_industrytypelist.hpp
+    script_inflation.hpp
     script_info_docs.hpp
     script_infrastructure.hpp
     script_league.hpp
@@ -250,6 +252,7 @@ add_files(
     script_industrylist.cpp
     script_industrytype.cpp
     script_industrytypelist.cpp
+    script_inflation.cpp
     script_infrastructure.cpp
     script_league.cpp
     script_list.cpp

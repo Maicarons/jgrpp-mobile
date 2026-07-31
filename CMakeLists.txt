@@ -6,16 +6,10 @@ endif()
 
 project(${BINARY_NAME}
     VERSION 16.0
-    LANGUAGES CXX
 )
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "In-source builds not allowed. Please run \"cmake ..\" from the build directory. You may need to delete \"${CMAKE_SOURCE_DIR}/CMakeCache.txt\" first.")
-endif()
-
-# Debug mode by default.
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 if (EMSCRIPTEN)
@@ -67,20 +61,6 @@ if(WIN32)
     list(APPEND GENERATED_SOURCE_FILES "${CMAKE_BINARY_DIR}/generated/ottdres.rc")
 endif()
 
-# Generate a target to determine version, which is execute every 'make' run
-add_custom_target(find_version
-        ${CMAKE_COMMAND}
-                -DFIND_VERSION_BINARY_DIR=${CMAKE_BINARY_DIR}/generated
-                -DCPACK_BINARY_DIR=${CMAKE_BINARY_DIR}
-                -DREV_MAJOR=${PROJECT_VERSION_MAJOR}
-                -DREV_MINOR=${PROJECT_VERSION_MINOR}
-                -DWINDOWS=${WIN32}
-                $<$<BOOL:ANDROID>:-DANDROID=TRUE>
-                -P "${CMAKE_SOURCE_DIR}/cmake/scripts/FindVersion.cmake"
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        BYPRODUCTS ${GENERATED_SOURCE_FILES}
-)
-
 # Documentation
 if(DOXYGEN_EXECUTABLE)
     add_custom_target(docs)
@@ -105,11 +85,21 @@ if(OPTION_TOOLS_ONLY)
         unset(HOST_BINARY_DIR CACHE)
     endif()
     add_subdirectory(${CMAKE_SOURCE_DIR}/src)
-    return()
-endif()
 
-if(ANDROID)
-include(AndroidSDL)
+    # Cut down find_version which doesn't include cfg defines set in full configure
+    add_custom_target(find_version
+            ${CMAKE_COMMAND}
+                    -DFIND_VERSION_BINARY_DIR=${CMAKE_BINARY_DIR}/generated
+                    -DCPACK_BINARY_DIR=${CMAKE_BINARY_DIR}
+                    -DREV_MAJOR=${PROJECT_VERSION_MAJOR}
+                    -DREV_MINOR=${PROJECT_VERSION_MINOR}
+                    $<$<PLATFORM_ID:Windows>:-DWIN32=TRUE>
+                    -P "${CMAKE_SOURCE_DIR}/cmake/scripts/FindVersion.cmake"
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            BYPRODUCTS ${GENERATED_SOURCE_FILES}
+    )
+
+    return()
 endif()
 
 if(APPLE)
@@ -125,6 +115,7 @@ find_package(Threads REQUIRED)
 find_package(ZLIB)
 find_package(LibLZMA)
 find_package(LZO)
+find_package(ZSTD 1.4)
 find_package(PNG)
 
 if(WIN32 OR EMSCRIPTEN)
@@ -135,11 +126,6 @@ else()
     find_package(CURL)
 endif()
 
-# Breakpad doesn't support emscripten.
-if(NOT EMSCRIPTEN)
-    find_package(unofficial-breakpad NO_MODULE)
-endif()
-
 if(NOT OPTION_DEDICATED)
     if(WIN32)
         find_package(Xaudio2)
@@ -148,11 +134,7 @@ if(NOT OPTION_DEDICATED)
         if(NOT APPLE)
             find_package(Freetype)
             find_package(SDL2)
-            if(NOT SDL2_FOUND)
-                find_package(SDL)
-            endif()
             find_package(Fluidsynth)
-            find_package(Timidity)
             if(Freetype_FOUND)
                 find_package(Fontconfig)
             endif()
@@ -163,14 +145,14 @@ if(NOT OPTION_DEDICATED)
     find_package(OpusFile)
 endif()
 if(APPLE)
-    enable_language(OBJCXX)
-
     find_package(Iconv)
 
     find_library(AUDIOTOOLBOX_LIBRARY AudioToolbox)
     find_library(AUDIOUNIT_LIBRARY AudioUnit)
     find_library(COCOA_LIBRARY Cocoa)
     find_library(QUARTZCORE_LIBRARY QuartzCore)
+
+    find_package(MacUcontext)
 endif()
 
 if(NOT EMSCRIPTEN AND NOT OPTION_DEDICATED)
@@ -179,7 +161,38 @@ endif()
 
 if(MSVC)
     find_package(Editbin REQUIRED)
+else()
+    find_package(Builtins)
 endif()
+
+if (UNIX)
+    find_package(DL)
+    find_package(Demangle)
+    find_package(Sigaction)
+    find_package(Sigaltstack)
+    find_package(SelfDbg)
+    find_package(Ucontext)
+    find_package(BFD)
+endif (UNIX)
+
+if(UNIX AND NOT APPLE AND NOT OPTION_DEDICATED)
+    find_package(Fcitx QUIET)
+    if (Fcitx_FOUND)
+        message(STATUS "Found: Fcitx: ${Fcitx_VERSION}")
+        find_package(DBus1)
+        find_package(X11)
+    else(Fcitx_FOUND)
+        message(STATUS "Could not find Fcitx (Fcitx is OPTIONAL)")
+    endif(Fcitx_FOUND)
+endif()
+
+if (MINGW)
+    find_package(Demangle)
+    if (OPTION_ENABLE_MINGW_BFD)
+        find_package(BFD)
+    endif (OPTION_ENABLE_MINGW_BFD)
+    find_package(DbgHelp)
+endif (MINGW)
 
 find_package(SSE)
 
@@ -191,8 +204,8 @@ check_ipo_supported(RESULT IPO_FOUND)
 show_options()
 
 if(UNIX AND NOT APPLE AND NOT OPTION_DEDICATED)
-    if(NOT SDL_FOUND AND NOT SDL2_FOUND AND NOT ALLEGRO_FOUND)
-        message(FATAL_ERROR "SDL, SDL2 or Allegro is required for this platform")
+    if(NOT SDL2_FOUND AND NOT ALLEGRO_FOUND)
+        message(FATAL_ERROR "SDL2 or Allegro is required for this platform")
     endif()
     if(HARFBUZZ_FOUND AND NOT ICU_i18n_FOUND)
         message(WARNING "HarfBuzz depends on ICU i18n to function; HarfBuzz will be disabled")
@@ -237,6 +250,12 @@ if(OPTION_PACKAGE_DEPENDENCIES)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 endif()
 
+if(OPTION_NO_SPLIT_LIB)
+    set(OPENTTD_LIB openttd)
+else()
+    set(OPENTTD_LIB openttd_lib)
+endif()
+
 include(CTest)
 include(SourceList)
 
@@ -245,18 +264,53 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
 
 include(MSVCFilters)
 
-add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
-if(ANDROID)
-    set(BINARY_NAME application)
-    target_link_libraries(openttd_lib log z)
-    add_library(openttd SHARED)
+if(OPTION_NO_SPLIT_LIB)
+    add_executable(openttd WIN32 ${GENERATED_SOURCE_FILES})
 else()
+    add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
     add_executable(openttd WIN32)
+    add_executable(openttd_test)
+    set_target_properties(openttd_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
 endif()
-add_executable(openttd_test)
 
 set_target_properties(openttd PROPERTIES OUTPUT_NAME "${BINARY_NAME}")
 # All other files are added via target_sources()
+
+if (MINGW AND OPTION_MINGW_STDTHREADS)
+    target_link_libraries(${OPENTTD_LIB} mingw_stdthreads)
+endif()
+
+set(host_tools_list strgen settingsgen)
+
+if(HOST_BINARY_DIR)
+    # Host tools already exist, nothing to do
+elseif(CMAKE_CROSSCOMPILING)
+    # Pawn off the creation of the host utilities into its own dedicated space
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/host_tools)
+    file(TO_NATIVE_PATH ${CMAKE_COMMAND} native_cmake_command)
+    file(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR} native_cmake_current_source_dir)
+    execute_process(
+        COMMAND "${native_cmake_command}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "${native_cmake_current_source_dir}"
+                "-DCMAKE_C_COMPILER=/usr/bin/cc" "-DCMAKE_CXX_COMPILER=/usr/bin/c++"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/host_tools
+    )
+
+    add_custom_target(host_tools
+        COMMAND ${CMAKE_COMMAND} --build . --target host_tools --config $<CONFIG>
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/host_tools
+    )
+    include(${CMAKE_CURRENT_BINARY_DIR}/host_tools/host_tools.cmake)
+
+    foreach(tgt IN ITEMS ${host_tools_list})
+        add_dependencies(host${tgt} host_tools)
+    endforeach()
+
+else()
+    # Add an empty target, host tools are built inplace
+    add_custom_target(host_tools
+        DEPENDS ${host_tools_list}
+    )
+endif()
 
 if(MSVC)
     # Add DPI manifest to project; other WIN32 targets get this via ottdres.rc
@@ -271,21 +325,34 @@ if(MSVC)
      endif()
 endif()
 
-target_precompile_headers(openttd_lib
-    PRIVATE
-    src/stdafx.h
-    src/core/format.hpp
-)
-set_source_files_properties(src/3rdparty/fmt/format.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
-
 add_subdirectory(${CMAKE_SOURCE_DIR}/bin)
 add_subdirectory(${CMAKE_SOURCE_DIR}/src)
 add_subdirectory(${CMAKE_SOURCE_DIR}/media)
 
+if(NOT CMAKE_CROSSCOMPILING AND NOT HOST_BINARY_DIR)
+    foreach(tgt IN ITEMS ${host_tools_list})
+        add_executable(host${tgt} ALIAS ${tgt})
+    endforeach()
+
+    export(TARGETS ${host_tools_list} NAMESPACE host FILE host_tools.cmake)
+endif()
+
 add_dependencies(openttd
     find_version)
 
-target_link_libraries(openttd_lib
+if(NOT OPTION_NO_SPLIT_LIB)
+    target_link_libraries(openttd openttd_lib)
+
+    target_link_libraries(openttd_test PRIVATE openttd_lib)
+    if(ANDROID)
+        target_link_libraries(openttd_test PRIVATE log)
+    endif()
+
+    include(Catch)
+    catch_discover_tests(openttd_test)
+endif()
+
+target_link_libraries(${OPENTTD_LIB}
     openttd::languages
     openttd::settings
     openttd::script_api
@@ -293,49 +360,37 @@ target_link_libraries(openttd_lib
 )
 
 target_link_libraries(openttd
-    openttd_lib
     openttd::media
     openttd::basesets
+    openttd::binfiles
 )
 
-target_link_libraries(openttd_test PRIVATE openttd_lib)
-if(ANDROID)
-    target_link_libraries(openttd_test PRIVATE log)
-endif()
-
-include(Catch)
-catch_discover_tests(openttd_test)
-
 if(HAIKU)
-    target_link_libraries(openttd_lib "be" "network" "midi")
+    target_link_libraries(openttd "be" "network" "midi")
 endif()
 
-if(IPO_FOUND)
+if(IPO_FOUND AND NOT OPTION_NO_LTO)
     set_target_properties(openttd PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE True)
     set_target_properties(openttd PROPERTIES INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL True)
     set_target_properties(openttd PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO True)
 endif()
 set_target_properties(openttd PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+process_compile_flags()
 
 include(LinkPackage)
 link_package(PNG TARGET PNG::PNG ENCOURAGED)
 link_package(ZLIB TARGET ZLIB::ZLIB ENCOURAGED)
 link_package(LIBLZMA TARGET LibLZMA::LibLZMA ENCOURAGED)
 link_package(LZO)
+link_package(ZSTD TARGET ZSTD::ZSTD RECOMMENDED)
 
 if(NOT WIN32 AND NOT EMSCRIPTEN)
     link_package(CURL ENCOURAGED)
     target_link_libraries(openttd_lib ${CMAKE_DL_LIBS})
 endif()
 
-if(NOT EMSCRIPTEN)
-    link_package(unofficial-breakpad TARGET unofficial::breakpad::libbreakpad_client)
-endif()
-
 if(NOT OPTION_DEDICATED)
     link_package(Fluidsynth)
-    link_package(Timidity)
-    link_package(SDL)
     link_package(SDL2 TARGET SDL2::SDL2)
     link_package(Allegro)
     link_package(FREETYPE TARGET Freetype::Freetype)
@@ -344,6 +399,9 @@ if(NOT OPTION_DEDICATED)
     link_package(ICU_i18n)
     link_package(ICU_uc)
     link_package(OpusFile TARGET OpusFile::opusfile)
+    link_package(Fcitx)
+    link_package(DBus1)
+    link_package(X11)
 
     if(SDL2_FOUND AND OPENGL_FOUND AND UNIX)
         # SDL2 dynamically loads OpenGL if needed, so do not link to OpenGL when
@@ -358,21 +416,10 @@ endif()
 
 include(3rdparty/llvm/CheckAtomic)
 
-if(ANDROID)
-    target_link_libraries(openttd_lib
-        ${EXPAT_LIBRARY}
-    )
-    if(NOT CMAKE_BUILD_TYPE STREQUAL Debug)
-        target_compile_options(openttd_lib PRIVATE -flto=thin)
-        target_link_libraries(openttd_lib -flto=thin)
-        target_compile_options(openttd PRIVATE -flto=thin)
-        target_link_libraries(openttd -flto=thin)
-    endif()
-endif(ANDROID)
 if(APPLE)
     link_package(Iconv TARGET Iconv::Iconv)
 
-    target_link_libraries(openttd_lib
+    target_link_libraries(${OPENTTD_LIB}
         ${AUDIOTOOLBOX_LIBRARY}
         ${AUDIOUNIT_LIBRARY}
         ${COCOA_LIBRARY}
@@ -470,7 +517,7 @@ if(WIN32)
         -DPSAPI_VERSION=1
     )
 
-    target_link_libraries(openttd_lib
+    target_link_libraries(${OPENTTD_LIB}
         ws2_32
         winmm
         imm32
@@ -485,6 +532,10 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     add_definitions(-DPOINTER_IS_64BIT)
 endif()
 
+if(OPTION_NO_TAGGED_PTRS)
+    add_definitions(-DNO_TAGGED_PTRS)
+endif()
+
 enable_testing()
 
 add_subdirectory(regression)
@@ -494,3 +545,33 @@ if(APPLE OR WIN32)
 endif()
 
 include(InstallAndPackage)
+
+get_property(CFG_DEFS DIRECTORY . PROPERTY COMPILE_OPTIONS)
+list(FILTER CFG_DEFS INCLUDE REGEX "^-D")
+
+# list TRANSFORM requires 3.12 or later
+#list(TRANSFORM CFG_DEFS REPLACE "^-D" "")
+string(REGEX REPLACE "(^|;)-D" "\\1" CFG_DEFS "${CFG_DEFS}")
+
+get_property(CFG_DEFS_2 DIRECTORY . PROPERTY COMPILE_DEFINITIONS)
+list(APPEND CFG_DEFS ${CFG_DEFS_2})
+list(FILTER CFG_DEFS EXCLUDE REGEX "_DIR=")
+list(FILTER CFG_DEFS EXCLUDE REGEX "SURVEY_KEY=")
+
+# Generate a target to determine version, which is execute every 'make' run
+add_custom_target(find_version
+        ${CMAKE_COMMAND}
+                -DFIND_VERSION_BINARY_DIR=${CMAKE_BINARY_DIR}/generated
+                -DCPACK_BINARY_DIR=${CMAKE_BINARY_DIR}
+                -DREV_MAJOR=${PROJECT_VERSION_MAJOR}
+                -DREV_MINOR=${PROJECT_VERSION_MINOR}
+                -DCONFIGURE_DEFINES="${CFG_DEFS}"
+                $<$<PLATFORM_ID:Windows>:-DWIN32=TRUE>
+                -DDOXYGEN_WARN_FORMAT_LINE=${DOXYGEN_WARN_FORMAT_LINE}
+                -DDOXYGEN_WARN_FILE=${DOXYGEN_WARN_FILE}
+                -DDOXYGEN_GS_WARN_FILE=${DOXYGEN_GS_WARN_FILE}
+                -DDOXYGEN_AI_WARN_FILE=${DOXYGEN_AI_WARN_FILE}
+                -P "${CMAKE_SOURCE_DIR}/cmake/scripts/FindVersion.cmake"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        BYPRODUCTS ${GENERATED_SOURCE_FILES}
+)

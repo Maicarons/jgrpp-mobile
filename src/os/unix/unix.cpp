@@ -9,10 +9,15 @@
 
 #include "../../stdafx.h"
 #include "../../textbuf_gui.h"
+#include "../../openttd.h"
+#include "../../crashlog.h"
+#include "../../core/format.hpp"
+#include "../../core/random_func.hpp"
 #include "../../debug.h"
 #include "../../string_func.h"
 #include "../../fios.h"
 #include "../../thread.h"
+#include "../../scope.h"
 
 #include <dirent.h>
 #include <unistd.h>
@@ -20,6 +25,7 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 #ifdef WITH_SDL2
 #include <SDL.h>
@@ -27,6 +33,7 @@
 
 #ifdef WITH_ICONV
 #include <iconv.h>
+#include <errno.h>
 #endif /* WITH_ICONV */
 
 #ifdef __EMSCRIPTEN__
@@ -35,7 +42,7 @@
 
 #ifdef __APPLE__
 #	include <sys/mount.h>
-#elif ((defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L) || defined(__GLIBC__)) && !defined(__ANDROID__)
+#elif (defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L) || defined(__GLIBC__)
 #	define HAS_STATVFS
 #endif
 
@@ -55,13 +62,9 @@
 #	include "../macosx/macos.h"
 #endif
 
-#ifdef __ANDROID__
-	#include "android/log.h"
-#endif
-
 #include "../../safeguards.h"
 
-bool FiosIsRoot(const std::string &path)
+bool FiosIsRoot(std::string_view path)
 {
 	return path == PATHSEP;
 }
@@ -85,14 +88,65 @@ std::optional<uint64_t> FiosGetDiskFreeSpace(const std::string &path)
 	return std::nullopt;
 }
 
-bool FiosIsHiddenFile(const std::filesystem::path &path)
+bool FiosIsValidFile(const char *fspath, const struct dirent *ent, struct stat *sb)
 {
-	return path.filename().string().starts_with(".");
+	format_buffer filename;
+	filename.append(fspath);
+	if (filename.size() == 0 || filename.data()[filename.size() - 1] != PATHSEPCHAR) return false;
+	if (filename.size() > 2 && filename.data()[filename.size() - 2] == PATHSEPCHAR) return false;
+	filename.append(ent->d_name);
+
+	return stat(filename.c_str(), sb) == 0;
+}
+
+bool FiosIsHiddenFile(const struct dirent *ent)
+{
+	return ent->d_name[0] == '.';
+}
+
+bool FioCopyFile(const char *old_name, const char *new_name)
+{
+	int old_fd = open(old_name, O_RDONLY, 0);
+	if (old_fd < 0) return false;
+	auto guard1 = scope_guard([=]() {
+		close(old_fd);
+	});
+	int new_fd = open(new_name, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	if (new_fd < 0) return false;
+	auto guard2 = scope_guard([=]() {
+		close(new_fd);
+	});
+
+	char buffer[4096 * 4];
+	while (true) {
+		ssize_t res = read(old_fd, buffer, lengthof(buffer));
+		if (res < 0) {
+			if (errno == EINTR) continue;
+			return false;
+		} else if (res == 0) {
+			break;
+		}
+
+		size_t pos = 0;
+		size_t len = (size_t)res;
+
+		while (pos < len) {
+			res = write(new_fd, buffer + pos, len - pos);
+			if (res < 0) {
+				if (errno != EINTR) return false;;
+			} else if (res == 0) {
+				return false;
+			} else {
+				pos += (size_t)res;
+			}
+		}
+	}
+	return true;
 }
 
 #ifdef WITH_ICONV
 
-std::optional<std::string> GetCurrentLocale(const char *param);
+const char *GetCurrentLocale(const char *param);
 
 #define INTERNALCODE "UTF-8"
 
@@ -101,18 +155,16 @@ std::optional<std::string> GetCurrentLocale(const char *param);
  * variables. MacOSX is hardcoded, other OS's are dynamic. If no suitable
  * locale can be found, don't do any conversion ""
  */
-static std::string GetLocalCode()
+static const char *GetLocalCode()
 {
 #if defined(__APPLE__)
 	return "UTF-8-MAC";
 #else
 	/* Strip locale (eg en_US.UTF-8) to only have UTF-8 */
-	auto locale = GetCurrentLocale("LC_CTYPE");
-	if (!locale.has_value()) return "";
-	auto pos = locale->find('.');
-	if (pos == std::string_view::npos) return "";
-	locale.erase(0, pos + 1);
-	return locale;
+	const char *locale = GetCurrentLocale("LC_CTYPE");
+	if (locale != nullptr) locale = strchr(locale, '.');
+
+	return (locale == nullptr) ? "" : locale + 1;
 #endif
 }
 
@@ -138,26 +190,13 @@ static std::string convert_tofrom_fs(iconv_t convd, std::string_view name)
 	size_t outlen = buf.size();
 	char *outbuf = buf.data();
 	iconv(convd, nullptr, nullptr, nullptr, nullptr);
-	if (iconv(convd, &inbuf, &inlen, &outbuf, &outlen) == SIZE_MAX) {
+	if (iconv(convd, &inbuf, &inlen, &outbuf, &outlen) == (size_t)(-1)) {
 		Debug(misc, 0, "[iconv] error converting '{}'. Errno {}", name, errno);
-		return std::string{name};
+		return {};
 	}
 
 	buf.resize(outbuf - buf.data());
 	return buf;
-}
-
-/**
- * Open iconv converter.
- */
-static std::optional<iconv_t> OpenIconv(std::string from, std::string to)
-{
-	iconv_t convd = iconv_open(from.c_str(), to.c_str());
-	if (convd == reinterpret_cast<iconv_t>(-1)) {
-		Debug(misc, 0, "[iconv] conversion from codeset '{}' to '{}' unsupported", from, to);
-		return std::nullopt;
-	}
-	return convd;
 }
 
 /**
@@ -167,10 +206,17 @@ static std::optional<iconv_t> OpenIconv(std::string from, std::string to)
  */
 std::string OTTD2FS(std::string_view name)
 {
-	static const auto convd = OpenIconv(GetLocalCode(), INTERNALCODE);
-	if (!convd.has_value()) return std::string{name};
+	static iconv_t convd = (iconv_t)(-1);
+	if (convd == (iconv_t)(-1)) {
+		const char *env = GetLocalCode();
+		convd = iconv_open(env, INTERNALCODE);
+		if (convd == (iconv_t)(-1)) {
+			Debug(misc, 0, "[iconv] conversion from codeset '{}' to '{}' unsupported", INTERNALCODE, env);
+			return {};
+		}
+	}
 
-	return convert_tofrom_fs(*convd, name);
+	return convert_tofrom_fs(convd, name);
 }
 
 /**
@@ -180,31 +226,52 @@ std::string OTTD2FS(std::string_view name)
  */
 std::string FS2OTTD(std::string_view name)
 {
-	static const auto convd = OpenIconv(INTERNALCODE, GetLocalCode());
-	if (!convd.has_value()) return std::string{name};
+	static iconv_t convd = (iconv_t)(-1);
+	if (convd == (iconv_t)(-1)) {
+		const char *env = GetLocalCode();
+		convd = iconv_open(INTERNALCODE, env);
+		if (convd == (iconv_t)(-1)) {
+			Debug(misc, 0, "[iconv] conversion from codeset '{}' to '{}' unsupported", env, INTERNALCODE);
+			return {};
+		}
+	}
 
-	return convert_tofrom_fs(*convd, name);
+	return convert_tofrom_fs(convd, name);
 }
 
 #endif /* WITH_ICONV */
 
 void ShowInfoI(std::string_view str)
 {
-	fmt::print(stderr, "{}\n", str);
+	format_buffer buf;
+	buf.format("{}\n", str);
+	fwrite(buf.data(), 1, buf.size(), stderr);
+}
+
+void ShowInfoVFmt(fmt::string_view msg, fmt::format_args args)
+{
+	fmt::memory_buffer buf{};
+	fmt::vformat_to(std::back_inserter(buf), msg, args);
+	buf.push_back('\n');
+	fwrite(buf.data(), 1, buf.size(), stderr);
 }
 
 #if !defined(__APPLE__)
 void ShowOSErrorBox(std::string_view buf, bool)
 {
-#ifdef __ANDROID__
-	__android_log_print(ANDROID_LOG_FATAL, "OpenTTD", "[ERROR] %s", buf);
-#endif
 	/* All unix systems, except OSX. Only use escape codes on a TTY. */
+	format_buffer buffer;
 	if (isatty(fileno(stderr))) {
-		fmt::print(stderr, "\033[1;31mError: {}\033[0;39m\n", buf);
+		buffer.format("\033[1;31mError: {}\033[0;39m\n", buf);
 	} else {
-		fmt::print(stderr, "Error: {}\n", buf);
+		buffer.format("Error: {}\n", buf);
 	}
+	fwrite(buffer.data(), 1, buffer.size(), stderr);
+}
+
+[[noreturn]] void DoOSAbort()
+{
+	abort();
 }
 #endif
 
@@ -239,23 +306,10 @@ void OSOpenBrowser(const std::string &url)
 	pid_t child_pid = fork();
 	if (child_pid != 0) return;
 
-#ifdef __ANDROID__
-	const char *args[9];
-	args[0] = "/system/bin/am";
-	args[1] = "start";
-	args[2] = "-a";
-	args[3] = "android.intent.action.VIEW";
-	args[4] = "--user";
-	args[5] = "0";
-	args[6] = "-d";
-	args[7] = url.c_str();
-	args[8] = NULL;
-#else
 	const char *args[3];
 	args[0] = "xdg-open";
 	args[1] = url.c_str();
 	args[2] = nullptr;
-#endif
 	execvp(args[0], const_cast<char * const *>(args));
 	Debug(misc, 0, "Failed to open url: {}", url);
 	exit(0);
@@ -270,4 +324,76 @@ void SetCurrentThreadName([[maybe_unused]] const std::string &thread_name)
 #if defined(__APPLE__)
 	MacOSSetThreadName(thread_name);
 #endif /* defined(__APPLE__) */
+}
+
+void GetCurrentThreadName(format_target &buf)
+{
+#if !defined(NO_THREADS) && defined(__GLIBC__)
+#if __GLIBC_PREREQ(2, 12)
+	char buffer[16];
+	int result = pthread_getname_np(pthread_self(), buffer, sizeof(buffer));
+	if (result == 0) {
+		buf.append(buffer);
+	}
+#endif
+#endif
+}
+
+#if !defined(NO_THREADS)
+static pthread_t main_thread;
+static pthread_t game_thread;
+#endif
+
+void SetSelfAsMainThread()
+{
+#if !defined(NO_THREADS)
+	main_thread = pthread_self();
+#endif
+}
+
+void SetSelfAsGameThread()
+{
+#if !defined(NO_THREADS)
+	game_thread = pthread_self();
+#endif
+}
+
+void PerThreadSetup(bool non_main_thread) { }
+
+void PerThreadSetupInit() { }
+
+bool IsMainThread()
+{
+#if !defined(NO_THREADS)
+	return main_thread == pthread_self();
+#else
+	return true;
+#endif
+}
+
+bool IsNonMainThread()
+{
+#if !defined(NO_THREADS)
+	return main_thread != pthread_self();
+#else
+	return false;
+#endif
+}
+
+bool IsGameThread()
+{
+#if !defined(NO_THREADS)
+	return game_thread == pthread_self();
+#else
+	return true;
+#endif
+}
+
+bool IsNonGameThread()
+{
+#if !defined(NO_THREADS)
+	return game_thread != pthread_self();
+#else
+	return false;
+#endif
 }

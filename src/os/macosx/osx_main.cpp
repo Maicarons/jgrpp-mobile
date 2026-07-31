@@ -5,13 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file unix_main.cpp Main entry for Mac OSX. */
+/** @file osx_main.cpp Main entry for Mac OS X. */
 
 #include "../../stdafx.h"
 #include "../../openttd.h"
 #include "../../crashlog.h"
 #include "../../core/random_func.hpp"
 #include "../../string_func.h"
+#include "../../thread.h"
 
 #include <time.h>
 #include <signal.h>
@@ -26,25 +27,24 @@ void CocoaReleaseAutoreleasePool();
 int CDECL main(int argc, char *argv[])
 {
 	/* Make sure our arguments contain only valid UTF-8 characters. */
-	std::vector<std::string_view> params;
-	for (int i = 0; i < argc; ++i) {
-		StrMakeValidInPlace(argv[i]);
-		params.emplace_back(argv[i]);
-	}
+	for (int i = 0; i < argc; i++) StrMakeValidInPlace(argv[i]);
 
 	CocoaSetupAutoreleasePool();
 	/* This is passed if we are launched by double-clicking */
-	if (params.size() >= 2 && params[1].starts_with("-psn")) {
-		params.resize(1);
+	if (argc >= 2 && strncmp(argv[1], "-psn", 4) == 0) {
+		argv[1] = nullptr;
+		argc = 1;
 	}
 
+	PerThreadSetupInit();
 	CrashLog::InitialiseCrashLog();
+	CrashLog::InitialiseExceptionTerminateHandler();
 
-	SetRandomSeed(time(nullptr));
+	InitialiseRandomSeeds();
 
 	signal(SIGPIPE, SIG_IGN);
 
-	int ret = openttd_main(params);
+	int ret = openttd_main(std::span(argv, argc));
 
 	CocoaReleaseAutoreleasePool();
 

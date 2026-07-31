@@ -10,10 +10,17 @@
 #ifndef ERROR_FUNC_H
 #define ERROR_FUNC_H
 
-#include "3rdparty/fmt/format.h"
+#include "core/format.hpp"
 
 [[noreturn]] void UserErrorI(const std::string &str);
+
+/**
+ * Error handling for fatal non-user errors.
+ * @param str the string to print.
+ * @attention Function does not return.
+ */
 [[noreturn]] void FatalErrorI(const std::string &str);
+
 #define UserError(format_string, ...) UserErrorI(fmt::format(FMT_STRING(format_string) __VA_OPT__(,) __VA_ARGS__))
 #define FatalError(format_string, ...) FatalErrorI(fmt::format(FMT_STRING(format_string) __VA_OPT__(,) __VA_ARGS__))
 

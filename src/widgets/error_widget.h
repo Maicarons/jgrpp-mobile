@@ -15,7 +15,6 @@ enum ErrorMessageWidgets : WidgetID {
 	WID_EM_CAPTION, ///< Caption of the window.
 	WID_EM_FACE,    ///< Error title.
 	WID_EM_MESSAGE, ///< Error message.
-	WID_EM_CLOSE,   ///< Close button.
 };
 
 #endif /* WIDGETS_ERROR_WIDGET_H */

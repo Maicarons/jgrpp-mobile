@@ -12,6 +12,7 @@
 
 #include "../../gfx_layout.h"
 #include "../../string_base.h"
+#include <vector>
 
 
 void UniscribeResetScriptCache(FontSize size);

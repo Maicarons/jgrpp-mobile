@@ -11,6 +11,9 @@
 #define INI_TYPE_H
 
 #include "fileio_type.h"
+#include <list>
+#include <string>
+#include <optional>
 
 /** Types of groups */
 enum IniGroupType : uint8_t {
@@ -64,7 +67,7 @@ struct IniLoadFile {
 	IniGroup &CreateGroup(std::string_view name);
 	void RemoveGroup(std::string_view name);
 
-	void LoadFromDisk(std::string_view filename, Subdirectory subdir);
+	void LoadFromDisk(const std::string &filename, Subdirectory subdir, std::string *save = nullptr);
 
 	/**
 	 * Open the INI file.
@@ -73,7 +76,7 @@ struct IniLoadFile {
 	 * @param[out] size Size of the opened file.
 	 * @return File handle of the opened file, or \c std::nullopt.
 	 */
-	virtual std::optional<FileHandle> OpenFile(std::string_view filename, Subdirectory subdir, size_t *size) = 0;
+	virtual std::optional<FileHandle> OpenFile(const std::string &filename, Subdirectory subdir, size_t *size) = 0;
 
 	/**
 	 * Report an error about the file contents.
@@ -88,7 +91,7 @@ struct IniFile : IniLoadFile {
 
 	bool SaveToDisk(const std::string &filename);
 
-	std::optional<FileHandle> OpenFile(std::string_view filename, Subdirectory subdir, size_t *size) override;
+	std::optional<FileHandle> OpenFile(const std::string &filename, Subdirectory subdir, size_t *size) override;
 	void ReportFileError(std::string_view message) override;
 };
 

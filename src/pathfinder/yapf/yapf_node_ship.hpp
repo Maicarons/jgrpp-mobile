@@ -19,6 +19,6 @@
 struct CYapfShipNode : CYapfNodeT<CYapfNodeKeyExitDir, CYapfShipNode> {
 };
 
-typedef NodeList<CYapfShipNode, 10, 12> CShipNodeList;
+typedef NodeList<CYapfShipNode> CShipNodeList;
 
 #endif /* YAPF_NODE_SHIP_HPP */

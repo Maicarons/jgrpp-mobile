@@ -10,6 +10,11 @@
 #ifndef TOOLBAR_GUI_H
 #define TOOLBAR_GUI_H
 
+#include "company_type.h"
+#include "dropdown_type.h"
+#include "rail_type.h"
+#include "road_type.h"
+
 enum MainToolbarHotkeys : int32_t {
 	MTHK_PAUSE,
 	MTHK_FASTFORWARD,
@@ -27,6 +32,7 @@ enum MainToolbarHotkeys : int32_t {
 	MTHK_GRAPHS,
 	MTHK_LEAGUE,
 	MTHK_INDUSTRIES,
+	MTHK_INDUSTRY_CHAINS,
 	MTHK_TRAIN_LIST,
 	MTHK_ROADVEH_LIST,
 	MTHK_SHIP_LIST,
@@ -41,6 +47,7 @@ enum MainToolbarHotkeys : int32_t {
 	MTHK_BUILD_TREES,
 	MTHK_MUSIC,
 	MTHK_LANDINFO,
+	MTHK_PICKER,
 	MTHK_SCRIPT_DEBUG,
 	MTHK_SMALL_SCREENSHOT,
 	MTHK_ZOOMEDIN_SCREENSHOT,
@@ -50,7 +57,13 @@ enum MainToolbarHotkeys : int32_t {
 	MTHK_TERRAFORM,
 	MTHK_EXTRA_VIEWPORT,
 	MTHK_CLIENT_LIST,
-	MTHK_SIGN_LIST
+	MTHK_SIGN_LIST,
+	MTHK_PLAN_LIST,
+	MTHK_LINK_GRAPH_LEGEND,
+	MTHK_MESSAGE_HISTORY,
+	MTHK_TEMPLATE_REPLACEMENT,
+	MTHK_TRAIN_SLOTS,
+	MTHK_TRAIN_COUNTERS,
 };
 
 void AllocateToolbar();
@@ -58,7 +71,20 @@ void ToggleBoundingBoxes();
 void ToggleDirtyBlocks();
 void ToggleWidgetOutlines();
 
-extern int _last_clicked_toolbar_idx;
+std::unique_ptr<DropDownListItem> MakeCompanyDropDownListItem(CompanyID cid, bool selectable = true);
+
 extern uint _toolbar_width;
+
+extern RailType _last_built_railtype; ///< The most recently used type of rail.
+extern RoadType _last_built_roadtype; ///< The most recently used type of road.
+extern RoadType _last_built_tramtype; ///< The most recently used type of tram track.
+
+struct MainToolbarScaleAdjuster {
+	ZoomLevel old_gui_zoom;
+	int old_gui_scale;
+
+	MainToolbarScaleAdjuster();
+	~MainToolbarScaleAdjuster();
+};
 
 #endif /* TOOLBAR_GUI_H */

@@ -9,13 +9,20 @@
 
 #include "stdafx.h"
 #include "debug.h"
+#include "core/alloc_func.hpp"
+#include "core/math_func.hpp"
+#include "core/utf8.hpp"
 #include "error_func.h"
 #include "string_func.h"
 #include "string_base.h"
+#include "stringfilter_type.h"
+#include "core/string_consumer.hpp"
 #include "core/utf8.hpp"
-#include "core/string_inplace.hpp"
+#include "core/utf8_util.hpp"
 
 #include "table/control_codes.h"
+
+#include <ctype.h> /* required for tolower() */
 
 #ifdef _WIN32
 #	include "os/windows/win32.h"
@@ -26,13 +33,13 @@
 #endif
 
 #ifdef WITH_ICU_I18N
-/* Required by StrNaturalCompare. */
+/* Required by ICUSetupCollators. */
+#	include <unicode/coll.h>
 #	include <unicode/brkiter.h>
 #	include <unicode/stsearch.h>
 #	include <unicode/ustring.h>
 #	include <unicode/utext.h>
 #	include "language.h"
-#	include "gfx_func.h"
 #endif /* WITH_ICU_I18N */
 
 #if defined(WITH_COCOA)
@@ -41,6 +48,45 @@
 
 #include "safeguards.h"
 
+#ifdef WITH_ICU_I18N
+static std::unique_ptr<icu::Collator> _current_collator;    ///< Collator for the language currently in use.
+static std::unique_ptr<icu::RuleBasedCollator> _current_collator_search; ///< Collator for the language currently in use.
+static std::unique_ptr<icu::RuleBasedCollator> _current_collator_search_case_insensitive; ///< Collator for the language currently in use.
+#endif /* WITH_ICU_I18N */
+
+/**
+ * Copies characters from one buffer to another.
+ *
+ * Copies the source string to the destination buffer with respect of the
+ * terminating null-character and the last pointer to the last element in
+ * the destination buffer.
+ *
+ * @note usage: strecpy(dst, src, lastof(dst));
+ * @note lastof() applies only to fixed size arrays
+ *
+ * @param dst The destination buffer
+ * @param src The buffer containing the string to copy
+ * @param last The pointer to the last element of the destination buffer
+ * @param quiet_mode If set to true, emitted warning for truncating the input string is emitted at level 1 instead of 0
+ * @return The pointer to the terminating null-character in the destination buffer
+ */
+char *strecpy(char *dst, const char *src, const char *last, bool quiet_mode)
+{
+	dbg_assert(dst <= last);
+	while (dst != last && *src != '\0') {
+		*dst++ = *src++;
+	}
+	*dst = '\0';
+
+	if (dst == last && *src != '\0') {
+#if defined(STRGEN) || defined(SETTINGSGEN)
+		FatalError("String too long for destination buffer");
+#else /* STRGEN || SETTINGSGEN */
+		Debug(misc, quiet_mode ? 1 : 0, "String too long for destination buffer");
+#endif /* STRGEN || SETTINGSGEN */
+	}
+	return dst;
+}
 
 /**
  * Copies characters from one buffer to another.
@@ -70,20 +116,39 @@ void strecpy(std::span<char> dst, std::string_view src)
 }
 
 /**
+ * Create a duplicate of the given string.
+ * @param s    The string to duplicate.
+ * @param last The last character that is safe to duplicate. If nullptr, the whole string is duplicated.
+ * @note The maximum length of the resulting string might therefore be last - s + 1.
+ * @return The duplicate of the string.
+ */
+char *stredup(const char *s, const char *last)
+{
+	size_t len = last == nullptr ? strlen(s) : ttd_strnlen(s, last - s + 1);
+	char *tmp = MallocT<char>(len + 1);
+	memcpy(tmp, s, len);
+	tmp[len] = '\0';
+	return tmp;
+}
+
+/**
  * Format a byte array into a continuous hex string.
  * @param data Array to format
  * @return Converted string.
  */
-std::string FormatArrayAsHex(std::span<const uint8_t> data)
+std::string FormatArrayAsHex(std::span<const uint8_t> data, bool upper_case)
 {
-	std::string str;
-	str.reserve(data.size() * 2 + 1);
+	format_buffer buf;
 
-	for (auto b : data) {
-		format_append(str, "{:02X}", b);
+	for (uint i = 0; i < data.size(); ++i) {
+		if (upper_case) {
+			buf.format("{:02X}", data[i]);
+		} else {
+			buf.format("{:02x}", data[i]);
+		}
 	}
 
-	return str;
+	return buf.to_string();
 }
 
 /**
@@ -99,6 +164,7 @@ static bool IsSccEncodedCode(char32_t c)
 		case SCC_ENCODED_INTERNAL:
 		case SCC_ENCODED_NUMERIC:
 		case SCC_ENCODED_STRING:
+		case SCC_ENCODED_RAW_STRING:
 			return true;
 
 		default:
@@ -111,36 +177,36 @@ static bool IsSccEncodedCode(char32_t c)
  * Depending on the \c settings invalid characters can be replaced with a
  * question mark, as well as determining what characters are deemed invalid.
  *
- * @param builder The destination to write to.
+ * @param buffer The destination to write to.
  * @param consumer The string to validate.
  * @param settings The settings for the string validation.
  */
-template <class Builder>
-static void StrMakeValid(Builder &builder, StringConsumer &consumer, StringValidationSettings settings)
+static void StrMakeValid(format_target &buffer, StringConsumer consumer, StringValidationSettings settings)
 {
 	/* Assume the ABSOLUTE WORST to be in str as it comes from the outside. */
 	while (consumer.AnyBytesLeft()) {
-		auto c = consumer.TryReadUtf8();
-		if (!c.has_value()) {
+		auto cc = consumer.TryReadUtf8();
+		if (!cc.has_value()) {
 			/* Maybe the next byte is still a valid character? */
 			consumer.Skip(1);
 			continue;
 		}
-		if (*c == 0) break;
+		char32_t c = *cc;
+		if (c == 0) break;
 
-		if ((IsPrintable(*c) && (*c < SCC_SPRITE_START || *c > SCC_SPRITE_END)) ||
-				(settings.Test(StringValidationSetting::AllowControlCode) && IsSccEncodedCode(*c)) ||
-				(settings.Test(StringValidationSetting::AllowNewline) && *c == '\n')) {
-			builder.PutUtf8(*c);
-		} else if (settings.Test(StringValidationSetting::AllowNewline) && *c == '\r' && consumer.PeekCharIf('\n')) {
+		if ((IsPrintable(c) && (c < SCC_SPRITE_START || c > SCC_SPRITE_END)) ||
+				(settings.Test(StringValidationSetting::AllowControlCode) && IsSccEncodedCode(c)) ||
+				(settings.Test(StringValidationSetting::AllowNewline) && c == '\n')) {
+			buffer.push_back_utf8(c);
+		} else if (settings.Test(StringValidationSetting::AllowNewline) && c == '\r' && consumer.PeekCharIf('\n')) {
 			/* Skip \r, if followed by \n */
 			/* continue */
-		} else if (settings.Test(StringValidationSetting::ReplaceTabCrNlWithSpace) && (*c == '\r' || *c == '\n' || *c == '\t')) {
+		} else if (settings.Test(StringValidationSetting::ReplaceTabCrNlWithSpace) && (c == '\r' || c == '\n' || c == '\t')) {
 			/* Replace the tab, carriage return or newline with a space. */
-			builder.PutChar(' ');
+			buffer.push_back(' ');
 		} else if (settings.Test(StringValidationSetting::ReplaceWithQuestionMark)) {
 			/* Replace the undesirable character with a question mark */
-			builder.PutChar('?');
+			buffer.push_back('?');
 		}
 	}
 
@@ -148,34 +214,50 @@ static void StrMakeValid(Builder &builder, StringConsumer &consumer, StringValid
 }
 
 /**
- * Scans the string for invalid characters and replaces them with a
+ * Scans the string for invalid characters and replaces then with a
  * question mark '?' (if not ignored).
  * @param str The string to validate.
+ * @param end The character beyond the end of the string (where the null-terminator is/would be).
  * @param settings The settings for the string validation.
- * @note The string must be properly NUL terminated.
+ * @return pointer to the end (where a terminating 0 would go). A terminating 0 is not written.
  */
-void StrMakeValidInPlace(char *str, StringValidationSettings settings)
+char *StrMakeValidInPlaceIntl(char *str, const char *end, StringValidationSettings settings)
 {
-	InPlaceReplacement inplace(std::span(str, strlen(str)));
-	StrMakeValid(inplace.builder, inplace.consumer, settings);
-	/* Add NUL terminator, if we ended up with less bytes than before */
-	if (inplace.builder.AnyBytesUnused()) inplace.builder.PutChar('\0');
+	fmt_base_fixed_non_growing buf(str, end - str);
+	StrMakeValid(buf.as_format_target(), StringConsumer(std::string_view(str, end)), settings);
+	return str + buf.size();
 }
 
 /**
- * Scans the string for invalid characters and replaces them with a
+ * Scans the string for invalid characters and replaces then with a
  * question mark '?' (if not ignored).
- * @param str The string to validate.
- * @param settings The settings for the string validation.
- * @note The string must be properly NUL terminated.
+ * Only use this function when you are sure the string ends with a '\0';
+ * otherwise use StrMakeValidInPlace(str, last, settings) variant.
+ * @param str The string (of which you are sure ends with '\0') to validate.
  */
-void StrMakeValidInPlace(std::string &str, StringValidationSettings settings)
+void StrMakeValidInPlace(char *str, StringValidationSettings settings)
+{
+	if (*str == '\0') return;
+
+	/* We know it is '\0' terminated. */
+	char *end = StrMakeValidInPlaceIntl(str, str + strlen(str), settings);
+	*end = '\0';
+}
+
+void AppendStrMakeValidInPlace(struct format_target &buf, std::string_view str, StringValidationSettings settings)
 {
 	if (str.empty()) return;
 
-	InPlaceReplacement inplace(std::span(str.data(), str.size()));
-	StrMakeValid(inplace.builder, inplace.consumer, settings);
-	str.erase(inplace.builder.GetBytesWritten(), std::string::npos);
+	StrMakeValid(buf, StringConsumer(str), settings);
+}
+
+void AppendStrMakeValidInPlace(std::string &output, std::string_view str, StringValidationSettings settings)
+{
+	if (str.empty()) return;
+
+	format_buffer buf;
+	StrMakeValid(buf, StringConsumer(str), settings);
+	output += std::string_view(buf.data(), buf.size());
 }
 
 /**
@@ -184,14 +266,15 @@ void StrMakeValidInPlace(std::string &str, StringValidationSettings settings)
  * question mark, as well as determining what characters are deemed invalid.
  * @param str The string to validate.
  * @param settings The settings for the string validation.
+ * @return A copy of the valid characters of the given string.
  */
 std::string StrMakeValid(std::string_view str, StringValidationSettings settings)
 {
-	std::string result;
-	StringBuilder builder(result);
-	StringConsumer consumer(str);
-	StrMakeValid(builder, consumer, settings);
-	return result;
+	if (str.empty()) return {};
+
+	format_buffer dst;
+	AppendStrMakeValidInPlace(dst, str, settings);
+	return dst.to_string();
 }
 
 /**
@@ -201,6 +284,7 @@ std::string StrMakeValid(std::string_view str, StringValidationSettings settings
  * std::string_view's constructor will assume a C-string that ends with a NUL terminator, which is one of the things
  * we are checking.
  * @param str Span of chars to validate.
+ * @return \c true iff the string is valid.
  */
 bool StrValid(std::span<const char> str)
 {
@@ -227,15 +311,23 @@ bool StrValid(std::span<const char> str)
  */
 void StrTrimInPlace(std::string &str)
 {
-	size_t first_pos = str.find_first_not_of(StringConsumer::WHITESPACE_NO_NEWLINE);
-	if (first_pos == std::string::npos) {
-		str.clear();
-		return;
-	}
-	str.erase(0, first_pos);
+	StringConsumerControlCharFilter characters_to_trim = StringConsumer::WHITESPACE_NO_NEWLINE;
 
-	size_t last_pos = str.find_last_not_of(StringConsumer::WHITESPACE_NO_NEWLINE);
-	str.erase(last_pos + 1);
+	const char *start = str.data();
+	const char *end = start + str.size();
+	while (start != end) {
+		if (!characters_to_trim.Matches(*(end - 1))) break;
+		end--;
+	}
+	str.resize(end - start);
+
+	start = str.data();
+	end = start + str.size();
+	while (start != end) {
+		if (!characters_to_trim.Matches(*start)) break;
+		start++;
+	}
+	if (start != str.data()) str.erase(0, start - str.data());
 }
 
 std::string_view StrTrimView(std::string_view str, std::string_view characters_to_trim)
@@ -246,6 +338,33 @@ std::string_view StrTrimView(std::string_view str, std::string_view characters_t
 	}
 	size_t last_pos = str.find_last_not_of(characters_to_trim);
 	return str.substr(first_pos, last_pos - first_pos + 1);
+}
+
+std::string_view StrTrimView(std::string_view str, StringConsumerControlCharFilter characters_to_trim)
+{
+	const char *start = str.data();
+	const char *end = start + str.size();
+	while (start != end) {
+		if (!characters_to_trim.Matches(*start)) break;
+		start++;
+	}
+	while (start != end) {
+		if (!characters_to_trim.Matches(*(end - 1))) break;
+		end--;
+	}
+	return std::string_view(start, end - start);
+}
+
+std::string_view StrLastPathSegment(std::string_view path)
+{
+	auto best = path.begin();
+	const auto end = path.end();
+	for (auto it = path.begin(); it != end; ++it) {
+		if (*it == PATHSEPCHAR || *it == '/') {
+			if (*(it + 1) != '\0') best = it + 1;
+		}
+	}
+	return std::string_view(best, end);
 }
 
 /**
@@ -326,6 +445,76 @@ bool StrEqualsIgnoreCase(std::string_view str1, std::string_view str2)
 	return StrCompareIgnoreCase(str1, str2) == 0;
 }
 
+/** Scans the string for colour codes and strips them */
+void str_strip_colours(char *str)
+{
+	char *dst = str;
+
+	while (*str != '\0') {
+		if (IsUtf8CharInControlCharRange<SCC_BLUE, SCC_BLACK>(str)) {
+			str += UTF8_CONTROL_CHAR_LENGTH;
+		} else {
+			/* Copy the character back. */
+			*dst++ = *str++;
+		}
+	}
+
+	*dst = '\0';
+}
+
+/** Advances the pointer over any colour codes at the start of the string */
+std::string_view strip_leading_colours(std::string_view str)
+{
+	while (str.size() >= UTF8_CONTROL_CHAR_LENGTH) {
+		if (!IsUtf8CharInControlCharRange<SCC_BLUE, SCC_BLACK>(str.data())) break;
+		str.remove_prefix(UTF8_CONTROL_CHAR_LENGTH);
+	}
+
+	return str;
+}
+
+std::string str_strip_all_scc(const char *str)
+{
+	std::string out;
+	if (str == nullptr) return out;
+
+	while (*str != '\0') {
+		if (IsUtf8CharInControlCharRange<SCC_BLUE, SCC_BLACK>(str)) {
+			str += UTF8_CONTROL_CHAR_LENGTH;
+		} else {
+			out.push_back(*str++);
+		}
+	}
+
+	return out;
+}
+
+/** Scans the string for a wchar and replace it with another wchar
+ * @param str The input string view
+ * @param find The character to find
+ * @param replace The character to replace
+ * @return A std::string of the replaced string
+ */
+void str_replace_wchar(struct format_target &buf, std::string_view str, char32_t find, char32_t replace)
+{
+	for (char32_t c : Utf8View(str)) {
+		buf.push_back_utf8(c == find ? replace : c);
+	}
+}
+
+/** Scans the string for a wchar and replace it with another wchar
+ * @param str The input string view
+ * @param find The character to find
+ * @param replace The character to replace
+ * @return A std::string of the replaced string
+ */
+std::string str_replace_wchar(std::string_view str, char32_t find, char32_t replace)
+{
+	format_buffer buf;
+	str_replace_wchar(buf, str, find, replace);
+	return buf.to_string();
+}
+
 /**
  * Checks if a string is contained in another string, while ignoring the case of the characters.
  *
@@ -343,13 +532,35 @@ bool StrContainsIgnoreCase(std::string_view str, std::string_view value)
 /**
  * Get the length of an UTF-8 encoded string in number of characters
  * and thus not the number of bytes that the encoded string contains.
- * @param s The string to get the length for.
+ * @param str The string to get the length for.
  * @return The length of the string in characters.
  */
 size_t Utf8StringLength(std::string_view str)
 {
 	Utf8View view(str);
 	return std::distance(view.begin(), view.end());
+}
+
+/**
+ * Convert a given ASCII string to lowercase.
+ * NOTE: only support ASCII characters, no UTF8 fancy. As currently
+ * the function is only used to lowercase data-filenames if they are
+ * not found, this is sufficient. If more, or general functionality is
+ * needed, look to r7271 where it was removed because it was broken when
+ * using certain locales: eg in Turkish the uppercase 'I' was converted to
+ * '?', so just revert to the old functionality
+ * @param str string to convert
+ * @return String has changed.
+ */
+bool strtolower(char *str)
+{
+	bool changed = false;
+	for (; *str != '\0'; str++) {
+		char new_str = tolower(*str);
+		changed |= new_str != *str;
+		*str = new_str;
+	}
+	return changed;
 }
 
 bool strtolower(std::string &str, std::string::size_type offs)
@@ -372,13 +583,23 @@ bool strtolower(std::string &str, std::string::size_type offs)
  */
 bool IsValidChar(char32_t key, CharSetFilter afilter)
 {
+#if !defined(STRGEN) && !defined(SETTINGSGEN)
+	extern char32_t _decimal_separator_char;
+#endif
 	switch (afilter) {
-		case CS_ALPHANUMERAL:   return IsPrintable(key);
-		case CS_NUMERAL:        return (key >= '0' && key <= '9');
-		case CS_NUMERAL_SPACE:  return (key >= '0' && key <= '9') || key == ' ';
-		case CS_NUMERAL_SIGNED: return (key >= '0' && key <= '9') || key == '-';
-		case CS_ALPHA:          return IsPrintable(key) && !(key >= '0' && key <= '9');
-		case CS_HEXADECIMAL:    return (key >= '0' && key <= '9') || (key >= 'a' && key <= 'f') || (key >= 'A' && key <= 'F');
+		case CS_ALPHANUMERAL:  return IsPrintable(key);
+		case CS_NUMERAL:       return (key >= '0' && key <= '9');
+		case CS_NUMERAL_SIGNED:  return (key >= '0' && key <= '9') || key == '-';
+#if !defined(STRGEN) && !defined(SETTINGSGEN)
+		case CS_NUMERAL_DECIMAL: return (key >= '0' && key <= '9') || key == '.' || key == _decimal_separator_char;
+		case CS_NUMERAL_DECIMAL_SIGNED: return (key >= '0' && key <= '9') || key == '.' || key == '-' || key == _decimal_separator_char;
+#else
+		case CS_NUMERAL_DECIMAL: return (key >= '0' && key <= '9') || key == '.';
+		case CS_NUMERAL_DECIMAL_SIGNED: return (key >= '0' && key <= '9') || key == '.' || key == '-';
+#endif
+		case CS_NUMERAL_SPACE: return (key >= '0' && key <= '9') || key == ' ';
+		case CS_ALPHA:         return IsPrintable(key) && !(key >= '0' && key <= '9');
+		case CS_HEXADECIMAL:   return (key >= '0' && key <= '9') || (key >= 'a' && key <= 'f') || (key >= 'A' && key <= 'F');
 		default: NOT_REACHED();
 	}
 }
@@ -416,6 +637,44 @@ static std::string_view SkipGarbage(std::string_view str)
 	return str.substr(it.GetByteOffset());
 }
 
+static int StrNaturalCompareIntl(std::string_view str1, std::string_view str2)
+{
+	const char *s1 = str1.data();
+	const char *s2 = str2.data();
+	const char *s1_end = s1 + str1.size();
+	const char *s2_end = s2 + str2.size();
+	while (s1 != s1_end && s2 != s2_end) {
+		if (IsInsideBS(*s1, '0', 10) && IsInsideBS(*s2, '0', 10)) {
+			uint n1 = 0;
+			uint n2 = 0;
+			for (; IsInsideBS(*s1, '0', 10); s1++) {
+				n1 = (n1 * 10) + (*s1 - '0');
+			}
+			for (; IsInsideBS(*s2, '0', 10); s2++) {
+				n2 = (n2 * 10) + (*s2 - '0');
+			}
+			if (n1 != n2) return n1 > n2 ? 1 : -1;
+		} else {
+			char c1 = tolower(*s1);
+			char c2 = tolower(*s2);
+			if (c1 != c2) {
+				return c1 > c2 ? 1 : -1;
+			}
+			s1++;
+			s2++;
+		}
+	}
+	const bool s1_remaining = (s1 != s1_end);
+	const bool s2_remaining = (s2 != s2_end);
+	if (s1_remaining && !s2_remaining) {
+		return 1;
+	} else if (s2_remaining && !s1_remaining) {
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
 /**
  * Compares two strings using case insensitive natural sort.
  *
@@ -449,8 +708,8 @@ int StrNaturalCompare(std::string_view s1, std::string_view s2, bool ignore_garb
 	if (res != 0) return res - 2; // Convert to normal C return values.
 #endif
 
-	/* Do a normal comparison if ICU is missing or if we cannot create a collator. */
-	return StrCompareIgnoreCase(s1, s2);
+	/* Do a manual natural sort comparison if ICU is missing or if we cannot create a collator. */
+	return StrNaturalCompareIntl(s1, s2);
 }
 
 #ifdef WITH_ICU_I18N
@@ -465,24 +724,49 @@ int StrNaturalCompare(std::string_view s1, std::string_view s2, bool ignore_garb
  */
 static int ICUStringContains(std::string_view str, std::string_view value, bool case_insensitive)
 {
-	if (_current_collator) {
-		std::unique_ptr<icu::RuleBasedCollator> coll(dynamic_cast<icu::RuleBasedCollator *>(_current_collator->clone()));
-		if (coll) {
-			UErrorCode status = U_ZERO_ERROR;
-			coll->setStrength(case_insensitive ? icu::Collator::SECONDARY : icu::Collator::TERTIARY);
-			coll->setAttribute(UCOL_NUMERIC_COLLATION, UCOL_OFF, status);
-
-			auto u_str = icu::UnicodeString::fromUTF8(icu::StringPiece(str.data(), str.size()));
-			auto u_value = icu::UnicodeString::fromUTF8(icu::StringPiece(value.data(), value.size()));
-			icu::StringSearch u_searcher(u_value, u_str, coll.get(), nullptr, status);
-			if (U_SUCCESS(status)) {
-				auto pos = u_searcher.first(status);
-				if (U_SUCCESS(status)) return pos != USEARCH_DONE ? 1 : 0;
-			}
+	icu::RuleBasedCollator *coll = case_insensitive ? _current_collator_search_case_insensitive.get() : _current_collator_search.get();
+	if (coll != nullptr) {
+		UErrorCode status = U_ZERO_ERROR;
+		auto u_str = icu::UnicodeString::fromUTF8(icu::StringPiece(str.data(), str.size()));
+		auto u_value = icu::UnicodeString::fromUTF8(icu::StringPiece(value.data(), value.size()));
+		icu::StringSearch u_searcher(u_value, u_str, coll, nullptr, status);
+		if (U_SUCCESS(status)) {
+			auto pos = u_searcher.first(status);
+			if (U_SUCCESS(status)) return pos != USEARCH_DONE ? 1 : 0;
 		}
 	}
 
 	return -1;
+}
+
+static std::unique_ptr<icu::RuleBasedCollator> MakeICUSearchCollator(icu::Collator::ECollationStrength strength)
+{
+	UErrorCode status = U_ZERO_ERROR;
+	std::unique_ptr<icu::RuleBasedCollator> coll(dynamic_cast<icu::RuleBasedCollator *>(_current_collator->clone()));
+	if (coll) {
+		coll->setStrength(strength);
+		coll->setAttribute(UCOL_NUMERIC_COLLATION, UCOL_OFF, status);
+		if (U_FAILURE(status)) coll.reset();
+	}
+	return coll;
+}
+
+void ICUSetupCollators(const char *iso_code)
+{
+	/* Create a collator instance for our current locale. */
+	UErrorCode status = U_ZERO_ERROR;
+	_current_collator.reset(icu::Collator::createInstance(icu::Locale(iso_code), status));
+	/* Sort number substrings by their numerical value. */
+	if (_current_collator) _current_collator->setAttribute(UCOL_NUMERIC_COLLATION, UCOL_ON, status);
+	/* Avoid using the collator if it is not correctly set. */
+	if (U_FAILURE(status)) {
+		_current_collator.reset();
+	}
+
+	if (_current_collator) {
+		_current_collator_search = MakeICUSearchCollator(icu::Collator::TERTIARY);
+		_current_collator_search_case_insensitive = MakeICUSearchCollator(icu::Collator::SECONDARY);
+	}
 }
 #endif /* WITH_ICU_I18N */
 
@@ -541,6 +825,101 @@ static int ICUStringContains(std::string_view str, std::string_view value, bool 
 	CaseInsensitiveStringView ci_value{ value.data(), value.size() };
 	return ci_str.find(ci_value) != CaseInsensitiveStringView::npos;
 }
+
+#ifdef WITH_LOCALE_STRING
+struct LocaleString {
+#ifdef WITH_ICU_I18N
+	icu::UnicodeString icu_str;
+#endif
+#ifdef _WIN32
+	UniqueBuffer<wchar_t> win32_str;
+#endif
+};
+
+LocaleStringList::LocaleStringList() = default;
+LocaleStringList::LocaleStringList(LocaleStringList &&) = default;
+LocaleStringList::~LocaleStringList() = default;
+LocaleStringList& LocaleStringList::operator = (LocaleStringList&&) = default;
+
+void StringFilterSetupLocale(StringFilter &sf)
+{
+	sf.locale_words.items.clear();
+	if (!sf.locale_aware) return;
+	sf.locale_words.items.reserve(sf.word_index.size());
+	for (const StringFilter::WordState &ws : sf.word_index) {
+#ifdef WITH_ICU_I18N
+		sf.locale_words.items.emplace_back(icu::UnicodeString::fromUTF8(icu::StringPiece(ws.word.data(), ws.word.size())));
+#endif
+#ifdef _WIN32
+		extern UniqueBuffer<wchar_t> Win32LocaleStringForStringContains(std::string_view str);
+		sf.locale_words.items.emplace_back(Win32LocaleStringForStringContains(ws.word));
+#endif
+	}
+}
+
+bool StringFilterAddLocaleLine(StringFilter &sf, std::string_view str)
+{
+	const bool match_case = sf.case_sensitive != nullptr && *sf.case_sensitive;
+
+	auto found_match = [&](StringFilter::WordState &ws) {
+		ws.match = true;
+		sf.word_matches++;
+	};
+
+	auto fallback_match = [&](StringFilter::WordState &ws) {
+		if (match_case) {
+			if (str.find(ws.word) != std::string_view::npos) found_match(ws);
+		} else {
+			if (StrContainsIgnoreCase(str, ws.word)) found_match(ws);
+		}
+	};
+
+#ifdef WITH_ICU_I18N
+	icu::RuleBasedCollator *coll = match_case ? _current_collator_search.get() : _current_collator_search_case_insensitive.get();
+	if (coll == nullptr) return false;
+
+	auto u_str = icu::UnicodeString::fromUTF8(icu::StringPiece(str.data(), str.size()));
+	for (size_t i = 0; i < sf.word_index.size(); i++) {
+		StringFilter::WordState &ws = sf.word_index[i];
+		if (ws.match) continue;
+		UErrorCode status = U_ZERO_ERROR;
+		icu::StringSearch u_searcher(sf.locale_words.items[i].icu_str, u_str, coll, nullptr, status);
+		if (U_SUCCESS(status)) {
+			auto pos = u_searcher.first(status);
+			if (U_SUCCESS(status)) {
+				if (pos != USEARCH_DONE) found_match(ws);
+				continue;
+			}
+		}
+		/* Fall back to standard search */
+		fallback_match(ws);
+	}
+	return true;
+#endif
+#ifdef _WIN32
+	extern UniqueBuffer<wchar_t> Win32LocaleStringForStringContains(std::string_view str);
+	extern int Win32StringContains(std::span<const wchar_t> str, std::span<const wchar_t> value, bool case_insensitive);
+	UniqueBuffer<wchar_t> u_str = Win32LocaleStringForStringContains(str);
+	if (u_str.size() == 0) return false;
+
+	for (size_t i = 0; i < sf.word_index.size(); i++) {
+		StringFilter::WordState &ws = sf.word_index[i];
+		if (ws.match) continue;
+		const UniqueBuffer<wchar_t> &word = sf.locale_words.items[i].win32_str;
+		int result = Win32StringContains(std::span<const wchar_t>{u_str.get(), u_str.size()}, std::span<const wchar_t>{word.get(), word.size()}, !match_case);
+		if (result >= 0) {
+			if (result > 0) found_match(ws);
+			continue;
+		}
+		/* Fall back to standard search */
+		fallback_match(ws);
+	}
+	return true;
+#endif
+
+	return false;
+}
+#endif /* WITH_LOCALE_STRING */
 
 /**
  * Convert a single hex-nibble to a byte.
@@ -753,7 +1132,7 @@ public:
 class DefaultStringIterator : public StringIterator
 {
 	Utf8View string; ///< Current string.
-	Utf8View::iterator cur_pos; //< Current iteration position.
+	Utf8View::iterator cur_pos; ///< Current iteration position.
 
 public:
 	void SetString(std::string_view s) override
@@ -856,4 +1235,34 @@ std::optional<std::string_view> GetEnv(const char *variable)
 	auto val = std::getenv(variable);
 	if (val == nullptr || *val == '\0') return std::nullopt;
 	return val;
+}
+
+const char *StrErrorDumper::Get(int errornum)
+{
+#if defined(_WIN32)
+	if (strerror_s(this->buf, lengthof(this->buf), errornum) == 0) {
+		return this->buf;
+	}
+#else
+	struct StrErrorRHelper {
+		static bool Success(char *result) { return true; }      ///< GNU-specific
+		static bool Success(int result) { return result == 0; } ///< XSI-compliant
+
+		static const char *GetString(char *result, const char *buffer) { return result; } ///< GNU-specific
+		static const char *GetString(int result, const char *buffer) { return buffer; }   ///< XSI-compliant
+	};
+
+	auto result = strerror_r(errornum, this->buf, lengthof(this->buf));
+	if (StrErrorRHelper::Success(result)) {
+		return StrErrorRHelper::GetString(result, this->buf);
+	}
+#endif
+
+	format_to_fixed_z::format_to(this->buf, lastof(this->buf), "Unknown error {}", errornum);
+	return this->buf;
+}
+
+const char *StrErrorDumper::GetLast()
+{
+	return this->Get(errno);
 }

@@ -19,6 +19,8 @@ enum RailToolbarWidgets : WidgetID {
 	WID_RAT_BUILD_EW,       ///< Build rail along the game view X axis.
 	WID_RAT_BUILD_Y,        ///< Build rail along the game grid Y axis.
 	WID_RAT_AUTORAIL,       ///< Autorail tool.
+	WID_RAT_POLYRAIL,       ///< Polyline rail tool.
+	WID_RAT_POLYRAIL_SEL,   ///< Select widget for polyline rail tool.
 	WID_RAT_DEMOLISH,       ///< Destroy something with dynamite!
 	WID_RAT_BUILD_DEPOT,    ///< Build a depot.
 	WID_RAT_BUILD_WAYPOINT, ///< Build a waypoint.
@@ -28,6 +30,7 @@ enum RailToolbarWidgets : WidgetID {
 	WID_RAT_BUILD_TUNNEL,   ///< Build a tunnel.
 	WID_RAT_REMOVE,         ///< Bulldozer to remove rail.
 	WID_RAT_CONVERT_RAIL,   ///< Convert other rail to this type.
+	WID_RAT_CONVERT_RAIL_TRACK, ///< Convert other rail to this type (track).
 };
 
 /** Widgets of the #BuildRailStationWindow class. */
@@ -57,7 +60,6 @@ enum BuildRailStationWidgets : WidgetID {
 	WID_BRAS_HIGHLIGHT_OFF,        ///< Button for turning coverage highlighting off.
 	WID_BRAS_HIGHLIGHT_ON,         ///< Button for turning coverage highlighting on.
 	WID_BRAS_COVERAGE_TEXTS,       ///< Empty space for the coverage texts.
-	WID_BRAS_NEWST_SPACER,         ///< Spacer to make newst list fit the screen
 
 	WID_BRAS_PLATFORM_NUM_BEGIN = WID_BRAS_PLATFORM_NUM_1 - 1, ///< Helper for determining the chosen platform width.
 	WID_BRAS_PLATFORM_LEN_BEGIN = WID_BRAS_PLATFORM_LEN_1 - 1, ///< Helper for determining the chosen platform length.
@@ -66,24 +68,45 @@ enum BuildRailStationWidgets : WidgetID {
 /** Widgets of the #BuildSignalWindow class. */
 enum BuildSignalWidgets : WidgetID {
 	WID_BS_CAPTION,            ///< Caption for the Signal Selection window.
-	WID_BS_SEMAPHORE_NORM,     ///< Build a semaphore normal block signal.
-	WID_BS_SEMAPHORE_ENTRY,    ///< Build a semaphore entry block signal.
-	WID_BS_SEMAPHORE_EXIT,     ///< Build a semaphore exit block signal.
-	WID_BS_SEMAPHORE_COMBO,    ///< Build a semaphore combo block signal.
+	WID_BS_TOGGLE_SIZE,        ///< Toggle showing advanced signal types.
+	WID_BS_SEMAPHORE_NORM,     ///< Build a semaphore normal block signal
+	WID_BS_SEMAPHORE_ENTRY,    ///< Build a semaphore entry block signal
+	WID_BS_SEMAPHORE_EXIT,     ///< Build a semaphore exit block signal
+	WID_BS_SEMAPHORE_COMBO,    ///< Build a semaphore combo block signal
+	WID_BS_SEMAPHORE_PROG,     ///< Build a semahore programmable pre-signal
 	WID_BS_SEMAPHORE_PBS,      ///< Build a semaphore path signal.
 	WID_BS_SEMAPHORE_PBS_OWAY, ///< Build a semaphore one way path signal.
-	WID_BS_ELECTRIC_NORM,      ///< Build an electric normal block signal.
-	WID_BS_ELECTRIC_ENTRY,     ///< Build an electric entry block signal.
-	WID_BS_ELECTRIC_EXIT,      ///< Build an electric exit block signal.
-	WID_BS_ELECTRIC_COMBO,     ///< Build an electric combo block signal.
+	WID_BS_SEMAPHORE_NO_ENTRY, ///< Build a semaphore no-entry signal.
+	WID_BS_ELECTRIC_NORM,      ///< Build an electric normal block signal
+	WID_BS_ELECTRIC_ENTRY,     ///< Build an electric entry block signal
+	WID_BS_ELECTRIC_EXIT,      ///< Build an electric exit block signal
+	WID_BS_ELECTRIC_COMBO,     ///< Build an electric combo block signal
+	WID_BS_ELECTRIC_PROG,      ///< Build an electric programmable pre-signal
 	WID_BS_ELECTRIC_PBS,       ///< Build an electric path signal.
 	WID_BS_ELECTRIC_PBS_OWAY,  ///< Build an electric one way path signal.
+	WID_BS_ELECTRIC_NO_ENTRY,  ///< Build an electric no-entry signal.
 	WID_BS_CONVERT,            ///< Convert the signal.
+	WID_BS_TRACE_RESTRICT,     ///< Open trace restrict window.
+	WID_BS_PROGRAM,            ///< Enter program to prog signal
 	WID_BS_DRAG_SIGNALS_DENSITY_LABEL,    ///< The current signal density.
 	WID_BS_DRAG_SIGNALS_DENSITY_DECREASE, ///< Decrease the signal density.
 	WID_BS_DRAG_SIGNALS_DENSITY_INCREASE, ///< Increase the signal density.
-	WID_BS_BLOCK_SEL,           ///< Container for the block signal group, which can be hidden.
-	WID_BS_BLOCK_SPACER_SEL,    ///< Container for the spacer between block and path signal groups, which can be hidden.
+	WID_BS_TOGGLE_SIZE_SEL,     ///< NWID_SELECTION for WID_BS_TOGGLE_SIZE
+	WID_BS_SEMAPHORE_NORM_SEL,  ///< NWID_SELECTION for WID_BS_SEMAPHORE_NORM
+	WID_BS_ELECTRIC_NORM_SEL,   ///< NWID_SELECTION for WID_BS_ELECTRIC_NORM
+	WID_BS_SEMAPHORE_ENTRY_SEL, ///< NWID_SELECTION for WID_BS_SEMAPHORE_ENTRY
+	WID_BS_ELECTRIC_ENTRY_SEL,  ///< NWID_SELECTION for WID_BS_ELECTRIC_ENTRY
+	WID_BS_SEMAPHORE_EXIT_SEL, ///< NWID_SELECTION for WID_BS_SEMAPHORE_EXIT
+	WID_BS_ELECTRIC_EXIT_SEL,  ///< NWID_SELECTION for WID_BS_ELECTRIC_EXIT
+	WID_BS_SEMAPHORE_COMBO_SEL, ///< NWID_SELECTION for WID_BS_SEMAPHORE_COMBO
+	WID_BS_ELECTRIC_COMBO_SEL,  ///< NWID_SELECTION for WID_BS_ELECTRIC_COMBO
+	WID_BS_SEMAPHORE_PROG_SEL, ///< NWID_SELECTION for WID_BS_SEMAPHORE_PROG
+	WID_BS_ELECTRIC_PROG_SEL,  ///< NWID_SELECTION for WID_BS_ELECTRIC_PROG
+	WID_BS_SEMAPHORE_NOEN_SEL, ///< NWID_SELECTION for WID_BS_SEMAPHORE_NO_ENTRY
+	WID_BS_ELECTRIC_NOEN_SEL,  ///< NWID_SELECTION for WID_BS_ELECTRIC_NO_ENTRY
+	WID_BS_PROGRAM_SEL,        ///< NWID_SELECTION for WID_BS_PROGRAM
+	WID_BS_STYLE,              ///< Style selection dropdown
+	WID_BS_STYLE_SEL,          ///< NWID_SELECTION for WID_BS_STYLE
 };
 
 /** Widgets of the #BuildRailDepotWindow class. */

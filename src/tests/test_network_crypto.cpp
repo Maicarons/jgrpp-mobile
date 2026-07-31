@@ -15,6 +15,7 @@
 #include "../network/network_crypto_internal.h"
 #include "../network/core/packet.h"
 #include "../string_func.h"
+#include <set>
 
 #include "../safeguards.h"
 
@@ -37,7 +38,7 @@ static std::tuple<Packet, bool> CreatePacketForReading(Packet &source, MockNetwo
 {
 	source.PrepareToSend();
 
-	Packet dest(socket_handler, COMPAT_MTU, source.Size());
+	Packet dest(Packet::ReadTag{}, socket_handler, COMPAT_MTU, source.Size());
 
 	auto transfer_in = [&source](std::span<uint8_t> dest_data) {
 		auto transfer_out = [&dest_data](std::span<const uint8_t> source_data) {

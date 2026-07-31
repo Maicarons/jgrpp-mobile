@@ -13,6 +13,7 @@ add_files(
     clear_land.h
     company_face.h
     control_codes.h
+    darklight_colours.h
     elrail_data.h
     engines.h
     genland.h
@@ -28,6 +29,7 @@ add_files(
     road_land.h
     roadtypes.h
     roadveh_movement.h
+    settings_compat.h
     signal_data.h
     sprites.h
     station_land.h
@@ -37,7 +39,7 @@ add_files(
     townname.h
     track_data.h
     track_land.h
-    train_sprites.h
+    train_cmd.h
     tree_land.h
     unicode.h
     water_land.h

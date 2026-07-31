@@ -5,10 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file newgrf_commons.cpp Implementation of the class %OverrideManagerBase
- * and its descendance, present and future.
- */
+/** @file newgrf_commons.cpp Implementation of the class %OverrideManagerBase and its descendance, present and future. */
 
 #include "stdafx.h"
 #include "debug.h"
@@ -28,7 +25,8 @@
 #include "company_base.h"
 #include "error.h"
 #include "strings_func.h"
-#include "string_func.h"
+#include "newgrf_roadstop.h"
+#include "core/alloc_func.hpp"
 
 #include "table/strings.h"
 
@@ -336,17 +334,17 @@ void ObjectOverrideManager::SetEntitySpec(ObjectSpec &&spec)
 uint32_t GetTerrainType(TileIndex tile, TileContext context)
 {
 	switch (_settings_game.game_creation.landscape) {
-		case LandscapeType::Tropic: return GetTropicZone(tile);
+		case LandscapeType::Tropic: return to_underlying(GetTropicZone(tile));
 		case LandscapeType::Arctic: {
 			bool has_snow;
 			switch (GetTileType(tile)) {
-				case MP_CLEAR:
+				case TileType::Clear:
 					/* During map generation the snowstate may not be valid yet, as the tileloop may not have run yet. */
 					if (_generating_world) goto genworld;
 					has_snow = IsSnowTile(tile) && GetClearDensity(tile) >= 2;
 					break;
 
-				case MP_RAILWAY: {
+				case TileType::Railway: {
 					/* During map generation the snowstate may not be valid yet, as the tileloop may not have run yet. */
 					if (_generating_world) goto genworld; // we do not care about foundations here
 					RailGroundType ground = GetRailGroundType(tile);
@@ -354,21 +352,21 @@ uint32_t GetTerrainType(TileIndex tile, TileContext context)
 					break;
 				}
 
-				case MP_ROAD:
+				case TileType::Road:
 					/* During map generation the snowstate may not be valid yet, as the tileloop may not have run yet. */
 					if (_generating_world) goto genworld; // we do not care about foundations here
 					has_snow = IsOnSnowOrDesert(tile);
 					break;
 
-				case MP_TREES: {
+				case TileType::Trees: {
 					/* During map generation the snowstate may not be valid yet, as the tileloop may not have run yet. */
 					if (_generating_world) goto genworld;
 					TreeGround ground = GetTreeGround(tile);
-					has_snow = (ground == TREE_GROUND_SNOW_DESERT || ground == TREE_GROUND_ROUGH_SNOW) && GetTreeDensity(tile) >= 2;
+					has_snow = (ground == TreeGround::SnowOrDesert || ground == TreeGround::RoughSnow) && GetTreeDensity(tile) >= 2;
 					break;
 				}
 
-				case MP_TUNNELBRIDGE:
+				case TileType::TunnelBridge:
 					if (context == TCX_ON_BRIDGE) {
 						has_snow = (GetBridgeHeight(tile) > GetSnowLine());
 					} else {
@@ -378,18 +376,18 @@ uint32_t GetTerrainType(TileIndex tile, TileContext context)
 					}
 					break;
 
-				case MP_STATION:
-				case MP_HOUSE:
-				case MP_INDUSTRY:
-				case MP_OBJECT:
+				case TileType::Station:
+				case TileType::House:
+				case TileType::Industry:
+				case TileType::Object:
 					/* These tiles usually have a levelling foundation. So use max Z */
-					has_snow = (GetTileMaxZ(tile) > GetSnowLine());
+					has_snow = IsTileMaxZAbove(tile, GetSnowLine());
 					break;
 
-				case MP_VOID:
-				case MP_WATER:
+				case TileType::Void:
+				case TileType::Water:
 				genworld:
-					has_snow = (GetTileZ(tile) > GetSnowLine());
+					has_snow = IsTileZAbove(tile, GetSnowLine());
 					break;
 
 				default: NOT_REACHED();
@@ -417,8 +415,8 @@ TileIndex GetNearbyTile(uint8_t parameter, TileIndex tile, bool signed_offsets, 
 	if (signed_offsets && y >= 8) y -= 16;
 
 	/* Swap width and height depending on axis for railway stations */
-	if (axis == INVALID_AXIS && HasStationTileRail(tile)) axis = GetRailStationAxis(tile);
-	if (axis == AXIS_Y) std::swap(x, y);
+	if (axis == Axis::Invalid && HasStationTileRail(tile)) axis = GetRailStationAxis(tile);
+	if (axis == Axis::Y) std::swap(x, y);
 
 	/* Make sure we never roam outside of the map, better wrap in that case */
 	return Map::WrapToMap(tile + TileDiffXY(x, y));
@@ -431,21 +429,32 @@ TileIndex GetNearbyTile(uint8_t parameter, TileIndex tile, bool signed_offsets, 
  * @param grf_version8 True, if we are dealing with a new NewGRF which uses GRF version >= 8.
  * @return 0czzbbss: c = TileType; zz = TileZ; bb: 7-3 zero, 4-2 TerrainType, 1 water/shore, 0 zero; ss = TileSlope
  */
-uint32_t GetNearbyTileInformation(TileIndex tile, bool grf_version8)
+uint32_t GetNearbyTileInformation(TileIndex tile, bool grf_version8, uint32_t mask)
 {
-	TileType tile_type = GetTileType(tile);
+	uint32_t result = 0;
+	TileType tile_type = TileType::Clear;
+	if (mask & 0xFF000200) {
+		tile_type = GetTileType(tile);
 
-	/* Fake tile type for trees on shore */
-	if (IsTileType(tile, MP_TREES) && GetTreeGround(tile) == TREE_GROUND_SHORE) tile_type = MP_WATER;
+		/* Fake tile type for trees on shore */
+		if (IsTileType(tile, TileType::Trees) && GetTreeGround(tile) == TreeGround::Shore) tile_type = TileType::Water;
 
-	/* Fake tile type for road waypoints */
-	if (IsRoadWaypointTile(tile)) tile_type = MP_ROAD;
+		/* Fake tile type for road waypoints */
+		if (IsRoadWaypointTile(tile)) tile_type = TileType::Road;
 
-	auto [tileh, z] = GetTilePixelSlope(tile);
-	/* Return 0 if the tile is a land tile */
-	uint8_t terrain_type = (HasTileWaterClass(tile) ? (to_underlying(GetWaterClass(tile)) + 1) & 3 : 0) << 5 | GetTerrainType(tile) << 2 | (tile_type == MP_WATER ? 1 : 0) << 1;
-	if (grf_version8) z /= TILE_HEIGHT;
-	return tile_type << 24 | ClampTo<uint8_t>(z) << 16 | terrain_type << 8 | tileh;
+		result |= to_underlying(tile_type) << 24;
+	}
+	if (mask & 0xFE00) {
+		/* Return 0 if the tile is a land tile */
+		uint8_t terrain_type = (HasTileWaterClass(tile) ? (to_underlying(GetWaterClass(tile)) + 1) & 3 : 0) << 5 | GetTerrainType(tile) << 2 | (tile_type == TileType::Water ? 1 : 0) << 1;
+		result |= terrain_type << 8;
+	}
+	if (mask & 0xFF00FF) {
+		auto [tileh, z] = GetTilePixelSlope(tile);
+		if (grf_version8) z /= TILE_HEIGHT;
+		result |= ClampTo<uint8_t>(z) << 16 | tileh;
+	}
+	return result;
 }
 
 /**
@@ -456,8 +465,8 @@ uint32_t GetNearbyTileInformation(TileIndex tile, bool grf_version8)
  */
 uint32_t GetCompanyInfo(CompanyID owner, const Livery *l)
 {
-	if (l == nullptr && Company::IsValidID(owner)) l = &Company::Get(owner)->livery[LS_DEFAULT];
-	return owner.base() | (Company::IsValidAiID(owner) ? 0x10000 : 0) | (l != nullptr ? (l->colour1 << 24) | (l->colour2 << 28) : 0);
+	if (l == nullptr && Company::IsValidID(owner)) l = &Company::Get(owner)->livery[LiveryScheme::Default];
+	return owner.base() | (Company::IsValidAiID(owner) ? 0x10000 : 0) | (l != nullptr ? (to_underlying(l->colour1) << 24) | (to_underlying(l->colour2) << 28) : 0);
 }
 
 /**
@@ -471,11 +480,11 @@ uint32_t GetCompanyInfo(CompanyID owner, const Livery *l)
 CommandCost GetErrorMessageFromLocationCallbackResult(uint16_t cb_res, std::span<const int32_t> textstack, const GRFFile *grffile, StringID default_error)
 {
 	auto get_newgrf_text = [&grffile](GRFStringID text_id, std::span<const int32_t> textstack) {
-		CommandCost res = CommandCost(GetGRFStringID(grffile->grfid, text_id));
+		CommandCost res = CommandCost(GetGRFStringID(grffile, text_id));
 
 		/* If this error isn't for the local player then it won't be seen, so don't bother encoding anything. */
 		if (IsLocalCompany()) {
-			StringID stringid = GetGRFStringID(grffile->grfid, text_id);
+			StringID stringid = GetGRFStringID(grffile, text_id);
 			auto params = GetGRFStringTextStackParameters(grffile, stringid, textstack);
 			res.SetEncodedMessage(GetEncodedStringWithArgs(stringid, params));
 		}
@@ -522,13 +531,14 @@ void ErrorUnknownCallbackResult(uint32_t grfid, uint16_t cbid, uint16_t cb_res)
 		grfconfig->grf_bugs.Set(GRFBug::UnknownCbResult);
 		ShowErrorMessage(GetEncodedString(STR_NEWGRF_BUGGY, grfconfig->GetName()),
 			GetEncodedString(STR_NEWGRF_BUGGY_UNKNOWN_CALLBACK_RESULT, std::monostate{}, cbid, cb_res),
-			WL_CRITICAL);
+			WarningLevel::Critical);
 	}
 
-	/* debug output */
-	Debug(grf, 0, "{}", StrMakeValid(GetString(STR_NEWGRF_BUGGY, grfconfig->GetName())));
+	std::string buffer = GetString(STR_NEWGRF_BUGGY, grfconfig->GetName());
+	Debug(grf, 0, "{}", strip_leading_colours(buffer));
 
-	Debug(grf, 0, "{}", StrMakeValid(GetString(STR_NEWGRF_BUGGY_UNKNOWN_CALLBACK_RESULT, std::monostate{}, cbid, cb_res)));
+	buffer = GetString(STR_NEWGRF_BUGGY_UNKNOWN_CALLBACK_RESULT, std::monostate{}, cbid, cb_res);
+	Debug(grf, 0, "{}", strip_leading_colours(buffer));
 }
 
 /**
@@ -658,11 +668,10 @@ SpriteLayoutProcessor::SpriteLayoutProcessor(const NewGRFSpriteLayout &raw_layou
 
 /**
  * Evaluates the register modifiers and integrates them into the preprocessed sprite layout.
- * @param object ResolverObject owning the temporary storage.
  * @param resolved_var10  The value of var10 the action-1-2-3 chain was evaluated for.
  * @param resolved_sprite Result sprite of the action-1-2-3 chain.
  */
-void SpriteLayoutProcessor::ProcessRegisters(const ResolverObject &object, uint8_t resolved_var10, uint32_t resolved_sprite)
+void SpriteLayoutProcessor::ProcessRegisters(uint8_t resolved_var10, uint32_t resolved_sprite)
 {
 	assert(this->raw_layout != nullptr);
 	const TileLayoutRegisters *regs = this->raw_layout->registers.empty() ? nullptr : this->raw_layout->registers.data();
@@ -677,12 +686,12 @@ void SpriteLayoutProcessor::ProcessRegisters(const ResolverObject &object, uint8
 			uint8_t var10 = (flags & TLF_SPRITE_VAR10) ? regs->sprite_var10 : (ground && this->separate_ground ? 1 : 0);
 			if (var10 == resolved_var10) {
 				/* Apply registers */
-				if ((flags & TLF_DODRAW) && object.GetRegister(regs->dodraw) == 0) {
+				if ((flags & TLF_DODRAW) && GetRegister(regs->dodraw) == 0) {
 					result.image.sprite = 0;
 				} else {
 					if (HasBit(result.image.sprite, SPRITE_MODIFIER_CUSTOM_SPRITE)) result.image.sprite += resolved_sprite;
 					if (flags & TLF_SPRITE) {
-						int16_t offset = static_cast<int16_t>(object.GetRegister(regs->sprite)); // mask to 16 bits to avoid trouble
+						int16_t offset = (int16_t)GetRegister(regs->sprite); // mask to 16 bits to avoid trouble
 						if (!HasBit(result.image.sprite, SPRITE_MODIFIER_CUSTOM_SPRITE) || (offset >= 0 && offset < regs->max_sprite_offset)) {
 							result.image.sprite += offset;
 						} else {
@@ -692,13 +701,13 @@ void SpriteLayoutProcessor::ProcessRegisters(const ResolverObject &object, uint8
 
 					if (result.IsParentSprite()) {
 						if (flags & TLF_BB_XY_OFFSET) {
-							result.origin.x += object.GetRegister(regs->delta.parent[0]);
-							result.origin.y += object.GetRegister(regs->delta.parent[1]);
+							result.origin.x += static_cast<int32_t>(GetRegister(regs->delta.parent[0]));
+							result.origin.y += static_cast<int32_t>(GetRegister(regs->delta.parent[1]));
 						}
-						if (flags & TLF_BB_Z_OFFSET) result.origin.z += object.GetRegister(regs->delta.parent[2]);
+						if (flags & TLF_BB_Z_OFFSET)    result.origin.z += static_cast<int32_t>(GetRegister(regs->delta.parent[2]));
 					} else {
-						if (flags & TLF_CHILD_X_OFFSET) result.origin.x += object.GetRegister(regs->delta.child[0]);
-						if (flags & TLF_CHILD_Y_OFFSET) result.origin.y += object.GetRegister(regs->delta.child[1]);
+						if (flags & TLF_CHILD_X_OFFSET) result.origin.x += static_cast<int32_t>(GetRegister(regs->delta.child[0]));
+						if (flags & TLF_CHILD_Y_OFFSET) result.origin.y += static_cast<int32_t>(GetRegister(regs->delta.child[1]));
 					}
 				}
 			}
@@ -712,7 +721,7 @@ void SpriteLayoutProcessor::ProcessRegisters(const ResolverObject &object, uint8
 				/* Apply registers */
 				if (HasBit(result.image.pal, SPRITE_MODIFIER_CUSTOM_SPRITE)) result.image.pal += resolved_sprite;
 				if (flags & TLF_PALETTE) {
-					int16_t offset = static_cast<int16_t>(object.GetRegister(regs->palette)); // mask to 16 bits to avoid trouble
+					int16_t offset = (int16_t)GetRegister(regs->palette); // mask to 16 bits to avoid trouble
 					if (!HasBit(result.image.pal, SPRITE_MODIFIER_CUSTOM_SPRITE) || (offset >= 0 && offset < regs->max_palette_offset)) {
 						result.image.pal += offset;
 					} else {
@@ -736,4 +745,84 @@ void GRFFilePropsBase::SetGRFFile(const struct GRFFile *grffile)
 {
 	this->grffile = grffile;
 	this->grfid = grffile == nullptr ? 0 : grffile->grfid;
+}
+
+/**
+ * Get the SpriteGroup at the specified index.
+ * @param index Index to get.
+ * @returns SpriteGroup at index, or nullptr if not present.
+ */
+const SpriteGroup *VariableGRFFilePropsBase::GetSpriteGroupImpl(VariableGRFFilePropsBase::IndexType index) const
+{
+	const IndexType *keys = this->get_keys();
+	for (IndexType i = 0; i < this->size; i++) {
+		if (keys[i] == index) {
+			return this->get_groups()[i];
+		}
+	}
+	return nullptr;
+}
+
+/**
+ * Get a pointer to the SpriteGroup at the specified index.
+ * @param index Index to get.
+ * @returns Pointer to SpriteGroup at index, or nullptr if not present.
+ */
+const SpriteGroup **VariableGRFFilePropsBase::GetSpriteGroupPtrImpl(VariableGRFFilePropsBase::IndexType index)
+{
+	const IndexType *keys = this->get_keys();
+	for (IndexType i = 0; i < this->size; i++) {
+		if (keys[i] == index) {
+			return const_cast<const SpriteGroup **>(this->get_groups() + i);
+		}
+	}
+	return nullptr;
+}
+
+/**
+ * Set the SpriteGroup at the specified index.
+ * @param index Index to set.
+ * @param spritegroup SpriteGroup to set.
+ */
+void VariableGRFFilePropsBase::SetSpriteGroupImpl(VariableGRFFilePropsBase::IndexType index, const SpriteGroup *spritegroup)
+{
+	const IndexType *keys = this->get_keys();
+	const GroupType *groups = this->get_groups();
+
+	IndexType insert_pos = 0;
+	for (; insert_pos < this->size; insert_pos++) {
+		if (index == keys[insert_pos]) {
+			const_cast<GroupType *>(groups)[insert_pos] = spritegroup;
+			return;
+		}
+		if (index < keys[insert_pos]) break;
+	}
+	if (this->size == this->capacity) {
+		/* Re-allocate */
+		IndexType new_capacity = this->capacity * 2;
+		const SpriteGroup **new_groups = reinterpret_cast<const SpriteGroup **>(MallocT<char>(new_capacity * (sizeof(GroupType) + sizeof(IndexType))));
+		IndexType *new_keys = reinterpret_cast<IndexType *>(new_groups + new_capacity);
+
+		MemCpyT(new_keys, keys, this->size);
+		MemCpyT(new_groups, groups, this->size);
+		new_keys[insert_pos] = index;
+		new_groups[insert_pos] = spritegroup;
+		MemCpyT(new_keys + insert_pos + 1, keys + insert_pos, this->size - insert_pos);
+		MemCpyT(new_groups + insert_pos + 1, groups + insert_pos, this->size - insert_pos);
+
+		if (!this->inline_mode()) free(this->data.allocated_groups);
+		this->capacity = new_capacity;
+		this->data.allocated_keys = new_keys;
+		this->data.allocated_groups = new_groups;
+	} else {
+		IndexType *new_keys = const_cast<IndexType *>(keys);
+		GroupType *new_groups = const_cast<GroupType *>(groups);
+		if (insert_pos < this->size) {
+			MemMoveT(new_keys + insert_pos + 1, new_keys + insert_pos, this->size - insert_pos);
+			MemMoveT(new_groups + insert_pos + 1, new_groups + insert_pos, this->size - insert_pos);
+		}
+		new_keys[insert_pos] = index;
+		new_groups[insert_pos] = spritegroup;
+	}
+	this->size++;
 }

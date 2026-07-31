@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file ai_info.cpp Implementation of AIInfo and AILibrary */
+/** @file ai_info.cpp Implementation of AIInfo and AILibrary. */
 
 #include "../stdafx.h"
 
@@ -15,19 +15,26 @@
 #include "../debug.h"
 #include "../string_func.h"
 #include "../rev.h"
+#include "../core/format.hpp"
+#include <algorithm>
+#include <initializer_list>
 
 #include "../safeguards.h"
 
 /**
  * Check if the API version provided by the AI is supported.
  * @param api_version The API version as provided by the AI.
+ * @return \c true if the given version is supported by this version of OpenTTD.
  */
 static bool CheckAPIVersion(const std::string &api_version)
 {
 	return std::ranges::find(AIInfo::ApiVersions, api_version) != std::end(AIInfo::ApiVersions);
 }
 
-template <> SQInteger PushClassName<AIInfo, ScriptType::AI>(HSQUIRRELVM vm) { sq_pushstring(vm, "AIInfo"); return 1; }
+#if defined(_WIN32)
+#undef GetClassName
+#endif /* _WIN32 */
+template <> const char *GetClassName<AIInfo, ScriptType::AI>() { return "AIInfo"; }
 
 /* static */ void AIInfo::RegisterAPI(Squirrel &engine)
 {

@@ -10,8 +10,8 @@
 #ifndef GAME_TEXT_HPP
 #define GAME_TEXT_HPP
 
-#include "../string_type.h"
 #include "../strings_type.h"
+#include "../core/typed_container.hpp"
 
 struct StringParam {
 	enum ParamType : uint8_t {
@@ -39,7 +39,7 @@ void ReconsiderGameScriptLanguage();
 /** Container for the raw (unencoded) language strings of a language. */
 struct LanguageStrings {
 	std::string language; ///< Name of the language (base filename). Empty string if invalid.
-	TypedIndexContainer<StringList, StringIndexInTab> lines; ///< The lines of the file to pass into the parser/encoder.
+	TypedIndexContainer<StringList, StringIndexInTab> lines;    ///< The lines of the file to pass into the parser/encoder.
 
 	LanguageStrings() {}
 	LanguageStrings(const std::string &lang) : language(lang) {}

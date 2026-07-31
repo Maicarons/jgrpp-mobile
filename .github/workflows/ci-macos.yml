@@ -23,7 +23,7 @@ jobs:
 
     runs-on: macos-latest
     env:
-      MACOSX_DEPLOYMENT_TARGET: 10.13
+      MACOSX_DEPLOYMENT_TARGET: 10.15
 
     steps:
     - name: Setup Xcode version
@@ -32,7 +32,14 @@ jobs:
         xcode-version: latest-stable
 
     - name: Checkout
+      if: github.event_name != 'workflow_dispatch'
       uses: actions/checkout@v6
+
+    - name: Checkout (Manual)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.ref }}
 
     - name: Setup vcpkg
       id: vcpkg
@@ -72,7 +79,7 @@ jobs:
 
         echo "::group::Build"
         echo "Running on $(sysctl -n hw.logicalcpu) cores"
-        cmake --build . -j $(sysctl -n hw.logicalcpu)
+        cmake --build . -j $(sysctl -n hw.logicalcpu) --target all openttd_test
         echo "::endgroup::"
 
     - name: Test

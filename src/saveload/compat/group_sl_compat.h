@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _group_desc. */
 const SaveLoadCompat _group_sl_compat[] = {
 	SLC_VAR("name"),
@@ -24,5 +26,7 @@ const SaveLoadCompat _group_sl_compat[] = {
 	SLC_VAR("livery.colour2"),
 	SLC_VAR("parent"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_GROUP_H */

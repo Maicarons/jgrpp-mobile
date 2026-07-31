@@ -33,20 +33,21 @@ enum MusicTrackType : uint8_t {
 
 /** Metadata about a music track. */
 struct MusicSongInfo {
-	std::string songname; ///< name of song displayed in UI
-	std::string filename; ///< file on disk containing song (when used in MusicSet class)
-	int cat_index; ///< entry index in CAT file, for filetype==MTT_MPSMIDI
-	int override_start; ///< MIDI ticks to skip over in beginning
-	int override_end; ///< MIDI tick to end the song at (0 if no override)
-	uint8_t tracknr; ///< track number of song displayed in UI
+	std::string songname;    ///< name of song displayed in UI
+	std::string filename;    ///< file on disk containing song (when used in MusicSet class)
+	int cat_index;           ///< entry index in CAT file, for filetype==MTT_MPSMIDI
+	int override_start;      ///< MIDI ticks to skip over in beginning
+	int override_end;        ///< MIDI tick to end the song at (0 if no override)
+	uint8_t tracknr;         ///< track number of song displayed in UI
 	MusicTrackType filetype; ///< decoder required for song file
-	bool loop; ///< song should play in a tight loop if possible, never ending
+	bool loop;               ///< song should play in a tight loop if possible, never ending
 };
 
+/** Instantiation of BaseSetTraits for a MusicSet. */
 template <> struct BaseSetTraits<struct MusicSet> {
-	static constexpr size_t num_files = NUM_SONGS_AVAILABLE;
-	static constexpr bool search_in_tars = false;
-	static constexpr std::string_view set_type = "music";
+	static constexpr size_t num_files = NUM_SONGS_AVAILABLE; ///< Maximum number of files in a music set.
+	static constexpr bool search_in_tars = false; ///< Music cannot be in a tar file.
+	static constexpr std::string_view set_type = "music"; ///< The type of set.
 };
 
 /** All data of a music set. */

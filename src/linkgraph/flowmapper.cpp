@@ -19,44 +19,44 @@
 void FlowMapper::Run(LinkGraphJob &job) const
 {
 	for (NodeID node_id = 0; node_id < job.Size(); ++node_id) {
-		Node &prev_node = job[node_id];
-		StationID prev = prev_node.base.station;
-		for (const Path *path : prev_node.paths) {
+		Node prev_node = job[node_id];
+		StationID prev = prev_node.Station();
+		for (Path *path : prev_node.Paths()) {
+			if (path == nullptr) continue;
 			uint flow = path->GetFlow();
-			if (flow == 0) break;
-			Node &node = job[path->GetNode()];
-			StationID via = node.base.station;
-			StationID origin = job[path->GetOrigin()].base.station;
+			Node node = job[path->GetNode()];
+			StationID via = node.Station();
+			StationID origin = job[path->GetOrigin()].Station();
 			assert(prev != via && via != origin);
 			/* Mark all of the flow for local consumption at "first". */
-			node.flows.AddFlow(origin, via, flow);
+			node.Flows().AddFlow(origin, via, flow);
 			if (prev != origin) {
 				/* Pass some of the flow marked for local consumption at "prev" on
 				 * to this node. */
-				prev_node.flows.PassOnFlow(origin, via, flow);
+				prev_node.Flows().PassOnFlow(origin, via, flow);
 			} else {
 				/* Prev node is origin. Simply add flow. */
-				prev_node.flows.AddFlow(origin, via, flow);
+				prev_node.Flows().AddFlow(origin, via, flow);
 			}
 		}
 	}
 
 	for (NodeID node_id = 0; node_id < job.Size(); ++node_id) {
 		/* Remove local consumption shares marked as invalid. */
-		Node &node = job[node_id];
-		FlowStatMap &flows = node.flows;
-		flows.FinalizeLocalConsumption(node.base.station);
+		Node node = job[node_id];
+		FlowStatMap &flows = node.Flows();
+		flows.FinalizeLocalConsumption(node.Station());
 		if (this->scale) {
 			/* Scale by time the graph has been running without being compressed. Add 1 to avoid
 			 * division by 0 if spawn date == last compression date. This matches
 			 * LinkGraph::Monthly(). */
-			auto runtime = job.JoinDate() - job.Settings().recalc_time / CalendarTime::SECONDS_PER_DAY - job.LastCompression() + 1;
+			uint runtime = (uint)Clamp<ScaledTickCounter>(job.StartTick() - job.LastCompression() + 1, 1, UINT32_MAX);
 			for (auto &it : flows) {
-				it.second.ScaleToMonthly(runtime.base());
+				it.ScaleToMonthly(runtime, job.DayLengthFactor());
 			}
 		}
 		/* Clear paths. */
-		for (Path *i : node.paths) delete i;
-		node.paths.clear();
+		node.Paths().clear();
 	}
+	job.path_allocator.ResetArena();
 }

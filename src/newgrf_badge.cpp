@@ -15,8 +15,11 @@
 #include "stringfilter_type.h"
 #include "strings_func.h"
 #include "timer/timer_game_calendar.h"
+#include "3rdparty/cpp-btree/btree_set.h"
 
 #include "table/strings.h"
+
+#include <numeric>
 
 #include "safeguards.h"
 
@@ -143,7 +146,7 @@ Badge *GetClassBadge(BadgeClassID class_index)
 /** Resolver for a badge scope. */
 struct BadgeScopeResolver : public ScopeResolver {
 	const Badge &badge;
-	const std::optional<TimerGameCalendar::Date> introduction_date;
+	const std::optional<CalTime::Date> introduction_date;
 
 	/**
 	 * Scope resolver of a badge.
@@ -151,23 +154,23 @@ struct BadgeScopeResolver : public ScopeResolver {
 	 * @param badge Badge to resolve.
 	 * @param introduction_date Introduction date of entity.
 	 */
-	BadgeScopeResolver(ResolverObject &ro, const Badge &badge, const std::optional<TimerGameCalendar::Date> introduction_date)
+	BadgeScopeResolver(ResolverObject &ro, const Badge &badge, const std::optional<CalTime::Date> introduction_date)
 		: ScopeResolver(ro), badge(badge), introduction_date(introduction_date) { }
 
-	uint32_t GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const override;
+	uint32_t GetVariable(uint16_t variable, [[maybe_unused]] uint32_t parameter, GetVariableExtra &extra) const override;
 };
 
-/* virtual */ uint32_t BadgeScopeResolver::GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const
+/* virtual */ uint32_t BadgeScopeResolver::GetVariable(uint16_t variable, [[maybe_unused]] uint32_t parameter, GetVariableExtra &extra) const
 {
 	switch (variable) {
 		case 0x40:
 			if (this->introduction_date.has_value()) return this->introduction_date->base();
-			return TimerGameCalendar::date.base();
+			return CalTime::CurDate().base();
 
 		default: break;
 	}
 
-	available = false;
+	extra.available = false;
 	return UINT_MAX;
 }
 
@@ -175,9 +178,9 @@ struct BadgeScopeResolver : public ScopeResolver {
 struct BadgeResolverObject : public ResolverObject {
 	BadgeScopeResolver self_scope;
 
-	BadgeResolverObject(const Badge &badge, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, CallbackID callback = CBID_NO_CALLBACK, uint32_t callback_param1 = 0, uint32_t callback_param2 = 0);
+	BadgeResolverObject(const Badge &badge, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, CallbackID callback = CBID_NO_CALLBACK, uint32_t callback_param1 = 0, uint32_t callback_param2 = 0);
 
-	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, uint8_t relative = 0) override
+	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, VarSpriteGroupScopeOffset relative = 0) override
 	{
 		switch (scope) {
 			case VSG_SCOPE_SELF: return &this->self_scope;
@@ -191,7 +194,7 @@ struct BadgeResolverObject : public ResolverObject {
 
 GrfSpecFeature BadgeResolverObject::GetFeature() const
 {
-	return GSF_BADGES;
+	return GrfSpecFeature::Badges;
 }
 
 uint32_t BadgeResolverObject::GetDebugID() const
@@ -208,11 +211,11 @@ uint32_t BadgeResolverObject::GetDebugID() const
  * @param callback_param1 First parameter (var 10) of the callback.
  * @param callback_param2 Second parameter (var 18) of the callback.
  */
-BadgeResolverObject::BadgeResolverObject(const Badge &badge, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, CallbackID callback, uint32_t callback_param1, uint32_t callback_param2)
+BadgeResolverObject::BadgeResolverObject(const Badge &badge, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, CallbackID callback, uint32_t callback_param1, uint32_t callback_param2)
 		: ResolverObject(badge.grf_prop.grffile, callback, callback_param1, callback_param2), self_scope(*this, badge, introduction_date)
 {
-	assert(feature <= GSF_END);
-	this->root_spritegroup = this->self_scope.badge.grf_prop.GetFirstSpriteGroupOf({feature, GSF_DEFAULT});
+	assert(feature <= GrfSpecFeature::End);
+	this->root_spritegroup = this->self_scope.badge.grf_prop.GetFirstSpriteGroupOf({feature, GrfSpecFeature::Default});
 }
 
 /**
@@ -232,6 +235,8 @@ uint32_t GetBadgeVariableResult(const GRFFile &grffile, std::span<const BadgeID>
 
 /**
  * Mark a badge a seen (used) by a feature.
+ * @param index The badge's identifier.
+ * @param feature The feature the badge is used for.
  */
 void MarkBadgeSeen(BadgeID index, GrfSpecFeature feature)
 {
@@ -282,10 +287,10 @@ void ApplyBadgeFeaturesToClassBadges()
  * @param remap Palette remap to use if the flag is company-coloured.
  * @returns Custom sprite to draw, or \c 0 if not available.
  */
-PalSpriteID GetBadgeSprite(const Badge &badge, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, PaletteID remap)
+PalSpriteID GetBadgeSprite(const Badge &badge, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, PaletteID remap)
 {
 	BadgeResolverObject object(badge, feature, introduction_date);
-	const auto *group = object.Resolve<ResultSpriteGroup>();
+	const ResultSpriteGroup *group = object.Resolve<ResultSpriteGroup>();
 	if (group == nullptr || group->num_sprites == 0) return {0, PAL_NONE};
 
 	PaletteID pal = badge.flags.Test(BadgeFlag::UseCompanyColour) ? remap : PAL_NONE;

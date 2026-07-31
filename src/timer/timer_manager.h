@@ -5,11 +5,15 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file timer_manager.h Definition of the TimerManager */
-/** @note don't include this file; include "timer.h". */
+/**
+ * @file timer_manager.h Definition of the TimerManager.
+ * @note Don't include this file directly, include "timer.h" instead.
+ */
 
 #ifndef TIMER_MANAGER_H
 #define TIMER_MANAGER_H
+
+#include "../3rdparty/cpp-btree/btree_set.h"
 
 template <typename TTimerType>
 class BaseTimer;
@@ -90,9 +94,8 @@ public:
 	 *   Call the Elapsed() method of all active timers.
 	 *
 	 * @param value The amount of time that has elapsed.
-	 * @return True iff time has progressed.
 	 */
-	static bool Elapsed(TElapsed value);
+	static void Elapsed(TElapsed value);
 
 private:
 	/**
@@ -109,11 +112,27 @@ private:
 		}
 	};
 
-	/** Singleton list, to store all the active timers. */
-	static std::set<BaseTimer<TTimerType> *, base_timer_sorter> &GetTimers()
+	/**
+	 * Singleton list, to store all the active timers.
+	 * @return The set of timers.
+	 */
+	static btree::btree_set<BaseTimer<TTimerType> *, base_timer_sorter> &GetTimers()
 	{
-		static std::set<BaseTimer<TTimerType> *, base_timer_sorter> timers;
+		static btree::btree_set<BaseTimer<TTimerType> *, base_timer_sorter> timers;
 		return timers;
+	}
+
+	/** List of active timers, as a std::vector, to allow for timers to be added/removed during iteration. */
+	static std::vector<BaseTimer<TTimerType> *> GetTimerVector()
+	{
+		std::vector<BaseTimer<TTimerType> *> result;
+
+		const auto &timers = TimerManager::GetTimers();
+		result.reserve(timers.size());
+		for (BaseTimer<TTimerType> * timer : timers) {
+			result.push_back(timer);
+		}
+		return result;
 	}
 };
 

@@ -5,26 +5,22 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file cocoa_v.mm Code related to the cocoa video driver(s). */
+/**
+ * @file cocoa_v.mm Code related to the cocoa video driver(s).
+ *
+ * @important Notice regarding all modifications!!!!!!!
+ * There are certain limitations because the file is objective C++.
+ * gdb has limitations.
+ * C++ and objective C code can't be joined in all cases (classes stuff).
+ * Read http://developer.apple.com/releasenotes/Cocoa/Objective-C++.html for more information.
+ */
 
-/******************************************************************************
- *                             Cocoa video driver                             *
- * Known things left to do:                                                   *
- *  Nothing at the moment.                                                    *
- ******************************************************************************/
-
-#ifdef WITH_COCOA
+#if defined(WITH_COCOA) || defined(DOXYGEN_API)
 
 #include "../../stdafx.h"
 #include "../../os/macosx/macos.h"
 
-#define Rect  OTTDRect
-#define Point OTTDPoint
-#import <Cocoa/Cocoa.h>
-#import <QuartzCore/QuartzCore.h>
-#undef Rect
-#undef Point
-
+#include "../../os/macosx/macos_objective_c.h"
 #include "../../openttd.h"
 #include "../../debug.h"
 #include "../../error_func.h"
@@ -44,28 +40,9 @@
 
 #import <sys/param.h> /* for MAXPATHLEN */
 #import <sys/time.h> /* gettimeofday */
-
-/* The 10.12 SDK added new names for some enum constants and
- * deprecated the old ones. As there's no functional change in any
- * way, just use a define for older SDKs to the old names. */
-#ifndef HAVE_OSX_1012_SDK
-#	define NSEventModifierFlagCommand NSCommandKeyMask
-#	define NSEventModifierFlagControl NSControlKeyMask
-#	define NSEventModifierFlagOption NSAlternateKeyMask
-#	define NSEventModifierFlagShift NSShiftKeyMask
-#	define NSEventModifierFlagCapsLock NSAlphaShiftKeyMask
-#endif
-
-/**
- * Important notice regarding all modifications!!!!!!!
- * There are certain limitations because the file is objective C++.
- * gdb has limitations.
- * C++ and objective C code can't be joined in all cases (classes stuff).
- * Read http://developer.apple.com/releasenotes/Cocoa/Objective-C++.html for more information.
- */
+#include <array>
 
 bool _cocoa_video_started = false;
-static Palette _local_palette; ///< Current palette to use for drawing.
 
 extern bool _tab_is_down;
 
@@ -121,26 +98,27 @@ void VideoDriver_Cocoa::Stop()
 	_cocoa_video_started = false;
 }
 
-/** Common driver initialization. */
-std::optional<std::string_view> VideoDriver_Cocoa::Initialize()
+/**
+ * Common driver initialization.
+ * @return Error message if one has occurred, nullptr otherwise.
+ */
+const char *VideoDriver_Cocoa::Initialize()
 {
-	if (!MacOSVersionIsAtLeast(10, 7, 0)) return "The Cocoa video driver requires Mac OS X 10.7 or later.";
-
 	if (_cocoa_video_started) return "Already started";
 	_cocoa_video_started = true;
 
 	/* Don't create a window or enter fullscreen if we're just going to show a dialog. */
-	if (!CocoaSetupApplication()) return std::nullopt;
+	if (!CocoaSetupApplication()) return nullptr;
 
 	this->UpdateAutoResolution();
 	this->orig_res = _cur_resolution;
 
-	return std::nullopt;
+	return nullptr;
 }
 
 /**
  * Set dirty a rectangle managed by a cocoa video subdriver.
- * @param left Left x cooordinate of the dirty rectangle.
+ * @param left Left x coordinate of the dirty rectangle.
  * @param top Upper y coordinate of the dirty rectangle.
  * @param width Width of the dirty rectangle.
  * @param height Height of the dirty rectangle.
@@ -210,7 +188,7 @@ bool VideoDriver_Cocoa::ToggleFullscreen(bool full_screen)
 		[ NSMenu setMenuBarVisible:!full_screen ];
 
 		this->UpdateVideoModes();
-		InvalidateWindowClassesData(WC_GAME_OPTIONS, 3);
+		this->InvalidateGameOptionsWindow();
 		return true;
 	}
 
@@ -252,23 +230,22 @@ void VideoDriver_Cocoa::EditBoxLostFocus()
 
 /**
  * Get refresh rates of all connected monitors.
+ * @return Refresh rates of all connected monitors.
  */
 std::vector<int> VideoDriver_Cocoa::GetListOfMonitorRefreshRates()
 {
 	std::vector<int> rates{};
 
-	if (MacOSVersionIsAtLeast(10, 6, 0)) {
-		std::array<CGDirectDisplayID, 16> displays;
+	std::array<CGDirectDisplayID, 16> displays;
 
-		uint32_t count = 0;
-		CGGetActiveDisplayList(displays.size(), displays.data(), &count);
+	uint32_t count = 0;
+	CGGetActiveDisplayList(displays.size(), displays.data(), &count);
 
-		for (uint32_t i = 0; i < count; i++) {
-			CGDisplayModeRef mode = CGDisplayCopyDisplayMode(displays[i]);
-			int rate = (int)CGDisplayModeGetRefreshRate(mode);
-			if (rate > 0) rates.push_back(rate);
-			CGDisplayModeRelease(mode);
-		}
+	for (uint32_t i = 0; i < count; i++) {
+		CGDisplayModeRef mode = CGDisplayCopyDisplayMode(displays[i]);
+		int rate = static_cast<int>(CGDisplayModeGetRefreshRate(mode));
+		if (rate > 0) rates.push_back(rate);
+		CGDisplayModeRelease(mode);
 	}
 
 	return rates;
@@ -276,6 +253,7 @@ std::vector<int> VideoDriver_Cocoa::GetListOfMonitorRefreshRates()
 
 /**
  * Get the resolution of the main screen.
+ * @return The resolution of the main screen.
  */
 Dimension VideoDriver_Cocoa::GetScreenSize() const
 {
@@ -283,7 +261,10 @@ Dimension VideoDriver_Cocoa::GetScreenSize() const
 	return { static_cast<uint>(NSWidth(frame)), static_cast<uint>(NSHeight(frame)) };
 }
 
-/** Lock video buffer for drawing if it isn't already mapped. */
+/**
+ * Lock video buffer for drawing if it isn't already mapped.
+ * @return True on success and false otherwise.
+ */
 bool VideoDriver_Cocoa::LockVideoBuffer()
 {
 	if (this->buffer_locked) return false;
@@ -362,6 +343,7 @@ void VideoDriver_Cocoa::UpdateVideoModes()
  * Build window and view with a given size.
  * @param width Window width.
  * @param height Window height.
+ * @return True on success and false otherwise.
  */
 bool VideoDriver_Cocoa::MakeWindow(int width, int height)
 {
@@ -375,11 +357,7 @@ bool VideoDriver_Cocoa::MakeWindow(int width, int height)
 	NSRect contentRect = NSMakeRect(0, 0, width, height);
 
 	/* Create main window. */
-#ifdef HAVE_OSX_1012_SDK
 	unsigned int style = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
-#else
-	unsigned int style = NSTitledWindowMask | NSResizableWindowMask | NSMiniaturizableWindowMask | NSClosableWindowMask;
-#endif
 	this->window = [ [ OTTD_CocoaWindow alloc ] initWithContentRect:contentRect styleMask:style backing:NSBackingStoreBuffered defer:NO driver:this ];
 	if (this->window == nil) {
 		Debug(driver, 0, "Could not create the Cocoa window.");
@@ -449,11 +427,7 @@ bool VideoDriver_Cocoa::MakeWindow(int width, int height)
  */
 bool VideoDriver_Cocoa::PollEvent()
 {
-#ifdef HAVE_OSX_1012_SDK
 	NSEventMask mask = NSEventMaskAny;
-#else
-	NSEventMask mask = NSAnyEventMask;
-#endif
 	NSEvent *event = [ NSApp nextEventMatchingMask:mask untilDate:[ NSDate distantPast ] inMode:NSDefaultRunLoopMode dequeue:YES ];
 
 	if (event == nil) return false;
@@ -468,13 +442,15 @@ void VideoDriver_Cocoa::InputLoop()
 	NSUInteger cur_mods = [ NSEvent modifierFlags ];
 
 	bool old_ctrl_pressed = _ctrl_pressed;
+	bool old_shift_pressed = _shift_pressed;
 
-	_ctrl_pressed = (cur_mods & ( _settings_client.gui.right_mouse_btn_emulation != RMBE_CONTROL ? NSEventModifierFlagControl : NSEventModifierFlagCommand)) != 0;
-	_shift_pressed = (cur_mods & NSEventModifierFlagShift) != 0;
+	_ctrl_pressed = ((cur_mods & ( _settings_client.gui.right_mouse_btn_emulation != RMBE_CONTROL ? NSEventModifierFlagControl : NSEventModifierFlagCommand)) != 0) != _invert_ctrl;
+	_shift_pressed = ((cur_mods & NSEventModifierFlagShift) != 0) != _invert_shift;
 
 	this->fast_forward_key_pressed = _tab_is_down;
 
 	if (old_ctrl_pressed != _ctrl_pressed) HandleCtrlChanged();
+	if (old_shift_pressed != _shift_pressed) HandleShiftChanged();
 }
 
 /** Main game loop. */
@@ -499,15 +475,21 @@ void VideoDriver_Cocoa::MainLoopReal()
 }
 
 
-/* Subclass of OTTD_CocoaView to fix Quartz rendering */
+/** Subclass of OTTD_CocoaView to fix Quartz rendering */
 @interface OTTD_QuartzView : NSView {
-	VideoDriver_CocoaQuartz *driver;
+	VideoDriver_CocoaQuartz *driver; ///< The driver to fix rendering for.
 }
 - (instancetype)initWithFrame:(NSRect)frameRect andDriver:(VideoDriver_CocoaQuartz *)drv;
 @end
 
 @implementation OTTD_QuartzView
 
+/**
+ * Construct new instance.
+ * @param frameRect Size of frame.
+ * @param drv Driver to fix rendering for.
+ * @return The newly created instance.
+ */
 - (instancetype)initWithFrame:(NSRect)frameRect andDriver:(VideoDriver_CocoaQuartz *)drv
 {
 	if (self = [ super initWithFrame:frameRect ]) {
@@ -523,21 +505,34 @@ void VideoDriver_Cocoa::MainLoopReal()
 	return self;
 }
 
+/**
+ * Specifies whether the view accepts first responder.
+ * @return Always no.
+ */
 - (BOOL)acceptsFirstResponder
 {
 	return NO;
 }
 
+/**
+ * Specifies whether the view is opaque.
+ * @return Always yes.
+ */
 - (BOOL)isOpaque
 {
 	return YES;
 }
 
+/**
+ * Specifies whether the view wants updates for layer.
+ * @return Always yes.
+ */
 - (BOOL)wantsUpdateLayer
 {
 	return YES;
 }
 
+/** Updates the layer based on driver data. */
 - (void)updateLayer
 {
 	if (driver->cgcontext == nullptr) return;
@@ -548,6 +543,7 @@ void VideoDriver_Cocoa::MainLoopReal()
 	CGImageRelease(fullImage);
 }
 
+/** Updates members with new values after changes in driver. */
 - (void)viewDidChangeBackingProperties
 {
 	[ super viewDidChangeBackingProperties ];
@@ -557,10 +553,15 @@ void VideoDriver_Cocoa::MainLoopReal()
 
 @end
 
-
+/** Register the cocoa video driver. */
 static FVideoDriver_CocoaQuartz iFVideoDriver_CocoaQuartz;
 
-/** Clear buffer to opaque black. */
+/**
+ * Clear buffer to opaque black.
+ * @param buffer Pointer to the buffer.
+ * @param pitch Width of the buffer.
+ * @param height Height of the buffer.
+ */
 static void ClearWindowBuffer(uint32_t *buffer, uint32_t pitch, uint32_t height)
 {
 	uint32_t fill = Colour(0, 0, 0).data;
@@ -583,10 +584,10 @@ VideoDriver_CocoaQuartz::VideoDriver_CocoaQuartz()
 	this->cgcontext     = nullptr;
 }
 
-std::optional<std::string_view> VideoDriver_CocoaQuartz::Start(const StringList &param)
+const char *VideoDriver_CocoaQuartz::Start(const StringList &param)
 {
-	auto err = this->Initialize();
-	if (err) return err;
+	const char *err = this->Initialize();
+	if (err != nullptr) return err;
 
 	int bpp = BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
 	if (bpp != 8 && bpp != 32) {
@@ -609,7 +610,7 @@ std::optional<std::string_view> VideoDriver_CocoaQuartz::Start(const StringList 
 
 	this->is_game_threaded = !GetDriverParamBool(param, "no_threads") && !GetDriverParamBool(param, "no_thread");
 
-	return std::nullopt;
+	return nullptr;
 
 }
 
@@ -628,8 +629,7 @@ NSView *VideoDriver_CocoaQuartz::AllocateDrawView()
 	return [ [ OTTD_QuartzView alloc ] initWithFrame:[ this->cocoaview bounds ] andDriver:this ];
 }
 
-/** Resize the window. */
-void VideoDriver_CocoaQuartz::AllocateBackingStore(bool)
+void VideoDriver_CocoaQuartz::AllocateBackingStore([[maybe_unused]] bool force)
 {
 	if (this->window == nil || this->cocoaview == nil || this->setup) return;
 
@@ -654,7 +654,7 @@ void VideoDriver_CocoaQuartz::AllocateBackingStore(bool)
 		this->window_height,       // height
 		8,                         // bits per component
 		this->window_pitch * 4,    // bytes per row
-		this->colour_space, // colour space
+		this->colour_space,        // colour space
 		kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host
 	);
 
@@ -703,16 +703,20 @@ void VideoDriver_CocoaQuartz::BlitIndexedToView32(int left, int top, int right, 
 	}
 }
 
-/** Update the palette */
+/**
+ * Update the palette
+ * @param first_colour Index of first colour to update.
+ * @param num_colours How many colours to update, should be greater than 0.
+ */
 void VideoDriver_CocoaQuartz::UpdatePalette(uint first_colour, uint num_colours)
 {
 	if (this->buffer_depth != 8) return;
 
 	for (uint i = first_colour; i < first_colour + num_colours; i++) {
 		uint32_t clr = 0xff000000;
-		clr |= (uint32_t)_local_palette.palette[i].r << 16;
-		clr |= (uint32_t)_local_palette.palette[i].g << 8;
-		clr |= (uint32_t)_local_palette.palette[i].b;
+		clr |= (uint32_t)_cur_palette.palette[i].r << 16;
+		clr |= (uint32_t)_cur_palette.palette[i].g << 8;
+		clr |= (uint32_t)_cur_palette.palette[i].b;
 		this->palette[i] = clr;
 	}
 
@@ -721,24 +725,25 @@ void VideoDriver_CocoaQuartz::UpdatePalette(uint first_colour, uint num_colours)
 
 void VideoDriver_CocoaQuartz::CheckPaletteAnim()
 {
-	if (!CopyPalette(_local_palette)) return;
+	if (_cur_palette.count_dirty != 0) {
+		Blitter *blitter = BlitterFactory::GetCurrentBlitter();
 
-	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+		switch (blitter->UsePaletteAnimation()) {
+			case Blitter::PaletteAnimation::VideoBackend:
+				this->UpdatePalette(_cur_palette.first_dirty, _cur_palette.count_dirty);
+				break;
 
-	switch (blitter->UsePaletteAnimation()) {
-		case Blitter::PaletteAnimation::VideoBackend:
-			this->UpdatePalette(_local_palette.first_dirty, _local_palette.count_dirty);
-			break;
+			case Blitter::PaletteAnimation::Blitter:
+				blitter->PaletteAnimate(_cur_palette);
+				break;
 
-		case Blitter::PaletteAnimation::Blitter:
-			blitter->PaletteAnimate(_local_palette);
-			break;
+			case Blitter::PaletteAnimation::None:
+				break;
 
-		case Blitter::PaletteAnimation::None:
-			break;
-
-		default:
-			NOT_REACHED();
+			default:
+				NOT_REACHED();
+		}
+		_cur_palette.count_dirty = 0;
 	}
 }
 
@@ -775,4 +780,4 @@ void VideoDriver_CocoaQuartz::Paint()
 	this->dirty_rect = {};
 }
 
-#endif /* WITH_COCOA */
+#endif /* WITH_COCOA or DOXYGEN_API */

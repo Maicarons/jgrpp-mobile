@@ -15,7 +15,7 @@
 /** Allegro's music player. */
 class MusicDriver_Allegro : public MusicDriver {
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -26,13 +26,13 @@ public:
 	bool IsSongPlaying() override;
 
 	void SetVolume(uint8_t vol) override;
-	std::string_view GetName() const override { return "allegro"; }
+	const char *GetName() const override { return "allegro"; }
 };
 
 /** Factory for allegro's music player. */
 class FMusicDriver_Allegro : public DriverFactoryBase {
 public:
-#if !defined(WITH_SDL) && defined(WITH_ALLEGRO)
+#if !defined(WITH_SDL2) && defined(WITH_ALLEGRO)
 	/* If SDL is not compiled in but Allegro is, chances are quite big
 	 * that Allegro is going to be used. Then favour this sound driver
 	 * over extmidi because with extmidi we get crashes. */
@@ -40,7 +40,7 @@ public:
 #else
 	static const int PRIORITY = 2;
 #endif
-	FMusicDriver_Allegro() : DriverFactoryBase(Driver::DT_MUSIC, PRIORITY, "allegro", "Allegro MIDI Driver") {}
+	FMusicDriver_Allegro() : DriverFactoryBase(Driver::Type::Music, PRIORITY, "allegro", "Allegro MIDI Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<MusicDriver_Allegro>(); }
 };
 

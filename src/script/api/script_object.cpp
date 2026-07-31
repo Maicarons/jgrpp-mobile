@@ -9,17 +9,20 @@
 
 #include "../../stdafx.h"
 #include "../../script/squirrel.hpp"
+#include "../../command_func.h"
 #include "../../company_func.h"
 #include "../../company_base.h"
 #include "../../network/network.h"
 #include "../../genworld.h"
 #include "../../string_func.h"
 #include "../../strings_func.h"
-#include "../../command_func.h"
+#include "../../scope_info.h"
+#include "../../map_func.h"
 
 #include "../script_storage.hpp"
 #include "../script_instance.hpp"
 #include "../script_fatalerror.hpp"
+#include "script_controller.hpp"
 #include "script_error.hpp"
 #include "../../debug.h"
 #include "../squirrel_helper.hpp"
@@ -118,26 +121,29 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 	return GetStorage().async_mode_instance;
 }
 
-/* static */ void ScriptObject::SetLastCommand(const CommandDataBuffer &data, Commands cmd)
+/* static */ void ScriptObject::SetLastCommand(Commands cmd, TileIndex tile, CallbackParameter cb_param)
 {
 	ScriptStorage &s = GetStorage();
-	Debug(script, 6, "SetLastCommand company={:02d} cmd={} data={}", s.root_company, cmd, FormatArrayAsHex(data));
-	s.last_data = data;
+	Debug(script, 6, "SetLastCommand company={} cmd={:X} tile={:X}, cb_param={:X}", s.root_company, cmd, tile, cb_param);
 	s.last_cmd = cmd;
+	s.last_tile = tile;
+	s.last_cb_param = cb_param;
 }
 
-/* static */ bool ScriptObject::CheckLastCommand(const CommandDataBuffer &data, Commands cmd)
+/* static */ bool ScriptObject::CheckLastCommand(Commands cmd, TileIndex tile, CallbackParameter cb_param)
 {
 	ScriptStorage &s = GetStorage();
-	Debug(script, 6, "CheckLastCommand company={:02d} cmd={} data={}", s.root_company, cmd, FormatArrayAsHex(data));
+	Debug(script, 6, "CheckLastCommand company={} cmd={:X} tile={:X}, cb_param={:X}", s.root_company, cmd, tile, cb_param);
 	if (s.last_cmd != cmd) return false;
-	if (s.last_data != data) return false;
+	if (s.last_tile != tile) return false;
+	if (s.last_cb_param != cb_param) return false;
+
 	return true;
 }
 
 /* static */ void ScriptObject::SetDoCommandCosts(Money value)
 {
-	GetStorage().costs = CommandCost(INVALID_EXPENSES, value); // Expense type is never read.
+	GetStorage().costs = CommandCost(ExpensesType::Invalid, value); // Expense type is never read.
 }
 
 /* static */ void ScriptObject::IncreaseDoCommandCosts(Money value)
@@ -170,6 +176,21 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 	return GetStorage().last_cost;
 }
 
+/* static */ void ScriptObject::SetLastCommandResultData(CommandResultData last_result)
+{
+	GetStorage().last_result = last_result;
+}
+
+/* static */ void ScriptObject::ClearLastCommandResultData()
+{
+	GetStorage().last_result = {};
+}
+
+/* static */ CommandResultData ScriptObject::GetLastCommandResultDataRaw()
+{
+	return GetStorage().last_result;
+}
+
 /* static */ void ScriptObject::SetRoadType(RoadType road_type)
 {
 	GetStorage().road_type = road_type;
@@ -198,16 +219,6 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 /* static */ bool ScriptObject::GetLastCommandRes()
 {
 	return GetStorage().last_command_res;
-}
-
-/* static */ void ScriptObject::SetLastCommandResData(CommandDataBuffer data)
-{
-	GetStorage().last_cmd_ret = std::move(data);
-}
-
-/* static */ const CommandDataBuffer &ScriptObject::GetLastCommandResData()
-{
-	return GetStorage().last_cmd_ret;
 }
 
 /* static */ void ScriptObject::SetCompany(::CompanyID company)
@@ -255,37 +266,51 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 	return GetStorage().callback_value[index];
 }
 
-/* static */ CommandCallbackData *ScriptObject::GetDoCommandCallback()
-{
-	return ScriptObject::GetActiveInstance().GetDoCommandCallback();
-}
-
-/* static */ std::tuple<bool, bool, bool, bool> ScriptObject::DoCommandPrep()
+/* static */ bool ScriptObject::DoCommandImplementation(Commands cmd, TileIndex tile, CommandPayloadBase &&payload, Script_SuspendCallbackProc *callback, DoCommandIntlFlag intl_flags)
 {
 	if (!ScriptObject::CanSuspend()) {
 		throw Script_FatalError("You are not allowed to execute any DoCommand (even indirect) in your constructor, Save(), Load(), and any valuator.");
 	}
 
+	if (!ScriptCompanyMode::IsDeity() && !ScriptCompanyMode::IsValid()) {
+		ScriptObject::SetLastError(ScriptError::ERR_PRECONDITION_INVALID_COMPANY);
+		return false;
+	}
+
+	if (!GetCommandFlags(cmd).Test(CommandFlag::StrCtrl)) {
+		/* The string must be valid, i.e. not contain special codes. Since some
+		 * can be made with GSText, make sure the control codes are removed. */
+		payload.SanitiseStrings({});
+	}
+
+	/* Set the default callback to return a true/false result of the DoCommand */
+	if (callback == nullptr) callback = &ScriptInstance::DoCommandReturn;
+
 	/* Are we only interested in the estimate costs? */
 	bool estimate_only = GetDoCommandMode() != nullptr && !GetDoCommandMode()();
 
 	/* Should the command be executed asynchronously? */
-	bool asynchronous = GetDoCommandAsyncMode() != nullptr && GetDoCommandAsyncMode()();
+	bool asynchronous = GetDoCommandAsyncMode() != nullptr && GetDoCommandAsyncMode()() && GetActiveInstance().GetScriptType() == ScriptType::GS;
 
-	bool networking = _networking && !_generating_world;
+#if !defined(DISABLE_SCOPE_INFO)
+	FunctorScopeStackRecord scope_print([=, &payload](format_target &output) {
+		output.format("ScriptObject::DoCommand: tile: {}, intl_flags: 0x{:X}, company: {}, cmd: 0x{:X} {}, estimate_only: {}, payload: ",
+				tile, intl_flags, CompanyInfoDumper(_current_company), cmd, GetCommandName(cmd), estimate_only);
+		payload.fmt_format_value(output);
+	});
+#endif
 
-	if (!ScriptCompanyMode::IsDeity() && !ScriptCompanyMode::IsValid()) {
-		ScriptObject::SetLastError(ScriptError::ERR_PRECONDITION_INVALID_COMPANY);
-		return { true, estimate_only, asynchronous, networking };
-	}
+	/* Rolling identifier for script callback identification */
+	static CallbackParameter _last_cb_param = 0;
+	CallbackParameter cb_param = ++_last_cb_param;
 
-	return { false, estimate_only, asynchronous, networking };
-}
+	/* Store the command for command callback validation. */
+	if (!estimate_only && _networking && !_generating_world) SetLastCommand(cmd, tile, cb_param);
 
-/* static */ bool ScriptObject::DoCommandProcessResult(const CommandCost &res, Script_SuspendCallbackProc *callback, bool estimate_only, bool asynchronous)
-{
-	/* Set the default callback to return a true/false result of the DoCommand */
-	if (callback == nullptr) callback = &ScriptInstance::DoCommandReturn;
+	/* Try to perform the command. */
+	const bool use_cb = (_networking && !_generating_world && !asynchronous);
+	CommandCost res = ::DoCommandPScript(cmd, tile, payload, use_cb ? ScriptObject::GetActiveInstance().GetDoCommandCallback() : CommandCallback::None, use_cb ? cb_param : 0,
+			intl_flags, estimate_only, asynchronous);
 
 	/* We failed; set the error and bail out */
 	if (res.Failed()) {
@@ -304,6 +329,11 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 
 	/* Costs of this operation. */
 	SetLastCost(res.GetCost());
+	if (res.HasAnyResultData()) {
+		SetLastCommandResultData(res.GetResultDataWithType());
+	} else {
+		ClearLastCommandResultData();
+	}
 	SetLastCommandRes(true);
 
 	if (_generating_world || asynchronous) {
@@ -316,6 +346,7 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 		if (callback != nullptr) {
 			/* Insert return value into to stack and throw a control code that
 			 * the return value in the stack should be used. */
+			if (!_generating_world) ScriptController::DecreaseOps(100);
 			callback(GetActiveInstance());
 			throw SQInteger(1);
 		}
@@ -323,6 +354,12 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 	} else if (_networking) {
 		/* Suspend the script till the command is really executed. */
 		throw Script_Suspend(-(int)GetDoCommandDelay(), callback);
+	} else if (GetActiveInstance().GetScriptType() == ScriptType::GS && _pause_mode.Test(PauseMode::GameScript)) {
+		/* Game is paused due to GS, just execute as fast as possible */
+		IncreaseDoCommandCosts(res.GetCost());
+		ScriptController::DecreaseOps(100);
+		callback(GetActiveInstance());
+		throw SQInteger(1);
 	} else {
 		IncreaseDoCommandCosts(res.GetCost());
 
@@ -350,6 +387,16 @@ ScriptObject::DisableDoCommandScope::DisableDoCommandScope()
 	for (Owner owner = OWNER_BEGIN; owner < OWNER_END; ++owner) {
 		ScriptObject::GetRandomizer(owner).SetSeed(random.Next());
 	}
+}
+
+/* static */ bool ScriptObject::IsNewUniqueLogMessage(const std::string &msg)
+{
+	return !GetStorage().seen_unique_log_messages.contains(msg);
+}
+
+/* static */ void ScriptObject::RegisterUniqueLogMessage(std::string &&msg)
+{
+	GetStorage().seen_unique_log_messages.emplace(std::move(msg));
 }
 
 /* static */ SQInteger ScriptObject::Constructor(HSQUIRRELVM)

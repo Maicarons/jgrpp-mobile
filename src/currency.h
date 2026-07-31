@@ -10,13 +10,14 @@
 #ifndef CURRENCY_H
 #define CURRENCY_H
 
-#include "timer/timer_game_calendar.h"
+#include "date_type.h"
 #include "settings_type.h"
 #include "strings_type.h"
+#include <array>
 
-static constexpr TimerGameCalendar::Year CF_NOEURO{0}; ///< Currency never switches to the Euro (as far as known).
-static constexpr TimerGameCalendar::Year CF_ISEURO{1}; ///< Currency _is_ the Euro.
-static constexpr TimerGameCalendar::Year MIN_EURO_YEAR{2000}; ///< The earliest year custom currencies may switch to the Euro.
+static constexpr CalTime::Year CF_NOEURO{0}; ///< Currency never switches to the Euro (as far as known).
+static constexpr CalTime::Year CF_ISEURO{1}; ///< Currency _is_ the Euro.
+static constexpr CalTime::Year MIN_EURO_YEAR{2000}; ///< The earliest year custom currencies may switch to the Euro.
 
 /**
  * This enum gives the currencies a unique id which must be maintained for
@@ -75,12 +76,12 @@ enum Currencies : uint8_t {
 
 /** Specification of a currency. */
 struct CurrencySpec {
-	uint16_t rate;           ///< The conversion rate compared to the base currency.
+	uint16_t rate;         ///< The conversion rate compared to the base currency.
 	std::string separator; ///< The thousands separator for this currency.
-	TimerGameCalendar::Year to_euro; ///< Year of switching to the Euro. May also be #CF_NOEURO or #CF_ISEURO.
+	CalTime::Year to_euro; ///< %Year of switching to the Euro. May also be #CF_NOEURO or #CF_ISEURO.
 	std::string prefix;    ///< Prefix to apply when formatting money in this currency.
 	std::string suffix;    ///< Suffix to apply when formatting money in this currency.
-	std::string code; ///< 3 letter untranslated code to identify the currency.
+	std::string code;      ///< 3 letter untranslated code to identify the currency.
 	/**
 	 * The currency symbol is represented by two possible values, prefix and suffix
 	 * Usage of one or the other is determined by #symbol_pos.
@@ -95,7 +96,7 @@ struct CurrencySpec {
 
 	CurrencySpec() = default;
 
-	CurrencySpec(uint16_t rate, std::string_view separator, TimerGameCalendar::Year to_euro, std::string_view prefix, std::string_view suffix, std::string_view code, uint8_t symbol_pos, StringID name) :
+	CurrencySpec(uint16_t rate, std::string_view separator, CalTime::Year to_euro, std::string_view prefix, std::string_view suffix, std::string_view code, uint8_t symbol_pos, StringID name) :
 		rate(rate), separator(separator), to_euro(to_euro), prefix(prefix), suffix(suffix), code(code), symbol_pos(symbol_pos), name(name)
 	{
 	}
@@ -122,6 +123,7 @@ inline const CurrencySpec &GetCurrency()
 }
 
 uint64_t GetMaskOfAllowedCurrencies();
+void CheckSwitchToEuro();
 void ResetCurrencies(bool preserve_custom = true);
 uint8_t GetNewgrfCurrencyIdConverted(uint8_t grfcurr_id);
 

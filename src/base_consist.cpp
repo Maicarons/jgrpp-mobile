@@ -33,6 +33,7 @@ void BaseConsist::CopyConsistPropertiesFrom(const BaseConsist *src)
 
 	this->cur_real_order_index = src->cur_real_order_index;
 	this->cur_implicit_order_index = src->cur_implicit_order_index;
+	this->cur_timetable_order_index = src->cur_timetable_order_index;
 
 	if (src->vehicle_flags.Test(VehicleFlag::TimetableStarted)) this->vehicle_flags.Set(VehicleFlag::TimetableStarted);
 	if (src->vehicle_flags.Test(VehicleFlag::AutofillTimetable)) this->vehicle_flags.Set(VehicleFlag::AutofillTimetable);
@@ -41,14 +42,24 @@ void BaseConsist::CopyConsistPropertiesFrom(const BaseConsist *src)
 		this->vehicle_flags.Flip(VehicleFlag::ServiceIntervalIsPercent);
 	}
 	if (src->vehicle_flags.Test(VehicleFlag::ServiceIntervalIsCustom)) this->vehicle_flags.Set(VehicleFlag::ServiceIntervalIsCustom);
-}
 
-/**
- * Resets all the data used for depot unbunching.
- */
-void BaseConsist::ResetDepotUnbunching()
-{
-	this->depot_unbunching_last_departure = 0;
-	this->depot_unbunching_next_departure = 0;
-	this->round_trip_time = 0;
+	if (src->vehicle_flags.Test(VehicleFlag::AutomateTimetable)) {
+		this->vehicle_flags.Set(VehicleFlag::AutomateTimetable);
+		this->vehicle_flags.Reset(VehicleFlag::AutofillTimetable);
+		this->vehicle_flags.Reset(VehicleFlag::AutofillPreserveWaitTime);
+	} else {
+		this->vehicle_flags.Reset(VehicleFlag::AutomateTimetable);
+	}
+	if (src->vehicle_flags.Test(VehicleFlag::TimetableSeparation)) {
+		this->vehicle_flags.Set(VehicleFlag::TimetableSeparation);
+	} else {
+		this->vehicle_flags.Reset(VehicleFlag::TimetableSeparation);
+	}
+	if (src->vehicle_flags.Test(VehicleFlag::ScheduledDispatch)) {
+		this->vehicle_flags.Set(VehicleFlag::ScheduledDispatch);
+	} else {
+		this->vehicle_flags.Reset(VehicleFlag::ScheduledDispatch);
+	}
+
+	this->dispatch_records = src->dispatch_records;
 }

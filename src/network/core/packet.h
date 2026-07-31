@@ -5,9 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file packet.h Basic functions to create, fill and read packets.
- */
+/** @file packet.h Basic functions to create, fill and read packets. */
 
 #ifndef NETWORK_CORE_PACKET_H
 #define NETWORK_CORE_PACKET_H
@@ -15,11 +13,30 @@
 #include "os_abstraction.h"
 #include "config.h"
 #include "core.h"
-#include "../../core/convertible_through_base.hpp"
 #include "../../string_type.h"
+#include "../../core/serialisation.hpp"
+#include <string>
+#include <functional>
+#include <limits>
+#include <vector>
 
 typedef uint16_t PacketSize; ///< Size of the whole packet.
 typedef uint8_t  PacketType; ///< Identifier for the packet
+
+/**
+ * Trait to mark an enumeration as a PacketType.
+ *
+ * All packets in the context of OpenTTD's protocols have the same basic structure.
+ * A single byte identifier of the packet and then two bytes for the length. That
+ * identifier is unique for each stream of packets, which are separate enumerations.
+ * This trait allows us to only allow one of these PacketType enumerations when
+ * creating the packet, but not any other enumeration. It is up to the developer to
+ * ensure that the right enumeration is used for a socket handler.
+ */
+template <typename enum_type>
+struct IsEnumPacketType {
+	static constexpr bool value = false; ///< True iff a PacketType.
+};
 
 /**
  * Internal entity of a packet. As everything is sent as a packet,
@@ -40,12 +57,17 @@ typedef uint8_t  PacketType; ///< Identifier for the packet
  *  - years that are leap years in the 'days since X' to 'date' calculations:
  *     (year % 4 == 0) and ((year % 100 != 0) or (year % 400 == 0))
  */
-struct Packet {
-	static constexpr size_t EncodedLengthOfPacketSize() { return sizeof(PacketSize); }
-	static constexpr size_t EncodedLengthOfPacketType() { return sizeof(PacketType); }
+struct Packet : public BufferSerialisationHelper<Packet>, public BufferDeserialisationHelper<Packet> {
+	static constexpr size_t ENCODED_LENGTH_OF_PACKET_SIZE = sizeof(PacketSize); ///< The length of the packet size in the byte stream once it's encoded.
+	static constexpr size_t ENCODED_LENGTH_OF_PACKET_TYPE = sizeof(PacketType); ///< The length of the packet type in the byte stream once it's encoded.
+
 private:
 	/** The current read/write position in the packet */
 	PacketSize pos;
+	/** Whether encryption is required for this packet */
+	bool encyption_pending = false;
+	/** Packet type, for transmitted packets */
+	PacketType tx_packet_type;
 	/** The buffer of this packet. */
 	std::vector<uint8_t> buffer;
 	/** The limit for the packet size. */
@@ -54,42 +76,73 @@ private:
 	/** Socket we're associated with. */
 	NetworkSocketHandler *cs;
 
+	void PreSendEncryption();
+
 public:
-	Packet(NetworkSocketHandler *cs, size_t limit, size_t initial_read_size = EncodedLengthOfPacketSize());
+	struct ReadTag{};
+	Packet(ReadTag tag, NetworkSocketHandler *cs, size_t limit, size_t initial_read_size = Packet::ENCODED_LENGTH_OF_PACKET_SIZE);
 	Packet(NetworkSocketHandler *cs, PacketType type, size_t limit = COMPAT_MTU);
 
-	/* Sending/writing of packets */
-	void PrepareToSend();
+	/**
+	 * Creates a packet to send
+	 * @param cs    The socket handler associated with the socket we are writing to; could be \c nullptr.
+	 * @param type  The type of the packet to send.
+	 * @param limit The maximum number of bytes the packet may have. Default is COMPAT_MTU.
+	 *              Be careful of compatibility with older clients/servers when changing
+	 *              the limit as it might break things if the other side is not expecting
+	 *              much larger packets than what they support.
+	 */
+	template <typename E, typename = std::enable_if_t<IsEnumPacketType<E>::value>>
+	Packet(NetworkSocketHandler *cs, E type, size_t limit = COMPAT_MTU) : Packet(cs, to_underlying(type), limit) {}
 
-	bool   CanWriteToPacket(size_t bytes_to_write);
-	void   Send_bool  (bool   data);
-	void   Send_uint8 (uint8_t  data);
-	void   Send_uint8 (const ConvertibleThroughBase auto &data) { this->Send_uint8(data.base()); }
-	void   Send_uint16(uint16_t data);
-	void   Send_uint32(uint32_t data);
-	void   Send_uint64(uint64_t data);
-	void   Send_string(std::string_view data);
-	void   Send_buffer(const std::vector<uint8_t> &data);
-	std::span<const uint8_t> Send_bytes(const std::span<const uint8_t> span);
+	void ResetState(PacketType type);
+
+	template <typename E, typename = std::enable_if_t<IsEnumPacketType<E>::value>>
+	void ResetState(E type) { this->ResetState(to_underlying(type)); }
+
+	void PrepareForSendQueue();
+
+	inline void CheckPendingPreSendEncryption()
+	{
+		if (this->encyption_pending) {
+			this->PreSendEncryption();
+		}
+	}
+
+	/* Sending/writing of packets */
+	inline void PrepareToSend()
+	{
+		this->PrepareForSendQueue();
+		this->CheckPendingPreSendEncryption();
+	}
+
+	std::vector<uint8_t> &GetSerialisationBuffer() { return this->buffer; }
+	size_t GetSerialisationLimit() const { return this->limit; }
+
+	const uint8_t *GetDeserialisationBuffer() const { return this->buffer.data(); }
+	size_t GetDeserialisationBufferSize() const { return this->buffer.size(); }
+	PacketSize &GetDeserialisationPosition() { return this->pos; }
+	void RaiseDeserialisationError();
+	bool CanDeserialiseBytes(size_t bytes_to_read, bool raise_error) { return this->CanReadFromPacket(bytes_to_read, raise_error); }
+
+	bool CanWriteToPacket(size_t bytes_to_write);
 
 	/* Reading/receiving of packets */
+	size_t ReadRawPacketSize() const;
 	bool HasPacketSizeData() const;
 	bool ParsePacketSize();
 	size_t Size() const;
 	[[nodiscard]] bool PrepareToRead();
 	PacketType GetPacketType() const;
+	PacketType GetTransmitPacketType() const { return this->tx_packet_type; }
 
-	bool   CanReadFromPacket(size_t bytes_to_read, bool close_connection = false);
-	bool   Recv_bool  ();
-	uint8_t  Recv_uint8 ();
-	uint16_t Recv_uint16();
-	uint32_t Recv_uint32();
-	uint64_t Recv_uint64();
-	std::vector<uint8_t> Recv_buffer();
-	size_t Recv_bytes(std::span<uint8_t> span);
-	std::string Recv_string(size_t length, StringValidationSettings settings = StringValidationSetting::ReplaceWithQuestionMark);
+	bool CanReadFromPacket(size_t bytes_to_read, bool close_connection = false);
 
 	size_t RemainingBytesToTransfer() const;
+
+	const uint8_t *GetBufferData() const { return this->buffer.data(); }
+	PacketSize GetRawPos() const { return this->pos; }
+	void ReserveBuffer(size_t size) { this->buffer.reserve(size); }
 
 	/**
 	 * Transfer data from the packet to the given function. It starts reading at the
@@ -166,6 +219,39 @@ public:
 		if (bytes > 0) this->pos += bytes;
 		return bytes;
 	}
+
+	/**
+	 * Send as many of the bytes as possible in the packet. This can mean
+	 * that it is possible that not all bytes are sent. To cope with this
+	 * the function returns the span of bytes that were not sent.
+	 * @param span The span describing the range of bytes to send.
+	 * @return The span of bytes that were not written.
+	 */
+	std::span<const uint8_t> Send_bytes(const std::span<const uint8_t> span)
+	{
+		size_t amount = this->Send_binary_until_full(span.data(), span.data() + span.size());
+		return span.subspan(amount);
+	}
+
+	size_t Recv_bytes(std::span<uint8_t> span);
+
+	NetworkSocketHandler *GetParentSocket() { return this->cs; }
+};
+
+struct SubPacketDeserialiser : public BufferDeserialisationHelper<SubPacketDeserialiser> {
+	NetworkSocketHandler *cs;
+	const uint8_t *data;
+	size_t size;
+	PacketSize pos;
+
+	SubPacketDeserialiser(Packet &p, const uint8_t *data, size_t size, PacketSize pos = 0) : cs(p.GetParentSocket()), data(data), size(size), pos(pos) {}
+	SubPacketDeserialiser(Packet &p, const std::vector<uint8_t> &buffer, PacketSize pos = 0) : cs(p.GetParentSocket()), data(buffer.data()), size(buffer.size()), pos(pos) {}
+
+	const uint8_t *GetDeserialisationBuffer() const { return this->data; }
+	size_t GetDeserialisationBufferSize() const { return this->size; }
+	PacketSize &GetDeserialisationPosition() { return this->pos; }
+	void RaiseDeserialisationError();
+	bool CanDeserialiseBytes(size_t bytes_to_read, bool raise_error);
 };
 
 #endif /* NETWORK_CORE_PACKET_H */

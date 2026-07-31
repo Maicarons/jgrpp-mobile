@@ -10,11 +10,12 @@
 #ifndef NEWGRF_BADGE_GUI_H
 #define NEWGRF_BADGE_GUI_H
 
+#include "date_type.h"
 #include "dropdown_type.h"
 #include "newgrf.h"
 #include "newgrf_badge.h"
 #include "newgrf_badge_type.h"
-#include "timer/timer_game_calendar.h"
+#include <array>
 
 class GUIBadgeClasses : public UsedBadgeClasses {
 public:
@@ -48,14 +49,19 @@ private:
 };
 
 int DrawBadgeNameList(Rect r, std::span<const BadgeID> badges, GrfSpecFeature feature);
-void DrawBadgeColumn(Rect r, int column_group, const GUIBadgeClasses &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, PaletteID remap);
+void DrawBadgeColumn(Rect r, int column_group, const GUIBadgeClasses &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, PaletteID remap);
 
-std::unique_ptr<DropDownListItem> MakeDropDownListBadgeItem(const std::shared_ptr<GUIBadgeClasses> &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, std::string &&str, int value, bool masked = false, bool shaded = false);
-std::unique_ptr<DropDownListItem> MakeDropDownListBadgeItem(const std::shared_ptr<GUIBadgeClasses> &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, Money cost, std::string &&str, int value, bool masked = false, bool shaded = false);
-std::unique_ptr<DropDownListItem> MakeDropDownListBadgeIconItem(const std::shared_ptr<GUIBadgeClasses> &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, Money cost, const Dimension &dim, SpriteID sprite, PaletteID palette, std::string &&str, int value, bool masked = false, bool shaded = false);
+std::unique_ptr<DropDownListItem> MakeDropDownListBadgeItem(const std::shared_ptr<GUIBadgeClasses> &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, bool show_cost, Money cost, std::string &&str, int value, bool masked = false, bool shaded = false);
+std::unique_ptr<DropDownListItem> MakeDropDownListBadgeIconItem(const std::shared_ptr<GUIBadgeClasses> &gui_classes, std::span<const BadgeID> badges, GrfSpecFeature feature, std::optional<CalTime::Date> introduction_date, bool show_cost, Money cost, const Dimension &dim, SpriteID sprite, PaletteID palette, std::string &&str, int value, bool masked = false, bool shaded = false);
 
 DropDownList BuildBadgeClassConfigurationList(const class GUIBadgeClasses &badge_class, uint columns, std::span<const StringID> column_separators, Colours bg_colour);
-bool HandleBadgeConfigurationDropDownClick(GrfSpecFeature feature, uint columns, int result, int click_result, BadgeFilterChoices &choices);
+bool HandleBadgeConfigurationDropDownClick(GrfSpecFeature feature, uint columns, int result, int click_result, std::span<BadgeFilterChoices *> choices);
+
+inline bool HandleBadgeConfigurationDropDownClick(GrfSpecFeature feature, uint columns, int result, int click_result, BadgeFilterChoices &choices)
+{
+	std::array<BadgeFilterChoices *, 1> filter_choices{ &choices };
+	return HandleBadgeConfigurationDropDownClick(feature, columns, result, click_result, filter_choices);
+}
 
 std::pair<WidgetID, WidgetID> AddBadgeDropdownFilters(Window *window, WidgetID container_id, WidgetID widget, Colours colour, GrfSpecFeature feature);
 

@@ -11,12 +11,12 @@
 #define YAPF_TYPE_HPP
 
 #include "../../core/enum_type.hpp"
-#include "../../misc/dbg_helpers.h"
 
-/* Enum used in PfCalcCost() to see why was the segment closed. */
+/** Enum used in PfCalcCost() to see why was the segment closed. */
 enum class EndSegmentReason : uint8_t {
 	/* The following reasons can be saved into cached segment */
 	DeadEnd, ///< track ends here
+	DeadEndEol, ///< track ends here bit refers to the next tile, the last tile of the segment itself is usable
 	RailType, ///< the next tile has a different rail type than our tiles
 	InfiniteLoop, ///< infinite loop detected
 	SegmentTooLong, ///< the segment is too long (possible infinite loop)
@@ -32,10 +32,11 @@ enum class EndSegmentReason : uint8_t {
 	FirstTwoWayRed, ///< first signal was 2-way and it was red
 	LookAheadEnd, ///< we have just passed the last look-ahead signal
 	TargetReached, ///< we have just reached the destination
+	Reverse, ///< we should reverse after this point
 };
 using EndSegmentReasons = EnumBitSet<EndSegmentReason, uint16_t>;
 
-/* What reasons mean that the target can be found and needs to be detected. */
+/** What reasons mean that the target can be found and needs to be detected. */
 static constexpr EndSegmentReasons ESRF_POSSIBLE_TARGET = {
 	EndSegmentReason::Depot,
 	EndSegmentReason::Waypoint,
@@ -43,9 +44,10 @@ static constexpr EndSegmentReasons ESRF_POSSIBLE_TARGET = {
 	EndSegmentReason::SafeTile,
 };
 
-/* What reasons can be stored back into cached segment. */
+/** What reasons can be stored back into cached segment. */
 static constexpr EndSegmentReasons ESRF_CACHED_MASK = {
 	EndSegmentReason::DeadEnd,
+	EndSegmentReason::DeadEndEol,
 	EndSegmentReason::RailType,
 	EndSegmentReason::InfiniteLoop,
 	EndSegmentReason::SegmentTooLong,
@@ -54,9 +56,10 @@ static constexpr EndSegmentReasons ESRF_CACHED_MASK = {
 	EndSegmentReason::Waypoint,
 	EndSegmentReason::Station,
 	EndSegmentReason::SafeTile,
+	EndSegmentReason::Reverse,
 };
 
-/* Reasons to abort pathfinding in this direction. */
+/** Reasons to abort pathfinding in this direction. */
 static constexpr EndSegmentReasons ESRF_ABORT_PF_MASK = {
 	EndSegmentReason::DeadEnd,
 	EndSegmentReason::PathTooLong,
@@ -64,15 +67,9 @@ static constexpr EndSegmentReasons ESRF_ABORT_PF_MASK = {
 	EndSegmentReason::FirstTwoWayRed,
 };
 
-inline std::string ValueStr(EndSegmentReasons flags)
-{
-	static const std::initializer_list<const std::string_view> end_segment_reason_names = {
-		"DEAD_END", "RAIL_TYPE", "INFINITE_LOOP", "SEGMENT_TOO_LONG", "CHOICE_FOLLOWS",
-		"DEPOT", "WAYPOINT", "STATION", "SAFE_TILE",
-		"PATH_TOO_LONG", "FIRST_TWO_WAY_RED", "LOOK_AHEAD_END", "TARGET_REACHED"
-	};
+/* Reasons to abort pathfinding in this direction, when reversing is pending. */
+static constexpr EndSegmentReasons ESRF_ABORT_PF_MASK_PENDING_REVERSE = EndSegmentReasons(ESRF_ABORT_PF_MASK).Reset(EndSegmentReason::DeadEnd);
 
-	return fmt::format("0x{:04X} ({})", flags.base(), ComposeName(flags, end_segment_reason_names, "UNK"));
-}
+std::string ValueStr(EndSegmentReasons flags);
 
 #endif /* YAPF_TYPE_HPP */

@@ -12,6 +12,9 @@
 #define SCRIPT_LIST_HPP
 
 #include "script_object.hpp"
+#include "script_controller.hpp"
+#include "../../3rdparty/cpp-btree/safe_btree_set.h"
+#include "../../3rdparty/cpp-btree/safe_btree_map.h"
 
 /** Maximum number of operations allowed for valuating a list. */
 static const int MAX_VALUATE_OPS = 1000000;
@@ -25,7 +28,7 @@ class ScriptListSorter;
 class ScriptList : public ScriptObject {
 public:
 	/** Type of sorter */
-	enum SorterType {
+	enum SorterType : uint8_t {
 		SORT_BY_VALUE, ///< Sort the list based on the value of the item.
 		SORT_BY_ITEM,  ///< Sort the list based on the item itself.
 	};
@@ -35,45 +38,94 @@ public:
 	/** Sort descending */
 	static const bool SORT_DESCENDING = false;
 
+	/**
+	 * The safe btree variants ars used because these automatically manage refreshing iterators
+	 * which have been invalidated by adding/removing items.
+	 */
+	typedef btree::safe_btree_map<SQInteger, SQInteger> ScriptListMap;                 ///< Key to value map
+	typedef btree::safe_btree_set<std::pair<SQInteger, SQInteger>> ScriptListValueSet; ///< [Value, Key] set
+
 private:
 	std::unique_ptr<ScriptListSorter> sorter; ///< Sorting algorithm
 	SorterType sorter_type;       ///< Sorting type
 	bool sort_ascending;          ///< Whether to sort ascending or descending
 	bool initialized;             ///< Whether an iteration has been started
+	bool values_inited;           ///< Whether the 'values' field has been initialised
 	int modifications;            ///< Number of modification that has been done. To prevent changing data while valuating.
+	std::optional<SQInteger> resume_item; ///< Item to use on valuation start.
+
+	void InitValues();
+	void InitSorter();
+	void SetIterValue(ScriptListMap::iterator item_iter, SQInteger value);
+	ScriptListMap::iterator RemoveIter(ScriptListMap::iterator item_iter);
+	ScriptListValueSet::iterator RemoveValueIter(ScriptListValueSet::iterator value_iter);
+
+	template <typename T>
+	struct FillListHelper {
+		using IterType = T;
+
+		auto Iterate()
+		{
+			return T::Iterate();
+		}
+
+		int OpcodeCharge([[maybe_unused]] int item_count)
+		{
+			return (int)(T::GetNumItems() / 2);
+		}
+	};
 
 protected:
 	/* Temporary helper functions to get the raw index from either strongly and non-strongly typed pool items. */
 	template <typename T>
 	static auto GetRawIndex(const T &index) { return index; }
-	template <ConvertibleThroughBase T>
+	template <typename T> requires std::is_base_of_v<struct PoolIDBase, T>
 	static auto GetRawIndex(const T &index) { return index.base(); }
 
-	template <typename T, class ItemValid, class ItemFilter>
-	static void FillList(ScriptList *list, ItemValid item_valid, ItemFilter item_filter)
+	template <typename T, typename... Targs>
+	static void FillList(Targs... args)
 	{
-		for (const T *item : T::Iterate()) {
+		FillListT<FillListHelper<T>>(FillListHelper<T>{}, args...);
+	}
+
+	template <typename Thelper, class ItemValid, class ItemFilter>
+	static void FillListT(Thelper helper, ScriptList *list, ItemValid item_valid, ItemFilter item_filter)
+	{
+		using IterType = typename Thelper::IterType;
+
+		int opcode_charge = 0;
+		int item_count = 0;
+		for (const IterType *item : helper.Iterate()) {
+			item_count++;
 			if (!item_valid(item)) continue;
 			if (!item_filter(item)) continue;
 			list->AddItem(GetRawIndex(item->index));
+			opcode_charge += 3;
 		}
+		ScriptController::DecreaseOps(opcode_charge + helper.OpcodeCharge(item_count));
 	}
 
-	template <typename T, class ItemValid>
-	static void FillList(ScriptList *list, ItemValid item_valid)
+	template <typename Thelper, class ItemValid>
+	static void FillListT(Thelper helper, ScriptList *list, ItemValid item_valid)
 	{
-		ScriptList::FillList<T>(list, item_valid, [](const T *) { return true; });
+		using IterType = typename Thelper::IterType;
+
+		ScriptList::FillListT<Thelper>(helper, list, item_valid, [](const IterType *) { return true; });
 	}
 
-	template <typename T>
-	static void FillList(ScriptList *list)
+	template <typename Thelper>
+	static void FillListT(Thelper helper, ScriptList *list)
 	{
-		ScriptList::FillList<T>(list, [](const T *) { return true; });
+		using IterType = typename Thelper::IterType;
+
+		ScriptList::FillListT<Thelper>(list, [](const IterType *) { return true; });
 	}
 
-	template <typename T, class ItemValid>
-	static void FillList(HSQUIRRELVM vm, ScriptList *list, ItemValid item_valid)
+	template <typename Thelper, class ItemValid>
+	static void FillListT(Thelper helper, HSQUIRRELVM vm, ScriptList *list, ItemValid item_valid)
 	{
+		using IterType = typename Thelper::IterType;
+
 		int nparam = sq_gettop(vm) - 1;
 		if (nparam >= 1) {
 			/* Make sure the filter function is really a function, and not any
@@ -93,13 +145,13 @@ protected:
 		ScriptObject::DisableDoCommandScope disabler{};
 
 		if (nparam < 1) {
-			ScriptList::FillList<T>(list, item_valid);
+			ScriptList::FillListT<Thelper>(helper, list, item_valid);
 		} else {
 			/* Limit the total number of ops that can be consumed by a filter operation, if a filter function is present */
 			SQOpsLimiter limiter(vm, MAX_VALUATE_OPS, "list filter function");
 
-			ScriptList::FillList<T>(list, item_valid,
-				[vm, nparam](const T *item) {
+			ScriptList::FillListT<Thelper>(helper, list, item_valid,
+				[vm, nparam](const IterType *item) {
 					/* Push the root table as instance object, this is what squirrel does for meta-functions. */
 					sq_pushroottable(vm);
 					/* Push all arguments for the valuator function. */
@@ -137,15 +189,22 @@ protected:
 		}
 	}
 
-	template <typename T>
-	static void FillList(HSQUIRRELVM vm, ScriptList *list)
+	template <typename Thelper>
+	static void FillListT(Thelper helper, HSQUIRRELVM vm, ScriptList *list)
 	{
-		ScriptList::FillList<T>(vm, list, [](const T *) { return true; });
+		using IterType = typename Thelper::IterType;
+
+		ScriptList::FillListT<Thelper>(helper, vm, list, [](const IterType *) { return true; });
 	}
 
-	virtual bool SaveObject(HSQUIRRELVM vm) override;
-	virtual bool LoadObject(HSQUIRRELVM vm) override;
-	virtual ScriptObject *CloneObject() override;
+	inline size_t GetSize() const
+	{
+		return this->items.size();
+	}
+
+	bool SaveObject(HSQUIRRELVM vm) const override;
+	bool LoadObject(HSQUIRRELVM vm) override;
+	ScriptObject *CloneObject() const override;
 
 	/**
 	 * Copy the content of a list.
@@ -153,15 +212,19 @@ protected:
 	 */
 	void CopyList(const ScriptList *list);
 
-public:
-	using ScriptListSet = std::set<std::pair<SQInteger, SQInteger>>; ///< List per value
-	using ScriptListMap = std::map<SQInteger, SQInteger>; ///< List per item
+	template <class ValueFilter>
+	void RemoveItems(ValueFilter value_filter);
 
-	ScriptListMap items;           ///< The items in the list
-	ScriptListSet values; ///< The items in the list, sorted by value
+private:
+	template <bool KEEP_BOTTOM>
+	bool KeepTopBottomFastPath(SQInteger count);
+
+public:
+	ScriptListMap items;       ///< The items in the list
+	ScriptListValueSet values; ///< The items in the list, sorted by value
 
 	ScriptList();
-	~ScriptList();
+	~ScriptList() override;
 
 #ifdef DOXYGEN_API
 	/**
@@ -173,6 +236,16 @@ public:
 #else
 	void AddItem(SQInteger item, SQInteger value = 0);
 #endif /* DOXYGEN_API */
+
+	/**
+	 * @api -all
+	 */
+	void AddOrSetItem(SQInteger item, SQInteger value);
+
+	/**
+	 * @api -all
+	 */
+	void AddToItemValue(SQInteger item, SQInteger value_to_add);
 
 	/**
 	 * Remove a single item from the list.
@@ -190,7 +263,7 @@ public:
 	 * @param item the item to check for.
 	 * @return true if the item is in the list.
 	 */
-	bool HasItem(SQInteger item);
+	bool HasItem(SQInteger item) const;
 
 	/**
 	 * Go to the beginning of the list and return the item. To get the value use list.GetValue(list.Begin()).
@@ -210,27 +283,27 @@ public:
 	 * Check if a list is empty.
 	 * @return true if the list is empty.
 	 */
-	bool IsEmpty();
+	bool IsEmpty() const;
 
 	/**
 	 * Check if there is a element left. In other words, if this is false,
 	 * the last call to Begin() or Next() returned a valid item.
 	 * @return true if the current item is beyond end-of-list.
 	 */
-	bool IsEnd();
+	bool IsEnd() const;
 
 	/**
 	 * Returns the amount of items in the list.
 	 * @return amount of items in the list.
 	 */
-	SQInteger Count();
+	SQInteger Count() const;
 
 	/**
 	 * Get the value that belongs to this item.
 	 * @param item the item to get the value from
 	 * @return the value that belongs to this item.
 	 */
-	SQInteger GetValue(SQInteger item);
+	SQInteger GetValue(SQInteger item) const;
 
 	/**
 	 * Set a value of an item directly.
@@ -258,8 +331,13 @@ public:
 	 * @note All added items keep their value as it was in 'list'.
 	 * @note If the item already exists inside the caller, the value of the
 	 *  list that is added is set on the item.
+	 * @suspendable
 	 */
+#ifdef DOXYGEN_API
 	void AddList(ScriptList *list);
+#else
+	bool AddList(ScriptList *list);
+#endif /* DOXYGEN_API */
 
 	/**
 	 * Swap the contents of two lists.
@@ -359,7 +437,7 @@ public:
 	/**
 	 * Used for 'foreach()' and [] get from Squirrel.
 	 */
-	SQInteger _get(HSQUIRRELVM vm);
+	SQInteger _get(HSQUIRRELVM vm) const;
 
 	/**
 	 * Used for [] set from Squirrel.
@@ -373,6 +451,7 @@ public:
 
 	/**
 	 * The Valuate() wrapper from Squirrel.
+	 * @suspendable
 	 */
 	SQInteger Valuate(HSQUIRRELVM vm);
 #else

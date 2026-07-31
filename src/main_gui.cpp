@@ -24,20 +24,19 @@
 #include "strings_func.h"
 #include "zoom_func.h"
 #include "company_base.h"
+#include "company_cmd.h"
 #include "company_func.h"
 #include "toolbar_gui.h"
 #include "statusbar_gui.h"
 #include "linkgraph/linkgraph_gui.h"
 #include "tilehighlight_func.h"
 #include "hotkeys.h"
+#include "guitimer_func.h"
 #include "error.h"
 #include "news_gui.h"
-#include "gui.h"
 #include "misc_cmd.h"
-#include "timer/timer.h"
-#include "timer/timer_window.h"
 
-#include "saveload/saveload.h"
+#include "sl/saveload.h"
 
 #include "widgets/main_widget.h"
 
@@ -50,6 +49,26 @@
 #include "table/strings.h"
 
 #include "safeguards.h"
+
+void CcGiveMoney(const CommandCost &result, Money money, CompanyID dest_company)
+{
+	if (result.Failed() || !_settings_game.economy.give_money || !_networking) return;
+
+	/* Inform the company of the action of one of its clients (controllers). */
+	std::string msg = GetString(STR_COMPANY_NAME, dest_company);
+
+	/*
+	 * bits 31-16: source company
+	 * bits 15-0: target company
+	 */
+	uint64_t auxdata = (uint64_t)dest_company.base() | (((uint64_t) _local_company.base()) << 16);
+
+	if (!_network_server) {
+		NetworkClientSendChat(NetworkAction::GiveMoney, NetworkChatDestinationType::BroadcastSelfSend, dest_company.base(), msg, NetworkTextMessageData(result.GetCost(), auxdata));
+	} else {
+		NetworkServerSendChat(NetworkAction::GiveMoney, NetworkChatDestinationType::BroadcastSelfSend, dest_company.base(), msg, CLIENT_ID_SERVER, NetworkTextMessageData(result.GetCost(), auxdata));
+	}
+}
 
 /**
  * This code is shared for the majority of the pushbuttons.
@@ -79,7 +98,7 @@ bool HandlePlacePushButton(Window *w, WidgetID widget, CursorID cursor, HighLigh
 }
 
 
-void CcPlaySound_EXPLOSION(Commands, const CommandCost &result, TileIndex tile)
+void CcPlaySound_EXPLOSION(const CommandCost &result, TileIndex tile)
 {
 	if (result.Succeeded() && _settings_client.sound.confirm) SndPlayTileFx(SND_12_EXPLOSION, tile);
 }
@@ -93,50 +112,51 @@ void CcPlaySound_EXPLOSION(Commands, const CommandCost &result, TileIndex tile)
  */
 bool DoZoomInOutWindow(ZoomStateChange how, Window *w)
 {
+	Viewport *vp;
+
 	assert(w != nullptr);
+	vp = w->viewport;
 
 	switch (how) {
 		case ZOOM_NONE:
 			/* On initialisation of the viewport we don't do anything. */
 			break;
 
-		case ZOOM_IN: {
-			ViewportData &vp = *w->viewport;
-			if (vp.zoom <= _settings_client.gui.zoom_min) return false;
-			--vp.zoom;
-			vp.virtual_width >>= 1;
-			vp.virtual_height >>= 1;
+		case ZOOM_IN:
+			if (vp->zoom <= _settings_client.gui.zoom_min) return false;
+			vp->zoom = (ZoomLevel)((int)vp->zoom - 1);
+			vp->virtual_width >>= 1;
+			vp->virtual_height >>= 1;
 
-			vp.scrollpos_x += vp.virtual_width >> 1;
-			vp.scrollpos_y += vp.virtual_height >> 1;
-			vp.dest_scrollpos_x = vp.scrollpos_x;
-			vp.dest_scrollpos_y = vp.scrollpos_y;
+			w->viewport->scrollpos_x += vp->virtual_width >> 1;
+			w->viewport->scrollpos_y += vp->virtual_height >> 1;
+			w->viewport->dest_scrollpos_x = w->viewport->scrollpos_x;
+			w->viewport->dest_scrollpos_y = w->viewport->scrollpos_y;
 			break;
-		}
+		case ZOOM_OUT:
+			if (vp->zoom >= _settings_client.gui.zoom_max) return false;
+			if (w->window_class != WindowClass::MainWindow && w->window_class != WindowClass::ExtraViewport && vp->zoom >= ZoomLevel::SpriteMax) return false;
+			vp->zoom = (ZoomLevel)((int)vp->zoom + 1);
 
-		case ZOOM_OUT: {
-			ViewportData &vp = *w->viewport;
-			if (vp.zoom >= _settings_client.gui.zoom_max) return false;
-			++vp.zoom;
+			w->viewport->scrollpos_x -= vp->virtual_width >> 1;
+			w->viewport->scrollpos_y -= vp->virtual_height >> 1;
+			w->viewport->dest_scrollpos_x = w->viewport->scrollpos_x;
+			w->viewport->dest_scrollpos_y = w->viewport->scrollpos_y;
 
-			vp.scrollpos_x -= vp.virtual_width >> 1;
-			vp.scrollpos_y -= vp.virtual_height >> 1;
-			vp.dest_scrollpos_x = vp.scrollpos_x;
-			vp.dest_scrollpos_y = vp.scrollpos_y;
-
-			vp.virtual_width <<= 1;
-			vp.virtual_height <<= 1;
+			vp->virtual_width <<= 1;
+			vp->virtual_height <<= 1;
 			break;
-		}
 	}
-
-	if (w->viewport != nullptr) { // the viewport can be null when how == ZOOM_NONE
-		w->viewport->virtual_left = w->viewport->scrollpos_x;
-		w->viewport->virtual_top = w->viewport->scrollpos_y;
+	if (vp != nullptr) { // the vp can be null when how == ZOOM_NONE
+		vp->virtual_left = w->viewport->scrollpos_x;
+		vp->virtual_top = w->viewport->scrollpos_y;
+		UpdateViewportSizeZoom(vp);
 	}
-
 	/* Update the windows that have zoom-buttons to perhaps disable their buttons */
 	w->InvalidateData();
+	if (how != ZOOM_NONE) {
+		RebuildViewportOverlay(w, false);
+	}
 	return true;
 }
 
@@ -144,8 +164,9 @@ void ZoomInOrOutToCursorWindow(bool in, Window *w)
 {
 	assert(w != nullptr);
 
-	if (_game_mode != GM_MENU) {
-		if ((in && w->viewport->zoom <= _settings_client.gui.zoom_min) || (!in && w->viewport->zoom >= _settings_client.gui.zoom_max)) return;
+	if (_game_mode != GameMode::Menu) {
+		Viewport *vp = w->viewport;
+		if ((in && vp->zoom <= _settings_client.gui.zoom_min) || (!in && vp->zoom >= _settings_client.gui.zoom_max)) return;
 
 		Point pt = GetTileZoomCenterWindow(in, w);
 		if (pt.x != -1) {
@@ -158,28 +179,29 @@ void ZoomInOrOutToCursorWindow(bool in, Window *w)
 
 void FixTitleGameZoom(int zoom_adjust)
 {
-	if (_game_mode != GM_MENU) return;
+	if (_game_mode != GameMode::Menu) return;
 
-	Viewport &vp = *GetMainWindow()->viewport;
+	Viewport *vp = GetMainWindow()->viewport;
 
 	/* Adjust the zoom in/out.
 	 * Can't simply add, since operator+ is not defined on the ZoomLevel type. */
-	vp.zoom = _gui_zoom;
-	while (zoom_adjust < 0 && vp.zoom != _settings_client.gui.zoom_min) {
-		vp.zoom--;
+	vp->zoom = _gui_zoom;
+	while (zoom_adjust < 0 && vp->zoom != _settings_client.gui.zoom_min) {
+		vp->zoom--;
 		zoom_adjust++;
 	}
-	while (zoom_adjust > 0 && vp.zoom != _settings_client.gui.zoom_max) {
-		vp.zoom++;
+	while (zoom_adjust > 0 && vp->zoom != _settings_client.gui.zoom_max) {
+		vp->zoom++;
 		zoom_adjust--;
 	}
 
-	vp.virtual_width = ScaleByZoom(vp.width, vp.zoom);
-	vp.virtual_height = ScaleByZoom(vp.height, vp.zoom);
+	vp->virtual_width = ScaleByZoom(vp->width, vp->zoom);
+	vp->virtual_height = ScaleByZoom(vp->height, vp->zoom);
+	UpdateViewportSizeZoom(vp);
 }
 
 static constexpr std::initializer_list<NWidgetPart> _nested_main_window_widgets = {
-	NWidget(NWID_VIEWPORT, INVALID_COLOUR, WID_M_VIEWPORT), SetResize(1, 1),
+	NWidget(NWID_VIEWPORT, Colours::Invalid, WID_M_VIEWPORT), SetResize(1, 1),
 };
 
 enum GlobalHotKeys : int32_t {
@@ -200,7 +222,7 @@ enum GlobalHotKeys : int32_t {
 	GHK_MONEY,
 	GHK_UPDATE_COORDS,
 	GHK_TOGGLE_TRANSPARENCY,
-	GHK_TOGGLE_INVISIBILITY = GHK_TOGGLE_TRANSPARENCY + 9,
+	GHK_TOGGLE_INVISIBILITY = GHK_TOGGLE_TRANSPARENCY + 10,
 	GHK_TRANSPARENCY_TOOLBAR = GHK_TOGGLE_INVISIBILITY + 8,
 	GHK_TRANSPARENCY,
 	GHK_CHAT,
@@ -209,10 +231,21 @@ enum GlobalHotKeys : int32_t {
 	GHK_CHAT_SERVER,
 	GHK_CLOSE_NEWS,
 	GHK_CLOSE_ERROR,
+	GHK_CHANGE_MAP_MODE_PREV,
+	GHK_CHANGE_MAP_MODE_NEXT,
+	GHK_SWITCH_VIEWPORT_ROUTE_OVERLAY_MODE,
+	GHK_SWITCH_VIEWPORT_MAP_SLOPE_MODE,
+	GHK_SWITCH_VIEWPORT_MAP_HEIGHT_MODE,
 };
 
 struct MainWindow : Window
 {
+	GUITimer refresh{};
+
+	/* Refresh times in milliseconds */
+	static const uint LINKGRAPH_REFRESH_PERIOD = 7650;
+	static const uint LINKGRAPH_DELAY = 450;
+
 	MainWindow(WindowDesc &desc) : Window(desc)
 	{
 		this->InitNested(0);
@@ -220,44 +253,35 @@ struct MainWindow : Window
 		ResizeWindow(this, _screen.width, _screen.height);
 
 		NWidgetViewport *nvp = this->GetWidget<NWidgetViewport>(WID_M_VIEWPORT);
-		nvp->InitializeViewport(this, TileXY(32, 32), ScaleZoomGUI(ZoomLevel::Viewport));
+		nvp->InitializeViewport(this, TileXY(32, 32).base(), ScaleZoomGUI(ZoomLevel::Viewport));
 
-		this->viewport->overlay = std::make_shared<LinkGraphOverlay>(this, WID_M_VIEWPORT, 0, CompanyMask{}, 2);
-		this->refresh_timeout.Reset();
+		this->viewport->map_type = (ViewportMapType) _settings_client.gui.default_viewport_map_mode;
+		this->viewport->overlay = new LinkGraphOverlay(this, WID_M_VIEWPORT, CargoTypes{}, CompanyMask{}, 2);
+		this->refresh.SetInterval(LINKGRAPH_DELAY);
 	}
 
-	/** Refresh the link-graph overlay. */
-	void RefreshLinkGraph()
+	void OnRealtimeTick(uint delta_ms) override
 	{
-		if (this->viewport->overlay->GetCargoMask() == 0 ||
+		if (!this->refresh.Elapsed(delta_ms)) return;
+
+		this->refresh.SetInterval(LINKGRAPH_REFRESH_PERIOD);
+
+		if (this->viewport->overlay->GetCargoMask().None() ||
 				this->viewport->overlay->GetCompanyMask().None()) {
 			return;
 		}
 
-		this->viewport->overlay->SetDirty();
-		this->GetWidget<NWidgetBase>(WID_M_VIEWPORT)->SetDirty(this);
+		if (this->viewport->overlay->RebuildCacheCheckChanged()) {
+			this->GetWidget<NWidgetBase>(WID_M_VIEWPORT)->SetDirty(this);
+		}
 	}
-
-	/** Refresh the link-graph overlay on a regular interval. */
-	const IntervalTimer<TimerWindow> refresh_interval = {std::chrono::milliseconds(7650), [this](auto) {
-		RefreshLinkGraph();
-	}};
-
-	/**
-	 * Sometimes when something happened, force an update to the link-graph a bit sooner.
-	 *
-	 * We don't do it instantly on those changes, as for example when you are scrolling,
-	 * constantly refreshing the link-graph would be very slow. So we delay it a bit,
-	 * and only draw it once the scrolling settles down.
-	 */
-	TimeoutTimer<TimerWindow> refresh_timeout = {std::chrono::milliseconds(450), [this]() {
-		RefreshLinkGraph();
-	}};
 
 	void OnPaint() override
 	{
 		this->DrawWidgets();
-		if (_game_mode == GM_MENU) {
+		if (_game_mode == GameMode::Menu) {
+			ViewportDoDrawProcessAllPending();
+
 			static const std::initializer_list<SpriteID> title_sprites = {SPR_OTTD_O, SPR_OTTD_P, SPR_OTTD_E, SPR_OTTD_N, SPR_OTTD_T, SPR_OTTD_T, SPR_OTTD_D};
 			uint letter_spacing = ScaleGUITrad(10);
 			int name_width = static_cast<int>(std::size(title_sprites) - 1) * letter_spacing;
@@ -272,8 +296,10 @@ struct MainWindow : Window
 				off_x += GetSpriteSize(sprite).width + letter_spacing;
 			}
 
-			int text_y = this->height - GetCharacterHeight(FS_NORMAL) * 2;
-			DrawString(0, this->width - 1, text_y, STR_INTRO_VERSION, TC_WHITE, SA_CENTER);
+			if (!_settings_client.gui.traditional_intro_menu) {
+				int text_y = this->height - GetCharacterHeight(FontSize::Normal) * 2;
+				DrawString(0, this->width - 1, text_y, STR_INTRO_VERSION, TextColour::White, SA_CENTER);
+			}
 		}
 	}
 
@@ -293,10 +319,10 @@ struct MainWindow : Window
 		switch (hotkey) {
 			case GHK_ABANDON:
 				/* No point returning from the main menu to itself */
-				if (_game_mode == GM_MENU) return ES_HANDLED;
+				if (_game_mode == GameMode::Menu) return ES_HANDLED;
 				if (_settings_client.gui.autosave_on_exit) {
 					DoExitSave();
-					_switch_mode = SM_MENU;
+					_switch_mode = SwitchMode::Menu;
 				} else {
 					AskExitToGameMenu();
 				}
@@ -319,7 +345,7 @@ struct MainWindow : Window
 				return ES_HANDLED;
 		}
 
-		if (_game_mode == GM_MENU) return ES_NOT_HANDLED;
+		if (_game_mode == GameMode::Menu) return ES_NOT_HANDLED;
 
 		switch (hotkey) {
 			case GHK_CENTER:
@@ -333,7 +359,7 @@ struct MainWindow : Window
 				break;
 			}
 
-			case GHK_RESET_OBJECT_TO_PLACE: ResetObjectToPlace(); ToolbarSelectLastTool(); break;
+			case GHK_RESET_OBJECT_TO_PLACE: ResetObjectToPlace(); break;
 			case GHK_DELETE_WINDOWS: CloseNonVitalWindows(); break;
 			case GHK_DELETE_NONVITAL_WINDOWS: CloseAllNonVitalWindows(); break;
 			case GHK_DELETE_ALL_MESSAGES: DeleteAllMessages(); break;
@@ -344,8 +370,12 @@ struct MainWindow : Window
 				break;
 
 			case GHK_MONEY: // Gimme money
-				/* You can only cheat for money in singleplayer mode. */
-				if (!_networking) Command<CMD_MONEY_CHEAT>::Post(10000000);
+				/* You can only cheat for money in single player or when otherwise suitably authorised. */
+				if (!_networking || _settings_game.difficulty.money_cheat_in_multiplayer) {
+					Command<Commands::MoneyCheat>::Post(10000000);
+				} else if (IsNetworkSettingsAdmin()) {
+					Command<Commands::MoneyCheatAdmin>::Post(10000000);
+				}
 				break;
 
 			case GHK_UPDATE_COORDS: // Update the coordinates of all station signs
@@ -361,6 +391,7 @@ struct MainWindow : Window
 			case GHK_TOGGLE_TRANSPARENCY + 6:
 			case GHK_TOGGLE_TRANSPARENCY + 7:
 			case GHK_TOGGLE_TRANSPARENCY + 8:
+			case GHK_TOGGLE_TRANSPARENCY + 9:
 				/* Transparency toggle hot keys */
 				ToggleTransparency((TransparencyOption)(hotkey - GHK_TOGGLE_TRANSPARENCY));
 				MarkWholeScreenDirty();
@@ -392,12 +423,12 @@ struct MainWindow : Window
 					const NetworkClientInfo *cio = NetworkClientInfo::GetByClientID(_network_own_client_id);
 					if (cio == nullptr) break;
 
-					ShowNetworkChatQueryWindow(NetworkClientPreferTeamChat(cio) ? DESTTYPE_TEAM : DESTTYPE_BROADCAST, cio->client_playas.base());
+					ShowNetworkChatQueryWindow(NetworkClientPreferTeamChat(cio) ? NetworkChatDestinationType::Team : NetworkChatDestinationType::Broadcast, cio->client_playas.base());
 				}
 				break;
 
 			case GHK_CHAT_ALL: // send text message to all clients
-				if (_networking) ShowNetworkChatQueryWindow(DESTTYPE_BROADCAST, 0);
+				if (_networking) ShowNetworkChatQueryWindow(NetworkChatDestinationType::Broadcast, 0);
 				break;
 
 			case GHK_CHAT_COMPANY: // send text to all team mates
@@ -405,13 +436,13 @@ struct MainWindow : Window
 					const NetworkClientInfo *cio = NetworkClientInfo::GetByClientID(_network_own_client_id);
 					if (cio == nullptr) break;
 
-					ShowNetworkChatQueryWindow(DESTTYPE_TEAM, cio->client_playas.base());
+					ShowNetworkChatQueryWindow(NetworkChatDestinationType::Team, cio->client_playas.base());
 				}
 				break;
 
 			case GHK_CHAT_SERVER: // send text to the server
 				if (_networking && !_network_server) {
-					ShowNetworkChatQueryWindow(DESTTYPE_CLIENT, CLIENT_ID_SERVER);
+					ShowNetworkChatQueryWindow(NetworkChatDestinationType::Client, CLIENT_ID_SERVER);
 				}
 				break;
 
@@ -422,6 +453,43 @@ struct MainWindow : Window
 			case GHK_CLOSE_ERROR: // close active error window
 				if (!HideActiveErrorMessage()) return ES_NOT_HANDLED;
 				break;
+
+			case GHK_CHANGE_MAP_MODE_PREV:
+				if (_focused_window && _focused_window->viewport && _focused_window->viewport->zoom >= ZoomLevel::DrawMap) {
+					ChangeRenderMode(_focused_window->viewport, true);
+					_focused_window->SetDirty();
+				} else if (this->viewport->zoom >= ZoomLevel::DrawMap) {
+					ChangeRenderMode(this->viewport, true);
+					this->SetDirty();
+				}
+				break;
+			case GHK_CHANGE_MAP_MODE_NEXT:
+				if (_focused_window && _focused_window->viewport && _focused_window->viewport->zoom >= ZoomLevel::DrawMap) {
+					ChangeRenderMode(_focused_window->viewport, false);
+					_focused_window->SetDirty();
+				} else if (this->viewport->zoom >= ZoomLevel::DrawMap) {
+					ChangeRenderMode(this->viewport, false);
+					this->SetDirty();
+				}
+				break;
+			case GHK_SWITCH_VIEWPORT_ROUTE_OVERLAY_MODE:
+				if (_settings_client.gui.show_vehicle_route_mode != 0) {
+					_settings_client.gui.show_vehicle_route_mode ^= 3;
+					SetWindowDirty(WindowClass::GameOptions, GameOptionsWindowNumber::GameOptions);
+				}
+				break;
+			case GHK_SWITCH_VIEWPORT_MAP_SLOPE_MODE: {
+				_settings_client.gui.show_slopes_on_viewport_map = !_settings_client.gui.show_slopes_on_viewport_map;
+				extern void MarkAllViewportMapLandscapesDirty();
+				MarkAllViewportMapLandscapesDirty();
+				break;
+			}
+			case GHK_SWITCH_VIEWPORT_MAP_HEIGHT_MODE: {
+				_settings_client.gui.show_height_on_viewport_map = !_settings_client.gui.show_height_on_viewport_map;
+				extern void MarkAllViewportMapLandscapesDirty();
+				MarkAllViewportMapLandscapesDirty();
+				break;
+			}
 
 			default: return ES_NOT_HANDLED;
 		}
@@ -434,13 +502,17 @@ struct MainWindow : Window
 		this->viewport->scrollpos_y += ScaleByZoom(delta.y, this->viewport->zoom);
 		this->viewport->dest_scrollpos_x = this->viewport->scrollpos_x;
 		this->viewport->dest_scrollpos_y = this->viewport->scrollpos_y;
-		this->refresh_timeout.Reset();
+		this->refresh.SetInterval(LINKGRAPH_DELAY);
 	}
 
 	void OnMouseWheel(int wheel, WidgetID widget) override
 	{
 		if (widget != WID_M_VIEWPORT) return;
-		if (_settings_client.gui.scrollwheel_scrolling != SWS_OFF) {
+		if (_ctrl_pressed) {
+			/* Cycle through the drawing modes */
+			ChangeRenderMode(this->viewport, wheel < 0);
+			this->SetDirty();
+		} else if (_settings_client.gui.scrollwheel_scrolling != ScrollWheelScrolling::Off) {
 			bool in = wheel < 0;
 
 			/* When following, only change zoom - otherwise zoom to the cursor. */
@@ -457,7 +529,7 @@ struct MainWindow : Window
 		if (this->viewport != nullptr) {
 			NWidgetViewport *nvp = this->GetWidget<NWidgetViewport>(WID_M_VIEWPORT);
 			nvp->UpdateViewportCoordinates(this);
-			this->refresh_timeout.Reset();
+			this->refresh.SetInterval(LINKGRAPH_DELAY);
 		}
 	}
 
@@ -476,7 +548,17 @@ struct MainWindow : Window
 	{
 		if (!gui_scope) return;
 		/* Forward the message to the appropriate toolbar (ingame or scenario editor) */
-		InvalidateWindowData(WC_MAIN_TOOLBAR, 0, data, true);
+		InvalidateWindowData(WindowClass::MainToolbar, 0, data, true);
+	}
+
+	virtual void OnMouseOver(Point pt, WidgetID widget) override
+	{
+		if (pt.x != -1 && _game_mode != GameMode::Menu && IsViewportMouseHoverActive()) {
+			/* Show tooltip with last month production or town name */
+			const Point p = GetTileBelowCursor();
+			const TileIndex tile = TileVirtXY(p.x, p.y);
+			if (tile < Map::Size()) ShowTooltipForTile(this, tile);
+		}
 	}
 
 	static inline HotkeyList hotkeys{"global", {
@@ -485,7 +567,7 @@ struct MainWindow : Window
 		Hotkey(WKC_BACKQUOTE, "console", GHK_CONSOLE),
 		Hotkey('B' | WKC_CTRL, "bounding_boxes", GHK_BOUNDING_BOXES),
 		Hotkey('I' | WKC_CTRL, "dirty_blocks", GHK_DIRTY_BLOCKS),
-		Hotkey('O' | WKC_CTRL, "widget_outlines", GHK_WIDGET_OUTLINES),
+		Hotkey(0, "widget_outlines", GHK_WIDGET_OUTLINES),
 		Hotkey('C', "center", GHK_CENTER),
 		Hotkey('Z', "center_zoom", GHK_CENTER_ZOOM),
 		Hotkey(WKC_ESC, "reset_object_to_place", GHK_RESET_OBJECT_TO_PLACE),
@@ -507,6 +589,7 @@ struct MainWindow : Window
 		Hotkey('7' | WKC_CTRL, "transparency_structures", GHK_TOGGLE_TRANSPARENCY + 6),
 		Hotkey('8' | WKC_CTRL, "transparency_catenary", GHK_TOGGLE_TRANSPARENCY + 7),
 		Hotkey('9' | WKC_CTRL, "transparency_loading", GHK_TOGGLE_TRANSPARENCY + 8),
+		Hotkey('0' | WKC_CTRL, "transparency_tunnels", GHK_TOGGLE_TRANSPARENCY + 9),
 		Hotkey('1' | WKC_CTRL | WKC_SHIFT, "invisibility_signs", GHK_TOGGLE_INVISIBILITY),
 		Hotkey('2' | WKC_CTRL | WKC_SHIFT, "invisibility_trees", GHK_TOGGLE_INVISIBILITY + 1),
 		Hotkey('3' | WKC_CTRL | WKC_SHIFT, "invisibility_houses", GHK_TOGGLE_INVISIBILITY + 2),
@@ -523,12 +606,18 @@ struct MainWindow : Window
 		Hotkey({WKC_CTRL | WKC_SHIFT | WKC_RETURN, WKC_CTRL | WKC_SHIFT | 'T'}, "chat_server", GHK_CHAT_SERVER),
 		Hotkey(WKC_SPACE, "close_news", GHK_CLOSE_NEWS),
 		Hotkey(WKC_SPACE, "close_error", GHK_CLOSE_ERROR),
+		Hotkey(WKC_PAGEUP,   "previous_map_mode", GHK_CHANGE_MAP_MODE_PREV),
+		Hotkey(WKC_PAGEDOWN, "next_map_mode",     GHK_CHANGE_MAP_MODE_NEXT),
+		Hotkey(WKC_SLASH | WKC_CTRL,  "switch_viewport_route_overlay_mode", GHK_SWITCH_VIEWPORT_ROUTE_OVERLAY_MODE),
+		Hotkey(0,  "switch_viewport_map_slope_mode", GHK_SWITCH_VIEWPORT_MAP_SLOPE_MODE),
+		Hotkey(0,  "switch_viewport_map_height_mode", GHK_SWITCH_VIEWPORT_MAP_HEIGHT_MODE),
 	}};
 };
 
-static WindowDesc _main_window_desc(
-	WDP_MANUAL, {}, 0, 0,
-	WC_MAIN_WINDOW, WC_NONE,
+/** Window definition for the main window. */
+static WindowDesc _main_window_desc(__FILE__, __LINE__,
+	WindowPosition::Manual, nullptr, 0, 0,
+	WindowClass::MainWindow, WindowClass::None,
 	WindowDefaultFlag::NoClose,
 	_nested_main_window_widgets,
 	&MainWindow::hotkeys
@@ -553,11 +642,11 @@ void ShowSelectGameWindow();
  */
 void SetupColoursAndInitialWindow()
 {
-	for (Colours i = COLOUR_BEGIN; i != COLOUR_END; i++) {
-		const uint8_t *b = GetNonSprite(GetColourPalette(i), SpriteType::Recolour) + 1;
+	for (Colours i = Colours::Begin; i != Colours::End; i++) {
+		const uint8_t *b = GetNonSprite(GetColourPalette(i), SpriteType::Recolour);
 		assert(b != nullptr);
-		for (ColourShade j = SHADE_BEGIN; j < SHADE_END; j++) {
-			SetColourGradient(i, j, PixelColour{b[0xC6 + j]});
+		for (Shade j = Shade::Begin; j < Shade::End; j++) {
+			SetColourGradient(i, j, PixelColour{b[0xC6 + to_underlying(j)]});
 		}
 	}
 
@@ -566,12 +655,12 @@ void SetupColoursAndInitialWindow()
 	/* XXX: these are not done */
 	switch (_game_mode) {
 		default: NOT_REACHED();
-		case GM_MENU:
+		case GameMode::Menu:
 			ShowSelectGameWindow();
 			break;
 
-		case GM_NORMAL:
-		case GM_EDITOR:
+		case GameMode::Normal:
+		case GameMode::Editor:
 			ShowVitalWindows();
 			break;
 	}
@@ -585,7 +674,7 @@ void ShowVitalWindows()
 	AllocateToolbar();
 
 	/* Status bad only for normal games */
-	if (_game_mode == GM_EDITOR) return;
+	if (_game_mode == GameMode::Editor) return;
 
 	ShowStatusBar();
 }
@@ -600,5 +689,4 @@ void GameSizeChanged()
 	_cur_resolution.height = _screen.height;
 	ScreenSizeChanged();
 	RelocateAllWindows(_screen.width, _screen.height);
-	MarkWholeScreenDirty();
 }

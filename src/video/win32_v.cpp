@@ -13,6 +13,7 @@
 #include "../gfx_func.h"
 #include "../os/windows/win32.h"
 #include "../blitter/factory.hpp"
+#include "../core/alloc_func.hpp"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
 #include "../core/random_func.hpp"
@@ -27,10 +28,12 @@
 #include "win32_v.h"
 #include <windows.h>
 #include <imm.h>
+#include <objbase.h>
 #include <versionhelpers.h>
 #if defined(_MSC_VER) && defined(NTDDI_WIN10_RS4)
 #include <winrt/Windows.UI.ViewManagement.h>
 #endif
+#include <algorithm>
 
 #ifdef WITH_OPENGL
 #include <GL/gl.h>
@@ -58,12 +61,12 @@ bool _window_maximize;
 static Dimension _bck_resolution;
 DWORD _imm_props;
 
-static Palette _local_palette; ///< Current palette to use for drawing.
+/** Local copy of the palette for use in the drawing thread. */
+static Palette _local_palette;
 
-bool VideoDriver_Win32Base::ClaimMousePointer()
+void VideoDriver_Win32Base::ClaimMousePointer()
 {
 	MyShowCursor(false, true);
-	return true;
 }
 
 struct Win32VkMapping {
@@ -133,11 +136,14 @@ static uint MapWindowsKey(uint sym)
 	return key;
 }
 
-/** Colour depth to use for fullscreen display modes. */
+/**
+ * Colour depth to use for fullscreen display modes.
+ * @return The colour depth in bits per pixel.
+ */
 uint8_t VideoDriver_Win32Base::GetFullscreenBpp()
 {
 	/* Check modes for the relevant fullscreen bpp */
-	return _support8bpp != S8BPP_HARDWARE ? 32 : BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
+	return _support8bpp != Support8bpp::Hardware ? 32 : BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
 }
 
 /**
@@ -234,8 +240,9 @@ bool VideoDriver_Win32Base::MakeWindow(bool full_screen, bool resize)
 				y = (mi.rcWork.bottom - mi.rcWork.top - h) / 2;
 			}
 
-			std::string caption = VideoDriver::GetCaption();
-			this->main_wnd = CreateWindow(L"OTTD", OTTD2FS(caption).c_str(), style, x, y, w, h, 0, 0, GetModuleHandle(nullptr), this);
+			std::string window_title = VideoDriver::GetCaption();
+
+			this->main_wnd = CreateWindow(L"OTTD", OTTD2FS(window_title).c_str(), style, x, y, w, h, 0, 0, GetModuleHandle(nullptr), this);
 			if (this->main_wnd == nullptr) UserError("CreateWindow failed");
 			ShowWindow(this->main_wnd, showstyle);
 		}
@@ -247,7 +254,12 @@ bool VideoDriver_Win32Base::MakeWindow(bool full_screen, bool resize)
 	return true;
 }
 
-/** Forward key presses to the window system. */
+/**
+ * Forward key presses to the window system.
+ * @param keycode The pressed key code.
+ * @param charcode The pressed char code.
+ * @return Always \c \0 to denote it was handled.
+ */
 static LRESULT HandleCharMsg(uint keycode, char32_t charcode)
 {
 	static char32_t prev_char = 0;
@@ -274,13 +286,19 @@ static LRESULT HandleCharMsg(uint keycode, char32_t charcode)
 	return 0;
 }
 
-/** Should we draw the composition string ourself, i.e is this a normal IME? */
+/**
+ * Should we draw the composition string ourself, i.e is this a normal IME?
+ * @return \c true when the window is at the caret and does not a non-standard UI.
+ */
 static bool DrawIMECompositionString()
 {
 	return (_imm_props & IME_PROP_AT_CARET) && !(_imm_props & IME_PROP_SPECIAL_UI);
 }
 
-/** Set position of the composition window to the caret position. */
+/**
+ * Set position of the composition window to the caret position.
+ * @param hwnd Handle to the window.
+ */
 static void SetCompositionPos(HWND hwnd)
 {
 	HIMC hIMC = ImmGetContext(hwnd);
@@ -302,7 +320,10 @@ static void SetCompositionPos(HWND hwnd)
 	ImmReleaseContext(hwnd, hIMC);
 }
 
-/** Set the position of the candidate window. */
+/**
+ * Set the position of the candidate window.
+ * @param hwnd Handle to the window.
+ */
 static void SetCandidatePos(HWND hwnd)
 {
 	HIMC hIMC = ImmGetContext(hwnd);
@@ -315,7 +336,7 @@ static void SetCandidatePos(HWND hwnd)
 			Point pt = _focused_window->GetCaretPosition();
 			cf.ptCurrentPos.x = _focused_window->left + pt.x;
 			cf.ptCurrentPos.y = _focused_window->top  + pt.y;
-			if (_focused_window->window_class == WC_CONSOLE) {
+			if (_focused_window->window_class == WindowClass::Console) {
 				cf.rcArea.left   = _focused_window->left;
 				cf.rcArea.top    = _focused_window->top;
 				cf.rcArea.right  = _focused_window->left + _focused_window->width;
@@ -336,7 +357,13 @@ static void SetCandidatePos(HWND hwnd)
 	ImmReleaseContext(hwnd, hIMC);
 }
 
-/** Handle WM_IME_COMPOSITION messages. */
+/**
+ * Handle WM_IME_COMPOSITION messages.
+ * @param hwnd The handle to the window.
+ * @param wParam The latest change in the composition.
+ * @param lParam How the composition was changed.
+ * @return Always \0 to denote it was handled.
+ */
 static LRESULT HandleIMEComposition(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
 	HIMC hIMC = ImmGetContext(hwnd);
@@ -345,14 +372,14 @@ static LRESULT HandleIMEComposition(HWND hwnd, WPARAM wParam, LPARAM lParam)
 		if (lParam & GCS_RESULTSTR) {
 			/* Read result string from the IME. */
 			LONG len = ImmGetCompositionString(hIMC, GCS_RESULTSTR, nullptr, 0); // Length is always in bytes, even in UNICODE build.
-			std::wstring str(len + 1, L'\0');
-			len = ImmGetCompositionString(hIMC, GCS_RESULTSTR, str.data(), len);
-			str[len / sizeof(wchar_t)] = L'\0';
+			TempBufferST<wchar_t, 1024> str(1 + len / sizeof(wchar_t));
+			len = ImmGetCompositionString(hIMC, GCS_RESULTSTR, str, len);
+			str[len / sizeof(wchar_t)] = '\0';
 
 			/* Transmit text to windowing system. */
 			if (len > 0) {
 				HandleTextInput({}, true); // Clear marked string.
-				HandleTextInput(FS2OTTD(str));
+				HandleTextInput(FS2OTTD(str.get()));
 			}
 			SetCompositionPos(hwnd);
 
@@ -363,20 +390,20 @@ static LRESULT HandleIMEComposition(HWND hwnd, WPARAM wParam, LPARAM lParam)
 		if ((lParam & GCS_COMPSTR) && DrawIMECompositionString()) {
 			/* Read composition string from the IME. */
 			LONG len = ImmGetCompositionString(hIMC, GCS_COMPSTR, nullptr, 0); // Length is always in bytes, even in UNICODE build.
-			std::wstring str(len + 1, L'\0');
-			len = ImmGetCompositionString(hIMC, GCS_COMPSTR, str.data(), len);
-			str[len / sizeof(wchar_t)] = L'\0';
+			TempBufferST<wchar_t, 1024> str(1 + len / sizeof(wchar_t));
+			len = ImmGetCompositionString(hIMC, GCS_COMPSTR, str, len);
+			str[len / sizeof(wchar_t)] = '\0';
 
 			if (len > 0) {
 				static char utf8_buf[1024];
-				convert_from_fs(str, utf8_buf);
+				convert_from_fs(str.get(), utf8_buf);
 
 				/* Convert caret position from bytes in the input string to a position in the UTF-8 encoded string. */
 				LONG caret_bytes = ImmGetCompositionString(hIMC, GCS_CURSORPOS, nullptr, 0);
 				Utf8View view(utf8_buf);
 				auto caret = view.begin();
 				const auto end = view.end();
-				for (const wchar_t *c = str.c_str(); *c != '\0' && caret != end && caret_bytes > 0; c++, caret_bytes--) {
+				for (const wchar_t *c = str.get(); *c != '\0' && caret != end && caret_bytes > 0; c++, caret_bytes--) {
 					/* Skip DBCS lead bytes or leading surrogates. */
 					if (Utf16IsLeadSurrogate(*c)) {
 						c++;
@@ -398,7 +425,10 @@ static LRESULT HandleIMEComposition(HWND hwnd, WPARAM wParam, LPARAM lParam)
 	return lParam != 0 ? DefWindowProc(hwnd, WM_IME_COMPOSITION, wParam, lParam) : 0;
 }
 
-/** Clear the current composition string. */
+/**
+ * Clear the current composition string.
+ * @param hwnd Handle to the window to cancel the composition for.
+ */
 static void CancelIMEComposition(HWND hwnd)
 {
 	HIMC hIMC = ImmGetContext(hwnd);
@@ -791,7 +821,7 @@ LRESULT CALLBACK WndProcGdi(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 
 		case WM_DPICHANGED: {
-			auto did_adjust = AdjustGUIZoom(true);
+			auto did_adjust = AdjustGUIZoom(AGZM_AUTOMATIC);
 
 			/* Resize the window to match the new DPI setting. */
 			RECT *prcNewWindow = (RECT *)lParam;
@@ -935,8 +965,11 @@ static void FindResolutions(uint8_t bpp)
 	SortResolutions();
 }
 
-void VideoDriver_Win32Base::Initialize()
+const char *VideoDriver_Win32Base::Initialize()
 {
+	/* Initialize COM */
+	if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return "COM initialization failed";
+
 	this->UpdateAutoResolution();
 
 	RegisterWndClass();
@@ -947,6 +980,7 @@ void VideoDriver_Win32Base::Initialize()
 	this->height = this->height_org = _cur_resolution.height;
 
 	Debug(driver, 2, "Resolution for display: {}x{}", _cur_resolution.width, _cur_resolution.height);
+	return nullptr;
 }
 
 void VideoDriver_Win32Base::Stop()
@@ -964,16 +998,20 @@ void VideoDriver_Win32Base::MakeDirty(int left, int top, int width, int height)
 
 void VideoDriver_Win32Base::CheckPaletteAnim()
 {
-	if (!CopyPalette(_local_palette)) return;
+	if (_cur_palette.count_dirty == 0) return;
+
+	_local_palette = _cur_palette;
+	_cur_palette.count_dirty = 0;
 	this->MakeDirty(0, 0, _screen.width, _screen.height);
 }
 
 void VideoDriver_Win32Base::InputLoop()
 {
 	bool old_ctrl_pressed = _ctrl_pressed;
+	bool old_shift_pressed = _shift_pressed;
 
-	_ctrl_pressed = this->has_focus && GetAsyncKeyState(VK_CONTROL) < 0;
-	_shift_pressed = this->has_focus && GetAsyncKeyState(VK_SHIFT) < 0;
+	_ctrl_pressed = (this->has_focus && GetAsyncKeyState(VK_CONTROL) < 0) != _invert_ctrl;
+	_shift_pressed = (this->has_focus && GetAsyncKeyState(VK_SHIFT) < 0) != _invert_shift;
 
 	/* Speedup when pressing tab, except when using ALT+TAB
 	 * to switch to another application. */
@@ -981,16 +1019,16 @@ void VideoDriver_Win32Base::InputLoop()
 
 	/* Determine which directional keys are down. */
 	if (this->has_focus) {
-		_dirkeys =
-			(GetAsyncKeyState(VK_LEFT) < 0 ? 1 : 0) +
-			(GetAsyncKeyState(VK_UP) < 0 ? 2 : 0) +
-			(GetAsyncKeyState(VK_RIGHT) < 0 ? 4 : 0) +
-			(GetAsyncKeyState(VK_DOWN) < 0 ? 8 : 0);
+		_dirkeys.Set(DirectionKey::Left, GetAsyncKeyState(VK_LEFT));
+		_dirkeys.Set(DirectionKey::Up, GetAsyncKeyState(VK_UP));
+		_dirkeys.Set(DirectionKey::Right, GetAsyncKeyState(VK_RIGHT));
+		_dirkeys.Set(DirectionKey::Down, GetAsyncKeyState(VK_DOWN));
 	} else {
-		_dirkeys = 0;
+		_dirkeys.Reset();
 	}
 
 	if (old_ctrl_pressed != _ctrl_pressed) HandleCtrlChanged();
+	if (old_shift_pressed != _shift_pressed) HandleShiftChanged();
 }
 
 bool VideoDriver_Win32Base::PollEvent()
@@ -1020,11 +1058,21 @@ void VideoDriver_Win32Base::MainLoop()
 	this->StopGameThread();
 }
 
+/**
+ * Indicate to the driver the client-size might have changed.
+ * @param w The new width of the window.
+ * @param h The new height of the window.
+ * @param force Whether to force full reallocation, instead of not reallocating when size did not change.
+ */
 void VideoDriver_Win32Base::ClientSizeChanged(int w, int h, bool force)
 {
 	/* Allocate backing store of the new size. */
 	if (this->AllocateBackingStore(w, h, force)) {
-		CopyPalette(_local_palette, true);
+		/* Mark all palette colours dirty. */
+		_cur_palette.first_dirty = 0;
+		_cur_palette.count_dirty = 256;
+		_local_palette = _cur_palette;
+		_cur_palette.count_dirty = 0;
 
 		BlitterFactory::GetCurrentBlitter()->PostResize();
 
@@ -1046,7 +1094,7 @@ bool VideoDriver_Win32Base::ToggleFullscreen(bool full_screen)
 {
 	bool res = this->MakeWindow(full_screen);
 
-	InvalidateWindowClassesData(WC_GAME_OPTIONS, 3);
+	this->InvalidateGameOptionsWindow();
 	return res;
 }
 
@@ -1112,11 +1160,12 @@ void VideoDriver_Win32Base::UnlockVideoBuffer()
 
 static FVideoDriver_Win32GDI iFVideoDriver_Win32GDI;
 
-std::optional<std::string_view> VideoDriver_Win32GDI::Start(const StringList &param)
+const char *VideoDriver_Win32GDI::Start(const StringList &param)
 {
 	if (BlitterFactory::GetCurrentBlitter()->GetScreenDepth() == 0) return "Only real blitters supported";
 
-	this->Initialize();
+	const char *err = this->Initialize();
+	if (err != nullptr) return err;
 
 	this->MakePalette();
 	this->AllocateBackingStore(_cur_resolution.width, _cur_resolution.height);
@@ -1126,7 +1175,7 @@ std::optional<std::string_view> VideoDriver_Win32GDI::Start(const StringList &pa
 
 	this->is_game_threaded = !GetDriverParamBool(param, "no_threads") && !GetDriverParamBool(param, "no_thread");
 
-	return std::nullopt;
+	return nullptr;
 }
 
 void VideoDriver_Win32GDI::Stop()
@@ -1146,7 +1195,14 @@ bool VideoDriver_Win32GDI::AllocateBackingStore(int w, int h, bool force)
 
 	if (!force && w == _screen.width && h == _screen.height) return false;
 
-	BITMAPINFO *bi = (BITMAPINFO *)new char[sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * 256]();
+	struct BitmapInfoAllocation {
+		BITMAPINFOHEADER header;
+		RGBQUAD rgb[256];
+	};
+	BitmapInfoAllocation bmalloc;
+
+	memset(&bmalloc, 0, sizeof(BitmapInfoAllocation));
+	BITMAPINFO *bi = reinterpret_cast<BITMAPINFO *>(&bmalloc);
 	bi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 
 	bi->bmiHeader.biWidth = this->width = w;
@@ -1160,10 +1216,7 @@ bool VideoDriver_Win32GDI::AllocateBackingStore(int w, int h, bool force)
 
 	HDC dc = GetDC(0);
 	this->dib_sect = CreateDIBSection(dc, bi, DIB_RGB_COLORS, (VOID **)&this->buffer_bits, nullptr, 0);
-	if (this->dib_sect == nullptr) {
-		delete[] bi;
-		UserError("CreateDIBSection failed");
-	}
+	if (this->dib_sect == nullptr) UserError("CreateDIBSection failed");
 	ReleaseDC(0, dc);
 
 	_screen.width = w;
@@ -1171,7 +1224,6 @@ bool VideoDriver_Win32GDI::AllocateBackingStore(int w, int h, bool force)
 	_screen.height = h;
 	_screen.dst_ptr = this->GetVideoPointer();
 
-	delete[] bi;
 	return true;
 }
 
@@ -1183,9 +1235,17 @@ bool VideoDriver_Win32GDI::AfterBlitterChange()
 
 void VideoDriver_Win32GDI::MakePalette()
 {
-	CopyPalette(_local_palette, true);
+	_cur_palette.first_dirty = 0;
+	_cur_palette.count_dirty = 256;
+	_local_palette = _cur_palette;
 
-	LOGPALETTE *pal = (LOGPALETTE *)new char[sizeof(LOGPALETTE) + (256 - 1) * sizeof(PALETTEENTRY)]();
+	struct PaletteAllocation {
+		LOGPALETTE pal;
+		PALETTEENTRY entries[256 - 1];
+	};
+	static_assert(sizeof(PaletteAllocation) == sizeof(LOGPALETTE) + (256 - 1) * sizeof(PALETTEENTRY));
+	PaletteAllocation palalloc;
+	LOGPALETTE *pal = &palalloc.pal;
 
 	pal->palVersion = 0x300;
 	pal->palNumEntries = 256;
@@ -1198,7 +1258,6 @@ void VideoDriver_Win32GDI::MakePalette()
 
 	}
 	this->gdi_palette = CreatePalette(pal);
-	delete[] pal;
 	if (this->gdi_palette == nullptr) UserError("CreatePalette failed!\n");
 }
 
@@ -1300,7 +1359,11 @@ static PFNWGLCREATECONTEXTATTRIBSARBPROC _wglCreateContextAttribsARB = nullptr;
 static PFNWGLSWAPINTERVALEXTPROC _wglSwapIntervalEXT = nullptr;
 static bool _hasWGLARBCreateContextProfile = false; ///< Is WGL_ARB_create_context_profile supported?
 
-/** Platform-specific callback to get an OpenGL function pointer. */
+/**
+ * Platform-specific callback to get an OpenGL function pointer.
+ * @param proc The name of the function.
+ * @return The function pointer, or \c nullptr when it could not be found.
+ */
 static OGLProc GetOGLProcAddressCallback(const char *proc)
 {
 	OGLProc ret = reinterpret_cast<OGLProc>(wglGetProcAddress(proc));
@@ -1314,9 +1377,9 @@ static OGLProc GetOGLProcAddressCallback(const char *proc)
 /**
  * Set the pixel format of a window-
  * @param dc Device context to set the pixel format of.
- * @return std::nullopt on success, error message otherwise.
+ * @return nullptr on success, error message otherwise.
  */
-static std::optional<std::string_view> SelectPixelFormat(HDC dc)
+static const char *SelectPixelFormat(HDC dc)
 {
 	PIXELFORMATDESCRIPTOR pfd = {
 		sizeof(PIXELFORMATDESCRIPTOR), // Size of this struct.
@@ -1342,7 +1405,7 @@ static std::optional<std::string_view> SelectPixelFormat(HDC dc)
 	if (format == 0) return "No suitable pixel format found";
 	if (!SetPixelFormat(dc, format, &pfd)) return "Can't set pixel format";
 
-	return std::nullopt;
+	return nullptr;
 }
 
 /** Bind all WGL extension functions we need. */
@@ -1357,7 +1420,7 @@ static void LoadWGLExtensions()
 	HDC dc = GetDC(wnd);
 
 	/* Set pixel format of the window. */
-	if (SelectPixelFormat(dc) == std::nullopt) {
+	if (SelectPixelFormat(dc) == nullptr) {
 		/* Create rendering context. */
 		HGLRC rc = wglCreateContext(dc);
 		if (rc != nullptr) {
@@ -1397,7 +1460,7 @@ static void LoadWGLExtensions()
 
 static FVideoDriver_Win32OpenGL iFVideoDriver_Win32OpenGL;
 
-std::optional<std::string_view> VideoDriver_Win32OpenGL::Start(const StringList &param)
+const char *VideoDriver_Win32OpenGL::Start(const StringList &param)
 {
 	if (BlitterFactory::GetCurrentBlitter()->GetScreenDepth() == 0) return "Only real blitters supported";
 
@@ -1405,12 +1468,17 @@ std::optional<std::string_view> VideoDriver_Win32OpenGL::Start(const StringList 
 
 	LoadWGLExtensions();
 
-	this->Initialize();
+	const char *err = this->Initialize();
+	if (err != nullptr) {
+		this->Stop();
+		_cur_resolution = old_res;
+		return err;
+	}
 	this->MakeWindow(_fullscreen);
 
 	/* Create and initialize OpenGL context. */
-	auto err = this->AllocateContext();
-	if (err) {
+	err = this->AllocateContext();
+	if (err != nullptr) {
 		this->Stop();
 		_cur_resolution = old_res;
 		return err;
@@ -1435,7 +1503,7 @@ std::optional<std::string_view> VideoDriver_Win32OpenGL::Start(const StringList 
 
 	this->is_game_threaded = !GetDriverParamBool(param, "no_threads") && !GetDriverParamBool(param, "no_thread");
 
-	return std::nullopt;
+	return nullptr;
 }
 
 void VideoDriver_Win32OpenGL::Stop()
@@ -1468,12 +1536,12 @@ void VideoDriver_Win32OpenGL::ToggleVsync(bool vsync)
 	}
 }
 
-std::optional<std::string_view> VideoDriver_Win32OpenGL::AllocateContext()
+const char *VideoDriver_Win32OpenGL::AllocateContext()
 {
 	this->dc = GetDC(this->main_wnd);
 
-	auto err = SelectPixelFormat(this->dc);
-	if (err) return err;
+	const char *err = SelectPixelFormat(this->dc);
+	if (err != nullptr) return err;
 
 	HGLRC rc = nullptr;
 
@@ -1483,7 +1551,7 @@ std::optional<std::string_view> VideoDriver_Win32OpenGL::AllocateContext()
 		int attribs[] = {
 			WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 			WGL_CONTEXT_MINOR_VERSION_ARB, 5,
-			WGL_CONTEXT_FLAGS_ARB, _debug_driver_level >= 8 ? WGL_CONTEXT_DEBUG_BIT_ARB : 0,
+			WGL_CONTEXT_FLAGS_ARB, GetDebugLevel(DebugLevelID::driver) >= 8 ? WGL_CONTEXT_DEBUG_BIT_ARB : 0,
 			_hasWGLARBCreateContextProfile ? WGL_CONTEXT_PROFILE_MASK_ARB : 0, WGL_CONTEXT_CORE_PROFILE_BIT_ARB, // Terminate list if WGL_ARB_create_context_profile isn't supported.
 			0
 		};
@@ -1515,7 +1583,7 @@ bool VideoDriver_Win32OpenGL::ToggleFullscreen(bool full_screen)
 	if (_screen.dst_ptr != nullptr) this->ReleaseVideoPointer();
 	this->DestroyContext();
 	bool res = this->VideoDriver_Win32Base::ToggleFullscreen(full_screen);
-	res &= this->AllocateContext() == std::nullopt;
+	res &= this->AllocateContext() == nullptr;
 	this->ClientSizeChanged(this->width, this->height, true);
 	return res;
 }

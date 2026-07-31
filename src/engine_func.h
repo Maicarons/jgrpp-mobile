@@ -13,22 +13,32 @@
 #include "engine_type.h"
 #include "vehicle_type.h"
 #include "company_type.h"
-#include "timer/timer_game_calendar.h"
 
 void SetupEngines();
 void StartupEngines();
 void CheckEngines();
+void AnalyseEngineCallbacks();
 
 /* Original engine data counts and offsets */
-extern const uint8_t _engine_counts[4];
-extern const uint8_t _engine_offsets[4];
+inline uint8_t GetOriginalEngineCount(VehicleType type)
+{
+	extern const VehicleTypeIndexArray<uint8_t> _engine_counts;
+	dbg_assert(type < VehicleType::CompanyEnd);
+	return _engine_counts[type];
+}
+inline uint8_t GetOriginalEngineOffset(VehicleType type)
+{
+	extern const VehicleTypeIndexArray<uint8_t> _engine_offsets;
+	dbg_assert(type < VehicleType::CompanyEnd);
+	return _engine_offsets[type];
+}
 
 bool IsEngineBuildable(EngineID engine, VehicleType type, CompanyID company);
 bool IsEngineRefittable(EngineID engine);
 void SetYearEngineAgingStops();
 void CalcEngineReliability(Engine *e, bool new_month);
-void StartupOneEngine(Engine *e, const TimerGameCalendar::YearMonthDay &aging_ymd, uint32_t seed);
+void StartupOneEngine(Engine *e, const CalTime::YearMonthDay &aging_ymd, const CalTime::YearMonthDay &expire_stop_ymd, uint32_t seed, CalTime::Date no_introduce_after_date);
 
-uint GetTotalCapacityOfArticulatedParts(EngineID engine);
+uint GetTotalCapacityOfArticulatedParts(EngineID engine, CargoType attempt_refit = INVALID_CARGO);
 
 #endif /* ENGINE_FUNC_H */

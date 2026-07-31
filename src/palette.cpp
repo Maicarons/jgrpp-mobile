@@ -16,14 +16,35 @@
 #include "palette_func.h"
 #include "settings_type.h"
 #include "thread.h"
+#include "core/mem_func.hpp"
 
 #include "table/palettes.h"
 
 #include "safeguards.h"
 
 Palette _cur_palette;
+std::mutex _cur_palette_mutex;
 
-static std::recursive_mutex _palette_mutex; ///< To coordinate access to _cur_palette.
+const EnumIndexArray<PixelColour, Colours, Colours::End> _colour_value{
+	PixelColour{133}, // Colours::DarkBlue
+	PixelColour{ 99}, // Colours::PaleGreen,
+	PixelColour{ 48}, // Colours::Pink,
+	PixelColour{ 68}, // Colours::Yellow,
+	PixelColour{184}, // Colours::Red,
+	PixelColour{152}, // Colours::LightBlue,
+	PixelColour{209}, // Colours::Green,
+	PixelColour{ 95}, // Colours::DarkGreen,
+	PixelColour{150}, // Colours::Blue,
+	PixelColour{ 79}, // Colours::Cream,
+	PixelColour{134}, // Colours::Mauve,
+	PixelColour{174}, // Colours::Purple,
+	PixelColour{195}, // Colours::Orange,
+	PixelColour{116}, // Colours::Brown,
+	PixelColour{  6}, // Colours::Grey,
+	PixelColour{ 15}, // Colours::White,
+};
+
+Colour _water_palette[10];
 
 /**
  * PALETTE_BITS reduces the bits-per-channel of 32bpp graphics data to allow faster palette lookups from
@@ -40,12 +61,17 @@ const uint PALETTE_SHIFT = 8 - PALETTE_BITS;
 const uint PALETTE_BITS_MASK = ((1U << PALETTE_BITS) - 1) << PALETTE_SHIFT;
 const uint PALETTE_BITS_OR = (1U << (PALETTE_SHIFT - 1));
 
-/* Palette and reshade lookup table. */
+/** @{
+ * Palette lookup table. */
 using PaletteLookup = std::array<uint8_t, 1U << (PALETTE_BITS * 3)>;
 static PaletteLookup _palette_lookup{};
+/** @} */
 
+/** @{
+ * Reshade lookup table. */
 using ReshadeLookup = std::array<uint8_t, 1U << PALETTE_BITS>;
 static ReshadeLookup _reshade_lookup{};
+/** @} */
 
 /**
  * Reduce bits per channel to PALETTE_BITS, and place value in the middle of the reduced range.
@@ -121,7 +147,7 @@ static uint8_t FindNearestColourIndex(uint8_t r, uint8_t g, uint8_t b)
 
 /**
  * Find nearest company colour palette index for a brightness level.
- * @param pixel Pixel to find.
+ * @param b Pixel-colour to find.
  * @returns palette index of nearest colour.
  */
 static uint8_t FindNearestColourReshadeIndex(uint8_t b)
@@ -208,35 +234,15 @@ void DoPaletteAnimations();
 
 void GfxInitPalettes()
 {
-	std::lock_guard<std::recursive_mutex> lock(_palette_mutex);
-	_cur_palette = _palette;
-	DoPaletteAnimations();
-}
-
-/**
- * Copy the current palette if the palette was updated.
- * Used by video-driver to get a current up-to-date version of the palette,
- * to avoid two threads accessing the same piece of memory (with a good chance
- * one is already updating the palette while the other is drawing based on it).
- * @param local_palette The location to copy the palette to.
- * @param force_copy Whether to ignore if there is an update for the palette.
- * @return True iff a copy was done.
- */
-bool CopyPalette(Palette &local_palette, bool force_copy)
-{
-	std::lock_guard<std::recursive_mutex> lock(_palette_mutex);
-
-	if (!force_copy && _cur_palette.count_dirty == 0) return false;
-
-	local_palette = _cur_palette;
-	_cur_palette.count_dirty = 0;
-
-	if (force_copy) {
-		local_palette.first_dirty = 0;
-		local_palette.count_dirty = 256;
+	MemCpyT<Colour>(_water_palette, (_settings_game.game_creation.landscape == LandscapeType::Toyland) ? _extra_palette_values.dark_water_toyland : _extra_palette_values.dark_water, 5);
+	const Colour *s = (_settings_game.game_creation.landscape == LandscapeType::Toyland) ? _extra_palette_values.glitter_water_toyland : _extra_palette_values.glitter_water;
+	for (int i = 0; i < 5; i++) {
+		_water_palette[i + 5] = s[i * 3];
 	}
 
-	return true;
+	std::lock_guard<std::mutex> lock_state(_cur_palette_mutex);
+	memcpy(&_cur_palette, &_palette, sizeof(_cur_palette));
+	DoPaletteAnimations();
 }
 
 #define EXTR(p, q) (((uint16_t)(palette_animation_counter * (p)) * (q)) >> 16)
@@ -244,8 +250,6 @@ bool CopyPalette(Palette &local_palette, bool force_copy)
 
 void DoPaletteAnimations()
 {
-	std::lock_guard<std::recursive_mutex> lock(_palette_mutex);
-
 	/* Animation counter for the palette animation. */
 	static int palette_animation_counter = 0;
 	palette_animation_counter += 8;
@@ -253,6 +257,7 @@ void DoPaletteAnimations()
 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
 	const Colour *s;
 	const ExtraPaletteValues *ev = &_extra_palette_values;
+	Colour old_val[PALETTE_ANIM_SIZE];
 	const uint old_tc = palette_animation_counter;
 	uint j;
 
@@ -260,12 +265,10 @@ void DoPaletteAnimations()
 		palette_animation_counter = 0;
 	}
 
-	std::span<Colour> current_palette{&_cur_palette.palette[PALETTE_ANIM_START], PALETTE_ANIM_SIZE};
+	Colour *palette_pos = &_cur_palette.palette[PALETTE_ANIM_START];  // Points to where animations are taking place on the palette
 	/* Makes a copy of the current animation palette in old_val,
 	 * so the work on the current palette could be compared, see if there has been any changes */
-	std::array<Colour, PALETTE_ANIM_SIZE> original_palette;
-	std::ranges::copy(current_palette, original_palette.begin());
-	auto palette_pos = current_palette.begin(); // Points to where animations are taking place on the palette
+	memcpy(old_val, palette_pos, sizeof(old_val));
 
 	/* Fizzy Drink bubbles animation */
 	s = ev->fizzy_drink;
@@ -345,7 +348,7 @@ void DoPaletteAnimations()
 
 	if (blitter != nullptr && blitter->UsePaletteAnimation() == Blitter::PaletteAnimation::None) {
 		palette_animation_counter = old_tc;
-	} else if (_cur_palette.count_dirty == 0 && !std::ranges::equal(current_palette, original_palette)) {
+	} else if (_cur_palette.count_dirty == 0 && memcmp(old_val, &_cur_palette.palette[PALETTE_ANIM_START], sizeof(old_val)) != 0) {
 		/* Did we changed anything on the palette? Seems so.  Mark it as dirty */
 		_cur_palette.first_dirty = PALETTE_ANIM_START;
 		_cur_palette.count_dirty = PALETTE_ANIM_SIZE;
@@ -355,8 +358,8 @@ void DoPaletteAnimations()
 /**
  * Determine a contrasty text colour for a coloured background.
  * @param background Background colour.
- * @param threshold Background colour brightness threshold below which the background is considered dark and TC_WHITE is returned, range: 0 - 255, default 128.
- * @return TC_BLACK or TC_WHITE depending on what gives a better contrast.
+ * @param threshold Background colour brightness threshold below which the background is considered dark and TextColour::White is returned, range: 0 - 255, default 128.
+ * @return TextColour::Black or TextColour::White depending on what gives a better contrast.
  */
 TextColour GetContrastColour(PixelColour background, uint8_t threshold)
 {
@@ -365,7 +368,7 @@ TextColour GetContrastColour(PixelColour background, uint8_t threshold)
 	 * The following formula computes 1000 * brightness^2, with brightness being in range 0 to 255. */
 	uint sq1000_brightness = c.r * c.r * 299 + c.g * c.g * 587 + c.b * c.b * 114;
 	/* Compare with threshold brightness which defaults to 128 (50%) */
-	return sq1000_brightness < ((uint) threshold) * ((uint) threshold) * 1000 ? TC_WHITE : TC_BLACK;
+	return sq1000_brightness < ((uint) threshold) * ((uint) threshold) * 1000 ? TextColour::White : TextColour::Black;
 }
 
 /**
@@ -374,9 +377,9 @@ TextColour GetContrastColour(PixelColour background, uint8_t threshold)
  */
 struct ColourGradients
 {
-	using ColourGradient = std::array<PixelColour, SHADE_END>;
+	using ColourGradient = std::array<PixelColour, to_underlying(Shade::End)>;
 
-	static inline std::array<ColourGradient, COLOUR_END> gradient{};
+	static inline std::array<ColourGradient, to_underlying(Colours::End)> gradient{};
 };
 
 /**
@@ -385,9 +388,9 @@ struct ColourGradients
  * @param shade Shade level from 1 to 7.
  * @returns palette index of colour.
  */
-PixelColour GetColourGradient(Colours colour, ColourShade shade)
+PixelColour GetColourGradient(Colours colour, Shade shade)
 {
-	return ColourGradients::gradient[colour % COLOUR_END][shade % SHADE_END];
+	return ColourGradients::gradient[to_underlying(colour) % to_underlying(Colours::End)][to_underlying(shade) % to_underlying(Shade::End)];
 }
 
 /**
@@ -396,9 +399,9 @@ PixelColour GetColourGradient(Colours colour, ColourShade shade)
  * @param shade Shade level from 1 to 7.
  * @param palette_index Palette index to set.
  */
-void SetColourGradient(Colours colour, ColourShade shade, PixelColour palette_index)
+void SetColourGradient(Colours colour, Shade shade, PixelColour palette_index)
 {
-	assert(colour < COLOUR_END);
-	assert(shade < SHADE_END);
-	ColourGradients::gradient[colour % COLOUR_END][shade % SHADE_END] = palette_index;
+	assert(colour < Colours::End);
+	assert(shade < Shade::End);
+	ColourGradients::gradient[to_underlying(colour) % to_underlying(Colours::End)][to_underlying(shade) % to_underlying(Shade::End)] = palette_index;
 }

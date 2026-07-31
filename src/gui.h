@@ -13,6 +13,7 @@
 #include "strings_type.h"
 #include "vehicle_type.h"
 #include "economy_type.h"
+#include "industry_type.h"
 #include "tile_type.h"
 #include "transport_type.h"
 #include "story_type.h"
@@ -28,10 +29,6 @@ void ShowGameOptions();
 
 /* train_gui.cpp */
 void ShowOrdersWindow(const Vehicle *v);
-
-/* dock_gui.cpp */
-Window *ShowBuildDocksToolbar();
-Window *ShowBuildDocksScenToolbar();
 
 /* airport_gui.cpp */
 Window *ShowBuildAirToolbar();
@@ -56,6 +53,7 @@ void ShowFoundTownWindow();
 void ShowIndustryDirectory();
 void ShowIndustryCargoesWindow();
 void ShowBuildIndustryWindow();
+void ShowBuildIndustryWindowForIndustryType(IndustryType industry_type);
 
 /* subsidy_gui.cpp */
 void ShowSubsidiesList();
@@ -70,6 +68,8 @@ void ShowStoryBook(CompanyID company, StoryPageID page_id = StoryPageID::Invalid
 /* viewport_gui.cpp */
 void ShowExtraViewportWindow(TileIndex tile = INVALID_TILE);
 void ShowExtraViewportWindowForTileUnderCursor();
+
+void ShowModifierKeyToggleWindow();
 
 /* bridge_gui.cpp */
 void ShowBuildBridgeWindow(TileIndex start, TileIndex end, TransportType transport_type, uint8_t bridge_type);

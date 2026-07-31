@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _cheats_desc. */
 const SaveLoadCompat _cheats_sl_compat[] = {
 	SLC_VAR("magic_bulldozer.been_used"),
@@ -37,5 +39,7 @@ const SaveLoadCompat _cheats_sl_compat[] = {
 	SLC_VAR("edit_max_hl.been_used"),
 	SLC_VAR("edit_max_hl.value"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_CHEAT_H */

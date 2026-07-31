@@ -16,31 +16,57 @@
 #include "rail_type.h"
 #include "signal_type.h"
 
-CommandCost CmdBuildRailroadTrack(DoCommandFlags flags, TileIndex end_tile, TileIndex start_tile, RailType railtype, Track track, bool auto_remove_signals, bool fail_on_obstacle);
-CommandCost CmdRemoveRailroadTrack(DoCommandFlags flags, TileIndex end_tile, TileIndex start_tile, Track track);
-CommandCost CmdBuildSingleRail(DoCommandFlags flags, TileIndex tile, RailType railtype, Track track, bool auto_remove_signals);
-CommandCost CmdRemoveSingleRail(DoCommandFlags flags, TileIndex tile, Track track);
-CommandCost CmdBuildTrainDepot(DoCommandFlags flags, TileIndex tile, RailType railtype, DiagDirection dir);
-CommandCost CmdBuildSingleSignal(DoCommandFlags flags, TileIndex tile, Track track, SignalType sigtype, SignalVariant sigvar, bool convert_signal, bool skip_existing_signals, bool ctrl_pressed, SignalType cycle_start, SignalType cycle_stop, uint8_t num_dir_cycle, uint8_t signals_copy);
-CommandCost CmdRemoveSingleSignal(DoCommandFlags flags, TileIndex tile, Track track);
-CommandCost CmdConvertRail(DoCommandFlags flags, TileIndex tile, TileIndex area_start, RailType totype, bool diagonal);
-CommandCost CmdBuildSignalTrack(DoCommandFlags flags, TileIndex tile, TileIndex end_tile, Track track, SignalType sigtype, SignalVariant sigvar, bool mode, bool autofill, bool minimise_gaps, uint8_t signal_density);
-CommandCost CmdRemoveSignalTrack(DoCommandFlags flags, TileIndex tile, TileIndex end_tile, Track track, bool autofill);
+enum class BuildRailTrackFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	NoCustomBridgeHeads   = (1U << 0), ///< Disable custom bridge heads.
+	AutoRemoveSignals     = (1U << 1), ///< Auto-remove signals.
+	NoDualRailType        = (1U << 2), ///< Disable dual rail types.
+};
+DECLARE_ENUM_AS_BIT_SET(BuildRailTrackFlags)
 
-DEF_CMD_TRAIT(CMD_BUILD_RAILROAD_TRACK,  CmdBuildRailroadTrack,  CommandFlags({CommandFlag::Auto, CommandFlag::NoWater}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_REMOVE_RAILROAD_TRACK, CmdRemoveRailroadTrack, CommandFlag::Auto,                CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_SINGLE_RAIL,     CmdBuildSingleRail,     CommandFlags({CommandFlag::Auto, CommandFlag::NoWater}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_REMOVE_SINGLE_RAIL,    CmdRemoveSingleRail,    CommandFlag::Auto,                CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_TRAIN_DEPOT,     CmdBuildTrainDepot,     CommandFlags({CommandFlag::Auto, CommandFlag::NoWater}), CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_SINGLE_SIGNAL,   CmdBuildSingleSignal,   CommandFlag::Auto,                CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_REMOVE_SINGLE_SIGNAL,  CmdRemoveSingleSignal,  CommandFlag::Auto,                CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_CONVERT_RAIL,          CmdConvertRail,         {},                               CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_BUILD_SIGNAL_TRACK,    CmdBuildSignalTrack,    CommandFlag::Auto,                CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_REMOVE_SIGNAL_TRACK,   CmdRemoveSignalTrack,   CommandFlag::Auto,                CommandType::LandscapeConstruction)
+enum class BuildSignalFlags : uint8_t {
+	None                   = 0,         ///< No flag set.
+	Convert                = (1U << 0), ///< Convert the present signal type and variant.
+	CtrlPressed            = (1U << 1), ///< Override signal/semaphore, or pre/exit/combo signal or toggle variant (CTRL-toggle)
+	SkipExisting           = (1U << 2), ///< Don't modify an existing signal but don't fail either. Otherwise always set new signal type.
+	PermitBidiTunnelBridge = (1U << 3), ///< Permit creation of/conversion to bidirectionally signalled bridges/tunnels.
+};
+DECLARE_ENUM_AS_BIT_SET(BuildSignalFlags)
 
-CommandCallback CcPlaySound_CONSTRUCTION_RAIL;
-CommandCallback CcStation;
-CommandCallback CcBuildRailTunnel;
-void CcRailDepot(Commands cmd, const CommandCost &result, TileIndex tile, RailType rt, DiagDirection dir);
+enum class RemoveSignalFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	NoRemoveRestricted    = (1U << 0), ///< Do not remove restricted signals.
+};
+DECLARE_ENUM_AS_BIT_SET(RemoveSignalFlags)
+
+enum class SignalDragFlags : uint8_t {
+	None                  = 0,         ///< No flag set.
+	Autofill              = (1U << 0), ///< Fill beyond selected stretch.
+	SkipOverStations      = (1U << 1), ///< Skip over rail stations/waypoints, otherwise stop at rail stations/waypoints.
+	MinimiseGaps          = (1U << 2), ///< True = minimise gaps between signals. False = keep fixed distance.
+};
+DECLARE_ENUM_AS_BIT_SET(SignalDragFlags)
+
+struct BuildSingleSignalCmdData final : public AutoFmtTupleCmdData<BuildSingleSignalCmdData, TCDF_NONE,
+		Track, SignalType, SignalVariant, uint8_t, uint8_t, BuildSignalFlags, SignalCycleGroups, uint8_t, uint8_t> {
+	static inline constexpr const char fmt_str[] = "t: {}, st: {}, sv: {}, style: {}, sp: {}, bf: {:X}, cycle: ({}, {}), copy: {}";
+};
+
+struct BuildSignalTrackCmdData final : public AutoFmtTupleCmdData<BuildSignalTrackCmdData, TCDF_NONE,
+		TileIndex, Track, SignalType, SignalVariant, uint8_t, bool, SignalDragFlags, uint8_t> {
+	static inline constexpr const char fmt_str[] = "end: {}, t: {}, st: {}, sv: {}, style: {}, mode: {}, df: {:X}, sp: {}";
+};
+
+DEF_CMD_TUPLE(Commands::BuildRailLong,      CmdBuildRailroadTrack,       CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, RailType, Track, BuildRailTrackFlags, bool>)
+DEF_CMD_TUPLE(Commands::RemoveRailLong,     CmdRemoveRailroadTrack,                     CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, Track>)
+DEF_CMD_TUPLE(Commands::BuildRail,          CmdBuildSingleRail,          CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<RailType, Track, BuildRailTrackFlags>)
+DEF_CMD_TUPLE(Commands::RemoveRail,         CmdRemoveSingleRail,                        CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<Track>)
+DEF_CMD_TUPLE(Commands::BuildRailDepot,     CmdBuildTrainDepot,          CMD_NO_WATER | CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<RailType, DiagDirection>)
+DEF_CMD_TUPLE(Commands::BuildSignal,        CmdBuildSingleSignal,                       CMD_AUTO, CommandType::LandscapeConstruction, BuildSingleSignalCmdData)
+DEF_CMD_TUPLE(Commands::RemoveSignal,       CmdRemoveSingleSignal,                      CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<Track, RemoveSignalFlags>)
+DEF_CMD_TUPLE(Commands::ConvertRail,        CmdConvertRail,                                   {}, CommandType::LandscapeConstruction, CmdDataT<TileIndex, RailType, bool>)
+DEF_CMD_TUPLE(Commands::ConvertRailTrack,   CmdConvertRailTrack,                              {}, CommandType::LandscapeConstruction, CmdDataT<TileIndex, Track, RailType>)
+DEF_CMD_TUPLE(Commands::BuildSignalLong,    CmdBuildSignalTrack,                        CMD_AUTO, CommandType::LandscapeConstruction, BuildSignalTrackCmdData)
+DEF_CMD_TUPLE(Commands::RemoveSignalLong,   CmdRemoveSignalTrack,                       CMD_AUTO, CommandType::LandscapeConstruction, CmdDataT<TileIndex, Track, SignalDragFlags, RemoveSignalFlags>)
 
 #endif /* RAIL_CMD_H */

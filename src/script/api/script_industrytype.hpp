@@ -12,6 +12,7 @@
 
 #include "script_list.hpp"
 #include "../../industry_type.h"
+#include <optional>
 
 /**
  * Class that handles all industry-type related functions.

@@ -13,6 +13,7 @@
 #include "api/script_object.hpp"
 #include "../textfile_gui.h"
 #include "../string_func.h"
+#include "../core/format.hpp"
 #include <charconv>
 
 #include "table/strings.h"
@@ -167,7 +168,7 @@ std::string ScriptConfig::SettingsToString() const
 
 	std::string result;
 	for (const auto &item : this->settings) {
-		format_append(result, "{}={},", item.first, item.second);
+		fmt::format_to(std::back_inserter(result), "{}={},", item.first, item.second);
 	}
 
 	/* Remove the last ','. */
@@ -179,7 +180,7 @@ std::optional<std::string> ScriptConfig::GetTextfile(TextfileType type, CompanyI
 {
 	if (slot == CompanyID::Invalid() || this->GetInfo() == nullptr) return std::nullopt;
 
-	return ::GetTextfile(type, (slot == OWNER_DEITY) ? GAME_DIR : AI_DIR, this->GetInfo()->GetMainScript());
+	return ::GetTextfile(type, (slot == OWNER_DEITY) ? Subdirectory::Gs : Subdirectory::Ai, this->GetInfo()->GetMainScript());
 }
 
 void ScriptConfig::SetToLoadData(ScriptInstance::ScriptData *data)
@@ -221,6 +222,6 @@ std::string ScriptConfigItem::GetString(int value) const
  */
 TextColour ScriptConfigItem::GetColour() const
 {
-	return this->description.empty() ? TC_ORANGE : TC_LIGHT_BLUE;
+	return this->description.empty() ? TextColour::Orange : TextColour::LightBlue;
 }
 

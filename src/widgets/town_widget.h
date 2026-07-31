@@ -30,6 +30,8 @@ enum TownAuthorityWidgets : WidgetID {
 	WID_TA_SCROLLBAR,    ///< Scrollbar of the list of commands.
 	WID_TA_ACTION_INFO,  ///< Additional information about the action.
 	WID_TA_EXECUTE,      ///< Do-it button.
+	WID_TA_SETTING,      ///< Setting drop-down.
+	WID_TA_BTN_SEL,      ///< Button selector.
 };
 
 /** Widgets of the #TownViewWindow class. */
@@ -80,6 +82,13 @@ enum BuildHouseWidgets : WidgetID {
 	WID_BH_INFO, ///< Information panel of selected house.
 	WID_BH_PROTECT_TOGGLE, ///< Button to toggle protecting the next house built.
 	WID_BH_REPLACE_TOGGLE, ///< Button to toggle replacing existing houses.
+};
+
+/** Widgets of the #SelectTownWindow class. */
+enum SelectTownWidgets : WidgetID {
+	WID_ST_CAPTION,   ///< Caption of the window.
+	WID_ST_PANEL,     ///< Main panel.
+	WID_ST_SCROLLBAR, ///< Scrollbar of the panel.
 };
 
 #endif /* WIDGETS_TOWN_WIDGET_H */

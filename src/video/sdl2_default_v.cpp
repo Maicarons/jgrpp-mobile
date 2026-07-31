@@ -16,6 +16,9 @@
 #include "../network/network.h"
 #include "../thread.h"
 #include "../progress.h"
+#include "../core/random_func.hpp"
+#include "../core/math_func.hpp"
+#include "../core/mem_func.hpp"
 #include "../core/geometry_func.hpp"
 #include "../fileio_func.h"
 #include "../framerate_type.h"
@@ -60,7 +63,10 @@ void VideoDriver_SDL_Default::MakePalette()
 		if (_sdl_palette == nullptr) UserError("SDL2: Couldn't allocate palette: {}", SDL_GetError());
 	}
 
-	CopyPalette(this->local_palette, true);
+	_cur_palette.first_dirty = 0;
+	_cur_palette.count_dirty = 256;
+	this->local_palette = _cur_palette;
+	_cur_palette.count_dirty = 0;
 	this->UpdatePalette();
 
 	if (_sdl_surface != _sdl_real_surface) {

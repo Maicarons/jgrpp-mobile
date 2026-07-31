@@ -5,15 +5,48 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file string_consumer.hpp Parse strings.
- */
+/** @file string_consumer.hpp Parse strings. */
 
 #ifndef STRING_CONSUMER_HPP
 #define STRING_CONSUMER_HPP
 
-#include <charconv>
-#include "format.hpp"
+#include "bitmath_func.hpp"
+#include "integer_type.hpp"
+#include <optional>
+
+struct StringConsumerControlCharFilter {
+private:
+	const uint32_t filter;
+
+	/* Not constexpr */
+	static void error(const char *msg)
+	{
+		throw msg;
+	}
+
+	static constexpr uint64_t parse(std::string_view input)
+	{
+		uint32_t val = 0;
+		for (size_t i = 0; i < input.size(); i++) {
+			uint8_t c = ((uint8_t)input[i]) - 8;
+			if (c >= 32) {
+				error("Characters must be in the range 8 - 39");
+			} else {
+				SetBit(val, c);
+			}
+		}
+		return val;
+	}
+
+public:
+	constexpr StringConsumerControlCharFilter(std::string_view input) : filter(parse(input)) {}
+
+	bool Matches(char input_char) const
+	{
+		uint8_t c = ((uint8_t)input_char) - 8;
+		return c < 32 && HasBit(this->filter, c);
+	}
+};
 
 /**
  * Parse data from a string / buffer.
@@ -26,6 +59,7 @@
  */
 class StringConsumer {
 public:
+	/** The type of the size of our strings. */
 	using size_type = std::string_view::size_type;
 
 	/**
@@ -37,61 +71,71 @@ public:
 	 * ASCII whitespace characters, excluding new-line.
 	 * Usable in FindChar(In|NotIn), (Peek|Read|Skip)(If|Until)Char(In|NotIn)
 	 */
-	static const std::string_view WHITESPACE_NO_NEWLINE;
+	static constexpr StringConsumerControlCharFilter WHITESPACE_NO_NEWLINE{"\t\v\f\r "};
 	/**
 	 * ASCII whitespace characters, including new-line.
 	 * Usable in FindChar(In|NotIn), (Peek|Read|Skip)(If|Until)Char(In|NotIn)
 	 */
-	static const std::string_view WHITESPACE_OR_NEWLINE;
+	static constexpr StringConsumerControlCharFilter WHITESPACE_OR_NEWLINE{"\t\n\v\f\r "};
 
 private:
-	std::string_view src;
-	size_type position = 0;
+	std::string_view src; ///< The string to parse.
+	size_type position = 0; ///< The current parsing position in the string.
 
 	static void LogError(std::string &&msg);
 
 public:
 	/**
 	 * Construct parser with data from string.
+	 * @param src The source string to read from..
 	 */
 	explicit StringConsumer(std::string_view src) : src(src) {}
 	/**
 	 * Construct parser with data from string.
+	 * @param src The source string to read from..
 	 */
 	explicit StringConsumer(const std::string &src) : src(src) {}
 	/**
 	 * Construct parser with data from span.
+	 * @param src The source string to read from..
 	 */
 	explicit StringConsumer(std::span<const char> src) : src(src.data(), src.size()) {}
 
 	/**
 	 * Check whether any bytes left to read.
+	 * @return \c true iff there are any bytes to read.
 	 */
 	[[nodiscard]] bool AnyBytesLeft() const noexcept { return this->position < this->src.size(); }
 	/**
 	 * Get number of bytes left to read.
+	 * @return The number of bytes to read.
 	 */
 	[[nodiscard]] size_type GetBytesLeft() const noexcept { return this->src.size() - this->position; }
 
 	/**
 	 * Check whether any bytes were already read.
+	 * @return \c true iff there were any bytes read.
 	 */
 	[[nodiscard]] bool AnyBytesRead() const noexcept { return this->position > 0; }
 	/**
 	 * Get number of already read bytes.
+	 * @return The number of bytes read so far.
 	 */
 	[[nodiscard]] size_type GetBytesRead() const noexcept { return this->position; }
 
 	/**
 	 * Get the original data, as passed to the constructor.
+	 * @return The original string.
 	 */
 	[[nodiscard]] std::string_view GetOrigData() const noexcept { return this->src; }
 	/**
 	 * Get already read data.
+	 * @return The part of the original string we have already read.
 	 */
 	[[nodiscard]] std::string_view GetReadData() const noexcept { return this->src.substr(0, this->position); }
 	/**
 	 * Get data left to read.
+	 * @return The part of the original string that we have not read yet.
 	 */
 	[[nodiscard]] std::string_view GetLeftData() const noexcept { return this->src.substr(this->position); }
 
@@ -104,9 +148,15 @@ public:
 	 * Peek binary uint8.
 	 * @return Read integer, std::nullopt if not enough data.
 	 */
-	[[nodiscard]] std::optional<uint8_t> PeekUint8() const;
+	[[nodiscard]] std::optional<uint8_t> PeekUint8() const
+	{
+		if (this->GetBytesLeft() < 1) return std::nullopt;
+		return static_cast<uint8_t>(this->src[this->position]);
+	}
+
 	/**
 	 * Try to read binary uint8, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<uint8_t> TryReadUint8()
 	{
@@ -142,6 +192,7 @@ public:
 	}
 	/**
 	 * Try to read binary int8, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<int8_t> TryReadSint8()
 	{
@@ -172,6 +223,7 @@ public:
 	[[nodiscard]] std::optional<uint16_t> PeekUint16LE() const;
 	/**
 	 * Try to read binary uint16, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<uint16_t> TryReadUint16LE()
 	{
@@ -209,6 +261,7 @@ public:
 	}
 	/**
 	 * Try to read binary int16, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<int16_t> TryReadSint16LE()
 	{
@@ -241,6 +294,7 @@ public:
 	[[nodiscard]] std::optional<uint32_t> PeekUint32LE() const;
 	/**
 	 * Try to read binary uint32, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<uint32_t> TryReadUint32LE()
 	{
@@ -278,6 +332,7 @@ public:
 	}
 	/**
 	 * Try to read binary int32, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<int32_t> TryReadSint32LE()
 	{
@@ -310,6 +365,7 @@ public:
 	[[nodiscard]] std::optional<uint64_t> PeekUint64LE() const;
 	/**
 	 * Try to read binary uint64, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<uint64_t> TryReadUint64LE()
 	{
@@ -347,6 +403,7 @@ public:
 	}
 	/**
 	 * Try to read binary int64, and then advance reader.
+	 * @return Read integer, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<int64_t> TryReadSint64LE()
 	{
@@ -376,9 +433,15 @@ public:
 	 * Peek 8-bit character.
 	 * @return Read char, std::nullopt if not enough data.
 	 */
-	[[nodiscard]] std::optional<char> PeekChar() const;
+	[[nodiscard]] std::optional<char> PeekChar() const
+	{
+		if (this->GetBytesLeft() < 1) return std::nullopt;
+		return static_cast<char>(this->src[this->position]);
+	}
+
 	/**
 	 * Try to read a 8-bit character, and then advance reader.
+	 * @return Read character, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<char> TryReadChar()
 	{
@@ -408,6 +471,7 @@ public:
 	[[nodiscard]] std::pair<size_type, char32_t> PeekUtf8() const;
 	/**
 	 * Try to read a UTF-8 character, and then advance reader.
+	 * @return Read character, std::nullopt if not enough data.
 	 */
 	[[nodiscard]] std::optional<char32_t> TryReadUtf8()
 	{
@@ -443,6 +507,8 @@ public:
 
 	/**
 	 * Check whether the next data matches 'str'.
+	 * @param str String to compare to.
+	 * @return \c true iff the next data is equal to the string.
 	 */
 	[[nodiscard]] bool PeekIf(std::string_view str) const
 	{
@@ -450,6 +516,8 @@ public:
 	}
 	/**
 	 * Check whether the next data matches 'str', and skip it.
+	 * @param str String to compare to.
+	 * @return \c true iff the next data is equal to the string.
 	 */
 	[[nodiscard]] bool ReadIf(std::string_view str)
 	{
@@ -459,6 +527,7 @@ public:
 	}
 	/**
 	 * If the next data matches 'str', then skip it.
+	 * @param str String to compare to.
 	 */
 	void SkipIf(std::string_view str)
 	{
@@ -467,28 +536,39 @@ public:
 
 	/**
 	 * Check whether the next 8-bit char matches 'c'.
+	 * @param c The character to match.
+	 * @return \c true iff the next character is equal to the given character.
 	 */
 	[[nodiscard]] bool PeekCharIf(char c) const
 	{
-		return this->PeekIf({&c, 1});
+		return this->GetBytesLeft() > 0 && this->src[this->position] == c;
 	}
 	/**
 	 * Check whether the next 8-bit char matches 'c', and skip it.
+	 * @param c The character to match.
+	 * @return \c true iff the next character is equal to the given character.
 	 */
 	[[nodiscard]] bool ReadCharIf(char c)
 	{
-		return this->ReadIf({&c, 1});
+		if (this->PeekCharIf(c)) {
+			this->Skip(1);
+			return true;
+		}
+		return false;
 	}
 	/**
 	 * If the next data matches the 8-bit char 'c', then skip it.
+	 * @param c The character to match.
 	 */
 	void SkipCharIf(char c)
 	{
-		return this->SkipIf({&c, 1});
+		if (this->PeekCharIf(c)) this->Skip(1);
 	}
 
 	/**
 	 * Check whether the next UTF-8 char matches 'c'.
+	 * @param c The character to match.
+	 * @return \c true iff the next character is equal to the given character.
 	 */
 	[[nodiscard]] bool PeekUtf8If(char32_t c) const
 	{
@@ -497,6 +577,8 @@ public:
 	}
 	/**
 	 * Check whether the next UTF-8 char matches 'c', and skip it.
+	 * @param c The character to match.
+	 * @return \c true iff the next character is equal to the given character.
 	 */
 	[[nodiscard]] bool ReadUtf8If(char32_t c)
 	{
@@ -507,6 +589,7 @@ public:
 	}
 	/**
 	 * If the next data matches the UTF-8 char 'c', then skip it.
+	 * @param c The character to match.
 	 */
 	void SkipUtf8If(char32_t c)
 	{
@@ -522,6 +605,11 @@ public:
 	 * @return Up to 'len' bytes.
 	 */
 	[[nodiscard]] std::string_view Peek(size_type len) const;
+
+private:
+	static void LogErrorBufferTooShort(size_type len, size_type size);
+
+public:
 	/**
 	 * Read the next 'len' bytes, and advance reader.
 	 * @param len Bytes to read, 'npos' to read all.
@@ -531,7 +619,7 @@ public:
 	{
 		auto result = this->Peek(len);
 		if (len != npos && len != result.size()) {
-			LogError(fmt::format("Source buffer too short: {} > {}", len, result.size()));
+			LogErrorBufferTooShort(len, result.size());
 		}
 		this->Skip(result.size());
 		return result;
@@ -544,36 +632,88 @@ public:
 
 	/**
 	 * Find first occurrence of 'str'.
+	 * @param str The string to search for.
 	 * @return Offset from current reader position. 'npos' if no match found.
 	 */
 	[[nodiscard]] size_type Find(std::string_view str) const;
 	/**
 	 * Find first occurrence of 8-bit char 'c'.
+	 * @param c The character to search for.
 	 * @return Offset from current reader position. 'npos' if no match found.
 	 */
 	[[nodiscard]] size_type FindChar(char c) const
 	{
-		return this->Find({&c, 1});
+		return this->src.substr(this->position).find(c);
 	}
 	/**
 	 * Find first occurrence of UTF-8 char 'c'.
+	 * @param c The character to search for.
 	 * @return Offset from current reader position. 'npos' if no match found.
 	 */
 	[[nodiscard]] size_type FindUtf8(char32_t c) const;
 
 	/**
 	 * Find first occurrence of any 8-bit char in 'chars'.
+	 * @param chars The set of characters to find an occurrence for.
 	 * @return Offset from current reader position. 'npos' if no match found.
 	 */
 	[[nodiscard]] size_type FindCharIn(std::string_view chars) const;
 	/**
 	 * Find first occurrence of any 8-bit char not in 'chars'.
+	 * @param chars The set of characters to not find an occurrence for.
 	 * @return Offset from current reader position. 'npos' if no match found.
 	 */
 	[[nodiscard]] size_type FindCharNotIn(std::string_view chars) const;
 
 	/**
+	 * Find first occurrence of any 8-bit char in 'chars'.
+	 * @return Offset from current reader position. 'npos' if no match found.
+	 */
+	[[nodiscard]] size_type FindCharIn(StringConsumerControlCharFilter chars) const
+	{
+		return this->FindCharIf([&](char c) {
+			return chars.Matches(c);
+		});
+	}
+
+	/**
+	 * Find first occurrence of any 8-bit char not in 'chars'.
+	 * @return Offset from current reader position. 'npos' if no match found.
+	 */
+	[[nodiscard]] size_type FindCharNotIn(StringConsumerControlCharFilter chars) const
+	{
+		return this->FindCharIf([&](char c) {
+			return !chars.Matches(c);
+		});
+	}
+
+	/**
+	 * Find first occurrence of any 8-bit char matching the predicate.
+	 * @return Offset from current reader position. 'npos' if no match found.
+	 */
+	template <typename F>
+	[[nodiscard]] size_type FindCharIf(F predicate) const
+	{
+		auto start = this->src.begin() + this->position;
+		auto it = std::find_if(start, this->src.end(), predicate);
+		return it == this->src.end() ? std::string_view::npos : it - start;
+	}
+
+	/**
+	 * Find first occurrence of any 8-bit char not matching the predicate.
+	 * @return Offset from current reader position. 'npos' if no match found.
+	 */
+	template <typename F>
+	[[nodiscard]] size_type FindCharNotIf(F predicate) const
+	{
+		return this->FindCharIf([&](char c) {
+			return !predicate(c);
+		});
+	}
+
+	/**
 	 * Check whether the next 8-bit char is in 'chars'.
+	 * @param chars The set of characters to find an occurrence for.
 	 * @return Matching char, std::nullopt if no match.
 	 */
 	[[nodiscard]] std::optional<char> PeekCharIfIn(std::string_view chars) const
@@ -584,10 +724,24 @@ public:
 		return std::nullopt;
 	}
 	/**
-	 * Read next 8-bit char, check whether it is in 'chars', and advance reader.
+	 * Check whether the next 8-bit char is in 'chars'.
 	 * @return Matching char, std::nullopt if no match.
 	 */
-	[[nodiscard]] std::optional<char> ReadCharIfIn(std::string_view chars)
+	[[nodiscard]] std::optional<char> PeekCharIfIn(StringConsumerControlCharFilter chars) const
+	{
+		if (this->GetBytesLeft() > 0) {
+			char c = this->src[this->position];
+			if (chars.Matches(c)) return c;
+		}
+		return std::nullopt;
+	}
+	/**
+	 * Read next 8-bit char, check whether it is in 'chars', and advance reader.
+	 * @param chars The set of characters to find an occurrence for.
+	 * @return Matching char, std::nullopt if no match.
+	 */
+	template <typename T>
+	[[nodiscard]] std::optional<char> ReadCharIfIn(const T &chars)
 	{
 		auto result = this->PeekCharIfIn(chars);
 		if (result.has_value()) this->Skip(1);
@@ -595,8 +749,10 @@ public:
 	}
 	/**
 	 * If the next 8-bit char is in 'chars', skip it.
+	 * @param chars The set of characters to find an occurrence for.
 	 */
-	void SkipCharIfIn(std::string_view chars)
+	template <typename T>
+	void SkipCharIfIn(const T &chars)
 	{
 		auto result = this->PeekCharIfIn(chars);
 		if (result.has_value()) this->Skip(1);
@@ -604,6 +760,7 @@ public:
 
 	/**
 	 * Check whether the next 8-bit char is not in 'chars'.
+	 * @param chars The set of characters to not find an occurrence for.
 	 * @return Non-matching char, std::nullopt if match.
 	 */
 	[[nodiscard]] std::optional<char> PeekCharIfNotIn(std::string_view chars) const
@@ -614,10 +771,24 @@ public:
 		return std::nullopt;
 	}
 	/**
+	 * Check whether the next 8-bit char is not in 'chars'.
+	 * @return Matching char, std::nullopt if no match.
+	 */
+	[[nodiscard]] std::optional<char> PeekCharIfNotIn(StringConsumerControlCharFilter chars) const
+	{
+		if (this->GetBytesLeft() > 0) {
+			char c = this->src[this->position];
+			if (!chars.Matches(c)) return c;
+		}
+		return std::nullopt;
+	}
+	/**
 	 * Read next 8-bit char, check whether it is not in 'chars', and advance reader.
+	 * @param chars The set of characters to not find an occurrence for.
 	 * @return Non-matching char, std::nullopt if match.
 	 */
-	[[nodiscard]] std::optional<char> ReadCharIfNotIn(std::string_view chars)
+	template <typename T>
+	[[nodiscard]] std::optional<char> ReadCharIfNotIn(const T &chars)
 	{
 		auto result = this->PeekCharIfNotIn(chars);
 		if (result.has_value()) this->Skip(1);
@@ -625,8 +796,10 @@ public:
 	}
 	/**
 	 * If the next 8-bit char is not in 'chars', skip it.
+	 * @param chars The set of characters to not find an occurrence for.
 	 */
-	void SkipCharIfNotIn(std::string_view chars)
+	template <typename T>
+	void SkipCharIfNotIn(const T &chars)
 	{
 		auto result = this->PeekCharIfNotIn(chars);
 		if (result.has_value()) this->Skip(1);
@@ -634,26 +807,32 @@ public:
 
 	/**
 	 * Peek 8-bit chars, while they are not in 'chars', until they are.
+	 * @param chars The set of characters to find an occurrence for.
 	 * @return Non-matching chars.
 	 */
-	[[nodiscard]] std::string_view PeekUntilCharIn(std::string_view chars) const
+	template <typename T>
+	[[nodiscard]] std::string_view PeekUntilCharIn(const T &chars) const
 	{
 		size_type len = this->FindCharIn(chars);
 		return this->Peek(len);
 	}
 	/**
 	 * Read 8-bit chars, while they are not in 'chars', until they are; and advance reader.
+	 * @param chars The set of characters to find an occurrence for.
 	 * @return Non-matching chars.
 	 */
-	[[nodiscard]] std::string_view ReadUntilCharIn(std::string_view chars)
+	template <typename T>
+	[[nodiscard]] std::string_view ReadUntilCharIn(const T &chars)
 	{
 		size_type len = this->FindCharIn(chars);
 		return this->Read(len);
 	}
 	/**
 	 * Skip 8-bit chars, while they are not in 'chars', until they are.
+	 * @param chars The set of characters to find an occurrence for.
 	 */
-	void SkipUntilCharIn(std::string_view chars)
+	template <typename T>
+	void SkipUntilCharIn(const T &chars)
 	{
 		size_type len = this->FindCharIn(chars);
 		this->Skip(len);
@@ -661,26 +840,32 @@ public:
 
 	/**
 	 * Peek 8-bit chars, while they are in 'chars', until they are not.
+	 * @param chars The set of characters to not find an occurrence for.
 	 * @return Matching chars.
 	 */
-	[[nodiscard]] std::string_view PeekUntilCharNotIn(std::string_view chars) const
+	template <typename T>
+	[[nodiscard]] std::string_view PeekUntilCharNotIn(const T &chars) const
 	{
 		size_type len = this->FindCharNotIn(chars);
 		return this->Peek(len);
 	}
 	/**
 	 * Read 8-bit chars, while they are in 'chars', until they are not; and advance reader.
+	 * @param chars The set of characters to not find an occurrence for.
 	 * @return Matching chars.
 	 */
-	[[nodiscard]] std::string_view ReadUntilCharNotIn(std::string_view chars)
+	template <typename T>
+	[[nodiscard]] std::string_view ReadUntilCharNotIn(const T &chars)
 	{
 		size_type len = this->FindCharNotIn(chars);
 		return this->Read(len);
 	}
 	/**
 	 * Skip 8-bit chars, while they are in 'chars', until they are not.
+	 * @param chars The set of characters to not find an occurrence for.
 	 */
-	void SkipUntilCharNotIn(std::string_view chars)
+	template <typename T>
+	void SkipUntilCharNotIn(const T &chars)
 	{
 		size_type len = this->FindCharNotIn(chars);
 		this->Skip(len);
@@ -701,12 +886,14 @@ public:
 	 * Peek data until the first occurrence of 'str'.
 	 * @param str Separator string.
 	 * @param sep Whether to include/exclude 'str' from the result.
+	 * @return The string up to the separator.
 	 */
 	[[nodiscard]] std::string_view PeekUntil(std::string_view str, SeparatorUsage sep) const;
 	/**
 	 * Read data until the first occurrence of 'str', and advance reader.
 	 * @param str Separator string.
 	 * @param sep Whether to include/exclude 'str' from the result, and/or skip it.
+	 * @return The string up to the separator.
 	 */
 	[[nodiscard]] std::string_view ReadUntil(std::string_view str, SeparatorUsage sep)
 	{
@@ -752,6 +939,7 @@ public:
 	 * Peek data until the first occurrence of 8-bit char 'c'.
 	 * @param c Separator char.
 	 * @param sep Whether to include/exclude 'c' from the result.
+	 * @return The string up to the character.
 	 */
 	[[nodiscard]] std::string_view PeekUntilChar(char c, SeparatorUsage sep) const
 	{
@@ -761,6 +949,7 @@ public:
 	 * Read data until the first occurrence of 8-bit char 'c', and advance reader.
 	 * @param c Separator char.
 	 * @param sep Whether to include/exclude 'c' from the result, and/or skip it.
+	 * @return The string up to the character.
 	 */
 	[[nodiscard]] std::string_view ReadUntilChar(char c, SeparatorUsage sep)
 	{
@@ -780,12 +969,14 @@ public:
 	 * Peek data until the first occurrence of UTF-8 char 'c'.
 	 * @param c Separator char.
 	 * @param sep Whether to include/exclude 'c' from the result.
+	 * @return The string up to the character.
 	 */
 	[[nodiscard]] std::string_view PeekUntilUtf8(char32_t c, SeparatorUsage sep) const;
 	/**
 	 * Read data until the first occurrence of UTF-8 char 'c', and advance reader.
 	 * @param c Separator char.
 	 * @param sep Whether to include/exclude 'c' from the result, and/or skip it.
+	 * @return The string up to the character.
 	 */
 	[[nodiscard]] std::string_view ReadUntilUtf8(char32_t c, SeparatorUsage sep);
 	/**
@@ -796,62 +987,27 @@ public:
 	void SkipUntilUtf8(char32_t c, SeparatorUsage sep);
 
 private:
+	static void LogErrorIntegerOutOfRange(std::string_view str);
+	static void LogErrorIntegerOutOfRange2(std::string_view str, std::string_view str2);
+	static void LogErrorCannotParseInteger(std::string_view str, std::string_view str2);
+
+	/**
+	 * Parse an integer from the given string.
+	 * @param src The source string to read from.
+	 * @param base The base of the integer, or 0 to auto detect.
+	 * @param clamp Whether to automatically clamp the number to be within the types range.
+	 * @param log_errors Whether to log errors encountered during parsing.
+	 * @tparam T The type of integer to parse.
+	 * @return The numbers of bytes parsed and the parsed integer. When the number of parsed bytes is 0, the integer is invalid as well.
+	 */
 	template <class T>
-	[[nodiscard]] static std::pair<size_type, T> ParseIntegerBase(std::string_view src, int base, bool clamp, bool log_errors)
-	{
-		if (base == 0) {
-			/* Try positive hex */
-			if (src.starts_with("0x") || src.starts_with("0X")) {
-				auto [len, value] = ParseIntegerBase<T>(src.substr(2), 16, clamp, log_errors);
-				if (len == 0) return {};
-				return {len + 2, value};
-			}
-
-			/* Try negative hex */
-			if (std::is_signed_v<T> && (src.starts_with("-0x") || src.starts_with("-0X"))) {
-				using Unsigned = std::make_unsigned_t<T>;
-				auto [len, uvalue] = ParseIntegerBase<Unsigned>(src.substr(3), 16, clamp, log_errors);
-				if (len == 0) return {};
-				T value = static_cast<T>(0 - uvalue);
-				if (value > 0) {
-					if (!clamp) {
-						if (log_errors) LogError(fmt::format("Integer out of range: '{}'", src.substr(0, len + 3)));
-						return {};
-					}
-					value = std::numeric_limits<T>::lowest();
-				}
-				return {len + 3, value};
-			}
-
-			/* Try decimal */
-			return ParseIntegerBase<T>(src, 10, clamp, log_errors);
-		}
-
-		T value{};
-		assert(base == 8 || base == 10 || base == 16); // we only support these bases when skipping
-		auto result = std::from_chars(src.data(), src.data() + src.size(), value, base);
-		auto len = result.ptr - src.data();
-		if (result.ec == std::errc::result_out_of_range) {
-			if (!clamp) {
-				if (log_errors) LogError(fmt::format("Integer out of range: '{}'+'{}'", src.substr(0, len), src.substr(len, 4)));
-				return {};
-			}
-			if (src.starts_with("-")) {
-				value = std::numeric_limits<T>::lowest();
-			} else {
-				value = std::numeric_limits<T>::max();
-			}
-		} else if (result.ec != std::errc{}) {
-			if (log_errors) LogError(fmt::format("Cannot parse integer: '{}'+'{}'", src.substr(0, len), src.substr(len, 4)));
-			return {};
-		}
-		return {len, value};
-	}
+	[[nodiscard]] static std::pair<size_type, T> ParseIntegerBase(std::string_view src, int base, bool clamp, bool log_errors);
 
 public:
 	/**
 	 * Peek and parse an integer in number 'base'.
 	 * If 'base == 0', then a prefix '0x' decides between base 16 or base 10.
+	 * @param base The base to interpret the string as.
 	 * @param clamp If the value is a valid number, but out of range for T, return the maximum representable value.
 	 *              Negative values for unsigned results are still treated as invalid.
 	 * @return Length of string match, and parsed value.
@@ -860,11 +1016,13 @@ public:
 	template <class T>
 	[[nodiscard]] std::pair<size_type, T> PeekIntegerBase(int base, bool clamp = false) const
 	{
-		return ParseIntegerBase<T>(this->src.substr(this->position), base, clamp, false);
+		auto [len, value] = ParseIntegerBase<typename sized_integer_as<T>::type>(this->src.substr(this->position), base, clamp, false);
+		return std::make_pair(len, static_cast<T>(value));
 	}
 	/**
 	 * Try to read and parse an integer in number 'base', and then advance the reader.
 	 * If 'base == 0', then a prefix '0x' decides between base 16 or base 10.
+	 * @param base The base to interpret the string as.
 	 * @param clamp If the value is a valid number, but out of range for T, return the maximum representable value.
 	 *              Negative values for unsigned results are still treated as invalid.
 	 * @return Parsed value, if valid.
@@ -881,6 +1039,8 @@ public:
 	/**
 	 * Read and parse an integer in number 'base', and advance the reader.
 	 * If 'base == 0', then a prefix '0x' decides between base 16 or base 10.
+	 * @param base The base to interpret the string as.
+	 * @param def The default when no valid integer could be parsed.
 	 * @param clamp If the value is a valid number, but out of range for T, return the maximum representable value.
 	 *              Negative values for unsigned results are still treated as invalid.
 	 * @return Parsed value, or 'def' if invalid.
@@ -890,13 +1050,14 @@ public:
 	template <class T>
 	[[nodiscard]] T ReadIntegerBase(int base, T def = 0, bool clamp = false)
 	{
-		auto [len, value] = ParseIntegerBase<T>(this->src.substr(this->position), base, clamp, true);
+		auto [len, value] = ParseIntegerBase<typename sized_integer_as<T>::type>(this->src.substr(this->position), base, clamp, true);
 		this->SkipIntegerBase(base); // always advance
-		return len > 0 ? value : def;
+		return len > 0 ? static_cast<T>(value) : def;
 	}
 	/**
 	 * Skip an integer in number 'base'.
 	 * If 'base == 0', then a prefix '0x' decides between base 16 or base 10.
+	 * @param base The base to interpret the string as.
 	 * @note The reader is advanced, even if no valid data was present.
 	 * @note The parser rejects leading whitespace and unary plus.
 	 */

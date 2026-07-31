@@ -42,7 +42,6 @@ static BITMAP *_allegro_screen;
 
 static PointDimension _dirty_rects[100];
 static size_t _num_dirty_rects;
-static Palette _local_palette; ///< Current palette to use for drawing.
 
 void VideoDriver_Allegro::MakeDirty(int left, int top, int width, int height)
 {
@@ -80,9 +79,9 @@ static void UpdatePalette(uint start, uint count)
 
 	uint end = start + count;
 	for (uint i = start; i != end; i++) {
-		pal[i].r = _local_palette.palette[i].r / 4;
-		pal[i].g = _local_palette.palette[i].g / 4;
-		pal[i].b = _local_palette.palette[i].b / 4;
+		pal[i].r = _cur_palette.palette[i].r / 4;
+		pal[i].g = _cur_palette.palette[i].g / 4;
+		pal[i].b = _cur_palette.palette[i].b / 4;
 		pal[i].filler = 0;
 	}
 
@@ -96,24 +95,25 @@ static void InitPalette()
 
 void VideoDriver_Allegro::CheckPaletteAnim()
 {
-	if (!CopyPalette(_local_palette)) return;
+	if (_cur_palette.count_dirty != 0) {
+		Blitter *blitter = BlitterFactory::GetCurrentBlitter();
 
-	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+		switch (blitter->UsePaletteAnimation()) {
+			case Blitter::PaletteAnimation::VideoBackend:
+				UpdatePalette(_cur_palette.first_dirty, _cur_palette.count_dirty);
+				break;
 
-	switch (blitter->UsePaletteAnimation()) {
-		case Blitter::PaletteAnimation::VideoBackend:
-			UpdatePalette(_local_palette.first_dirty, _local_palette.count_dirty);
-			break;
+			case Blitter::PaletteAnimation::Blitter:
+				blitter->PaletteAnimate(_cur_palette);
+				break;
 
-		case Blitter::PaletteAnimation::Blitter:
-			blitter->PaletteAnimate(_local_palette);
-			break;
+			case Blitter::PaletteAnimation::None:
+				break;
 
-		case Blitter::PaletteAnimation::None:
-			break;
-
-		default:
-			NOT_REACHED();
+			default:
+				NOT_REACHED();
+		}
+		_cur_palette.count_dirty = 0;
 	}
 }
 
@@ -203,7 +203,7 @@ static bool CreateMainSurface(uint w, uint h)
 	_screen.dst_ptr = _allegro_screen->line[0];
 
 	/* Initialise the screen so we don't blit garbage to the screen */
-	std::fill_n(static_cast<std::byte *>(_screen.dst_ptr), static_cast<size_t>(_screen.height) * _screen.pitch, static_cast<std::byte>(0));
+	memset(_screen.dst_ptr, 0, static_cast<size_t>(_screen.height) * _screen.pitch);
 
 	/* Set the mouse at the place where we expect it */
 	poll_mouse();
@@ -226,12 +226,11 @@ static bool CreateMainSurface(uint w, uint h)
 	return true;
 }
 
-bool VideoDriver_Allegro::ClaimMousePointer()
+void VideoDriver_Allegro::ClaimMousePointer()
 {
 	select_mouse_cursor(MOUSE_CURSOR_NONE);
 	show_mouse(nullptr);
 	disable_hardware_cursor();
-	return true;
 }
 
 std::vector<int> VideoDriver_Allegro::GetListOfMonitorRefreshRates()
@@ -419,7 +418,7 @@ bool VideoDriver_Allegro::PollEvent()
  */
 int _allegro_instance_count = 0;
 
-std::optional<std::string_view> VideoDriver_Allegro::Start(const StringList &param)
+const char *VideoDriver_Allegro::Start(const StringList &param)
 {
 	if (_allegro_instance_count == 0 && install_allegro(SYSTEM_AUTODETECT, &errno, nullptr)) {
 		Debug(driver, 0, "allegro: install_allegro failed '{}'", allegro_error);
@@ -449,7 +448,7 @@ std::optional<std::string_view> VideoDriver_Allegro::Start(const StringList &par
 
 	this->is_game_threaded = !GetDriverParamBool(param, "no_threads") && !GetDriverParamBool(param, "no_thread");
 
-	return std::nullopt;
+	return nullptr;
 }
 
 void VideoDriver_Allegro::Stop()
@@ -460,22 +459,23 @@ void VideoDriver_Allegro::Stop()
 void VideoDriver_Allegro::InputLoop()
 {
 	bool old_ctrl_pressed = _ctrl_pressed;
+	bool old_shift_pressed = _shift_pressed;
 
-	_ctrl_pressed  = !!(key_shifts & KB_CTRL_FLAG);
-	_shift_pressed = !!(key_shifts & KB_SHIFT_FLAG);
+	_ctrl_pressed  = !!(key_shifts & KB_CTRL_FLAG) != _invert_ctrl;
+	_shift_pressed = !!(key_shifts & KB_SHIFT_FLAG) != _invert_shift;
 
 	/* Speedup when pressing tab, except when using ALT+TAB
 	 * to switch to another application. */
 	this->fast_forward_key_pressed = key[KEY_TAB] && (key_shifts & KB_ALT_FLAG) == 0;
 
 	/* Determine which directional keys are down. */
-	_dirkeys =
-		(key[KEY_LEFT]  ? 1 : 0) |
-		(key[KEY_UP]    ? 2 : 0) |
-		(key[KEY_RIGHT] ? 4 : 0) |
-		(key[KEY_DOWN]  ? 8 : 0);
+	_dirkeys.Set(DirectionKey::Left, key[KEY_LEFT]);
+	_dirkeys.Set(DirectionKey::Up, key[KEY_UP]);
+	_dirkeys.Set(DirectionKey::Right, key[KEY_RIGHT]);
+	_dirkeys.Set(DirectionKey::Down, key[KEY_DOWN]);
 
 	if (old_ctrl_pressed != _ctrl_pressed) HandleCtrlChanged();
+	if (old_shift_pressed != _shift_pressed) HandleShiftChanged();
 }
 
 void VideoDriver_Allegro::MainLoop()

@@ -26,24 +26,17 @@ add_files(
     newgrf_sl.cpp
     newgrf_sl.h
     object_sl.cpp
-    oldloader.cpp
-    oldloader.h
-    oldloader_sl.cpp
     order_sl.cpp
     randomizer_sl.cpp
     saveload.cpp
     saveload.h
-    saveload_filter.h
-    saveload_internal.h
     settings_sl.cpp
     signs_sl.cpp
     station_sl.cpp
     storage_sl.cpp
-    strings_sl.cpp
     story_sl.cpp
     subsidy_sl.cpp
     town_sl.cpp
     vehicle_sl.cpp
-    waypoint_sl.cpp
     water_regions_sl.cpp
 )

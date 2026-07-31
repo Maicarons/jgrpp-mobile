@@ -5,14 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file depot_base.h Base for all depots (except hangars) */
+/** @file depot_base.h Base for all depots (except hangars). */
 
 #ifndef DEPOT_BASE_H
 #define DEPOT_BASE_H
 
 #include "depot_map.h"
 #include "core/pool_type.hpp"
-#include "timer/timer_game_calendar.h"
+#include "core/tinystring_type.hpp"
 
 typedef Pool<Depot, DepotID, 64> DepotPool;
 extern DepotPool _depot_pool;
@@ -22,11 +22,10 @@ struct Depot : DepotPool::PoolItem<&_depot_pool> {
 	uint16_t town_cn = 0; ///< The N-1th depot for this town (consecutive number)
 	TileIndex xy = INVALID_TILE;
 	Town *town = nullptr;
-	std::string name{};
-	TimerGameCalendar::Date build_date{}; ///< Date of construction
+	TinyString name{};
+	CalTime::Date build_date{}; ///< Date of construction
 
-	Depot() {}
-	Depot(TileIndex xy) : xy(xy), build_date(TimerGameCalendar::date) {}
+	Depot(DepotID index, TileIndex xy = INVALID_TILE) : PoolItemBase(index), xy(xy), build_date(CalTime::CurDate()) {}
 	~Depot();
 
 	static inline Depot *GetByTile(TileIndex tile)

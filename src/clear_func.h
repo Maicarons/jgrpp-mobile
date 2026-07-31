@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file clear_func.h Functions related to clear (MP_CLEAR) land. */
+/** @file clear_func.h Functions related to clear (TileType::Clear) land. */
 
 #ifndef CLEAR_FUNC_H
 #define CLEAR_FUNC_H
@@ -14,5 +14,11 @@
 
 void DrawHillyLandTile(const TileInfo *ti);
 void DrawClearLandTile(const TileInfo *ti, uint8_t set);
+
+SpriteID GetSpriteIDForClearLand(const Slope slope, uint8_t set);
+SpriteID GetSpriteIDForHillyLand(const Slope slope, const uint rough_index);
+SpriteID GetSpriteIDForRocks(const Slope slope, const uint tile_hash);
+SpriteID GetSpriteIDForFields(const Slope slope, const uint field_type);
+SpriteID GetSpriteIDForSnowDesert(const Slope slope, const uint density);
 
 #endif /* CLEAR_FUNC_H */

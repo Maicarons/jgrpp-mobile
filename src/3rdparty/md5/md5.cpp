@@ -57,6 +57,7 @@
 #include "../../stdafx.h"
 #include "../../core/endian_func.hpp"
 #include "md5.h"
+#include <bit>
 
 #include "../../safeguards.h"
 
@@ -281,7 +282,7 @@ void Md5::Append(const void *data, const size_t nbytes)
 	if (offset) {
 		size_t copy = (offset + nbytes > 64 ? 64 - offset : nbytes);
 
-		std::copy_n(p, copy, this->buf + offset);
+		memcpy(this->buf + offset, p, copy);
 
 		if (offset + copy < 64) return;
 
@@ -294,7 +295,7 @@ void Md5::Append(const void *data, const size_t nbytes)
 	for (; left >= 64; p += 64, left -= 64) this->Process(p);
 
 	/* Process a final partial block. */
-	if (left) std::copy_n(p, left, this->buf);
+	if (left) memcpy(this->buf, p, left);
 }
 
 void Md5::Finish(MD5Hash &digest)

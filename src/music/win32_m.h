@@ -15,7 +15,7 @@
 /** The Windows music player. */
 class MusicDriver_Win32 : public MusicDriver {
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -26,13 +26,13 @@ public:
 	bool IsSongPlaying() override;
 
 	void SetVolume(uint8_t vol) override;
-	std::string_view GetName() const override { return "win32"; }
+	const char *GetName() const override { return "win32"; }
 };
 
 /** Factory for Windows' music player. */
 class FMusicDriver_Win32 : public DriverFactoryBase {
 public:
-	FMusicDriver_Win32() : DriverFactoryBase(Driver::DT_MUSIC, 5, "win32", "Win32 Music Driver") {}
+	FMusicDriver_Win32() : DriverFactoryBase(Driver::Type::Music, 5, "win32", "Win32 Music Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<MusicDriver_Win32>(); }
 };
 

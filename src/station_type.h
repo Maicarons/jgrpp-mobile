@@ -10,14 +10,16 @@
 #ifndef STATION_TYPE_H
 #define STATION_TYPE_H
 
-#include "core/pool_type.hpp"
-#include "tilearea_type.h"
+#include "core/enum_type.hpp"
+#include "core/pool_id_type.hpp"
 
-using StationID = PoolID<uint16_t, struct StationIDTag, 64000, 0xFFFF>;
+struct StationIDTag : public PoolIDTraits<uint16_t, 64000, 0xFFFF> {};
+using StationID = PoolID<StationIDTag>;
 static constexpr StationID NEW_STATION{0xFFFD};
 static constexpr StationID ADJACENT_STATION{0xFFFE};
 
-using RoadStopID = PoolID<uint16_t, struct RoadStopIDTag, 64000, 0xFFFF>;
+struct RoadStopIDTag : public PoolIDTraits<uint16_t, 64000, 0xFFFF> {};
+using RoadStopID = PoolID<RoadStopIDTag>;
 
 struct BaseStation;
 struct Station;
@@ -25,25 +27,27 @@ struct RoadStop;
 struct StationSpec;
 struct Waypoint;
 
+static const uint MAX_STATION_CARGO_HISTORY_DAYS = 24;
+
 /** Station types */
 enum class StationType : uint8_t {
-	Rail,
-	Airport,
-	Truck,
-	Bus,
-	Oilrig,
-	Dock,
-	Buoy,
-	RailWaypoint,
-	RoadWaypoint,
-	End,
+	Rail, ///< Railways/train station.
+	Airport, ///< Airports and heliports, excluding the ones on oil rigs.
+	Truck, ///< Road stop for trucks.
+	Bus, ///< Road stop for busses.
+	Oilrig, ///< Heliport on an oil rig.
+	Dock, ///< Ship port.
+	Buoy, ///< Waypoint for ships.
+	RailWaypoint, ///< Waypoint for trains.
+	RoadWaypoint, ///< Waypoint for trucks and busses.
+	End, ///< End marker.
 };
 
 /** Types of RoadStops */
 enum class RoadStopType : uint8_t {
-	Bus, ///< A standard stop for buses
+	Bus,   ///< A standard stop for buses
 	Truck, ///< A standard stop for trucks
-	End, ///< End of valid types
+	End,   ///< End of valid types
 };
 
 /** The facilities a station might be having */
@@ -61,17 +65,18 @@ using StationFacilities = EnumBitSet<StationFacility, uint8_t>;
 static constexpr StationFacility STATION_FACILITY_GHOST{6};
 
 /** The vehicles that may have visited a station */
-enum StationHadVehicleOfType : uint8_t {
-	HVOT_NONE     = 0,      ///< Station has seen no vehicles
-	HVOT_TRAIN    = 1 << 1, ///< Station has seen a train
-	HVOT_BUS      = 1 << 2, ///< Station has seen a bus
-	HVOT_TRUCK    = 1 << 3, ///< Station has seen a truck
-	HVOT_AIRCRAFT = 1 << 4, ///< Station has seen an aircraft
-	HVOT_SHIP     = 1 << 5, ///< Station has seen a ship
+enum class StationVehicleType : uint8_t {
+	Train = 1, ///< Station has seen a train
+	Bus = 2, ///< Station has seen a bus
+	Truck = 3, ///< Station has seen a truck
+	Aircraft = 4, ///< Station has seen an aircraft
+	Ship = 5, ///< Station has seen a ship
 
-	HVOT_WAYPOINT = 1 << 6, ///< Station is a waypoint (NewGRF only!)
+	Waypoint = 6, ///< Station is a waypoint (Save load conversion and NewGRF only!)
 };
-DECLARE_ENUM_AS_BIT_SET(StationHadVehicleOfType)
+
+/** Bitset of \c StationVehicleType elements. */
+using StationVehicleTypes = EnumBitSet<StationVehicleType, uint8_t>;
 
 /** Randomisation triggers for stations and roadstops */
 enum class StationRandomTrigger : uint8_t {
@@ -95,7 +100,7 @@ enum class StationAnimationTrigger : uint8_t {
 	AcceptanceTick, ///< Trigger station every 250 ticks.
 	TileLoop, ///< Trigger in the periodic tile loop.
 	PathReservation, ///< Trigger platform when train reserves path.
-	End
+	End, ///< End marker.
 };
 using StationAnimationTriggers = EnumBitSet<StationAnimationTrigger, uint16_t>;
 
@@ -121,28 +126,11 @@ static constexpr uint CA_UNMODIFIED = 4; ///< Catchment for all stations with "m
 
 static constexpr uint MAX_CATCHMENT = 10; ///< Maximum catchment for airports with "modified catchment" enabled
 
-static const uint MAX_LENGTH_STATION_NAME_CHARS = 32; ///< The maximum length of a station name in characters including '\0'
-
-struct StationCompare {
-	bool operator() (const Station *lhs, const Station *rhs) const;
+enum StationDelivery : uint8_t {
+	SD_NEAREST_FIRST = 0, ///< Station delivers cargo only to the nearest accepting industry
+	SD_BALANCED      = 1  ///< Station delivers cargo equally among accepting industries
 };
 
-/** List of stations */
-typedef std::set<Station *, StationCompare> StationList;
-
-/**
- * Structure contains cached list of stations nearby. The list
- * is created upon first call to GetStations()
- */
-class StationFinder : TileArea {
-	StationList stations; ///< List of stations nearby
-public:
-	/**
-	 * Constructs StationFinder
-	 * @param area the area to search from
-	 */
-	StationFinder(const TileArea &area) : TileArea(area) {}
-	const StationList &GetStations();
-};
+static const uint MAX_LENGTH_STATION_NAME_CHARS = 128; ///< The maximum length of a station name in characters including '\0'
 
 #endif /* STATION_TYPE_H */

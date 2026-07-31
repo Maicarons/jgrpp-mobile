@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for SlTownSupplied. */
 const SaveLoadCompat _town_supplied_sl_compat[] = {
 	SLC_VAR("old_max"),
@@ -83,5 +85,7 @@ const SaveLoadCompat _town_sl_compat[] = {
 	SLC_VAR("received"),
 	SLC_VAR("acceptance_matrix"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_TOWN_H */

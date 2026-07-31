@@ -23,16 +23,17 @@
  * @param first Local ID of the first vehicle.
  * @param last Local ID of the last vehicle.
  * @param prop The property to change.
+ * @param mapping_entry Variable mapping entry.
  * @param buf The property value.
  * @return ChangeInfoResult.
  */
-ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteReader &buf)
+static ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	for (uint id = first; id < last; ++id) {
-		Engine *e = GetNewEngine(_cur_gps.grffile, VEH_TRAIN, id);
-		if (e == nullptr) return CIR_INVALID_ID; // No engine could be allocated, so neither can any next vehicles
+		Engine *e = GetNewEngine(_cur_gps.grffile, VehicleType::Train, id);
+		if (e == nullptr) return ChangeInfoResult::InvalidId; // No engine could be allocated, so neither can any next vehicles
 
 		EngineInfo *ei = &e->info;
 		RailVehicleInfo *rvi = &e->VehInfo<RailVehicleInfo>();
@@ -48,7 +49,7 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				}
 
 				switch (tracktype) {
-					case 0: _gted[e->index].railtypelabels.push_back(rvi->engclass >= 2 ? RAILTYPE_LABEL_ELECTRIC : RAILTYPE_LABEL_RAIL); break;
+					case 0: _gted[e->index].railtypelabels.push_back(rvi->engclass >= EngineClass::Electric ? RAILTYPE_LABEL_ELECTRIC : RAILTYPE_LABEL_RAIL); break;
 					case 1: _gted[e->index].railtypelabels.push_back(RAILTYPE_LABEL_MONO); break;
 					case 2: _gted[e->index].railtypelabels.push_back(RAILTYPE_LABEL_MAGLEV); break;
 					default:
@@ -77,11 +78,11 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 
 				/* Set engine / wagon state based on power */
 				if (rvi->power != 0) {
-					if (rvi->railveh_type == RAILVEH_WAGON) {
-						rvi->railveh_type = RAILVEH_SINGLEHEAD;
+					if (rvi->railveh_type == RailVehicleType::Wagon) {
+						rvi->railveh_type = RailVehicleType::Singlehead;
 					}
 				} else {
-					rvi->railveh_type = RAILVEH_WAGON;
+					rvi->railveh_type = RailVehicleType::Wagon;
 				}
 				break;
 
@@ -101,7 +102,7 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				 * as an array index, so we need it to be half the original value. */
 				if (spriteid < CUSTOM_VEHICLE_SPRITENUM) spriteid >>= 1;
 
-				if (IsValidNewGRFImageIndex<VEH_TRAIN>(spriteid)) {
+				if (IsValidNewGRFImageIndex<VehicleType::Train>(spriteid)) {
 					rvi->image_index = spriteid;
 				} else {
 					GrfMsg(1, "RailVehicleChangeInfo: Invalid Sprite {} specified, ignoring", orig_spriteid);
@@ -114,10 +115,10 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				uint8_t dual = buf.ReadByte();
 
 				if (dual != 0) {
-					rvi->railveh_type = RAILVEH_MULTIHEAD;
+					rvi->railveh_type = RailVehicleType::Multihead;
 				} else {
 					rvi->railveh_type = rvi->power == 0 ?
-						RAILVEH_WAGON : RAILVEH_SINGLEHEAD;
+						RailVehicleType::Wagon : RailVehicleType::Singlehead;
 				}
 				break;
 			}
@@ -167,15 +168,15 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				EngineClass engclass;
 
 				if (traction <= 0x07) {
-					engclass = EC_STEAM;
+					engclass = EngineClass::Steam;
 				} else if (traction <= 0x27) {
-					engclass = EC_DIESEL;
+					engclass = EngineClass::Diesel;
 				} else if (traction <= 0x31) {
-					engclass = EC_ELECTRIC;
+					engclass = EngineClass::Electric;
 				} else if (traction <= 0x37) {
-					engclass = EC_MONORAIL;
+					engclass = EngineClass::Monorail;
 				} else if (traction <= 0x41) {
-					engclass = EC_MAGLEV;
+					engclass = EngineClass::Maglev;
 				} else {
 					break;
 				}
@@ -183,8 +184,8 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				if (_cur_gps.grffile->railtype_list.empty() && !_gted[e->index].railtypelabels.empty()) {
 					/* Use traction type to select between normal and electrified
 					 * rail only when no translation list is in place. */
-					if (_gted[e->index].railtypelabels[0] == RAILTYPE_LABEL_RAIL && engclass >= EC_ELECTRIC) _gted[e->index].railtypelabels[0] = RAILTYPE_LABEL_ELECTRIC;
-					if (_gted[e->index].railtypelabels[0] == RAILTYPE_LABEL_ELECTRIC && engclass < EC_ELECTRIC) _gted[e->index].railtypelabels[0] = RAILTYPE_LABEL_RAIL;
+					if (_gted[e->index].railtypelabels[0] == RAILTYPE_LABEL_RAIL && engclass >= EngineClass::Electric) _gted[e->index].railtypelabels[0] = RAILTYPE_LABEL_ELECTRIC;
+					if (_gted[e->index].railtypelabels[0] == RAILTYPE_LABEL_ELECTRIC && engclass < EngineClass::Electric) _gted[e->index].railtypelabels[0] = RAILTYPE_LABEL_RAIL;
 				}
 
 				rvi->engclass = engclass;
@@ -280,7 +281,7 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				break;
 
 			case 0x2A: // Long format introduction date (days since year 0)
-				ei->base_intro = TimerGameCalendar::Date(buf.ReadDWord());
+				ei->base_intro = CalTime::Date(static_cast<int32_t>(buf.ReadDWord()));
 				break;
 
 			case PROP_TRAIN_CARGO_AGE_PERIOD: // 0x2B Cargo aging period
@@ -293,10 +294,10 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				_gted[e->index].UpdateRefittability(prop == 0x2C && count != 0);
 				if (prop == 0x2C) _gted[e->index].defaultcargo_grf = _cur_gps.grffile;
 				CargoTypes &ctt = prop == 0x2C ? _gted[e->index].ctt_include_mask : _gted[e->index].ctt_exclude_mask;
-				ctt = 0;
+				ctt.Reset();
 				while (count--) {
 					CargoType ctype = GetCargoTranslation(buf.ReadByte(), _cur_gps.grffile);
-					if (IsValidCargoType(ctype)) SetBit(ctt, ctype);
+					if (IsValidCargoType(ctype)) ctt.Set(ctype);
 				}
 				break;
 			}
@@ -325,7 +326,7 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 				break;
 
 			case 0x33: // Badge list
-				e->badges = ReadBadgeList(buf, GSF_TRAINS);
+				e->badges = ReadBadgeList(buf, GrfSpecFeature::Trains);
 				break;
 
 			case 0x34: { // List of track types
@@ -345,7 +346,7 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 			}
 
 			default:
-				ret = CommonVehicleChangeInfo(ei, prop, buf);
+				ret = CommonVehicleChangeInfo(ei, prop, mapping_entry, buf);
 				break;
 		}
 	}
@@ -353,5 +354,5 @@ ChangeInfoResult RailVehicleChangeInfo(uint first, uint last, int prop, ByteRead
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_TRAINS>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_TRAINS>::Activation(uint first, uint last, int prop, ByteReader &buf) { return RailVehicleChangeInfo(first, last, prop, buf); }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Trains>::Reserve(uint, uint, int, const GRFFilePropertyRemapEntry *, ByteReader &) { return ChangeInfoResult::Unhandled; }
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Trains>::Activation(uint first, uint last, int prop, const GRFFilePropertyRemapEntry *mapping_entry, ByteReader &buf) { return RailVehicleChangeInfo(first, last, prop, mapping_entry, buf); }

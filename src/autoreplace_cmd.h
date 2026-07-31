@@ -15,10 +15,7 @@
 #include "engine_type.h"
 #include "group_type.h"
 
-CommandCost CmdAutoreplaceVehicle(DoCommandFlags flags, VehicleID veh_id);
-CommandCost CmdSetAutoReplace(DoCommandFlags flags, GroupID id_g, EngineID old_engine_type, EngineID new_engine_type, bool when_old);
-
-DEF_CMD_TRAIT(CMD_AUTOREPLACE_VEHICLE, CmdAutoreplaceVehicle, {}, CommandType::VehicleManagement)
-DEF_CMD_TRAIT(CMD_SET_AUTOREPLACE,     CmdSetAutoReplace,     {}, CommandType::VehicleManagement)
+DEF_CMD_TUPLE_NT(Commands::AutoreplaceVehicle, CmdAutoreplaceVehicle, {}, CommandType::VehicleManagement, CmdDataT<VehicleID, bool>)
+DEF_CMD_TUPLE_NT(Commands::SetAutoreplace,     CmdSetAutoReplace,     {}, CommandType::VehicleManagement, CmdDataT<GroupID, EngineID, EngineID, bool>)
 
 #endif /* AUTOREPLACE_CMD_H */

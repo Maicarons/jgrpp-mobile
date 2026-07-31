@@ -21,7 +21,6 @@ install(TARGETS openttd
         RUNTIME
             DESTINATION ${BINARY_DESTINATION_DIR}
             COMPONENT Runtime
-        LIBRARY DESTINATION ${BINARY_DESTINATION_DIR}
         )
 
 if (NOT EMSCRIPTEN)
@@ -54,6 +53,7 @@ install(FILES
                 ${CMAKE_SOURCE_DIR}/CONTRIBUTING.md
                 ${CMAKE_SOURCE_DIR}/changelog.md
                 ${CMAKE_SOURCE_DIR}/known-bugs.md
+                ${CMAKE_SOURCE_DIR}/jgrpp-changelog.md
         DESTINATION ${DOCS_DESTINATION_DIR}
         COMPONENT docs)
 
@@ -133,12 +133,12 @@ endif()
 set(CPACK_SYSTEM_NAME "${ARCHITECTURE}")
 
 set(CPACK_PACKAGE_NAME "openttd")
-set(CPACK_PACKAGE_VENDOR "OpenTTD")
-set(CPACK_PACKAGE_DESCRIPTION "OpenTTD")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenTTD")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.openttd.org/")
-set(CPACK_PACKAGE_CONTACT "OpenTTD <info@openttd.org>")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "OpenTTD")
+set(CPACK_PACKAGE_VENDOR "OpenTTD (JGRPP)")
+set(CPACK_PACKAGE_DESCRIPTION "OpenTTD (JGRPP)")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenTTD (JGRPP)")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/JGRennison/OpenTTD-patches")
+set(CPACK_PACKAGE_CONTACT "https://github.com/JGRennison/OpenTTD-patches")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "OpenTTD-JGRPP")
 set(CPACK_PACKAGE_CHECKSUM "SHA256")
 
 if((APPLE OR WIN32) AND EXISTS ${PANDOC_EXECUTABLE})
@@ -151,12 +151,10 @@ endif()
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_MONOLITHIC_INSTALL YES)
 set(CPACK_PACKAGE_EXECUTABLES "openttd;OpenTTD")
-set(CPACK_STRIP_FILES YES)
+set(CPACK_STRIP_FILES NO)
 set(CPACK_OUTPUT_FILE_PREFIX "bundles")
 
 if(APPLE)
-    # Stripping would produce unreadable stacktraces.
-    set(CPACK_STRIP_FILES NO)
     set(CPACK_GENERATOR "Bundle")
     include(PackageBundle)
 
@@ -191,29 +189,7 @@ elseif(UNIX)
         set(CPACK_GENERATOR "TXZ")
         set(PLATFORM "unknown")
     else()
-        find_program(LSB_RELEASE_EXEC lsb_release)
-        execute_process(COMMAND ${LSB_RELEASE_EXEC} -is
-            OUTPUT_VARIABLE LSB_RELEASE_ID
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        if(LSB_RELEASE_ID)
-            if(LSB_RELEASE_ID STREQUAL "Ubuntu" OR LSB_RELEASE_ID STREQUAL "Debian" OR LSB_RELEASE_ID STREQUAL "Linuxmint")
-                execute_process(COMMAND ${LSB_RELEASE_EXEC} -cs
-                    OUTPUT_VARIABLE LSB_RELEASE_CODENAME
-                    OUTPUT_STRIP_TRAILING_WHITESPACE
-                )
-                string(TOLOWER "${LSB_RELEASE_ID}-${LSB_RELEASE_CODENAME}" PLATFORM)
-
-                set(CPACK_GENERATOR "DEB")
-                include(PackageDeb)
-            elseif(LSB_RELEASE_ID STREQUAL "Fedora")
-                set(PLATFORM "fedora")
-                set(CPACK_GENERATOR "RPM")
-                include(PackageRPM)
-            else()
-                set(UNSUPPORTED_PLATFORM_NAME "LSB-based Linux distribution '${LSB_RELEASE_ID}'")
-            endif()
-        elseif(EXISTS "/etc/os-release")
+        if(EXISTS "/etc/os-release")
             file(STRINGS "/etc/os-release" OS_RELEASE_CONTENTS REGEX "^ID=")
             string(REGEX MATCH "ID=(.*)" _ ${OS_RELEASE_CONTENTS})
             set(DISTRO_ID ${CMAKE_MATCH_1})
@@ -224,11 +200,43 @@ elseif(UNIX)
                 set(PLATFORM "fedora")
                 set(CPACK_GENERATOR "RPM")
                 include(PackageRPM)
+            elseif(DISTRO_ID STREQUAL "ubuntu" OR DISTRO_ID STREQUAL "debian" OR DISTRO_ID STREQUAL "linuxmint")
+                file(STRINGS "/etc/os-release" OS_RELEASE_CODENAME REGEX "^VERSION_CODENAME=")
+                string(REGEX MATCH "VERSION_CODENAME=(.*)" _ ${OS_RELEASE_CODENAME})
+                set(RELEASE_CODENAME ${CMAKE_MATCH_1})
+                string(TOLOWER "${DISTRO_ID}-${RELEASE_CODENAME}" PLATFORM)
+
+                set(CPACK_GENERATOR "DEB")
+                include(PackageDeb)
             else()
                 set(UNSUPPORTED_PLATFORM_NAME "Linux distribution '${DISTRO_ID}' from /etc/os-release")
             endif()
         else()
-            set(UNSUPPORTED_PLATFORM_NAME "Linux distribution")
+            find_program(LSB_RELEASE_EXEC lsb_release)
+            execute_process(COMMAND ${LSB_RELEASE_EXEC} -is
+                OUTPUT_VARIABLE LSB_RELEASE_ID
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            if(LSB_RELEASE_ID)
+                if(LSB_RELEASE_ID STREQUAL "Ubuntu" OR LSB_RELEASE_ID STREQUAL "Debian" OR LSB_RELEASE_ID STREQUAL "Linuxmint")
+                    execute_process(COMMAND ${LSB_RELEASE_EXEC} -cs
+                        OUTPUT_VARIABLE LSB_RELEASE_CODENAME
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                    )
+                    string(TOLOWER "${LSB_RELEASE_ID}-${LSB_RELEASE_CODENAME}" PLATFORM)
+
+                    set(CPACK_GENERATOR "DEB")
+                    include(PackageDeb)
+                elseif(LSB_RELEASE_ID STREQUAL "Fedora")
+                    set(PLATFORM "fedora")
+                    set(CPACK_GENERATOR "RPM")
+                    include(PackageRPM)
+                else()
+                    set(UNSUPPORTED_PLATFORM_NAME "LSB-based Linux distribution '${LSB_RELEASE_ID}'")
+                endif()
+            else()
+                set(UNSUPPORTED_PLATFORM_NAME "Linux distribution")
+            endif()
         endif()
 
         if(NOT PLATFORM)

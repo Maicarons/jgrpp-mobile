@@ -1,4 +1,5 @@
 /.vs
+/.vscode
 /build*
 CMakeSettings.json
 docs/aidocs/*
@@ -6,3 +7,4 @@ docs/gamedocs/*
 docs/source/*
 /out
 /vcpkg_installed
+*.tmp

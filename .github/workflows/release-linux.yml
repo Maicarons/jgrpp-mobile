@@ -21,7 +21,7 @@ jobs:
 
     steps:
     - name: Download source
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v7
       with:
         name: internal-source
 
@@ -81,6 +81,7 @@ jobs:
         yum install -y \
           alsa-lib-devel \
           pulseaudio-libs-devel \
+          pipewire-devel \
           # EOF
         echo "::endgroup::"
 
@@ -105,10 +106,6 @@ jobs:
           # EOF
         echo "::endgroup::"
 
-        echo "::group::Install breakpad dependencies"
-        cargo install --locked dump_syms
-        echo "::endgroup::"
-
     - name: Setup vcpkg
       id: vcpkg
       uses: OpenTTD/actions/setup-vcpkg@v6
@@ -127,7 +124,10 @@ jobs:
         echo "::group::CMake"
         cmake ${GITHUB_WORKSPACE} \
           -DCMAKE_TOOLCHAIN_FILE=${{ steps.vcpkg.outputs.vcpkg-cmake }} \
-          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DOPTION_COMPRESS_DEBUG=ON \
+          -DOPTION_LTO=ON \
+          -DOPTION_TRIM_PATH_PREFIX=ON \
           -DOPTION_SURVEY_KEY=${{ inputs.survey_key }} \
           -DOPTION_PACKAGE_DEPENDENCIES=ON \
           # EOF
@@ -137,11 +137,6 @@ jobs:
         echo "Running on $(nproc) cores"
         cmake --build . -j $(nproc) --target openttd
         echo "::endgroup::"
-
-    - name: Create breakpad symbols
-      run: |
-        cd build
-        dump_syms ./openttd --inlines --store symbols
 
     - name: Create bundles
       run: |
@@ -157,15 +152,8 @@ jobs:
         echo "::endgroup::"
 
     - name: Store bundles
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: openttd-linux-generic
         path: build/bundles
-        retention-days: 5
-
-    - name: Store symbols
-      uses: actions/upload-artifact@v5
-      with:
-        name: symbols-linux-generic
-        path: build/symbols
         retention-days: 5

@@ -14,6 +14,7 @@
 #include "script_date.hpp"
 #include "script_object.hpp"
 #include "../../industry.h"
+#include <optional>
 
 /**
  * Class that handles all industry related functions.

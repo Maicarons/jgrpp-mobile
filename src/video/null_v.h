@@ -15,10 +15,11 @@
 /** The null video driver. */
 class VideoDriver_Null : public VideoDriver {
 private:
-	uint ticks = 0; ///< Amount of ticks to run.
+	int ticks = 0; ///< Amount of ticks to run.
+	bool until_exit = false;
 
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -29,14 +30,14 @@ public:
 	bool ChangeResolution(int w, int h) override;
 
 	bool ToggleFullscreen(bool fullscreen) override;
-	std::string_view GetName() const override { return "null"; }
+	const char *GetName() const override { return "null"; }
 	bool HasGUI() const override { return false; }
 };
 
 /** Factory the null video driver. */
 class FVideoDriver_Null : public DriverFactoryBase {
 public:
-	FVideoDriver_Null() : DriverFactoryBase(Driver::DT_VIDEO, 0, "null", "Null Video Driver") {}
+	FVideoDriver_Null() : DriverFactoryBase(Driver::Type::Video, 0, "null", "Null Video Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<VideoDriver_Null>(); }
 };
 

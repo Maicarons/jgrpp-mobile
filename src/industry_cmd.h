@@ -15,16 +15,10 @@
 #include "industry_type.h"
 #include "industry.h"
 
-CommandCost CmdBuildIndustry(DoCommandFlags flags, TileIndex tile, IndustryType it, uint32_t first_layout, bool fund, uint32_t seed);
-CommandCost CmdIndustrySetFlags(DoCommandFlags flags, IndustryID ind_id, IndustryControlFlags ctlflags);
-CommandCost CmdIndustrySetExclusivity(DoCommandFlags flags, IndustryID ind_id, Owner company_id, bool consumer);
-CommandCost CmdIndustrySetText(DoCommandFlags flags, IndustryID ind_id, const EncodedString &text);
-CommandCost CmdIndustrySetProduction(DoCommandFlags flags, IndustryID ind_id, uint8_t prod_level, bool show_news, const EncodedString &text);
-
-DEF_CMD_TRAIT(CMD_BUILD_INDUSTRY, CmdBuildIndustry, CommandFlag::Deity, CommandType::LandscapeConstruction)
-DEF_CMD_TRAIT(CMD_INDUSTRY_SET_FLAGS, CmdIndustrySetFlags, CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_INDUSTRY_SET_EXCLUSIVITY, CmdIndustrySetExclusivity, CommandFlag::Deity, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_INDUSTRY_SET_TEXT, CmdIndustrySetText, CommandFlags({CommandFlag::Deity, CommandFlag::StrCtrl}), CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_INDUSTRY_SET_PRODUCTION, CmdIndustrySetProduction, CommandFlag::Deity, CommandType::OtherManagement)
+DEF_CMD_TUPLE   (Commands::BuildIndustry,          CmdBuildIndustry,                          CMD_DEITY, CommandType::LandscapeConstruction, CmdDataT<IndustryType, uint32_t, bool, uint32_t>)
+DEF_CMD_TUPLE_NT(Commands::IndustrySetFlags,       CmdIndustrySetFlags,        CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<IndustryID, IndustryControlFlags>)
+DEF_CMD_TUPLE_NT(Commands::IndustrySetExclusivity, CmdIndustrySetExclusivity,  CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<IndustryID, Owner, bool>)
+DEF_CMD_TUPLE_NT(Commands::IndustrySetText,        CmdIndustrySetText,         CMD_STR_CTRL | CMD_DEITY, CommandType::OtherManagement,       CmdDataT<IndustryID, EncodedString>)
+DEF_CMD_TUPLE_NT(Commands::IndustrySetProduction,  CmdIndustrySetProduction,                  CMD_DEITY, CommandType::OtherManagement,       CmdDataT<IndustryID, uint8_t, bool, EncodedString>)
 
 #endif /* INDUSTRY_CMD_H */

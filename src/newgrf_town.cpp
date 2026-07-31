@@ -11,7 +11,7 @@
 #include "debug.h"
 #include "town.h"
 #include "newgrf_town.h"
-#include "timer/timer_game_tick.h"
+#include "newgrf_extension.h"
 
 #include "safeguards.h"
 
@@ -24,10 +24,10 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 	return ClampTo<uint16_t>(std::invoke(proj, it->history[period]));
 }
 
-/* virtual */ uint32_t TownScopeResolver::GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const
+/* virtual */ uint32_t TownScopeResolver::GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const
 {
 	if (this->t == nullptr) {
-		available = false;
+		extra.available = false;
 		return UINT_MAX;
 	}
 
@@ -44,7 +44,7 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 		/* Get a variable from the persistent storage */
 		case 0x7C: {
 			/* Check the persistent storage for the GrfID stored in register 100h. */
-			uint32_t grfid = static_cast<uint32_t>(this->ro.GetRegister(0x100));
+			uint32_t grfid = GetRegister(0x100);
 			if (grfid == 0xFFFFFFFF) {
 				if (this->ro.grffile == nullptr) return 0;
 				grfid = this->ro.grffile->grfid;
@@ -62,7 +62,7 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 		case 0x81: return GB(this->t->xy.base(), 8, 8);
 		case 0x82: return ClampTo<uint16_t>(this->t->cache.population);
 		case 0x83: return GB(ClampTo<uint16_t>(this->t->cache.population), 8, 8);
-		case 0x8A: return this->t->grow_counter / Ticks::TOWN_GROWTH_TICKS;
+		case 0x8A: return this->t->grow_counter / TOWN_GROWTH_TICKS;
 		case 0x92: return this->t->flags.base(); // In original game, 0x92 and 0x93 are one word.
 		case 0x93: return 0;
 		case 0x94: return ClampTo<uint16_t>(this->t->cache.squared_town_zone_radius[to_underlying(HouseZone::TownEdge)]);
@@ -94,7 +94,7 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 		case 0xAE: return this->t->have_ratings.base();
 		case 0xB2: return this->t->statues.base();
 		case 0xB6: return ClampTo<uint16_t>(this->t->cache.num_houses);
-		case 0xB9: return this->t->growth_rate / Ticks::TOWN_GROWTH_TICKS;
+		case 0xB9: return this->t->growth_rate / TOWN_GROWTH_TICKS;
 		case 0xBA: return TownHistoryHelper(this->t, CT_PASSENGERS, THIS_MONTH, &Town::SuppliedHistory::production);
 		case 0xBB: return TownHistoryHelper(this->t, CT_PASSENGERS, THIS_MONTH, &Town::SuppliedHistory::production) >> 8;
 		case 0xBC: return TownHistoryHelper(this->t, CT_MAIL, THIS_MONTH, &Town::SuppliedHistory::production);
@@ -113,21 +113,33 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 		case 0xC9: return TownHistoryHelper(this->t, CT_MAIL, LAST_MONTH, &Town::SuppliedHistory::transported) >> 8;
 		case 0xCA: return this->t->GetPercentTransported(GetCargoTypeByLabel(CT_PASSENGERS));
 		case 0xCB: return this->t->GetPercentTransported(GetCargoTypeByLabel(CT_MAIL));
-		case 0xCC: return this->t->received[TAE_FOOD].new_act;
-		case 0xCD: return GB(this->t->received[TAE_FOOD].new_act, 8, 8);
-		case 0xCE: return this->t->received[TAE_WATER].new_act;
-		case 0xCF: return GB(this->t->received[TAE_WATER].new_act, 8, 8);
-		case 0xD0: return this->t->received[TAE_FOOD].old_act;
-		case 0xD1: return GB(this->t->received[TAE_FOOD].old_act, 8, 8);
-		case 0xD2: return this->t->received[TAE_WATER].old_act;
-		case 0xD3: return GB(this->t->received[TAE_WATER].old_act, 8, 8);
+		case 0xCC: return this->t->received[TownAcceptanceEffect::Food].new_act;
+		case 0xCD: return GB(this->t->received[TownAcceptanceEffect::Food].new_act, 8, 8);
+		case 0xCE: return this->t->received[TownAcceptanceEffect::Water].new_act;
+		case 0xCF: return GB(this->t->received[TownAcceptanceEffect::Water].new_act, 8, 8);
+		case 0xD0: return this->t->received[TownAcceptanceEffect::Food].old_act;
+		case 0xD1: return GB(this->t->received[TownAcceptanceEffect::Food].old_act, 8, 8);
+		case 0xD2: return this->t->received[TownAcceptanceEffect::Water].old_act;
+		case 0xD3: return GB(this->t->received[TownAcceptanceEffect::Water].old_act, 8, 8);
 		case 0xD4: return this->t->road_build_months;
 		case 0xD5: return this->t->fund_buildings_months;
+		case A2VRI_TOWNS_HOUSE_COUNT: return this->t->cache.num_houses;
+		case A2VRI_TOWNS_POPULATION: return this->t->cache.population;
+
+		case A2VRI_TOWNS_ZONE_0:
+		case A2VRI_TOWNS_ZONE_1:
+		case A2VRI_TOWNS_ZONE_2:
+		case A2VRI_TOWNS_ZONE_3:
+		case A2VRI_TOWNS_ZONE_4:
+			return this->t->cache.squared_town_zone_radius[variable - A2VRI_TOWNS_ZONE_0];
+
+		case A2VRI_TOWNS_XY:
+			return TileY(this->t->xy) << 16 | (TileX(this->t->xy) & 0xFFFF);
 	}
 
 	Debug(grf, 1, "Unhandled town variable 0x{:X}", variable);
 
-	available = false;
+	extra.available = false;
 	return UINT_MAX;
 }
 
@@ -140,7 +152,7 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 	if (this->ro.grffile == nullptr) return;
 
 	/* Check the persistent storage for the GrfID stored in register 100h. */
-	uint32_t grfid = static_cast<uint32_t>(this->ro.GetRegister(0x100));
+	uint32_t grfid = GetRegister(0x100);
 
 	/* A NewGRF can only write in the persistent storage associated to its own GRFID. */
 	if (grfid == 0xFFFFFFFF) grfid = this->ro.grffile->grfid;
@@ -156,9 +168,41 @@ static uint16_t TownHistoryHelper(const Town *t, CargoLabel label, uint period, 
 
 	/* Create a new storage. */
 	assert(PersistentStorage::CanAllocateItem());
-	PersistentStorage *psa = new PersistentStorage(grfid, GSF_FAKE_TOWNS, this->t->xy);
+	PersistentStorage *psa = PersistentStorage::Create(grfid, GrfSpecFeature::FakeTowns, this->t->xy);
 	psa->StoreValue(pos, value);
 	t->psa_list.push_back(psa);
+}
+
+/* virtual */ uint32_t FakeTownScopeResolver::GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const
+{
+	switch (variable) {
+		/* Town index */
+		case 0x41: return 0xFFFF;
+
+		case 0x40: case 0x7C: case 0x80: case 0x81: case 0x82: case 0x83: case 0x8A: case 0x92:
+		case 0x93: case 0x94: case 0x95: case 0x96: case 0x97: case 0x98: case 0x99: case 0x9A:
+		case 0x9B: case 0x9C: case 0x9D: case 0x9E: case 0x9F: case 0xA0: case 0xA1: case 0xA2:
+		case 0xA3: case 0xA4: case 0xA5: case 0xA6: case 0xA7: case 0xA8: case 0xA9: case 0xAA:
+		case 0xAB: case 0xAC: case 0xAD: case 0xAE: case 0xB2: case 0xB6: case 0xB9: case 0xBA:
+		case 0xBB: case 0xBC: case 0xBD: case 0xBE: case 0xBF: case 0xC0: case 0xC1: case 0xC2:
+		case 0xC3: case 0xC4: case 0xC5: case 0xC6: case 0xC7: case 0xC8: case 0xC9: case 0xCA:
+		case 0xCB: case 0xCC: case 0xCD: case 0xCE: case 0xCF: case 0xD0: case 0xD1: case 0xD2:
+		case 0xD3: case 0xD4: case 0xD5:
+		case A2VRI_TOWNS_HOUSE_COUNT:
+		case A2VRI_TOWNS_POPULATION:
+		case A2VRI_TOWNS_ZONE_0:
+		case A2VRI_TOWNS_ZONE_1:
+		case A2VRI_TOWNS_ZONE_2:
+		case A2VRI_TOWNS_ZONE_3:
+		case A2VRI_TOWNS_ZONE_4:
+		case A2VRI_TOWNS_XY:
+			return 0;
+	}
+
+	Debug(grf, 1, "Unhandled town variable 0x{:X}", variable);
+
+	extra.available = false;
+	return UINT_MAX;
 }
 
 /**

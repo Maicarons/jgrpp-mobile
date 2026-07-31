@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _ai_company_desc. */
 const SaveLoadCompat _ai_company_sl_compat[] = {
 	SLC_VAR("name"),
@@ -19,5 +21,7 @@ const SaveLoadCompat _ai_company_sl_compat[] = {
 	SLC_VAR("version"),
 	SLC_VAR("is_random"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_AI_H */

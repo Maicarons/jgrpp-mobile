@@ -19,7 +19,7 @@
  * industry, etc.
  * Names are formatted as CBID_<CLASS>_<CALLBACK>
  */
-enum CallbackID : uint16_t {
+enum CallbackID : uint32_t {
 	/** Set when using the callback resolve system, but not to resolve a callback. */
 	CBID_NO_CALLBACK                     = 0x00,
 
@@ -40,7 +40,7 @@ enum CallbackID : uint16_t {
 	/** Determine whether a newstation should be made available to build. */
 	CBID_STATION_AVAILABILITY            = 0x13, // 8 bit callback
 
-	/** Choose a tile layout to draw, instead of the standard range. */
+	/** Choose a tile layout to draw, instead of the standard 0-7 range. */
 	CBID_STATION_DRAW_TILE_LAYOUT        = 0x14,
 
 	/**
@@ -293,6 +293,14 @@ enum CallbackID : uint16_t {
 	 * for each defined cargo after all NewGRFs are loaded.
 	 */
 	CBID_VEHICLE_CUSTOM_REFIT            = 0x0163, // 15 bit callback
+
+	/** Extended/non-standard callbacks follow */
+
+	/** Called to set town zones */
+	XCBID_TOWN_ZONES                     = 0xEC008001,
+
+	/** Called to get the name of the part of a ship for the refit window */
+	XCBID_SHIP_REFIT_PART_NAME           = 0xEC008002,
 };
 
 /**
@@ -438,5 +446,7 @@ using AirportTileCallbackMasks = EnumBitSet<AirportTileCallbackMask, uint8_t>;
  */
 static const uint CALLBACK_FAILED              = 0xFFFF; ///< Result of a failed callback.
 static const uint CALLBACK_HOUSEPRODCARGO_END  = 0x20FF; ///< Sentinel indicating that the loop for CBID_HOUSE_PRODUCE_CARGO has ended
+
+const char *GetNewGRFCallbackName(CallbackID cbid);
 
 #endif /* NEWGRF_CALLBACKS_H */

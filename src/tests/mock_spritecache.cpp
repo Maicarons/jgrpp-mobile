@@ -18,21 +18,19 @@
 
 static bool MockLoadNextSprite(SpriteID load_index)
 {
-	UniquePtrSpriteAllocator allocator;
-	allocator.Allocate<Sprite>(sizeof(Sprite));
+	SpriteDataBuffer buffer;
+	buffer.Allocate((uint32_t)sizeof(Sprite));
+	memset(buffer.GetPtr(), 0, buffer.GetSize());
 
 	bool is_mapgen = IsMapgenSpriteID(load_index);
 
 	SpriteCache *sc = AllocateSpriteCache(load_index);
 	sc->file = nullptr;
 	sc->file_pos = 0;
-	sc->ptr = std::move(allocator.data);
-	sc->length = static_cast<uint32_t>(allocator.size);
-	sc->lru = 0;
+	sc->Assign(std::move(buffer));
 	sc->id = 0;
 	sc->type = is_mapgen ? SpriteType::MapGen : SpriteType::Normal;
-	sc->warned = false;
-	sc->control_flags = {};
+	sc->flags = 0;
 
 	/* Fill with empty sprites up until the default sprite count. */
 	return load_index < SPR_OPENTTD_BASE + OPENTTD_SPRITE_COUNT;

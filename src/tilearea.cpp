@@ -10,6 +10,7 @@
 #include "stdafx.h"
 
 #include "tilearea_type.h"
+#include "bitmap_type.h"
 
 #include "safeguards.h"
 
@@ -20,8 +21,8 @@
  */
 OrthogonalTileArea::OrthogonalTileArea(TileIndex start, TileIndex end)
 {
-	assert(start < Map::Size());
-	assert(end < Map::Size());
+	dbg_assert(start < Map::Size());
+	dbg_assert(end < Map::Size());
 
 	uint sx = TileX(start);
 	uint sy = TileY(start);
@@ -76,7 +77,7 @@ bool OrthogonalTileArea::Intersects(const OrthogonalTileArea &ta) const
 {
 	if (ta.w == 0 || this->w == 0) return false;
 
-	assert(ta.w != 0 && ta.h != 0 && this->w != 0 && this->h != 0);
+	dbg_assert(ta.w != 0 && ta.h != 0 && this->w != 0 && this->h != 0);
 
 	uint left1   = TileX(this->tile);
 	uint top1    = TileY(this->tile);
@@ -105,7 +106,7 @@ bool OrthogonalTileArea::Contains(TileIndex tile) const
 {
 	if (this->w == 0) return false;
 
-	assert(this->w != 0 && this->h != 0);
+	dbg_assert(this->w != 0 && this->h != 0);
 
 	uint left   = TileX(this->tile);
 	uint top    = TileY(this->tile);
@@ -141,7 +142,7 @@ OrthogonalTileArea &OrthogonalTileArea::Expand(int rad)
  */
 void OrthogonalTileArea::ClampToMap()
 {
-	assert(this->tile < Map::Size());
+	dbg_assert(this->tile < Map::Size());
 	this->w = std::min<int>(this->w, Map::SizeX() - TileX(this->tile));
 	this->h = std::min<int>(this->h, Map::SizeY() - TileY(this->tile));
 }
@@ -171,8 +172,8 @@ OrthogonalTileIterator OrthogonalTileArea::end() const
  */
 DiagonalTileArea::DiagonalTileArea(TileIndex start, TileIndex end) : tile(start)
 {
-	assert(start < Map::Size());
-	assert(end < Map::Size());
+	dbg_assert(start < Map::Size());
+	dbg_assert(end < Map::Size());
 
 	/* Unfortunately we can't find a new base and make all a and b positive because
 	 * the new base might be a "flattened" corner where there actually is no single
@@ -230,10 +231,11 @@ bool DiagonalTileArea::Contains(TileIndex tile) const
 
 /**
  * Move ourselves to the next tile in the rectangle on the map.
+ * @return Reference to this iterator.
  */
 TileIterator &DiagonalTileIterator::operator++()
 {
-	assert(this->tile != INVALID_TILE);
+	dbg_assert(this->tile != INVALID_TILE);
 
 	/* Determine the next tile, while clipping at map borders */
 	bool new_line = false;
@@ -297,25 +299,65 @@ TileIterator &DiagonalTileIterator::operator++()
 }
 
 /**
+ * Add a set of tiles as part of the tile area.
+ * @param area Tile area to add.
+ */
+void BitmapTileArea::SetTiles(const TileArea &area)
+{
+	if (area.w == 0 || area.h == 0) return;
+
+	assert(this->Contains(area.tile));
+	assert(this->Contains(area.tile + TileDiffXY(area.w - 1, area.h - 1)));
+
+	auto [row_idx, start_bit] = this->Index(area.tile);
+	if (start_bit + area.w <= BLOCK_BITS) {
+		/* Update only one block */
+		BlockT mask = GetBitMaskSC<BlockT>(start_bit, area.w);
+		for (uint h = area.h; h > 0; h--, row_idx += this->RowPitch()) {
+			this->data[row_idx] |= mask;
+		}
+	} else {
+		/* Update multiple blocks */
+		for (uint h = area.h; h > 0; h--, row_idx += this->RowPitch()) {
+			uint idx = row_idx;
+			this->data[idx] |= (~static_cast<BlockT>(0)) << start_bit;
+			uint w = area.w - (BLOCK_BITS - start_bit);
+			while (w > 0) {
+				idx++;
+				if (w < BLOCK_BITS) {
+					/* Set LSBs, and finish row */
+					this->data[idx] |= GetBitMaskSC<BlockT>(0, w);
+					break;
+				} else {
+					/* Set all bits */
+					this->data[idx] = ~static_cast<BlockT>(0);
+					w -= BLOCK_BITS;
+				}
+			}
+		}
+	}
+}
+
+/**
  * See SpiralTileSequence constructor for description.
  */
 SpiralTileIterator::SpiralTileIterator(TileIndex center, uint diameter) :
 	max_radius(diameter / 2),
 	cur_radius(0),
-	dir(DIAGDIR_BEGIN)
+	dir(DiagDirection::Begin)
 {
 	assert(diameter > 0);
 
 	if (diameter % 2 == 1) {
 		this->extent.fill(1);
-		this->dir = INVALID_DIAGDIR; // special case for odd diameters, see Increment()
+		this->dir = DiagDirection::Invalid; // special case for odd diameters, see Increment()
 		this->position = 0;
 
 		this->x = TileX(center);
 		this->y = TileY(center);
 	} else {
 		this->extent.fill(0);
-		this->dir = DIAGDIR_BEGIN;
+		this->dir = DiagDirection::Begin;
 		this->InitPosition();
 
 		/* Start with the west corner of the center 2x2 rect */
@@ -325,14 +367,12 @@ SpiralTileIterator::SpiralTileIterator(TileIndex center, uint diameter) :
 	this->SkipOutsideMap();
 }
 
-/**
- * See SpiralTileSequence constructor for description.
- */
+/** Create the iterator. @copydoc SpiralTileSequence::SpiralTileSequence(TileIndex, uint, uint, uint) */
 SpiralTileIterator::SpiralTileIterator(TileIndex start_north, uint radius, uint w, uint h) :
 	max_radius(radius),
 	extent{w, h, w, h},
 	cur_radius(0),
-	dir(DIAGDIR_BEGIN),
+	dir(DiagDirection::Begin),
 	/* first tile is the west corner */
 	x(TileX(start_north) + w + 1),
 	y(TileY(start_north))
@@ -367,11 +407,11 @@ void SpiralTileIterator::Increment()
 	assert(!this->IsEnd());
 
 	/* Special value for first tile in areas with odd diameter */
-	if (this->dir == INVALID_DIAGDIR) {
-		const auto west = TileIndexDiffCByDir(DIR_W);
+	if (this->dir == DiagDirection::Invalid) {
+		const auto west = TileIndexDiffCByDir(Direction::W);
 		this->x += west.x;
 		this->y += west.y;
-		this->dir = DIAGDIR_BEGIN;
+		this->dir = DiagDirection::Begin;
 		this->InitPosition();
 		return;
 	}
@@ -386,13 +426,13 @@ void SpiralTileIterator::Increment()
 	/* Corner reached, switch direction */
 	++this->dir;
 
-	if (this->dir == DIAGDIR_END) {
+	if (this->dir == DiagDirection::End) {
 		/* Jump to next circle */
-		const auto west = TileIndexDiffCByDir(DIR_W);
+		const auto west = TileIndexDiffCByDir(Direction::W);
 		this->x += west.x;
 		this->y += west.y;
 		++this->cur_radius;
-		this->dir = DIAGDIR_BEGIN;
+		this->dir = DiagDirection::Begin;
 	}
 
 	this->InitPosition();

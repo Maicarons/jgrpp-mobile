@@ -30,7 +30,7 @@ static void ClearCargoMonitoring(CargoMonitorMap &cargo_monitor_map, CompanyID c
 		return;
 	}
 
-	for (auto it = cargo_monitor_map.begin(); it != cargo_monitor_map.end(); /* nothing */) {
+	for (CargoMonitorMap::iterator it = cargo_monitor_map.begin(); it != cargo_monitor_map.end();) {
 		if (DecodeMonitorCompany(it->first) == company) {
 			it = cargo_monitor_map.erase(it);
 		} else {
@@ -71,7 +71,8 @@ static int32_t GetAmount(CargoMonitorMap &monitor_map, CargoMonitorID monitor, b
 	CargoMonitorMap::iterator iter = monitor_map.find(monitor);
 	if (iter == monitor_map.end()) {
 		if (keep_monitoring) {
-			monitor_map.emplace(monitor, 0);
+			std::pair<CargoMonitorID, uint32_t> p(monitor, 0);
+			monitor_map.insert(p);
 		}
 		return 0;
 	} else {

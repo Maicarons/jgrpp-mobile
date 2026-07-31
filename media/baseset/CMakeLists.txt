@@ -17,12 +17,21 @@ set(BASESET_OTHER_SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/openttd.grf
         ${CMAKE_CURRENT_SOURCE_DIR}/opntitle.dat
         ${CMAKE_CURRENT_SOURCE_DIR}/orig_extra.grf
-        ${CMAKE_CURRENT_SOURCE_DIR}/../openttd.32.bmp
         ${CMAKE_CURRENT_SOURCE_DIR}/OpenTTD-Sans.ttf
         ${CMAKE_CURRENT_SOURCE_DIR}/OpenTTD-Serif.ttf
         ${CMAKE_CURRENT_SOURCE_DIR}/OpenTTD-Small.ttf
         ${CMAKE_CURRENT_SOURCE_DIR}/OpenTTD-Mono.ttf
+        ${CMAKE_CURRENT_SOURCE_DIR}/innerhighlight.grf
+        ${CMAKE_CURRENT_SOURCE_DIR}/progsignals.grf
+        ${CMAKE_CURRENT_SOURCE_DIR}/extra_signals.grf
+        ${CMAKE_CURRENT_SOURCE_DIR}/route_step.grf
+        ${CMAKE_CURRENT_SOURCE_DIR}/tracerestrict.grf
+        ${CMAKE_CURRENT_SOURCE_DIR}/misc_gui.grf
 )
+
+if (UNIX AND NOT APPLE)
+    list(APPEND BASESET_OTHER_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../openttd.32.bmp)
+endif ()
 
 # Done by the subdirectories, if nforenum / grfcodec is installed
 if(GRFCODEC_FOUND)

@@ -14,14 +14,16 @@
 
 #include "script_controller.hpp"
 #include "script_error.hpp"
+#include "script_execmode.hpp"
 #include "../script_fatalerror.hpp"
 #include "../script_info.hpp"
 #include "../script_instance.hpp"
 #include "script_log.hpp"
 #include "../script_gui.h"
 #include "../../settings_type.h"
-#include "../../network/network.h"
 #include "../../misc_cmd.h"
+#include "../../network/network.h"
+#include "../../core/format.hpp"
 
 #include "../../safeguards.h"
 
@@ -47,7 +49,7 @@
 
 /* static */ void ScriptController::Break(const std::string &message)
 {
-	if (_network_dedicated || !_settings_client.gui.ai_developer_tools) return;
+	if (IsHeadless() || !_settings_client.gui.ai_developer_tools) return;
 
 	ScriptObject::GetActiveInstance().Pause();
 
@@ -58,7 +60,9 @@
 	ShowScriptDebugWindow(ScriptObject::GetRootCompany());
 
 	if (!_pause_mode.Test(PauseMode::Normal)) {
-		ScriptObject::Command<CMD_PAUSE>::Do(PauseMode::Normal, true);
+		/* Force ExecMode so pause always happens. */
+		auto exec = ScriptExecMode();
+		ScriptObject::Command<Commands::Pause>::Do(PauseMode::Normal, true);
 	}
 }
 
@@ -82,6 +86,11 @@ ScriptController::ScriptController(::CompanyID company) :
 /* static */ int ScriptController::GetOpsTillSuspend()
 {
 	return ScriptObject::GetActiveInstance().GetOpsTillSuspend();
+}
+
+/* static */ void ScriptController::DecreaseOps(int amount)
+{
+	Squirrel::DecreaseOps(ScriptObject::GetActiveInstance().engine->GetVM(), amount);
 }
 
 /* static */ int ScriptController::GetSetting(const std::string &name)

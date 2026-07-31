@@ -10,7 +10,9 @@
 #ifndef MULTIMAP_HPP
 #define MULTIMAP_HPP
 
-template <typename Tkey, typename Tvalue, typename Tcompare>
+#include <map>
+
+template <typename Tkey, typename Tvalue, typename Tcontainer, typename Tcompare>
 class MultiMap;
 
 /**
@@ -18,14 +20,15 @@ class MultiMap;
  * @tparam Tmap_iter Iterator type for the map in the MultiMap.
  * @tparam Tlist_iter Iterator type for the lists in the MultiMap.
  * @tparam Tkey Key type of the MultiMap.
- * @tparam Tvalue Value type of the MultMap.
+ * @tparam Tvalue Value type of the MultiMap.
+ * @tparam Tcontainer Container type for the values of the MultiMap.
  * @tparam Tcompare Comparator type for keys of the MultiMap.
  */
-template <class Tmap_iter, class Tlist_iter, class Tkey, class Tvalue, class Tcompare>
+template <class Tmap_iter, class Tlist_iter, class Tkey, class Tvalue, class Tcontainer, class Tcompare>
 class MultiMapIterator {
 protected:
-	friend class MultiMap<Tkey, Tvalue, Tcompare>;
-	typedef MultiMapIterator<Tmap_iter, Tlist_iter, Tkey, Tvalue, Tcompare> Self;
+	friend class MultiMap<Tkey, Tvalue, Tcontainer, Tcompare>;
+	typedef MultiMapIterator<Tmap_iter, Tlist_iter, Tkey, Tvalue, Tcontainer, Tcompare> Self;
 
 	Tlist_iter list_iter; ///< Iterator pointing to current position in the current list of items with equal keys.
 	Tmap_iter map_iter;   ///< Iterator pointing to the position of the current list of items with equal keys in the map.
@@ -141,7 +144,6 @@ public:
 	/**
 	 * Postfix increment operator. Same as prefix increment, but return the
 	 * previous state.
-	 * @param dummy param to mark postfix.
 	 * @return This iterator before incrementing.
 	 */
 	Self operator++(int)
@@ -172,7 +174,6 @@ public:
 	/**
 	 * Postfix decrement operator. Same as prefix decrement, but return the
 	 * previous state.
-	 * @param dummy param to mark postfix.
 	 * @return This iterator before decrementing.
 	 */
 	Self operator--(int)
@@ -192,7 +193,7 @@ public:
 	 * @return If other is equal to this.
 	 */
 	template <class Tmap_iter_other, class Tlist_iter_other, class Tvalue_other>
-	bool operator==(const MultiMapIterator<Tmap_iter_other, Tlist_iter_other, Tkey, Tvalue_other, Tcompare> &other) const
+	bool operator==(const MultiMapIterator<Tmap_iter_other, Tlist_iter_other, Tkey, Tvalue_other, Tcontainer, Tcompare> &other) const
 	{
 		if (this->GetMapIter() != other.GetMapIter()) return false;
 		if (!this->ListValid()) return !other.ListValid();
@@ -221,10 +222,10 @@ public:
  * STL-compatible members are named in STL style, all others are named in OpenTTD
  * style.
  */
-template <typename Tkey, typename Tvalue, typename Tcompare = std::less<Tkey> >
-class MultiMap : public std::map<Tkey, std::list<Tvalue>, Tcompare > {
+template <typename Tkey, typename Tvalue, typename Tcontainer, typename Tcompare = std::less<Tkey> >
+class MultiMap : public std::map<Tkey, Tcontainer, Tcompare > {
 public:
-	typedef typename std::list<Tvalue> List;
+	typedef Tcontainer List;
 	typedef typename List::iterator ListIterator;
 	typedef typename List::const_iterator ConstListIterator;
 
@@ -232,8 +233,8 @@ public:
 	typedef typename Map::iterator MapIterator;
 	typedef typename Map::const_iterator ConstMapIterator;
 
-	typedef MultiMapIterator<MapIterator, ListIterator, Tkey, Tvalue, Tcompare> iterator;
-	typedef MultiMapIterator<ConstMapIterator, ConstListIterator, Tkey, const Tvalue, Tcompare> const_iterator;
+	typedef MultiMapIterator<MapIterator, ListIterator, Tkey, Tvalue, Tcontainer, Tcompare> iterator;
+	typedef MultiMapIterator<ConstMapIterator, ConstListIterator, Tkey, const Tvalue, Tcontainer, Tcompare> const_iterator;
 
 	/**
 	 * Erase the value pointed to by an iterator. The iterator may be invalid afterwards.

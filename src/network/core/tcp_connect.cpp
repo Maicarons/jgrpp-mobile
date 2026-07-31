@@ -5,9 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file tcp_connect.cpp Basic functions to create connections without blocking.
- */
+/** @file tcp_connect.cpp Basic functions to create connections without blocking. */
 
 #include "../../stdafx.h"
 #include "../../thread.h"
@@ -15,6 +13,7 @@
 #include "tcp.h"
 #include "../network_coordinator.h"
 #include "../network_internal.h"
+#include "../../3rdparty/cpp-ring-buffer/ring_buffer.hpp"
 
 #include "../../safeguards.h"
 
@@ -25,6 +24,7 @@
  * @param connection_string The address to connect to.
  * @param default_port If not indicated in connection_string, what port to use.
  * @param bind_address The local bind address to use. Defaults to letting the OS find one.
+ * @param family The IP-family to connect with.
  */
 TCPConnecter::TCPConnecter(std::string_view connection_string, uint16_t default_port, const NetworkAddress &bind_address, int family) :
 	bind_address(bind_address),
@@ -99,7 +99,7 @@ void TCPConnecter::Connect(addrinfo *address)
 
 	if (this->bind_address.GetPort() > 0) {
 		if (bind(sock, (const sockaddr *)this->bind_address.GetAddress(), this->bind_address.GetAddressLength()) != 0) {
-			Debug(net, 1, "Could not bind socket on {}: {}", this->bind_address.GetAddressAsString(), NetworkError::GetLast().AsString());
+			Debug(net, 1, "Could not bind socket on {}: {}", FormatNetworkAddress(&(this->bind_address)), NetworkError::GetLast().AsString());
 			closesocket(sock);
 			return;
 		}
@@ -147,7 +147,7 @@ bool TCPConnecter::TryNextAddress()
  */
 void TCPConnecter::OnResolved(addrinfo *ai)
 {
-	std::deque<addrinfo *> addresses_ipv4, addresses_ipv6;
+	jgr::ring_buffer<addrinfo *> addresses_ipv4, addresses_ipv6;
 
 	/* Apply "Happy Eyeballs" if it is likely IPv6 is functional. */
 
@@ -197,7 +197,7 @@ void TCPConnecter::OnResolved(addrinfo *ai)
 		}
 	}
 
-	if (_debug_net_level >= 6) {
+	if (GetDebugLevel(DebugLevelID::net) >= 6) {
 		if (this->addresses.empty()) {
 			Debug(net, 6, "{} did not resolve", this->connection_string);
 		} else {
@@ -233,7 +233,7 @@ void TCPConnecter::Resolve()
 	auto start = std::chrono::steady_clock::now();
 
 	addrinfo *ai;
-	int error = getaddrinfo(address.GetHostname().c_str(), port_name.c_str(), &hints, &ai);
+	int error = getaddrinfo(address.GetHostname(), port_name.c_str(), &hints, &ai);
 
 	auto end = std::chrono::steady_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
@@ -257,6 +257,7 @@ void TCPConnecter::Resolve()
 
 /**
  * Thunk to start Resolve() on the right instance.
+ * @param connecter The connector to resolve on.
  */
 /* static */ void TCPConnecter::ResolveThunk(TCPConnecter *connecter)
 {
@@ -389,9 +390,7 @@ bool TCPConnecter::CheckActivity()
 	}
 
 	Debug(net, 3, "Connected to {}", this->connection_string);
-	if (_debug_net_level >= 5) {
-		Debug(net, 5, "- using {}", NetworkAddress::GetPeerName(connected_socket));
-	}
+	Debug(net, 5, "- using {}", NetworkAddress::GetPeerName(connected_socket));
 
 	this->OnConnect(connected_socket);
 	this->status = Status::Connected;

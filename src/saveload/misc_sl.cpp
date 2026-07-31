@@ -5,15 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file misc_sl.cpp Saving and loading of things that didn't fit anywhere else */
+/** @file misc_sl.cpp Saving and loading of things that didn't fit anywhere else. */
 
 #include "../stdafx.h"
 
 #include "saveload.h"
 #include "compat/misc_sl_compat.h"
 
-#include "../timer/timer_game_calendar.h"
-#include "../timer/timer_game_economy.h"
+#include "../date_func.h"
 #include "../zoom_func.h"
 #include "../window_gui.h"
 #include "../window_func.h"
@@ -21,74 +20,36 @@
 #include "../gfx_func.h"
 #include "../core/random_func.hpp"
 #include "../fios.h"
+#include "../load_check.h"
 #include "../timer/timer.h"
 #include "../timer/timer_game_tick.h"
 
 #include "../safeguards.h"
 
 extern TileIndex _cur_tileloop_tile;
+extern TileIndex _aux_tileloop_tile;
 extern uint16_t _disaster_delay;
 extern uint8_t _trees_tick_ctr;
 
 /* Keep track of current game position */
-int _saved_scrollpos_x;
-int _saved_scrollpos_y;
-ZoomLevel _saved_scrollpos_zoom;
+extern int _saved_scrollpos_x;
+extern int _saved_scrollpos_y;
+extern ZoomLevel _saved_scrollpos_zoom;
 
-void SaveViewportBeforeSaveGame()
-{
-	/* Don't use GetMainWindow() in case the window does not exist. */
-	const Window *w = FindWindowById(WC_MAIN_WINDOW, 0);
-	if (w == nullptr || w->viewport == nullptr) {
-		/* Ensure saved position is clearly invalid. */
-		_saved_scrollpos_x = INT_MAX;
-		_saved_scrollpos_y = INT_MAX;
-		_saved_scrollpos_zoom = ZoomLevel::End;
-	} else {
-		_saved_scrollpos_x = w->viewport->scrollpos_x;
-		_saved_scrollpos_y = w->viewport->scrollpos_y;
-		_saved_scrollpos_zoom = w->viewport->zoom;
-	}
-}
-
-void ResetViewportAfterLoadGame()
-{
-	Window *w = GetMainWindow();
-
-	w->viewport->scrollpos_x = _saved_scrollpos_x;
-	w->viewport->scrollpos_y = _saved_scrollpos_y;
-	w->viewport->dest_scrollpos_x = _saved_scrollpos_x;
-	w->viewport->dest_scrollpos_y = _saved_scrollpos_y;
-
-	Viewport &vp = *w->viewport;
-	vp.zoom = std::min(_saved_scrollpos_zoom, ZoomLevel::Max);
-	vp.virtual_width = ScaleByZoom(vp.width, vp.zoom);
-	vp.virtual_height = ScaleByZoom(vp.height, vp.zoom);
-
-	/* If zoom_max is ZoomLevel::Min then the setting has not been loaded yet, therefore all levels are allowed. */
-	if (_settings_client.gui.zoom_max != ZoomLevel::Min) {
-		/* Ensure zoom level is allowed */
-		while (vp.zoom < _settings_client.gui.zoom_min) DoZoomInOutWindow(ZOOM_OUT, w);
-		while (vp.zoom > _settings_client.gui.zoom_max) DoZoomInOutWindow(ZOOM_IN, w);
-	}
-
-	DoZoomInOutWindow(ZOOM_NONE, w); // update button status
-	MarkWholeScreenDirty();
-}
-
-uint8_t _age_cargo_skip_counter; ///< Skip aging of cargo? Used before savegame version 162.
+extern uint8_t _age_cargo_skip_counter; ///< Skip aging of cargo? Used before savegame version 162.
 extern TimeoutTimer<TimerGameTick> _new_competitor_timeout;
 
+namespace upstream_sl {
+
 static const SaveLoad _date_desc[] = {
-	SLEG_CONDVAR("date",                   TimerGameCalendar::date,                   SLE_FILE_U16 | SLE_VAR_I32,  SL_MIN_VERSION,  SLV_31),
-	SLEG_CONDVAR("date",                   TimerGameCalendar::date,                   SLE_INT32,                  SLV_31, SL_MAX_VERSION),
-	    SLEG_VAR("date_fract",             TimerGameCalendar::date_fract,             SLE_UINT16),
-	SLEG_CONDVAR("tick_counter",           TimerGameTick::counter,           SLE_FILE_U16 | SLE_VAR_U64,  SL_MIN_VERSION, SLV_U64_TICK_COUNTER),
-	SLEG_CONDVAR("tick_counter",           TimerGameTick::counter,           SLE_UINT64,                  SLV_U64_TICK_COUNTER, SL_MAX_VERSION),
-	SLEG_CONDVAR("economy_date",           TimerGameEconomy::date,           SLE_INT32,                   SLV_ECONOMY_DATE, SL_MAX_VERSION),
-	SLEG_CONDVAR("economy_date_fract",     TimerGameEconomy::date_fract,     SLE_UINT16,                  SLV_ECONOMY_DATE, SL_MAX_VERSION),
-	SLEG_CONDVAR("days_since_last_month",  TimerGameEconomy::days_since_last_month, SLE_UINT32,           SLV_INDUSTRY_ACCEPTED_HISTORY, SL_MAX_VERSION),
-	SLEG_CONDVAR("calendar_sub_date_fract", TimerGameCalendar::sub_date_fract, SLE_UINT16,                SLV_CALENDAR_SUB_DATE_FRACT, SL_MAX_VERSION),
+	SLEG_CONDVAR("date",                   CalTime::Detail::now.cal_date,          SLE_FILE_U16 | SLE_VAR_I32,  SL_MIN_VERSION,  SLV_31),
+	SLEG_CONDVAR("date",                   CalTime::Detail::now.cal_date,          SLE_INT32,                   SLV_31, SL_MAX_VERSION),
+	    SLEG_VAR("date_fract",             CalTime::Detail::now.cal_date_fract,    SLE_UINT16),
+	SLEG_CONDVAR("tick_counter",           _tick_counter,                          SLE_FILE_U16 | SLE_VAR_U64,  SL_MIN_VERSION, SLV_U64_TICK_COUNTER),
+	SLEG_CONDVAR("tick_counter",           _tick_counter,                          SLE_UINT64,                  SLV_U64_TICK_COUNTER, SL_MAX_VERSION),
+	SLEG_CONDVAR("economy_date",           EconTime::Detail::now.econ_date,        SLE_INT32,                   SLV_ECONOMY_DATE, SL_MAX_VERSION),
+	SLEG_CONDVAR("economy_date_fract",     EconTime::Detail::now.econ_date_fract,  SLE_UINT16,                  SLV_ECONOMY_DATE, SL_MAX_VERSION),
+	SLEG_CONDVAR("calendar_sub_date_fract", CalTime::Detail::now.sub_date_fract,   SLE_UINT16,                SLV_CALENDAR_SUB_DATE_FRACT, SL_MAX_VERSION),
 	SLEG_CONDVAR("age_cargo_skip_counter", _age_cargo_skip_counter, SLE_UINT8,                   SL_MIN_VERSION, SLV_162),
 	SLEG_CONDVAR("cur_tileloop_tile",      _cur_tileloop_tile,      SLE_FILE_U16 | SLE_VAR_U32,  SL_MIN_VERSION, SLV_6),
 	SLEG_CONDVAR("cur_tileloop_tile",      _cur_tileloop_tile,      SLE_UINT32,                  SLV_6, SL_MAX_VERSION),
@@ -112,8 +73,10 @@ static const SaveLoad _date_check_desc[] = {
 	SLEG_CONDVAR("date", _load_check_data.current_date,  SLE_INT32,                  SLV_31, SL_MAX_VERSION),
 };
 
-/* Save load date related variables as well as persistent tick counters
- * XXX: currently some unrelated stuff is just put here */
+/**
+ * Save load date related variables as well as persistent tick counters.
+ * @note currently some unrelated stuff is just put here.
+ */
 struct DATEChunkHandler : ChunkHandler {
 	DATEChunkHandler() : ChunkHandler('DATE', CH_TABLE) {}
 
@@ -145,7 +108,7 @@ struct DATEChunkHandler : ChunkHandler {
 		this->LoadCommon(_date_check_desc, _date_check_sl_compat);
 
 		if (IsSavegameVersionBefore(SLV_31)) {
-			_load_check_data.current_date += CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR;
+			_load_check_data.current_date += CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR.AsDelta();
 		}
 	}
 };
@@ -187,3 +150,5 @@ static const ChunkHandlerRef misc_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _misc_chunk_handlers(misc_chunk_handlers);
+
+}

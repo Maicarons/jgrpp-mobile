@@ -53,7 +53,7 @@ bool IsValidHistory(ValidHistoryMask valid_history, const HistoryRange &hr, uint
 		}
 	} else {
 		if (age * hr.division < static_cast<uint>(hr.hr->periods - hr.division)) {
-			uint start = age * hr.division + ((TimerGameEconomy::month / hr.hr->division) % hr.division);
+			uint start = age * hr.division + ((EconTime::CurMonth() / hr.hr->division) % hr.division);
 			return IsValidHistory(valid_history, *hr.hr, start);
 		}
 		if (age < hr.periods) {

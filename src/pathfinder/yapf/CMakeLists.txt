@@ -4,6 +4,7 @@ add_files(
     yapf.hpp
     yapf_base.hpp
     yapf_cache.h
+    yapf_common.cpp
     yapf_common.hpp
     yapf_costbase.hpp
     yapf_costcache.hpp
@@ -14,8 +15,6 @@ add_files(
     yapf_node_road.hpp
     yapf_node_ship.hpp
     yapf_rail.cpp
-    yapf_river_builder.h
-    yapf_river_builder.cpp
     yapf_road.cpp
     yapf_ship.cpp
     yapf_ship_regions.h

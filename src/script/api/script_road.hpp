@@ -12,8 +12,9 @@
 
 #include "script_tile.hpp"
 #include "../squirrel_helper_type.hpp"
+#include "../../../road.h"
 #include "../../station_type.h"
-#include "../../road.h"
+#include <optional>
 
 /**
  * Class that handles all road related functions.
@@ -34,7 +35,7 @@ public:
 		ERR_ROAD_WORKS_IN_PROGRESS,                   // [STR_ERROR_ROAD_WORKS_IN_PROGRESS]
 
 		/** Drive through is in the wrong direction */
-		ERR_ROAD_DRIVE_THROUGH_WRONG_DIRECTION,       // [STR_ERROR_DRIVE_THROUGH_DIRECTION]
+		ERR_ROAD_DRIVE_THROUGH_WRONG_DIRECTION,       // [STR_ERROR_DRIVE_THROUGH_DIRECTION, STR_ERROR_DRIVE_THROUGH_CORNER, STR_ERROR_DRIVE_THROUGH_JUNCTION]
 
 		/** Drive through roads can't be build on town owned roads */
 		ERR_ROAD_CANNOT_BUILD_ON_TOWN_ROAD,           // [STR_ERROR_DRIVE_THROUGH_ON_TOWN_ROAD]
@@ -65,8 +66,8 @@ public:
 	 * Road/tram types
 	 */
 	enum RoadTramTypes : uint8_t {
-		ROADTRAMTYPES_ROAD = ::RTTB_ROAD, ///< Road road types.
-		ROADTRAMTYPES_TRAM = ::RTTB_TRAM, ///< Tram road types.
+		ROADTRAMTYPES_ROAD = ::RoadTramTypes{RoadTramType::Road}.base(), ///< Road road types.
+		ROADTRAMTYPES_TRAM = ::RoadTramTypes{RoadTramType::Tram}.base(), ///< Tram road types.
 	};
 
 	/**
@@ -85,6 +86,40 @@ public:
 		BT_DEPOT,      ///< Build a road depot
 		BT_BUS_STOP,   ///< Build a bus stop
 		BT_TRUCK_STOP, ///< Build a truck stop
+	};
+
+	/**
+	 * A bitmap of all the possible road pieces and combinations.
+	 */
+	enum RoadPieces {
+		/* Note: these values represent part of the in-game RoadBits enum with added shorthands to T-junctions */
+		ROADPIECES_NONE = 0,                            ///< No road pieces
+		ROADPIECES_NW = ::ROAD_NW.base(),               ///< North-west part
+		ROADPIECES_SW = ::ROAD_SW.base(),               ///< South-west part
+		ROADPIECES_SE = ::ROAD_SE.base(),               ///< South-east part
+		ROADPIECES_NE = ::ROAD_NE.base(),               ///< North-east part
+		ROADPIECES_X = ::ROAD_X.base(),                 ///< Full road along the x-axis (south-west + north-east)
+		ROADPIECES_Y = ::ROAD_Y.base(),                 ///< Full road along the y-axis (north-west + south-east)
+		ROADPIECES_N = ::ROAD_N.base(),                 ///< Road at the two northern edges (corner, north-west + north-east)
+		ROADPIECES_E = ::ROAD_E.base(),                 ///< Road at the two eastern edges (corner, north-east + south-east)
+		ROADPIECES_S = ::ROAD_S.base(),                 ///< Road at the two southern edges (corner, south-east + south-west)
+		ROADPIECES_W = ::ROAD_W.base(),                 ///< Road at the two western edges (corner, south-west + north-west)
+		ROADPIECES_S_NW = ROADPIECES_S | ROADPIECES_NW, ///< T-junction, southern edges + north-west
+		ROADPIECES_W_NE = ROADPIECES_W | ROADPIECES_NE, ///< T-junction, western edges + north-east
+		ROADPIECES_N_SE = ROADPIECES_N | ROADPIECES_SE, ///< T-junction, northern edges + south-east
+		ROADPIECES_E_SW = ROADPIECES_E | ROADPIECES_SW, ///< T-junction, eastern edges + south-west
+		ROADPIECES_ALL = ::ROAD_ALL.base(),             ///< Full 4-way crossing
+	};
+
+	/**
+	 * One-way info of the tile.
+	 */
+	enum OneWayInfo {
+		ONEWAY_NONE = 0,		///< Not a one-way road.
+		ONEWAY_NORTHWEST,		///< One-way road from south-east to north-west.
+		ONEWAY_SOUTHWEST,		///< One-way road from north-east to south-west.
+		ONEWAY_SOUTHEAST,		///< One-way road from north-west to south-east.
+		ONEWAY_NORTHEAST,		///< One-way road from south-west to north-east.
 	};
 
 	/**
@@ -198,13 +233,49 @@ public:
 
 	/**
 	 * Check if a given tile has RoadType.
+	 * Note that this function actually checks if the tile has the RoadTramTypes of the given RoadType.
+	 * @param tile The tile to check.
+	 * @param road_type The RoadType to check for.
+	 * @pre ScriptMap::IsValidTile(tile).
+	 * @pre IsRoadTypeAvailable(road_type).
+	 * @return True if the tile contains the RoadTramTypes of the given RoadType.
+	 */
+	static bool HasRoadType(TileIndex tile, RoadType road_type);
+
+	/**
+	 * Check if a tile has the given RoadTramType.
 	 * @param tile The tile to check.
 	 * @param road_type The RoadType to check for.
 	 * @pre ScriptMap::IsValidTile(tile).
 	 * @pre IsRoadTypeAvailable(road_type).
 	 * @return True if the tile contains a RoadType object.
 	 */
-	static bool HasRoadType(TileIndex tile, RoadType road_type);
+	static bool HasRoadTramType(TileIndex tile, RoadTramTypes road_tram_type);
+
+	/**
+	 * Get the roadpieces that are on a tile.
+	 * @param tile The tile to check.
+	 * @param road_tram_type The road/tram type to use.
+	 * @pre ScriptMap::IsValidTile(tile).
+	 * @return The roadpieces that are on the tile.
+	 */
+	static RoadPieces GetRoadPieces(TileIndex tile, RoadTramTypes road_tram_type);
+
+	/**
+	 * Get info about the one-way state of a tile.
+	 * @param tile The tile to check.
+	 * @pre ScriptMap::IsValidTile(tile).
+	 * @return The OneWayInfo of the tile.
+	 */
+	static OneWayInfo GetOneWayInfo(TileIndex tile);
+
+	/**
+	 * Get the RoadType that is used on a tile.
+	 * @param tile The tile to check.
+	 * @param RoadType The road/tram type to use.
+	 * @return The RoadType that is used on the tile, or ROADTYPE_INVALID if not present.
+	 */
+	static RoadType GetRoadType(TileIndex tile, RoadTramTypes road_tram_type);
 
 	/**
 	 * Checks whether the given tiles are directly connected, i.e. whether
@@ -249,7 +320,7 @@ public:
 	 *         they are build or 2 when building the first part automatically
 	 *         builds the second part. -1 means the preconditions are not met.
 	 */
-	static SQInteger CanBuildConnectedRoadParts(ScriptTile::Slope slope, Array<TileIndex> &&existing, TileIndex start, TileIndex end);
+	static SQInteger CanBuildConnectedRoadParts(ScriptTile::Slope slope, Array<TileIndexDiff> &&existing, TileIndexDiff start, TileIndexDiff end);
 
 	/**
 	 * Lookup function for building road parts independent of whether the
@@ -577,6 +648,38 @@ public:
 	 * @return Maintenance cost factor of the roadtype.
 	 */
 	static SQInteger GetMaintenanceCostFactor(RoadType roadtype);
+
+	/**
+	 * Checks whether the given road type uses a catenary.
+	 * @param roadtype The road type to check.
+	 * @pre IsRoadTypeAvailable(roadtype)
+	 * @return Whether the given road type uses a catenary.
+	 */
+	static bool IsCatenaryRoadType(RoadType roadtype);
+
+	/**
+	 * Checks whether the given road type disallows level crossings.
+	 * @param roadtype The road type to check.
+	 * @pre IsRoadTypeAvailable(roadtype)
+	 * @return Whether the given road type disallows level crossings.
+	 */
+	static bool IsNonLevelCrossingRoadType(RoadType roadtype);
+
+	/**
+	 * Checks whether the given road type cannot be used by towns to build houses.
+	 * @param roadtype The road type to check.
+	 * @pre IsRoadTypeAvailable(roadtype)
+	 * @return Whether the given road type cannot be used by towns to build houses.
+	 */
+	static bool IsNoTownHousesRoadType(RoadType roadtype);
+
+	/**
+	 * Checks whether the given road type is buildable by towns.
+	 * @param roadtype The road type to check.
+	 * @pre IsRoadTypeAvailable(roadtype)
+	 * @return Whether the given road type is buildable by towns.
+	 */
+	static bool IsTownBuildableRoadType(RoadType roadtype);
 
 private:
 

@@ -5,14 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file library_loader_win.cpp Implementation of the LibraryLoader for Windows */
+/** @file library_loader_win.cpp Implementation of the LibraryLoader for Windows. */
 
 #include "../../stdafx.h"
 
 #include <windows.h>
 
 #include "../../library_loader.h"
-#include "../../3rdparty/fmt/format.h"
+#include "../../core/format.hpp"
 
 #include "../../safeguards.h"
 

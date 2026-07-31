@@ -5,9 +5,11 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
+/** @file ai_controller.sq.hpp Controller of Squirrel instances for AI scripts. */
+
 #include "../script_controller.hpp"
 
-template <> SQInteger PushClassName<ScriptController, ScriptType::AI>(HSQUIRRELVM vm) { sq_pushstring(vm, "AIController"); return 1; }
+template <> const char *GetClassName<ScriptController, ScriptType::AI>() { return "AIController"; }
 
 void SQAIController_Register(Squirrel &engine)
 {

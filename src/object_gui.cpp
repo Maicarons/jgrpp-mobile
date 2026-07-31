@@ -17,6 +17,7 @@
 #include "newgrf_text.h"
 #include "object.h"
 #include "object_base.h"
+#include "object_cmd.h"
 #include "picker_gui.h"
 #include "sound_func.h"
 #include "strings_func.h"
@@ -25,9 +26,7 @@
 #include "window_gui.h"
 #include "window_func.h"
 #include "zoom_func.h"
-#include "terraform_cmd.h"
-#include "object_cmd.h"
-#include "road_cmd.h"
+#include "core/backup_type.hpp"
 
 #include "widgets/object_widget.h"
 
@@ -46,10 +45,12 @@ class ObjectPickerCallbacks : public PickerCallbacksNewGRFClass<ObjectClass> {
 public:
 	ObjectPickerCallbacks() : PickerCallbacksNewGRFClass<ObjectClass>("fav_objects") {}
 
-	GrfSpecFeature GetFeature() const override { return GSF_OBJECTS; }
+	GrfSpecFeature GetFeature() const override { return GrfSpecFeature::Objects; }
 
 	StringID GetClassTooltip() const override { return STR_PICKER_OBJECT_CLASS_TOOLTIP; }
 	StringID GetTypeTooltip() const override { return STR_PICKER_OBJECT_TYPE_TOOLTIP; }
+	StringID GetRandomTooltip() const override { return STR_PICKER_OBJECT_RANDOM_TOOLTIP; }
+	StringID GetCollectionTooltip() const override { return STR_PICKER_OBJECT_COLLECTION_TOOLTIP; }
 
 	bool IsActive() const override
 	{
@@ -61,7 +62,7 @@ public:
 		return false;
 	}
 
-	int GetSelectedClass() const override { return _object_gui.sel_class; }
+	int GetSelectedClass() const override { return _object_gui.sel_class.base(); }
 	void SetSelectedClass(int id) const override { _object_gui.sel_class = this->GetClassIndex(id); }
 
 	StringID GetClassName(int id) const override
@@ -105,12 +106,14 @@ public:
 		}
 	}
 
-	void FillUsedItems(std::set<PickerItem> &items) override
+	void SetSelectedCollection([[maybe_unused]] const btree::btree_set<PickerItem> &items) const override { return; }
+
+	void FillUsedItems(btree::btree_set<PickerItem> &items) override
 	{
 		for (const Object *o : Object::Iterate()) {
 			if (GetTileOwner(o->location.tile) != _current_company) continue;
 			const ObjectSpec *spec = ObjectSpec::Get(o->type);
-			if (spec == nullptr || spec->class_index == INVALID_OBJECT_CLASS || !spec->IsEverAvailable()) continue;
+			if (spec == nullptr || spec->class_index == ObjectClassID::Invalid() || !spec->IsEverAvailable()) continue;
 			items.insert(GetPickerItem(spec));
 		}
 	}
@@ -126,6 +129,7 @@ class BuildObjectWindow : public PickerWindow {
 public:
 	BuildObjectWindow(WindowDesc &desc, WindowNumber) : PickerWindow(desc, nullptr, 0, ObjectPickerCallbacks::instance)
 	{
+		this->invalidation_policy = WindowInvalidationPolicy::QueueSingle;
 		ResetObjectToPlace();
 		this->ConstructWindow();
 	}
@@ -235,23 +239,22 @@ public:
 				const int bottom = tr.bottom;
 				/* Use all the available space past the rect, so that we can enlarge the window if needed. */
 				tr.bottom = INT16_MAX;
-				tr.top = DrawBadgeNameList(tr, spec->badges, GSF_OBJECTS);
+				tr.top = DrawBadgeNameList(tr, spec->badges, GrfSpecFeature::Objects);
 
 				/* Get the extra message for the GUI */
 				if (spec->callback_mask.Test(ObjectCallbackMask::FundMoreText)) {
-					std::array<int32_t, 16> regs100;
-					uint16_t callback_res = GetObjectCallback(CBID_OBJECT_FUND_MORE_TEXT, 0, 0, spec, nullptr, INVALID_TILE, regs100, _object_gui.sel_view);
+					uint16_t callback_res = GetObjectCallback(CBID_OBJECT_FUND_MORE_TEXT, 0, 0, spec, nullptr, INVALID_TILE, _object_gui.sel_view);
 					if (callback_res != CALLBACK_FAILED && callback_res != 0x400) {
 						std::string str;
 						if (callback_res == 0x40F) {
-							str = GetGRFStringWithTextStack(spec->grf_prop.grffile, static_cast<GRFStringID>(regs100[0]), std::span{regs100}.subspan(1));
+							str = GetGRFStringWithTextStack(spec->grf_prop.grffile, static_cast<GRFStringID>(GetRegister(0x100)), GetRegisterRange(0x101));
 						} else if (callback_res > 0x400) {
 							ErrorUnknownCallbackResult(spec->grf_prop.grfid, CBID_OBJECT_FUND_MORE_TEXT, callback_res);
 						} else {
-							str = GetGRFStringWithTextStack(spec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback_res, regs100);
+							str = GetGRFStringWithTextStack(spec->grf_prop.grffile, GRFSTR_MISC_GRF_TEXT + callback_res, GetRegisterRange(0x100));
 						}
 						if (!str.empty()) {
-							tr.top = DrawStringMultiLine(tr, str, TC_ORANGE);
+							tr.top = DrawStringMultiLine(tr, str, TextColour::Orange);
 						}
 					}
 				}
@@ -332,15 +335,15 @@ public:
 	void OnPlaceObject([[maybe_unused]] Point pt, TileIndex tile) override
 	{
 		const ObjectSpec *spec = ObjectClass::Get(_object_gui.sel_class)->GetSpec(_object_gui.sel_type);
-
-		if (spec->size == OBJECT_SIZE_1X1) {
+		if (spec == nullptr) return;
+		if (_settings_game.construction.build_object_area_permitted && spec->size == OBJECT_SIZE_1X1) {
 			VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_BUILD_OBJECT);
 		} else {
-			Command<CMD_BUILD_OBJECT>::Post(STR_ERROR_CAN_T_BUILD_OBJECT, CcPlaySound_CONSTRUCTION_OTHER, tile, spec->Index(), _object_gui.sel_view);
+			Command<Commands::BuildObject>::Post(STR_ERROR_CAN_T_BUILD_OBJECT, CommandCallback::PlaySound_CONSTRUCTION_OTHER, tile, spec->Index(), _object_gui.sel_view);
 		}
 	}
 
-	void OnPlaceDrag(ViewportPlaceMethod select_method, [[maybe_unused]] ViewportDragDropSelectionProcess select_proc, [[maybe_unused]] Point pt) override
+	void OnPlaceDrag(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt) override
 	{
 		VpSelectTilesWithMethod(pt.x, pt.y, select_method);
 	}
@@ -351,20 +354,18 @@ public:
 
 		assert(select_proc == DDSP_BUILD_OBJECT);
 
-		if (!_settings_game.construction.freeform_edges) {
-			/* When end_tile is MP_VOID, the error tile will not be visible to the
-			 * user. This happens when terraforming at the southern border. */
-			if (TileX(end_tile) == Map::MaxX()) end_tile += TileDiffXY(-1, 0);
-			if (TileY(end_tile) == Map::MaxY()) end_tile += TileDiffXY(0, -1);
-		}
-		const ObjectSpec *spec = ObjectClass::Get(_object_gui.sel_class)->GetSpec(_object_gui.sel_type);
-		Command<CMD_BUILD_OBJECT_AREA>::Post(STR_ERROR_CAN_T_BUILD_OBJECT, CcPlaySound_CONSTRUCTION_OTHER,
-			end_tile, start_tile, spec->Index(), _object_gui.sel_view, (_ctrl_pressed ? true : false));
+		Command<Commands::BuildObjectArea>::Post(STR_ERROR_CAN_T_BUILD_OBJECT, CommandCallback::PlaySound_CONSTRUCTION_OTHER,
+				end_tile, start_tile, ObjectClass::Get(_object_gui.sel_class)->GetSpec(_object_gui.sel_type)->Index(), _object_gui.sel_view, _ctrl_pressed);
 	}
 
 	void OnPlaceObjectAbort() override
 	{
 		this->UpdateButtons(nullptr);
+	}
+
+	inline void PickItem(ObjectClassID cls_id, int id)
+	{
+		this->PickerWindow::PickItem(cls_id.base(), id);
 	}
 
 	/**
@@ -374,7 +375,7 @@ public:
 	 */
 	static EventState BuildObjectGlobalHotkeys(int hotkey)
 	{
-		if (_game_mode == GM_MENU) return ES_NOT_HANDLED;
+		if (_game_mode == GameMode::Menu) return ES_NOT_HANDLED;
 		Window *w = ShowBuildObjectPicker();
 		if (w == nullptr) return ES_NOT_HANDLED;
 		return w->OnHotkey(hotkey);
@@ -387,25 +388,25 @@ public:
 
 static constexpr std::initializer_list<NWidgetPart> _nested_build_object_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_CAPTION, COLOUR_DARK_GREEN), SetStringTip(STR_OBJECT_BUILD_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
-		NWidget(WWT_SHADEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_STICKYBOX, COLOUR_DARK_GREEN),
+		NWidget(WWT_CLOSEBOX, Colours::DarkGreen),
+		NWidget(WWT_CAPTION, Colours::DarkGreen), SetStringTip(STR_OBJECT_BUILD_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
+		NWidget(WWT_SHADEBOX, Colours::DarkGreen),
+		NWidget(WWT_DEFSIZEBOX, Colours::DarkGreen),
+		NWidget(WWT_STICKYBOX, Colours::DarkGreen),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
 		NWidget(NWID_VERTICAL),
 			NWidgetFunction(MakePickerClassWidgets),
-			NWidget(WWT_PANEL, COLOUR_DARK_GREEN),
+			NWidget(WWT_PANEL, Colours::DarkGreen),
 				NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_picker, 0), SetPadding(WidgetDimensions::unscaled.picker),
-					NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_STATION_BUILD_ORIENTATION), SetFill(1, 0),
+					NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_STATION_BUILD_ORIENTATION), SetFill(1, 0),
 					NWidget(NWID_HORIZONTAL), SetPIPRatio(1, 0, 1),
-						NWidget(NWID_MATRIX, COLOUR_DARK_GREEN, WID_BO_OBJECT_MATRIX), SetPIP(0, 2, 0),
-							NWidget(WWT_PANEL, COLOUR_GREY, WID_BO_OBJECT_SPRITE), SetToolTip(STR_OBJECT_BUILD_PREVIEW_TOOLTIP), EndContainer(),
+						NWidget(NWID_MATRIX, Colours::DarkGreen, WID_BO_OBJECT_MATRIX), SetPIP(0, 2, 0),
+							NWidget(WWT_PANEL, Colours::Grey, WID_BO_OBJECT_SPRITE), SetToolTip(STR_OBJECT_BUILD_PREVIEW_TOOLTIP), EndContainer(),
 							EndContainer(),
 						EndContainer(),
-						NWidget(WWT_TEXT, INVALID_COLOUR, WID_BO_OBJECT_SIZE), SetAlignment(SA_CENTER),
-						NWidget(WWT_EMPTY, INVALID_COLOUR, WID_BO_INFO), SetFill(1, 0), SetResize(1, 0),
+						NWidget(WWT_TEXT, Colours::Invalid, WID_BO_OBJECT_SIZE), SetAlignment(SA_CENTER),
+						NWidget(WWT_EMPTY, Colours::Invalid, WID_BO_INFO), SetFill(1, 0), SetResize(1, 0),
 					EndContainer(),
 				EndContainer(),
 			EndContainer(),
@@ -413,15 +414,23 @@ static constexpr std::initializer_list<NWidgetPart> _nested_build_object_widgets
 	EndContainer(),
 };
 
-static WindowDesc _build_object_desc(
-	WDP_AUTO, "build_object", 0, 0,
-	WC_BUILD_OBJECT, WC_BUILD_TOOLBAR,
+static WindowDesc _build_object_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "build_object", 0, 0,
+	WindowClass::BuildObject, WindowClass::BuildToolbar,
 	WindowDefaultFlag::Construction,
 	_nested_build_object_widgets,
 	&BuildObjectWindow::hotkeys
 );
 
-/** Show our object picker.  */
+bool ShouldShowBuildObjectPicker()
+{
+	return ObjectPickerCallbacks::instance.IsActive();
+}
+
+/**
+ * Show our object picker.
+ * @return The allocated window or \c nullptr when no window was allocated.
+ */
 Window *ShowBuildObjectPicker()
 {
 	/* Don't show the place object button when there are no objects to place. */
@@ -431,8 +440,19 @@ Window *ShowBuildObjectPicker()
 	return nullptr;
 }
 
+/** Show our object picker, and select a particular spec.  */
+void ShowBuildObjectPickerAndSelect(const ObjectSpec *spec)
+{
+	if (spec == nullptr || !spec->IsAvailable() || !ObjectPickerCallbacks::instance.IsActive() || spec->class_index == ObjectClassID::Invalid()) return;
+
+	BuildObjectWindow *w = AllocateWindowDescFront<BuildObjectWindow, true>(_build_object_desc, 0);
+	if (w != nullptr) {
+		w->PickItem(spec->class_index, spec->index);
+	}
+}
+
 /** Reset all data of the object GUI. */
 void InitializeObjectGui()
 {
-	_object_gui.sel_class = ObjectClassID::OBJECT_CLASS_BEGIN;
+	_object_gui.sel_class = ObjectClassID::Begin();
 }

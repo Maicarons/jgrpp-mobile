@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file airport_sl.cpp Code handling saving and loading airport ids */
+/** @file airport_sl.cpp Code handling saving and loading airport ids. */
 
 #include "../stdafx.h"
 
@@ -13,6 +13,8 @@
 #include "newgrf_sl.h"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 struct APIDChunkHandler : NewGRFMappingChunkHandler {
 	APIDChunkHandler() : NewGRFMappingChunkHandler('APID', _airport_mngr) {}
@@ -30,3 +32,5 @@ static const ChunkHandlerRef airport_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _airport_chunk_handlers(airport_chunk_handlers);
+
+}

@@ -12,13 +12,15 @@
 
 #include "../cargo_type.h"
 #include "../vehicle_base.h"
+#include "../3rdparty/cpp-btree/btree_set.h"
+#include <vector>
 
 /**
  * Utility to refresh links a consist will visit.
  */
 class LinkRefresher {
 public:
-	static void Run(Vehicle *v, bool allow_merge = true, bool is_full_loading = false);
+	static void Run(Vehicle *v, bool allow_merge = true, bool is_full_loading = false, CargoTypes cargo_mask = ALL_CARGOTYPES);
 
 protected:
 	/**
@@ -31,6 +33,7 @@ protected:
 		WasRefit,    ///< Consist was refit since the last stop where it could interact with cargo.
 		ResetRefit,  ///< Consist had a chance to load since the last refit and the refit capacities can be reset.
 		InAutorefit, ///< Currently doing an autorefit loop. Ignore the first autorefit order.
+		Aircraft,    ///< Vehicle is an aircraft.
 	};
 
 	using RefreshFlags = EnumBitSet<RefreshFlag, uint8_t>;
@@ -58,13 +61,14 @@ protected:
 	struct Hop {
 		VehicleOrderID from;  ///< Last order where vehicle could interact with cargo or absolute first order.
 		VehicleOrderID to;    ///< Next order to be processed.
-		CargoType cargo; ///< Cargo the consist is probably carrying or INVALID_CARGO if unknown.
+		CargoType cargo;      ///< Cargo the consist is probably carrying or INVALID_CARGO if unknown.
+		RefreshFlags flags;   ///< Flags, for branches
 
 		/**
 		 * Default constructor should not be called but has to be visible for
 		 * usage in std::set.
 		 */
-		Hop() {NOT_REACHED();}
+		Hop() {}
 
 		/**
 		 * Real constructor, only use this one.
@@ -72,30 +76,45 @@ protected:
 		 * @param to Second order of the hop.
 		 * @param cargo Cargo the consist is probably carrying when passing the hop.
 		 */
-		Hop(VehicleOrderID from, VehicleOrderID to, CargoType cargo) : from(from), to(to), cargo(cargo) {}
+		Hop(VehicleOrderID from, VehicleOrderID to, CargoType cargo, RefreshFlags flags = {}) : from(from), to(to), cargo(cargo), flags(flags) {}
 
 		constexpr auto operator<=>(const Hop &) const noexcept = default;
 	};
 
+	enum class TimetableTravelTimeFlag : uint8_t {
+		NoWaitTime,
+		NoTravelTime,
+		AllowCondition,
+		Invalid,
+	};
+	using TimetableTravelTimeFlags = EnumBitSet<TimetableTravelTimeFlag, uint8_t>;
+
+	struct TimetableTravelTime {
+		int time_so_far = 0;
+		TimetableTravelTimeFlags flags = {};
+	};
+
 	typedef std::vector<RefitDesc> RefitList;
-	typedef std::set<Hop> HopSet;
+	typedef btree::btree_set<Hop> HopSet;
 
 	Vehicle *vehicle;           ///< Vehicle for which the links should be refreshed.
-	CargoArray capacities{}; ///< Current added capacities per cargo type in the consist.
+	CargoArray capacities{};    ///< Current added capacities per cargo ID in the consist.
 	RefitList refit_capacities; ///< Current state of capacity remaining from previous refits versus overall capacity per vehicle in the consist.
 	HopSet *seen_hops;          ///< Hops already seen. If the same hop is seen twice we stop the algorithm. This is shared between all Refreshers of the same run.
-	CargoType cargo;              ///< Cargo given in last refit order.
+	CargoType cargo;            ///< Cargo given in last refit order.
 	bool allow_merge;           ///< If the refresher is allowed to merge or extend link graphs.
 	bool is_full_loading;       ///< If the vehicle is full loading.
+	CargoTypes cargo_mask;      ///< Bit-mask of cargo IDs to refresh.
 
-	LinkRefresher(Vehicle *v, HopSet *seen_hops, bool allow_merge, bool is_full_loading);
+	LinkRefresher(Vehicle *v, HopSet *seen_hops, bool allow_merge, bool is_full_loading, CargoTypes cargo_mask);
 
 	bool HandleRefit(CargoType refit_cargo);
 	void ResetRefit();
-	void RefreshStats(VehicleOrderID cur, VehicleOrderID next);
-	VehicleOrderID PredictNextOrder(VehicleOrderID cur, VehicleOrderID next, RefreshFlags flags, uint num_hops = 0);
+	void RefreshStats(const Order *cur, const Order *next,uint32_t travel_estimate, RefreshFlags flags);
+	TimetableTravelTime UpdateTimetableTravelSoFar(const Order *from, const Order *to, TimetableTravelTime travel);
+	std::pair<const Order *, TimetableTravelTime> PredictNextOrder(const Order *cur, const Order *next, TimetableTravelTime travel, RefreshFlags flags, uint num_hops = 0);
 
-	void RefreshLinks(VehicleOrderID cur, VehicleOrderID next, RefreshFlags flags, uint num_hops = 0);
+	void RefreshLinks(const Order *cur, const Order *next, TimetableTravelTime travel, RefreshFlags flags, uint num_hops = 0);
 };
 
 #endif /* REFRESH_H */

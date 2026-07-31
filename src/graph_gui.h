@@ -10,7 +10,10 @@
 #ifndef GRAPH_GUI_H
 #define GRAPH_GUI_H
 
+#include "station_type.h"
 #include "window_type.h"
+
+extern uint8_t _cargo_payment_x_mode;
 
 void ShowOperatingProfitGraph();
 void ShowIncomeGraph();
@@ -19,6 +22,7 @@ void ShowPerformanceHistoryGraph();
 void ShowCompanyValueGraph();
 void ShowCargoPaymentRates();
 void ShowPerformanceRatingDetail();
+void ShowStationCargo(StationID);
 void ShowIndustryProductionGraph(WindowNumber window_number);
 void ShowTownCargoGraph(WindowNumber window_number);
 

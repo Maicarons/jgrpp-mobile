@@ -15,9 +15,7 @@
 #include "newgrf.h"
 #include "newgrf_house.h"
 #include "economy_func.h"
-#include "timer/timer_game_calendar.h"
-#include "timer/timer_game_economy.h"
-#include "timer/timer_game_tick.h"
+#include "date_func.h"
 #include "texteff.hpp"
 #include "gfx_func.h"
 #include "gamelog.h"
@@ -32,12 +30,30 @@
 #include "town_kdtree.h"
 #include "viewport_kdtree.h"
 #include "newgrf_profiling.h"
+#include "tracerestrict.h"
+#include "programmable_signals.h"
+#include "viewport_func.h"
+#include "bridge_signal_map.h"
+#include "command_func.h"
+#include "command_log.h"
+#include "zoning.h"
+#include "cargopacket.h"
+#include "tbtr_template_vehicle_func.h"
+#include "event_logs.h"
+#include "string_func.h"
+#include "plans_func.h"
+#include "core/format.hpp"
 #include "3rdparty/monocypher/monocypher.h"
 
 #include "safeguards.h"
 
 extern TileIndex _cur_tileloop_tile;
+extern TileIndex _aux_tileloop_tile;
+extern void ClearAllSignalSpeedRestrictions();
 extern void MakeNewgameSettingsLive();
+
+extern uint64_t _station_tile_cache_hash;
+extern uint32_t _engine_seed;
 
 void InitializeSound();
 void InitializeMusic();
@@ -57,11 +73,13 @@ void InitializeCheats();
 void InitializeOldNames();
 
 /**
- * Generate an unique ID.
+ * Generate a unique ID.
  *
  * It isn't as much of an unique ID but more a hashed digest of a random
  * string and a time. It is very likely to be unique, but it does not follow
  * any UUID standard.
+ * @param subject What to create the ID for.
+ * @return The generated ID.
  */
 std::string GenerateUid(std::string_view subject)
 {
@@ -82,7 +100,7 @@ std::string GenerateUid(std::string_view subject)
 }
 
 /**
- * Generate an unique savegame ID.
+ * Generate a unique savegame ID.
  */
 void GenerateSavegameId()
 {
@@ -95,38 +113,97 @@ void InitializeGame(uint size_x, uint size_y, bool reset_date, bool reset_settin
 	 * related to the new game we're about to start/load. */
 	UnInitWindowSystem();
 
-	Map::Allocate(size_x, size_y);
+	/* Clear link graph schedule and stop any link graph threads before
+	 * changing the map size. This avoids data races on the map size variables. */
+	LinkGraphSchedule::Clear();
+
+	AllocateMap(size_x, size_y);
+
+	ViewportMapClearTunnelCache();
+	ResetDisasterVehicleTargeting();
+	ClearCommandLog();
+	ClearCommandQueue();
+	ClearSpecialEventsLog();
+	ClearDesyncMsgLog();
 
 	_pause_mode = {};
+	_pause_countdown = 0;
 	_game_speed = 100;
-	TimerGameTick::counter = 0;
-	TimerGameEconomy::days_since_last_month = 0;
+	CalTime::Detail::now.sub_date_fract = 0;
+	EconTime::Detail::years_elapsed = EconTime::YearDelta{0};
+	_tick_counter = 0;
+	DateDetail::_tick_skip_counter = 0;
+	_scaled_tick_counter = 0;
+	_state_ticks = INITIAL_STATE_TICKS_VALUE;
+	DateDetail::_state_ticks_offset = StateTicksDelta{0};
 	_cur_tileloop_tile = TileIndex{1};
+	_aux_tileloop_tile = TileIndex{1};
 	_thd.redsq = INVALID_TILE;
-	if (reset_settings) MakeNewgameSettingsLive();
+	_road_layout_change_counter = 0;
+	_loaded_local_company = COMPANY_SPECTATOR;
+	_game_events_since_load = (GameEventFlags) 0;
+	_game_events_overall = (GameEventFlags) 0;
+	_game_load_cur_date_ymd = { EconTime::Year{0}, 0, 0 };
+	_game_load_date_fract = 0;
+	_game_load_tick_skip_counter = 0;
+	_game_load_state_ticks = StateTicks{0};
+	_game_load_time = 0;
+	_extra_aspects = 0;
+	_aspect_cfg_hash = 0;
+	_station_tile_cache_hash = 0;
+	_engine_seed = 0;
+	InitGRFGlobalVars();
+	_loadgame_DBGL_data.clear();
+	if (reset_settings) {
+		MakeNewgameSettingsLive();
+	} else {
+		UpdateEffectiveDayLengthFactor();
+	}
 
 	_newgrf_profilers.clear();
 
 	if (reset_date) {
-		TimerGameCalendar::Date new_date = TimerGameCalendar::ConvertYMDToDate(_settings_game.game_creation.starting_year, 0, 1);
-		TimerGameCalendar::SetDate(new_date, 0);
-
-		if (TimerGameEconomy::UsingWallclockUnits()) {
-			/* If using wallclock units, start at year 1. */
-			TimerGameEconomy::SetDate(TimerGameEconomy::ConvertYMDToDate(TimerGameEconomy::Year{1}, 0, 1), 0);
+		CalTime::Detail::SetDate(CalTime::ConvertYMDToDate(_settings_game.game_creation.starting_year, 0, 1), 0);
+		if (EconTime::UsingWallclockUnits()) {
+			EconTime::Detail::SetDate(EconTime::DAYS_TILL_ORIGINAL_BASE_YEAR_WALLCLOCK_MODE, 0);
 		} else {
-			/* Otherwise, we always keep the economy date synced with the calendar date. */
-			TimerGameEconomy::SetDate(TimerGameEconomy::Date{new_date.base()}, 0);
+			EconTime::Detail::SetDate(ToEconTimeCast(CalTime::CurDate()), 0);
 		}
+		EconTime::Detail::period_display_offset = EconTime::Year{1} - EconTime::CurYear();
 		InitializeOldNames();
+	} else {
+		RecalculateStateTicksOffset();
 	}
 
-	LinkGraphSchedule::Clear();
+	UpdateCachedSnowLine();
+	UpdateCachedSnowLineBounds();
+
+	ClearTraceRestrictMapping();
+	ClearBridgeSimulatedSignalMapping();
+	ClearBridgeSignalStyleMapping();
+	ClearCargoPacketDeferredPayments();
+	ClearTemplateReplacements();
 	PoolBase::Clean(PoolType::Normal);
+
+	extern void ClearNewSignalStyleMapping();
+	ClearNewSignalStyleMapping();
+
+	extern void ClearPendingSignalUpdates();
+	ClearPendingSignalUpdates();
 
 	RebuildStationKdtree();
 	RebuildTownKdtree();
 	RebuildViewportKdtree();
+
+	FreeSignalPrograms();
+	FreeSignalDependencies();
+
+	ClearAllSignalSpeedRestrictions();
+
+	ClearZoningCaches();
+	InvalidatePlanCaches();
+	IntialiseOrderDestinationRefcountMap();
+	TraceRestrictClearRecentSlotsAndCounters();
 
 	ResetPersistentNewGRFData();
 
@@ -160,12 +237,18 @@ void InitializeGame(uint size_x, uint size_y, bool reset_date, bool reset_settin
 
 	InitializeEconomy();
 
-	ResetObjectToPlace();
+	InvalidateVehicleTickCaches();
+	InvalidateEffectVehicleTickCache();
+	ClearVehicleTickCaches();
+	InvalidateTemplateReplacementImages();
 
-	_gamelog.Reset();
-	_gamelog.StartAction(GLAT_START);
-	_gamelog.Revision();
-	_gamelog.Mode();
-	_gamelog.GRFAddList(_grfconfig);
-	_gamelog.StopAction();
+	ResetObjectToPlace();
+	ResetRailPlacementSnapping();
+
+	GamelogReset();
+	GamelogStartAction(GLAT_START);
+	GamelogRevision();
+	GamelogMode();
+	GamelogGRFAddList(_grfconfig);
+	GamelogStopAction();
 }

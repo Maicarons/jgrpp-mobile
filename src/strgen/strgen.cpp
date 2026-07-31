@@ -8,17 +8,28 @@
 /** @file strgen.cpp Tool to create computer readable (stand-alone) translation files. */
 
 #include "../stdafx.h"
+#include "../core/endian_func.hpp"
+#include "../core/math_func.hpp"
+#include "../core/mem_func.hpp"
 #include "../error_func.h"
+#include "../fileio_type.h"
 #include "../string_func.h"
 #include "../strings_type.h"
 #include "../misc/getoptdata.h"
 #include "../table/control_codes.h"
-#include "../3rdparty/fmt/std.h"
 
 #include "strgen.h"
 
-#include <filesystem>
-#include <fstream>
+#include <exception>
+
+#if !defined(_WIN32) || defined(__CYGWIN__)
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
+
+#if defined(_WIN32) || defined(__WATCOMC__)
+#include <direct.h>
+#endif /* _WIN32 || __WATCOMC__ */
 
 #include "../table/strgen_tables.h"
 
@@ -65,9 +76,24 @@ void StrgenErrorI(const std::string &msg)
 	exit(2);
 }
 
+/**
+ * Simplified FileHandle::Open which ignores OTTD2FS. Required as strgen does not include all of the fileio system.
+ * @param filename UTF-8 encoded filename to open.
+ * @param mode Mode to open file.
+ * @return FileHandle, or std::nullopt on failure.
+ */
+std::optional<FileHandle> FileHandle::Open(const char *filename, const char *mode)
+{
+	auto f = fopen(filename, mode);
+	if (f == nullptr) return std::nullopt;
+	return FileHandle(f);
+}
+
 /** A reader that simply reads using fopen. */
 struct FileStringReader : StringReader {
-	std::ifstream input_stream;
+	std::optional<FileHandle> fh;  ///< The file we are reading.
+	std::optional<FileHandle> fh2; ///< The file we are reading.
+	std::string file2;
 
 	/**
 	 * Create the reader.
@@ -76,16 +102,33 @@ struct FileStringReader : StringReader {
 	 * @param master      Are we reading the master file?
 	 * @param translation Are we reading a translation?
 	 */
-	FileStringReader(StringData &data, const std::filesystem::path &file, bool master, bool translation) :
-			StringReader(data, file.generic_string(), master, translation)
+	FileStringReader(StringData &data, const char *file, const char *file2, bool master, bool translation) :
+			StringReader(data, file, master, translation)
 	{
-		this->input_stream.open(file, std::ifstream::binary);
+		this->fh = FileHandle::Open(file, "rb");
+		if (!this->fh.has_value()) FatalError("Could not open {}", file);
+
+		if (file2 != nullptr) {
+			this->file2.assign(file2);
+			this->fh2 = FileHandle::Open(file2, "rb");
+			if (!this->fh2.has_value()) FatalError("Could not open {}", file2);
+		}
 	}
 
-	std::optional<std::string> ReadLine() override
+	FileStringReader(StringData &data, const char *file, bool master, bool translation) :
+			FileStringReader(data, file, nullptr, master, translation) {}
+
+	char *ReadLine(char *buffer, const char *last) override
 	{
-		std::string result;
-		if (!std::getline(this->input_stream, result)) return std::nullopt;
+		char *result = fgets(buffer, ClampTo<uint16_t>(last - buffer + 1), *this->fh);
+		if (result == nullptr && this->fh2.has_value()) {
+			this->fh = std::move(this->fh2);
+			this->fh2.reset();
+			this->file = std::move(this->file2);
+			_strgen.file = this->file.c_str();
+			_strgen.cur_line = 1;
+			return this->FileStringReader::ReadLine(buffer, last);
+		}
 		return result;
 	}
 
@@ -95,7 +138,7 @@ struct FileStringReader : StringReader {
 	{
 		this->StringReader::ParseFile();
 
-		if (*_strgen.lang.name == '\0' || *_strgen.lang.own_name == '\0' || *_strgen.lang.isocode == '\0') {
+		if (StrEmpty(_strgen.lang.name) || StrEmpty(_strgen.lang.own_name) || StrEmpty(_strgen.lang.isocode)) {
 			FatalError("Language must include ##name, ##ownname and ##isocode");
 		}
 	}
@@ -163,80 +206,161 @@ void FileStringReader::HandlePragma(std::string_view str, LanguagePackHeader &la
 			s->copy(lang.cases[lang.num_cases], CASE_GENDER_LEN - 1);
 			lang.num_cases++;
 		}
+	} else if (name == "override") {
+		if (this->translation) FatalError("Overrides are only allowed in the base translation.");
+		consumer.SkipUntilCharNotIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		std::string_view mode = consumer.ReadUntilCharIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		if (mode == "on") {
+			this->data.override_mode = true;
+		} else if (mode == "off") {
+			this->data.override_mode = false;
+		} else {
+			FatalError("Invalid override mode {}", mode);
+		}
+	} else if (name == "after") {
+		if (this->translation) FatalError("Insert after is only allowed in the base translation.");
+		consumer.SkipUntilCharNotIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		std::string_view target = consumer.ReadUntilCharIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		LangString *ent = this->data.Find(target);
+		if (ent != nullptr) {
+			this->data.insert_after = ent;
+			this->data.insert_before = nullptr;
+		} else {
+			FatalError("Can't find string to insert after: '{}'", target);
+		}
+	} else if (name == "before") {
+		if (this->translation) FatalError("Insert before is only allowed in the base translation.");
+		consumer.SkipUntilCharNotIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		std::string_view target = consumer.ReadUntilCharIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		LangString *ent = this->data.Find(target);
+		if (ent != nullptr) {
+			this->data.insert_after = nullptr;
+			this->data.insert_before = ent;
+		} else {
+			FatalError("Can't find string to insert after: '{}'", target);
+		}
+	} else if (name == "end-after") {
+		if (this->translation) FatalError("Insert after is only allowed in the base translation.");
+		this->data.insert_after = nullptr;
+	} else if (name == "default-translation") {
+		if (this->translation) FatalError("Default translation is only allowed in the base translation.");
+		consumer.SkipUntilCharNotIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		std::string_view target = consumer.ReadUntilCharIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		LangString *ent = this->data.Find(target);
+		if (ent != nullptr) {
+			this->data.default_translation = ent;
+		} else {
+			FatalError("Can't find string to use as default translation: '{}'", target);
+		}
+	} else if (name == "no-translate") {
+		if (this->translation) FatalError("No-translate sections are only allowed in the base translation.");
+		consumer.SkipUntilCharNotIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		std::string_view mode = consumer.ReadUntilCharIn(StringConsumer::WHITESPACE_NO_NEWLINE);
+		if (mode == "on") {
+			this->data.no_translate_mode = true;
+		} else if (mode == "off") {
+			this->data.no_translate_mode = false;
+		} else {
+			FatalError("Invalid no-translate mode {}", mode);
+		}
 	} else {
 		StringReader::HandlePragma(str, lang);
 	}
 }
 
-static bool CompareFiles(const std::filesystem::path &path1, const std::filesystem::path &path2)
+bool CompareFiles(const char *n1, const char *n2)
 {
-	/* Check for equal size, but ignore the error code for cases when a file does not exist. */
-	std::error_code error_code;
-	if (std::filesystem::file_size(path1, error_code) != std::filesystem::file_size(path2, error_code)) return false;
+	auto f2 = FileHandle::Open(n2, "rb");
+	if (!f2.has_value()) return false;
 
-	std::ifstream stream1(path1, std::ifstream::binary);
-	std::ifstream stream2(path2, std::ifstream::binary);
+	auto f1 = FileHandle::Open(n1, "rb");
+	if (!f1.has_value()) {
+		FatalError("can't open {}", n1);
+	}
 
-	return std::equal(std::istreambuf_iterator<char>(stream1.rdbuf()),
-			std::istreambuf_iterator<char>(),
-			std::istreambuf_iterator<char>(stream2.rdbuf()));
+	size_t l1, l2;
+	do {
+		char b1[4096];
+		char b2[4096];
+		l1 = fread(b1, 1, sizeof(b1), *f1);
+		l2 = fread(b2, 1, sizeof(b2), *f2);
+
+		if (l1 != l2 || memcmp(b1, b2, l1)) {
+			return false;
+		}
+	} while (l1 != 0);
+
+	return true;
 }
 
 /** Base class for writing data to disk. */
 struct FileWriter {
-	std::ofstream output_stream; ///< The stream to write all the output to.
-	const std::filesystem::path path; ///< The file name we're writing to.
+	std::optional<FileHandle> fh; ///< The file handle we're writing to.
+	std::string filename;         ///< The file name we're writing to.
 
 	/**
 	 * Open a file to write to.
-	 * @param path The path to the file to open.
-	 * @param openmode The openmode flags for opening the file.
+	 * @param filename The file to open.
 	 */
-	FileWriter(const std::filesystem::path &path, std::ios_base::openmode openmode) : path(path)
+	FileWriter(const char *filename)
 	{
-		this->output_stream.open(path, openmode);
+		this->filename = filename;
+		this->fh = FileHandle::Open(filename, "wb");
+
+		if (!this->fh.has_value()) {
+			FatalError("Could not open {}", filename);
+		}
 	}
 
 	/** Finalise the writing. */
 	void Finalise()
 	{
-		this->output_stream.close();
+		this->fh.reset();
 	}
 
 	/** Make sure the file is closed. */
 	virtual ~FileWriter()
 	{
 		/* If we weren't closed an exception was thrown, so remove the temporary file. */
-		if (this->output_stream.is_open()) {
-			this->output_stream.close();
-			std::filesystem::remove(this->path);
+		if (this->fh.has_value()) {
+			this->fh.reset();
+			unlink(this->filename.c_str());
 		}
 	}
 };
 
 struct HeaderFileWriter : HeaderWriter, FileWriter {
-	/** The real path we eventually want to write to. */
-	const std::filesystem::path real_path;
+	/** The real file name we eventually want to write to. */
+	std::string real_filename;
 	/** The previous string ID that was printed. */
-	size_t prev;
-	size_t total_strings;
+	uint prev;
+	uint total_strings;
 
 	/**
 	 * Open a file to write to.
-	 * @param path The path to the file to open.
+	 * @param filename The file to open.
 	 */
-	HeaderFileWriter(const std::filesystem::path &path) : FileWriter("tmp.xxx", std::ofstream::out),
-		real_path(path), prev(0), total_strings(0)
+	HeaderFileWriter(const char *filename) : FileWriter("tmp.xxx"),
+		real_filename(filename), prev(0), total_strings(0)
 	{
-		this->output_stream << "/* This file is automatically generated. Do not modify */\n\n";
-		this->output_stream << "#ifndef TABLE_STRINGS_H\n";
-		this->output_stream << "#define TABLE_STRINGS_H\n";
+		fprintf(*this->fh, "/**\n" \
+			" * @file strings.h This file contains IDs for all registered strings.\n" \
+			" * @attention This file is automatically generated. Do not modify.\n" \
+			" */\n\n" \
+			"#ifndef TABLE_STRINGS_H\n" \
+			"#define TABLE_STRINGS_H\n");
 	}
 
-	void WriteStringID(const std::string &name, size_t stringid) override
+	void WriteStringID(const std::string &name, uint stringid) override
 	{
-		if (prev + 1 != stringid) this->output_stream << "\n";
-		fmt::print(this->output_stream, "static const StringID {} = 0x{:X};\n", name, stringid);
+		if (stringid == 0) {
+			if (name != "STR_NULL") StrgenFatal("String ID 0 is not STR_NULL");
+			total_strings++;
+			return;
+		}
+
+		if (prev + 1 != stringid) fprintf(*this->fh, "\n");
+		fprintf(*this->fh, "static const StringID %s = 0x%X;\n", name.c_str(), stringid);
 		prev = stringid;
 		total_strings++;
 	}
@@ -249,28 +373,31 @@ struct HeaderFileWriter : HeaderWriter, FileWriter {
 			max_plural_forms = std::max(max_plural_forms, pf.plural_count);
 		}
 
-		fmt::print(this->output_stream,
+		fprintf(*this->fh,
 			"\n"
-			"static const uint LANGUAGE_PACK_VERSION     = 0x{:X};\n"
-			"static const uint LANGUAGE_MAX_PLURAL       = {};\n"
-			"static const uint LANGUAGE_MAX_PLURAL_FORMS = {};\n"
-			"static const uint LANGUAGE_TOTAL_STRINGS    = {};\n"
+			"static const uint LANGUAGE_PACK_VERSION     = 0x%X;\n"
+			"static const uint LANGUAGE_MAX_PLURAL       = %u;\n"
+			"static const uint LANGUAGE_MAX_PLURAL_FORMS = %u;\n"
+			"static const uint LANGUAGE_TOTAL_STRINGS    = %u;\n"
 			"\n",
-			data.Version(), std::size(_plural_forms), max_plural_forms, total_strings
+			(uint)data.Version(), (uint)std::size(_plural_forms), (uint)max_plural_forms, total_strings
 		);
 
-		this->output_stream << "#endif /* TABLE_STRINGS_H */\n";
+		fprintf(*this->fh, "#endif /* TABLE_STRINGS_H */\n");
 
 		this->FileWriter::Finalise();
 
-		std::error_code error_code;
-		if (CompareFiles(this->path, this->real_path)) {
+		if (CompareFiles(this->filename.c_str(), this->real_filename.c_str())) {
 			/* files are equal. tmp.xxx is not needed */
-			std::filesystem::remove(this->path, error_code); // Just ignore the error
+			unlink(this->filename.c_str());
 		} else {
 			/* else rename tmp.xxx into filename */
-			std::filesystem::rename(this->path, this->real_path, error_code);
-			if (error_code) FatalError("rename({}, {}) failed: {}", this->path, this->real_path, error_code.message());
+#	if defined(_WIN32)
+			unlink(this->real_filename.c_str());
+#	endif
+			if (rename(this->filename.c_str(), this->real_filename.c_str()) == -1) {
+				FatalError("rename({}, {}) failed: {}", this->filename, this->real_filename.c_str(), StrErrorDumper().GetLast());
+			}
 		}
 	}
 };
@@ -279,9 +406,9 @@ struct HeaderFileWriter : HeaderWriter, FileWriter {
 struct LanguageFileWriter : LanguageWriter, FileWriter {
 	/**
 	 * Open a file to write to.
-	 * @param path The path to the file to open.
+	 * @param filename The file to open.
 	 */
-	LanguageFileWriter(const std::filesystem::path &path) : FileWriter(path, std::ofstream::binary | std::ofstream::out)
+	LanguageFileWriter(const char *filename) : FileWriter(filename)
 	{
 	}
 
@@ -292,15 +419,83 @@ struct LanguageFileWriter : LanguageWriter, FileWriter {
 
 	void Finalise() override
 	{
-		this->output_stream.put(0);
+		if (fputc(0, *this->fh) == EOF) {
+			FatalError("Could not write to {}", this->filename);
+		}
 		this->FileWriter::Finalise();
 	}
 
 	void Write(std::string_view buffer) override
 	{
-		this->output_stream.write(buffer.data(), buffer.size());
+		if (buffer.empty()) return;
+		if (fwrite(buffer.data(), sizeof(*buffer.data()), buffer.size(), *this->fh) != buffer.size()) {
+			FatalError("Could not write to {}", this->filename);
+		}
 	}
 };
+
+/** Multi-OS mkdirectory function */
+static inline void ottd_mkdir(const char *directory)
+{
+	/* Ignore directory creation errors; they'll surface later on, and most
+	 * of the time they are 'directory already exists' errors anyhow. */
+#if defined(_WIN32) || defined(__WATCOMC__)
+	mkdir(directory);
+#else
+	mkdir(directory, 0755);
+#endif
+}
+
+/**
+ * Create a path consisting of an already existing path, a possible
+ * path separator and the filename. The separator is only appended if the path
+ * does not already end with a separator
+ */
+static inline char *mkpath2(char *buf, const char *last, const char *path, const char *path2, const char *file)
+{
+	strecpy(buf, path, last); // copy directory into buffer
+
+	char *p = strchr(buf, '\0'); // add path separator if necessary
+
+	if (path2 != nullptr) {
+		if (p[-1] != PATHSEPCHAR && p != last) *p++ = PATHSEPCHAR;
+		strecpy(p, path2, last); // concatenate filename at end of buffer
+		p = strchr(buf, '\0');
+	}
+
+	if (p[-1] != PATHSEPCHAR && p != last) *p++ = PATHSEPCHAR;
+	strecpy(p, file, last); // concatenate filename at end of buffer
+	return buf;
+}
+
+/**
+ * Create a path consisting of an already existing path, a possible
+ * path separator and the filename. The separator is only appended if the path
+ * does not already end with a separator
+ */
+static inline char *mkpath(char *buf, const char *last, const char *path, const char *file)
+{
+	return mkpath2(buf, last, path, nullptr, file);
+}
+
+#if defined(_WIN32)
+/**
+ * On MingW, it is common that both / as \ are accepted in the
+ * params. To go with those flow, we rewrite all incoming /
+ * simply to \, so internally we can safely assume \, and do
+ * this for all Windows machines to keep identical behaviour,
+ * no matter what your compiler was.
+ */
+static std::string replace_pathsep(std::string s)
+{
+	for (char &c : s) {
+		if (c == '/') c = '\\';
+	}
+	return s;
+}
+#else
+static std::string replace_pathsep(std::string s) { return s; }
+#endif
 
 /** Options of strgen. */
 static const OptionData _opts[] = {
@@ -317,19 +512,19 @@ static const OptionData _opts[] = {
 
 int CDECL main(int argc, char *argv[])
 {
-	std::filesystem::path src_dir(".");
-	std::filesystem::path dest_dir;
+	char pathbuf[MAX_PATH];
+	char pathbuf2[MAX_PATH];
+	std::string src_dir = ".";
+	std::string dest_dir;
 
-	std::vector<std::string_view> params;
-	for (int i = 1; i < argc; ++i) params.emplace_back(argv[i]);
-	GetOptData mgo(params, _opts);
+	GetOptData mgo(std::span(argv + 1, argc - 1), _opts);
 	for (;;) {
 		int i = mgo.GetOpt();
 		if (i == -1) break;
 
 		switch (i) {
 			case 'C':
-				fmt::print("args\tflags\tcommand\treplacement\n");
+				printf("args\tflags\tcommand\treplacement\n");
 				for (const auto &cs : _cmd_structs) {
 					char flags;
 					if (cs.proc == EmitGender) {
@@ -346,16 +541,16 @@ int CDECL main(int argc, char *argv[])
 				return 0;
 
 			case 'L':
-				fmt::print("count\tdescription\tnames\n");
+				printf("count\tdescription\tnames\n");
 				for (const auto &pf : _plural_forms) {
-					fmt::print("{}\t\"{}\"\t{}\n", pf.plural_count, pf.description, pf.names);
+					printf("%u\t\"%s\"\t%s\n", (uint)pf.plural_count, pf.description, pf.names);
 				}
 				return 0;
 
 			case 'P':
-				fmt::print("name\tflags\tdefault\tdescription\n");
+				printf("name\tflags\tdefault\tdescription\n");
 				for (const auto &pragma : _pragmas) {
-					fmt::print("\"{}\"\t{}\t\"{}\"\t\"{}\"\n",
+					printf("\"%s\"\t%s\t\"%s\"\t\"%s\"\n",
 							pragma[0], pragma[1], pragma[2], pragma[3]);
 				}
 				return 0;
@@ -369,7 +564,7 @@ int CDECL main(int argc, char *argv[])
 				break;
 
 			case 'h':
-				fmt::print(
+				puts(
 					"strgen\n"
 					" -t | --todo       replace any untranslated strings with '<TODO>'\n"
 					" -w | --warning    print a warning for any untranslated strings\n"
@@ -381,20 +576,20 @@ int CDECL main(int argc, char *argv[])
 					" -export-pragmas   export all pragmas and exit\n"
 					" Run without parameters and strgen will search for english.txt and parse it,\n"
 					" creating strings.h. Passing an argument, strgen will translate that language\n"
-					" file using english.txt as a reference and output <language>.lng.\n"
+					" file using english.txt as a reference and output <language>.lng."
 				);
 				return 0;
 
 			case 's':
-				src_dir = mgo.opt;
+				src_dir = replace_pathsep(mgo.opt);
 				break;
 
 			case 'd':
-				dest_dir = mgo.opt;
+				dest_dir = replace_pathsep(mgo.opt);
 				break;
 
 			case -2:
-				fmt::print(stderr, "Invalid arguments\n");
+				fprintf(stderr, "Invalid arguments\n");
 				return 0;
 		}
 	}
@@ -407,53 +602,61 @@ int CDECL main(int argc, char *argv[])
 		 * with a (free) parameter the program will translate that language to destination
 		 * directory. As input english.txt is parsed from the source directory */
 		if (mgo.arguments.empty()) {
-			std::filesystem::path input_path = std::move(src_dir);
-			input_path /= "english.txt";
+			mkpath(pathbuf, lastof(pathbuf), src_dir.c_str(), "english.txt");
+			mkpath2(pathbuf2, lastof(pathbuf2), src_dir.c_str(), "extra", "english.txt");
 
 			/* parse master file */
 			StringData data(TEXT_TAB_END);
-			FileStringReader master_reader(data, input_path, true, false);
+			FileStringReader master_reader(data, pathbuf, pathbuf2, true, false);
 			master_reader.ParseFile();
 			if (_strgen.errors != 0) return 1;
 
 			/* write strings.h */
-			std::filesystem::path output_path = dest_dir;
-			std::filesystem::create_directories(dest_dir);
-			output_path /= "strings.h";
+			ottd_mkdir(dest_dir.c_str());
+			mkpath(pathbuf, lastof(pathbuf), dest_dir.c_str(), "strings.h");
 
-			HeaderFileWriter writer(output_path);
+			HeaderFileWriter writer(pathbuf);
 			writer.WriteHeader(data);
 			writer.Finalise(data);
 			if (_strgen.errors != 0) return 1;
 		} else {
-			std::filesystem::path input_path = std::move(src_dir);
-			input_path /= "english.txt";
+			mkpath(pathbuf, lastof(pathbuf), src_dir.c_str(), "english.txt");
+			mkpath2(pathbuf2, lastof(pathbuf2), src_dir.c_str(), "extra", "english.txt");
 
 			StringData data(TEXT_TAB_END);
 			/* parse master file and check if target file is correct */
-			FileStringReader master_reader(data, input_path, true, false);
+			FileStringReader master_reader(data, pathbuf, pathbuf2, true, false);
 			master_reader.ParseFile();
 
-			for (auto &argument: mgo.arguments) {
+			for (auto &argument : mgo.arguments) {
 				data.FreeTranslation();
 
-				std::filesystem::path lang_file = argument;
-				FileStringReader translation_reader(data, lang_file, false, lang_file.filename() != "english.txt");
+				const std::string translation = replace_pathsep(argument);
+				const char *file = strrchr(translation.c_str(), PATHSEPCHAR);
+				const char *translation2 = nullptr;
+				if (file != nullptr) {
+					mkpath2(pathbuf2, lastof(pathbuf2), src_dir.c_str(), "extra", file + 1);
+					translation2 = pathbuf2;
+				}
+				FileStringReader translation_reader(data, translation.c_str(), translation2, false, file == nullptr || strcmp(file + 1, "english.txt") != 0);
 				translation_reader.ParseFile(); // target file
 				if (_strgen.errors != 0) return 1;
 
 				/* get the targetfile, strip any directories and append to destination path */
-				std::filesystem::path output_file = dest_dir;
-				output_file /= lang_file.filename();
-				output_file.replace_extension("lng");
+				mkpath(pathbuf, lastof(pathbuf), dest_dir.c_str(), (file != nullptr) ? file + 1 : translation.c_str());
 
-				LanguageFileWriter writer(output_file);
+				/* rename the .txt (input-extension) to .lng */
+				char *r = strrchr(pathbuf, '.');
+				if (r == nullptr || strcmp(r, ".txt") != 0) r = strchr(pathbuf, '\0');
+				strecpy(r, ".lng", lastof(pathbuf));
+
+				LanguageFileWriter writer(pathbuf);
 				writer.WriteLang(data);
 				writer.Finalise();
 
 				/* if showing warnings, print a summary of the language */
 				if (_strgen.show_warnings) {
-					fmt::print("{} warnings and {} errors for {}\n", _strgen.warnings, _strgen.errors, output_file);
+					fmt::print("{} warnings and {} errors for {}\n", _strgen.warnings, _strgen.errors, pathbuf);
 				}
 			}
 		}

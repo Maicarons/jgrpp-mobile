@@ -11,8 +11,17 @@
 #define BLITTER_COMMON_HPP
 
 #include "base.hpp"
+#include "../core/math_func.hpp"
 
 #include <utility>
+#include <wchar.h>
+
+#ifdef __APPLE__
+#include <string.h>
+#endif
+
+/** Cached black value. */
+static const constexpr Colour _black_colour(0, 0, 0);
 
 template <typename SetPixelT>
 void Blitter::DrawLineGeneric(int x1, int y1, int x2, int y2, int screen_width, int screen_height, int width, int dash, SetPixelT set_pixel)
@@ -44,21 +53,13 @@ void Blitter::DrawLineGeneric(int x1, int y1, int x2, int y2, int screen_width, 
 		return;
 	}
 
-	int frac_diff = width * std::max(dx, dy);
+	int frac_diff;
 	if (width > 1) {
-		/* compute frac_diff = width * sqrt(dx*dx + dy*dy)
-		 * Start interval:
-		 *    max(dx, dy) <= sqrt(dx*dx + dy*dy) <= sqrt(2) * max(dx, dy) <= 3/2 * max(dx, dy) */
+		/* compute frac_diff = width * sqrt(dx*dx + dy*dy) */
 		int64_t frac_sq = ((int64_t) width) * ((int64_t) width) * (((int64_t) dx) * ((int64_t) dx) + ((int64_t) dy) * ((int64_t) dy));
-		int frac_max = 3 * frac_diff / 2;
-		while (frac_diff < frac_max) {
-			int frac_test = (frac_diff + frac_max) / 2;
-			if (((int64_t) frac_test) * ((int64_t) frac_test) < frac_sq) {
-				frac_diff = frac_test + 1;
-			} else {
-				frac_max = frac_test - 1;
-			}
-		}
+		frac_diff = (int)IntSqrt64((uint64_t)frac_sq);
+	} else {
+		frac_diff = std::max(dx, dy);
 	}
 
 	int gap = dash;
@@ -193,24 +194,25 @@ void Blitter::DrawLineGeneric(int x1, int y1, int x2, int y2, int screen_width, 
 	}
 }
 
-template <typename T>
-/* static */ void Blitter::MovePixels(const T *src, T *dst, size_t width, size_t height, ptrdiff_t pitch)
+inline void memset_uint32(uint32_t *s, uint32_t c, size_t n)
 {
-	if (src == dst) return;
-
-	if (src < dst) {
-		for (size_t i = 0; i < height; ++i) {
-			std::move_backward(src, src + width, dst + width);
-			src += pitch;
-			dst += pitch;
-		}
+#ifdef __APPLE__
+	memset_pattern4(static_cast<void *>(s), static_cast<const void *>(&c), n * sizeof(uint32_t));
+#else
+	if constexpr (sizeof(wchar_t) == sizeof(uint32_t)) {
+		wmemset((wchar_t *)s, (wchar_t)c, n);
 	} else {
-		for (size_t i = 0; i < height; ++i) {
-			std::move(src, src + width, dst);
-			src += pitch;
-			dst += pitch;
+		for (; n > 0; n--) {
+			*s = c;
+			s++;
 		}
 	}
+#endif
+}
+
+inline void memset_colour(Colour *s, Colour c, size_t n)
+{
+	memset_uint32((uint32_t *)s, c.data, n);
 }
 
 #endif /* BLITTER_COMMON_HPP */

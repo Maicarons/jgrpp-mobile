@@ -29,7 +29,7 @@ public:
 private:
 	void RegisterAPI() override;
 	void Died() override;
-	CommandCallbackData *GetDoCommandCallback() override;
+	CommandCallback GetDoCommandCallback() override;
 	void LoadDummyScript() override {}
 };
 

@@ -5,10 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file roadtypes.h
- * All the roadtype-specific information is stored here.
- */
+/** @file roadtypes.h All the roadtype-specific information is stored here. */
 
 #ifndef ROADTYPES_H
 #define ROADTYPES_H
@@ -65,6 +62,12 @@ static const RoadTypeInfo _original_roadtypes[] = {
 		/* flags */
 		{RoadTypeFlag::TownBuild},
 
+		/* extra flags */
+		{},
+
+		/* collision mode */
+		RTCM_NORMAL,
+
 		/* cost multiplier */
 		8,
 
@@ -84,7 +87,7 @@ static const RoadTypeInfo _original_roadtypes[] = {
 		PC_BLACK,
 
 		/* introduction date */
-		CalendarTime::MIN_DATE,
+		CalTime::MIN_DATE,
 
 		/* roadtypes required for this to be introduced */
 		{},
@@ -146,6 +149,12 @@ static const RoadTypeInfo _original_roadtypes[] = {
 		/* flags */
 		{RoadTypeFlag::Catenary, RoadTypeFlag::NoHouses},
 
+		/* extra flags */
+		{},
+
+		/* collision mode */
+		RTCM_NORMAL,
+
 		/* cost multiplier */
 		16,
 
@@ -165,7 +174,7 @@ static const RoadTypeInfo _original_roadtypes[] = {
 		PC_BLACK,
 
 		/* introduction date */
-		CalendarTime::INVALID_DATE,
+		CalTime::INVALID_DATE,
 
 		/* roadtypes required for this to be introduced */
 		{},

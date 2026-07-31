@@ -14,11 +14,12 @@
 #include "gfx_type.h"
 #include "strings_type.h"
 
+struct ViewportDrawerDynamic;
+
 /**
  * Text effect modes.
  */
 enum TextEffectMode : uint8_t {
-	TE_INVALID, ///< Text effect is invalid.
 	TE_RISING, ///< Make the text effect slowly go upwards
 	TE_STATIC, ///< Keep the text effect static
 };
@@ -27,10 +28,11 @@ using TextEffectID = uint16_t;
 
 static const TextEffectID INVALID_TE_ID = UINT16_MAX;
 
-TextEffectID AddTextEffect(EncodedString &&msg, int x, int y, uint8_t duration, TextEffectMode mode);
+void MoveAllTextEffects(uint delta_ms);
+TextEffectID AddTextEffect(StringID msg, int x, int y, uint8_t duration, TextEffectMode mode, uint64_t param1 = 0, uint64_t param2 = 0);
 void InitTextEffects();
-void DrawTextEffects(DrawPixelInfo *dpi);
-void UpdateTextEffect(TextEffectID effect_id, EncodedString &&msg);
+void DrawTextEffects(ViewportDrawerDynamic *vdd, DrawPixelInfo *dpi, bool load_transparent);
+void UpdateTextEffect(TextEffectID effect_id, StringID msg, uint64_t param1 = 0, uint64_t param2 = 0);
 void RemoveTextEffect(TextEffectID effect_id);
 void UpdateAllTextEffectVirtCoords();
 

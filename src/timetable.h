@@ -10,25 +10,37 @@
 #ifndef TIMETABLE_H
 #define TIMETABLE_H
 
-#include "strings_type.h"
-#include "timer/timer_game_tick.h"
-#include "timer/timer_game_economy.h"
+#include "date_type.h"
 #include "vehicle_type.h"
-
-static const TimerGameEconomy::Year MAX_TIMETABLE_START_YEARS{15}; ///< The maximum start date offset, in economy years.
-
-enum class TimetableMode : uint8_t {
-	Days,
-	Seconds,
-	Ticks,
-};
-
-TimerGameTick::TickCounter GetStartTickFromDate(TimerGameEconomy::Date start_date);
-TimerGameEconomy::Date GetDateFromStartTick(TimerGameTick::TickCounter start_tick);
+#include <vector>
+#include <tuple>
 
 void ShowTimetableWindow(const Vehicle *v);
 void UpdateVehicleTimetable(Vehicle *v, bool travelling);
+std::pair<struct StringParameter, struct StringParameter> GetTimetableParameters(Ticks ticks, bool long_mode = false);
+Ticks ParseTimetableDuration(std::string_view str);
 
-std::pair<StringParameter, StringParameter> GetTimetableParameters(TimerGameTick::Ticks ticks);
+enum SetTimetableWindowsDirtyFlags {
+	STWDF_NONE                       = 0,
+	STWDF_SCHEDULED_DISPATCH         = 1 << 0,
+	STWDF_ORDERS                     = 1 << 1,
+};
+DECLARE_ENUM_AS_BIT_SET(SetTimetableWindowsDirtyFlags)
+void SetTimetableWindowsDirty(const Vehicle *v, SetTimetableWindowsDirtyFlags flags = STWDF_NONE);
+
+struct TimetableProgress {
+	VehicleID id;
+	int order_count;
+	int order_ticks;
+	int cumulative_ticks;
+
+	bool IsValidForSeparation() const { return this->cumulative_ticks >= 0; }
+	bool operator<(const TimetableProgress& other) const { return std::tie(this->order_count, this->order_ticks, this->id) < std::tie(other.order_count, other.order_ticks, other.id); }
+};
+
+std::vector<TimetableProgress> PopulateSeparationState(const Vehicle *v_start);
+
+struct DispatchSchedule;
+std::pair<StateTicks, int> GetScheduledDispatchTime(const DispatchSchedule &ds, StateTicks leave_time);
 
 #endif /* TIMETABLE_H */

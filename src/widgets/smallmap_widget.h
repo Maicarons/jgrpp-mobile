@@ -34,6 +34,7 @@ enum SmallMapWidgets : WidgetID {
 	WID_SM_SHOW_HEIGHT,    ///< Show heightmap toggle button.
 	WID_SM_SHOW_IND_NAMES, ///< Show industry names toggle button.
 	WID_SM_SHOW_IND_NAMES_SEL, ///< Container for the 'show industry names' button, which can be hidden.
+	WID_SM_SCREENSHOT,     ///< Button to take smallmap screenshots
 };
 
 #endif /* WIDGETS_SMALLMAP_WIDGET_H */

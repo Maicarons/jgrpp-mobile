@@ -13,6 +13,7 @@
 #include "newgrf_engine.h"
 #include "strings_func.h"
 #include "vehicle_func.h"
+#include "vehicle_gui_base.h"
 #include "window_gui.h"
 #include "zoom_func.h"
 
@@ -34,14 +35,14 @@ void DrawAircraftDetails(const Aircraft *v, const Rect &r)
 	for (const Aircraft *u = v; u != nullptr; u = u->Next()) {
 		if (u->IsNormalAircraft()) {
 			DrawString(r.left, r.right, y, GetString(STR_VEHICLE_INFO_BUILT_VALUE, PackEngineNameDParam(u->engine_type, EngineNameContext::VehicleDetails), u->build_year, u->value));
-			y += GetCharacterHeight(FS_NORMAL);
+			y += GetCharacterHeight(FontSize::Normal);
 
 			if (u->Next()->cargo_cap != 0) {
 				DrawString(r.left, r.right, y, GetString(STR_VEHICLE_INFO_CAPACITY_CAPACITY, u->cargo_type, u->cargo_cap, u->Next()->cargo_type, u->Next()->cargo_cap, GetCargoSubtypeText(u)));
 			} else {
 				DrawString(r.left, r.right, y, GetString(STR_VEHICLE_INFO_CAPACITY, u->cargo_type, u->cargo_cap, GetCargoSubtypeText(u)));
 			}
-			y += GetCharacterHeight(FS_NORMAL) + WidgetDimensions::scaled.vsep_normal;
+			y += GetCharacterHeight(FontSize::Normal) + WidgetDimensions::scaled.vsep_normal;
 		}
 
 		if (u->cargo_cap != 0) {
@@ -50,7 +51,7 @@ void DrawAircraftDetails(const Aircraft *v, const Rect &r)
 			if (cargo_count != 0) {
 				/* Cargo names (fix pluralness) */
 				DrawString(r.left, r.right, y, GetString(STR_VEHICLE_DETAILS_CARGO_FROM, u->cargo_type, cargo_count, u->cargo.GetFirstStation()));
-				y += GetCharacterHeight(FS_NORMAL);
+				y += GetCharacterHeight(FontSize::Normal);
 				feeder_share += u->cargo.GetFeederShare();
 			}
 		}
@@ -66,16 +67,16 @@ void DrawAircraftDetails(const Aircraft *v, const Rect &r)
  * @param v         Front vehicle
  * @param r         Rect to draw at
  * @param selection Selected vehicle to draw a frame around
+ * @param image_type Context where the image is being drawn.
  */
 void DrawAircraftImage(const Vehicle *v, const Rect &r, VehicleID selection, EngineImageType image_type)
 {
 	bool rtl = _current_text_dir == TD_RTL;
 
 	VehicleSpriteSeq seq;
-	v->GetImage(rtl ? DIR_E : DIR_W, image_type, &seq);
+	v->GetImage(rtl ? Direction::E : Direction::W, image_type, &seq);
 
-	Rect rect;
-	seq.GetBounds(&rect);
+	Rect rect = ConvertRect<Rect16, Rect>(seq.GetBounds());
 
 	int width = UnScaleGUI(rect.Width());
 	int x_offs = UnScaleGUI(rect.left);
@@ -111,6 +112,6 @@ void DrawAircraftImage(const Vehicle *v, const Rect &r, VehicleID selection, Eng
 		x += x_offs;
 		y += UnScaleGUI(rect.top) - heli_offs;
 		Rect hr = {x, y, x + width - 1, y + UnScaleGUI(rect.Height()) + heli_offs - 1};
-		DrawFrameRect(hr.Expand(WidgetDimensions::scaled.bevel), COLOUR_WHITE, FrameFlag::BorderOnly);
+		DrawFrameRect(hr.Expand(WidgetDimensions::scaled.bevel), Colours::White, FrameFlag::BorderOnly);
 	}
 }

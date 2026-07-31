@@ -10,15 +10,19 @@
 #ifndef TILEAREA_TYPE_H
 #define TILEAREA_TYPE_H
 
+#include "stdafx.h"
+#include INCLUDE_FOR_PREFETCH_NTA
 #include "map_func.h"
+#include <array>
+#include <tuple>
 
 class OrthogonalTileIterator;
 
 /** Represents the covered area of e.g. a rail station */
 struct OrthogonalTileArea {
 	TileIndex tile; ///< The base tile of the area
-	uint16_t w;       ///< The width of the area
-	uint16_t h;       ///< The height of the area
+	uint16_t w;     ///< The width of the area
+	uint16_t h;     ///< The height of the area
 
 	/**
 	 * Construct this tile area with some set values
@@ -59,6 +63,11 @@ struct OrthogonalTileArea {
 	TileIndex GetCenterTile() const
 	{
 		return TileAddXY(this->tile, this->w / 2, this->h / 2);
+	}
+
+	inline bool operator==(const OrthogonalTileArea &other) const
+	{
+		return std::tie(tile, w, h) == std::tie(other.tile, other.w, other.h);
 	}
 
 	OrthogonalTileIterator begin() const;
@@ -137,29 +146,18 @@ public:
 
 	/**
 	 * Move ourselves to the next tile in the rectangle on the map.
+	 * @return Reference to this iterator.
 	 */
 	virtual TileIterator& operator ++() = 0;
 
+	bool operator==(const TileIterator&) const = default;
+	bool operator==(const TileIndex &other) const { return this->tile == other; }
+
 	/**
 	 * Allocate a new iterator that is a copy of this one.
+	 * @return A clone of this iterator.
 	 */
 	virtual std::unique_ptr<TileIterator> Clone() const = 0;
-
-	/**
-	 * Equality comparison.
-	 */
-	bool operator ==(const TileIterator &rhs) const
-	{
-		return this->tile == rhs.tile;
-	}
-
-	/**
-	 * Equality comparison.
-	 */
-	bool operator ==(const TileIndex &rhs) const
-	{
-		return this->tile == rhs;
-	}
 
 	static std::unique_ptr<TileIterator> Create(TileIndex corner1, TileIndex corner2, bool diagonal);
 };
@@ -192,6 +190,7 @@ public:
 
 	/**
 	 * Move ourselves to the next tile in the rectangle on the map.
+	 * @return Reference to this iterator.
 	 */
 	inline TileIterator& operator ++() override
 	{
@@ -211,6 +210,55 @@ public:
 	std::unique_ptr<TileIterator> Clone() const override
 	{
 		return std::make_unique<OrthogonalTileIterator>(*this);
+	}
+};
+
+/** Iterator to iterate over a tile area (rectangle) of the map.
+ * It prefetches tiles once per row.
+ */
+class OrthogonalPrefetchTileIterator {
+private:
+	TileIndex tile; ///< The current tile we are at.
+	int w;          ///< The width of the iterated area.
+	int x;          ///< The current 'x' position in the rectangle.
+	int y;          ///< The current 'y' position in the rectangle.
+
+public:
+	/**
+	 * Construct the iterator.
+	 * @param ta Area, i.e. begin point and width/height of to-be-iterated area.
+	 */
+	OrthogonalPrefetchTileIterator(const TileArea &ta) : tile(ta.w == 0 || ta.h == 0 ? INVALID_TILE : ta.tile), w(ta.w), x(ta.w), y(ta.h)
+	{
+		PREFETCH_NTA(&_m[ta.tile]);
+	}
+
+	/**
+	 * Get the tile we are currently at.
+	 * @return The tile we are at, or INVALID_TILE when we're done.
+	 */
+	inline operator TileIndex () const
+	{
+		return this->tile;
+	}
+
+	/**
+	 * Move ourselves to the next tile in the rectangle on the map.
+	 */
+	inline OrthogonalPrefetchTileIterator& operator ++()
+	{
+		assert(this->tile != INVALID_TILE);
+
+		if (--this->x > 0) {
+			this->tile++;
+		} else if (--this->y > 0) {
+			this->x = this->w;
+			this->tile += TileDiffXY(1, 1) - this->w;
+			PREFETCH_NTA(&_m[tile]);
+		} else {
+			this->tile = INVALID_TILE;
+		}
+		return *this;
 	}
 };
 
@@ -253,6 +301,58 @@ public:
 	}
 };
 
+class OrthogonalOrDiagonalTileIterator {
+	union {
+		OrthogonalTileIterator ortho;
+		DiagonalTileIterator diag;
+	};
+	const bool diagonal;
+
+public:
+
+	OrthogonalOrDiagonalTileIterator(TileIndex corner1, TileIndex corner2, bool diagonal) : diagonal(diagonal)
+	{
+		if (diagonal) {
+			new (&this->diag) DiagonalTileIterator(corner1, corner2);
+		} else {
+			new (&this->ortho) OrthogonalTileIterator(corner1, corner2);
+		}
+	}
+
+	~OrthogonalOrDiagonalTileIterator()
+	{
+		if (this->diagonal) {
+			this->diag.~DiagonalTileIterator();
+		} else {
+			this->ortho.~OrthogonalTileIterator();
+		}
+	}
+
+	inline operator TileIndex () const
+	{
+		if (this->diagonal) {
+			return *(this->diag);
+		} else {
+			return *(this->ortho);
+		}
+	}
+
+	inline TileIndex operator *() const
+	{
+		return (TileIndex) (*this);
+	}
+
+	OrthogonalOrDiagonalTileIterator& operator ++()
+	{
+		if (this->diagonal) {
+			++this->diag;
+		} else {
+			++this->ortho;
+		}
+		return *this;
+	}
+};
+
 /**
  * Helper class for SpiralTileSequence.
  */
@@ -289,7 +389,7 @@ public:
 private:
 	/* set by constructor, const afterwards */
 	uint max_radius;
-	std::array<uint, DIAGDIR_END> extent;
+	DiagDirectionIndexArray<uint> extent;
 
 	/* mutable iterator state */
 	uint cur_radius;
@@ -303,10 +403,11 @@ private:
 
 	/**
 	 * Test whether the iterator reached the end.
+	 * @return \c true iff the end of the iteration is reached.
 	 */
 	bool IsEnd() const
 	{
-		return this->cur_radius == this->max_radius && this->dir != INVALID_DIAGDIR;
+		return this->cur_radius == this->max_radius && this->dir != DiagDirection::Invalid;
 	}
 };
 

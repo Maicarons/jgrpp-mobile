@@ -18,6 +18,7 @@
 #include "rev.h"
 #include "string_func.h"
 #include "signature.h"
+#include "core/flatset_type.hpp"
 
 #include "safeguards.h"
 
@@ -28,7 +29,7 @@ class InternalSocialIntegrationPlugin {
 public:
 	InternalSocialIntegrationPlugin(const std::string &filename, const std::string &basepath) : library(nullptr), external(basepath)
 	{
-		openttd_info.openttd_version = _openttd_revision.c_str();
+		openttd_info.openttd_version = _openttd_revision;
 
 		if (!ValidateSignatureFile(fmt::format("{}.sig", filename))) {
 			external.state = SocialIntegrationPlugin::INVALID_SIGNATURE;
@@ -48,7 +49,7 @@ public:
 };
 
 static std::vector<std::unique_ptr<InternalSocialIntegrationPlugin>> _plugins; ///< List of loaded plugins.
-static std::set<std::string> _loaded_social_platform; ///< List of Social Platform plugins already loaded. Used to prevent loading a plugin for the same Social Platform twice.
+static FlatSet<std::string> _loaded_social_platform; ///< List of Social Platform plugins already loaded. Used to prevent loading a plugin for the same Social Platform twice.
 
 /** Helper for scanning for files with SocialIntegration as extension */
 class SocialIntegrationFileScanner : FileScanner {
@@ -56,14 +57,14 @@ public:
 	void Scan()
 	{
 #ifdef _WIN32
-		std::string extension = "-social.dll";
+		const char *extension = "-social.dll";
 #elif defined(__APPLE__)
-		std::string extension = "-social.dylib";
+		const char *extension = "-social.dylib";
 #else
-		std::string extension = "-social.so";
+		const char *extension = "-social.so";
 #endif
 
-		this->FileScanner::Scan(extension, SOCIAL_INTEGRATION_DIR, false);
+		this->FileScanner::Scan(extension, Subdirectory::SocialIntegration, false);
 	}
 
 	bool AddFile(const std::string &filename, size_t basepath_length, const std::string &) override
@@ -157,6 +158,25 @@ std::vector<SocialIntegrationPlugin *> SocialIntegration::GetPlugins()
 	return plugins;
 }
 
+size_t SocialIntegration::GetPluginCount()
+{
+	return _plugins.size();
+}
+
+void SocialIntegration::LogPluginSummary(format_target &buffer)
+{
+	extern const char *PluginStateToString(SocialIntegrationPlugin::State state);
+
+	for (auto &plugin : _plugins) {
+		buffer.format("  {}:\n", plugin->external.name);
+		buffer.format("    Version: {}\n", plugin->external.version);
+		buffer.format("    Basepath: {}\n", plugin->external.basepath);
+		buffer.format("    State: {}\n", PluginStateToString(plugin->external.state));
+	}
+
+	buffer.push_back('\n');
+}
+
 void SocialIntegration::Initialize()
 {
 	SocialIntegrationFileScanner fs;
@@ -168,6 +188,7 @@ void SocialIntegration::Initialize()
  *
  * @param plugin Plugin to call the function pointer on.
  * @param func   Function pointer to call.
+ * @param args The arguments to pass to the given function pointer.
  */
 template <typename T, typename... Ts>
 static void PluginCall(std::unique_ptr<InternalSocialIntegrationPlugin> &plugin, T func, Ts... args)

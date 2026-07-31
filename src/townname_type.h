@@ -5,10 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file townname_type.h
- * Definition of structures used for generating town names.
- */
+/** @file townname_type.h Definition of structures used for generating town names. */
 
 #ifndef TOWNNAME_TYPE_H
 #define TOWNNAME_TYPE_H
@@ -16,8 +13,11 @@
 #include "newgrf_townname.h"
 #include "town_type.h"
 #include "string_type.h"
+#include "3rdparty/robin_hood/robin_hood.h"
 
-typedef std::set<std::string> TownNames;
+#include <string>
+
+typedef robin_hood::unordered_set<std::string> TownNames;
 
 /**
  * Struct holding parameters used to generate town name.

@@ -13,8 +13,10 @@
 #include "core/enum_type.hpp"
 #include "core/strong_typedef_type.hpp"
 
-using BadgeID = StrongType::Typedef<uint32_t, struct BadgeIDTag, StrongType::Compare>;
-using BadgeClassID = StrongType::Typedef<uint32_t, struct BadgeClassIDTag, StrongType::Compare>;
+struct BadgeIDTag : public StrongType::TypedefTraits<uint32_t, StrongType::Compare> {};
+using BadgeID = StrongType::Typedef<BadgeIDTag>;
+struct BadgeClassIDTag : public StrongType::TypedefTraits<uint32_t, StrongType::Compare> {};
+using BadgeClassID = StrongType::Typedef<BadgeClassIDTag>;
 
 template <> struct std::hash<BadgeClassID> {
 	std::size_t operator()(const BadgeClassID &badge_class_index) const noexcept
@@ -23,6 +25,7 @@ template <> struct std::hash<BadgeClassID> {
 	}
 };
 
+/** Configuration flags for badges. */
 enum class BadgeFlag : uint8_t {
 	Copy = 0, ///< Copy badge to related things.
 	NameListStop = 1, ///< Stop adding names to the name list after this badge.
@@ -33,7 +36,5 @@ enum class BadgeFlag : uint8_t {
 	HasText, ///< Internal flag set if the badge has text.
 };
 using BadgeFlags = EnumBitSet<BadgeFlag, uint8_t>;
-
-using BadgeFilterChoices = std::unordered_map<BadgeClassID, BadgeID>;
 
 #endif /* NEWGRF_BADGE_TYPE_H */

@@ -25,7 +25,12 @@
  *  to select manual. It is a fail-over in case no Scripts are available.
  */
 
-/** Run the dummy info.nut. */
+/**
+ * Run the dummy info.nut.
+ * @param vm The virtual machine to run in.
+ * @param type The type of script.
+ * @param dir The directory where these scripts would normally be in.
+ */
 void Script_CreateDummyInfo(HSQUIRRELVM vm, std::string_view type, std::string_view dir)
 {
 	std::string dummy_script = fmt::format(
@@ -77,7 +82,12 @@ static std::vector<std::string> EscapeQuotesAndSlashesAndSplitOnNewLines(const s
 	return messages;
 }
 
-/** Run the dummy AI and let it generate an error message. */
+/**
+ * Run the dummy AI and let it generate an error message.
+ * @param vm The virtual machine to run in.
+ * @param string The error message to show to the end user.
+ * @param type The type of script.
+ */
 void Script_CreateDummy(HSQUIRRELVM vm, StringID string, std::string_view type)
 {
 	/* We want to translate the error message.
@@ -90,12 +100,13 @@ void Script_CreateDummy(HSQUIRRELVM vm, StringID string, std::string_view type)
 
 	/* 2) We construct the AI's code. This is done by merging a header, body and footer */
 	std::string dummy_script;
+	auto back_inserter = std::back_inserter(dummy_script);
 	/* Just a rough ballpark estimate. */
 	dummy_script.reserve(error_message.size() + 128 + 64 * messages.size());
 
-	format_append(dummy_script, "class Dummy{0} extends {0}Controller {{\n  function Start()\n  {{\n", type);
+	fmt::format_to(back_inserter, "class Dummy{0} extends {0}Controller {{\n  function Start()\n  {{\n", type);
 	for (std::string &message : messages) {
-		format_append(dummy_script, "    {}Log.Error(\"{}\");\n", type, message);
+		fmt::format_to(back_inserter, "    {}Log.Error(\"{}\");\n", type, message);
 	}
 	dummy_script += "  }\n}\n";
 

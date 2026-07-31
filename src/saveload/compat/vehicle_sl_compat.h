@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for SlVehicleCommon. */
 const SaveLoadCompat _vehicle_common_sl_compat[] = {
 	SLC_VAR("subtype"),
@@ -203,5 +205,7 @@ const SaveLoadCompat _vehicle_sl_compat[] = {
 	SLC_VAR("effect"),
 	SLC_VAR("disaster"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_VEHICLE_H */

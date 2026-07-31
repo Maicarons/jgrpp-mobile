@@ -10,55 +10,52 @@
  *
  * Unsafe methods are, for example, strndup and strncpy because they may leave the
  * string without a null termination, but also strdup and strndup because they can
- * return nullptr and then all strdups would need to be guarded against.
+ * return nullptr and then all strdups would need to be guarded against that instead
+ * of using the current MallocT/ReallocT/CallocT technique of just giving the user
+ * an error that too much memory was used instead of spreading that code though
+ * the whole code base.
  */
 
 #ifndef SAFEGUARDS_H
 #define SAFEGUARDS_H
 
-/* Use std::vector/std::unique_ptr/new instead. */
+/* Ignore everything in here for doxygen. These should not be used, so also not show up in the documentation. */
+#ifndef DOXYGEN_API
+
+/* Use MallocT instead. */
 #define malloc    SAFEGUARD_DO_NOT_USE_THIS_METHOD
+
+/* Use MallocT instead. */
 #define calloc    SAFEGUARD_DO_NOT_USE_THIS_METHOD
+
+/* Use ReallocT instead. */
 #define realloc   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
-/* Use std::string/std::string_view instead. */
+/* Use stredup instead. */
 #define strdup    SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define strndup   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
+/* Use strecpy instead. */
 #define strcpy    SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define strncpy   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
+/* std::string concatenation/fmt::format instead. */
 #define strcat    SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define strncat   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
+/* Use fmt::format instead. */
 #define sprintf   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define snprintf  SAFEGUARD_DO_NOT_USE_THIS_METHOD
+
+/* Use fmt::format instead. */
 #define vsprintf  SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define vsnprintf SAFEGUARD_DO_NOT_USE_THIS_METHOD
-
-#define strcmp SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define strncmp SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#ifdef strcasecmp
-#undef strcasecmp
-#endif
-#define strcasecmp SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#ifdef stricmp
-#undef stricmp
-#endif
-#define stricmp SAFEGUARD_DO_NOT_USE_THIS_METHOD
-
-#define memcmp SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define memcpy SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define memmove SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define memset SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
 /* Use fgets instead. */
 #define gets      SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
-/* Use StringConsumer instead. */
+/* No clear replacement. */
 #define strtok    SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define sscanf    SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define from_string SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
 /* Use ParseInteger or StringConsumer instead. */
 #define atoi      SAFEGUARD_DO_NOT_USE_THIS_METHOD
@@ -75,16 +72,6 @@
 #define stoull    SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define stoimax   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define stoumax   SAFEGUARD_DO_NOT_USE_THIS_METHOD
-
-/* Use fmt::print instead. */
-#define printf    SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define fprintf   SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define puts      SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define fputs     SAFEGUARD_DO_NOT_USE_THIS_METHOD
-#define putchar   SAFEGUARD_DO_NOT_USE_THIS_METHOD
-
-/* Use fmt::format instead */
-#define to_string SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
 /* Use our own templated implementation instead of a macro or function with only one type. */
 #ifdef min
@@ -114,4 +101,5 @@
 #define strerror SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #endif /* defined(NETWORK_CORE_OS_ABSTRACTION_H) && defined(_WIN32) */
 
+#endif /* DOXYGEN_API */
 #endif /* SAFEGUARDS_H */

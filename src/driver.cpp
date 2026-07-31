@@ -8,7 +8,6 @@
 /** @file driver.cpp Base for all driver handling. */
 
 #include "stdafx.h"
-#include "core/string_consumer.hpp"
 #include "debug.h"
 #include "error.h"
 #include "error_func.h"
@@ -19,6 +18,8 @@
 #include "string_func.h"
 #include "fileio_func.h"
 #include "core/string_consumer.hpp"
+#include <string>
+#include <sstream>
 
 #include "table/strings.h"
 
@@ -96,7 +97,7 @@ void DriverFactoryBase::SelectDriver(const std::string &name, Driver::Type type)
 	if (!DriverFactoryBase::SelectDriverImpl(name, type)) {
 		name.empty() ?
 			UserError("Failed to autoprobe {} driver", GetDriverTypeName(type)) :
-			UserError("Failed to select requested {} driver '{}'", GetDriverTypeName(type), name);
+			UserError("Failed to select requested {} driver '{}'", GetDriverTypeName(type), name.c_str());
 	}
 }
 
@@ -121,13 +122,13 @@ bool DriverFactoryBase::SelectDriverImpl(const std::string &name, Driver::Type t
 				if (d->type != type) continue;
 				if (d->priority != priority) continue;
 
-				if (type == Driver::DT_VIDEO && !_video_hw_accel && d->UsesHardwareAcceleration()) continue;
+				if (type == Driver::Type::Video && !_video_hw_accel && d->UsesHardwareAcceleration()) continue;
 
-				if (type == Driver::DT_VIDEO && _video_hw_accel && d->UsesHardwareAcceleration()) {
+				if (type == Driver::Type::Video && _video_hw_accel && d->UsesHardwareAcceleration()) {
 					/* Check if we have already tried this driver in last run.
 					 * If it is here, it most likely means we crashed. So skip
 					 * hardware acceleration. */
-					auto filename = FioFindFullPath(BASE_DIR, HWACCELERATION_TEST_FILE);
+					auto filename = FioFindFullPath(Subdirectory::Base, HWACCELERATION_TEST_FILE);
 					if (!filename.empty()) {
 						FioRemove(filename);
 
@@ -140,24 +141,24 @@ bool DriverFactoryBase::SelectDriverImpl(const std::string &name, Driver::Type t
 					}
 
 					/* Write empty file to note we are attempting hardware acceleration. */
-					FioFOpenFile(HWACCELERATION_TEST_FILE, "w", BASE_DIR);
+					FioFOpenFile(HWACCELERATION_TEST_FILE, "w", Subdirectory::Base);
 				}
 
 				/* Keep old driver in case we need to switch back, or may still need to process an OS callback. */
 				auto oldd = std::move(GetActiveDriver(type));
 				auto newd = d->CreateInstance();
 
-				auto err = newd->Start({});
-				if (!err) {
+				const char *err = newd->Start({});
+				if (err == nullptr) {
 					Debug(driver, 1, "Successfully probed {} driver '{}'", GetDriverTypeName(type), d->name);
 					GetActiveDriver(type) = std::move(newd);
 					return true;
 				}
 
 				GetActiveDriver(type) = std::move(oldd);
-				Debug(driver, 1, "Probing {} driver '{}' failed with error: {}", GetDriverTypeName(type), d->name, *err);
+				Debug(driver, 1, "Probing {} driver '{}' failed with error: {}", GetDriverTypeName(type), d->name, err);
 
-				if (type == Driver::DT_VIDEO && _video_hw_accel && d->UsesHardwareAcceleration()) {
+				if (type == Driver::Type::Video && _video_hw_accel && d->UsesHardwareAcceleration()) {
 					_video_hw_accel = false;
 					ErrorMessageData msg(GetEncodedString(STR_VIDEO_DRIVER_ERROR), GetEncodedString(STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION), true);
 					ScheduleErrorMessage(std::move(msg));
@@ -189,8 +190,8 @@ bool DriverFactoryBase::SelectDriverImpl(const std::string &name, Driver::Type t
 
 			/* Found our driver, let's try it */
 			auto newd = d->CreateInstance();
-			auto err = newd->Start(parms);
-			if (err) {
+			const char *err = newd->Start(parms);
+			if (err != nullptr) {
 				UserError("Unable to load driver '{}'. The error was: {}", d->name, *err);
 			}
 
@@ -210,29 +211,29 @@ void DriverFactoryBase::MarkVideoDriverOperational()
 	/* As part of the detection whether the GPU driver crashes the game,
 	 * and as we are operational now, remove the hardware acceleration
 	 * test-file. */
-	auto filename = FioFindFullPath(BASE_DIR, HWACCELERATION_TEST_FILE);
+	auto filename = FioFindFullPath(Subdirectory::Base, HWACCELERATION_TEST_FILE);
 	if (!filename.empty()) FioRemove(filename);
 }
 
 /**
  * Build a human readable list of available drivers, grouped by type.
- * @param output_iterator The iterator to write the string to.
+ * @param output The buffer to write to.
  */
-void DriverFactoryBase::GetDriversInfo(std::back_insert_iterator<std::string> &output_iterator)
+void DriverFactoryBase::GetDriversInfo(format_target &output)
 {
-	for (Driver::Type type = Driver::DT_BEGIN; type != Driver::DT_END; type++) {
-		fmt::format_to(output_iterator, "List of {} drivers:\n", GetDriverTypeName(type));
+	for (Driver::Type type = Driver::Type::Begin; type != Driver::Type::End; type++) {
+		output.format("List of {} drivers:\n", GetDriverTypeName(type));
 
 		for (int priority = 10; priority >= 0; priority--) {
 			for (auto &it : GetDrivers()) {
 				DriverFactoryBase *d = it.second;
 				if (d->type != type) continue;
 				if (d->priority != priority) continue;
-				fmt::format_to(output_iterator, "{:>18}: {}\n", d->name, d->GetDescription());
+				output.format("{:>18}: {}\n", d->name, d->GetDescription());
 			}
 		}
 
-		fmt::format_to(output_iterator, "\n");
+		output.push_back('\n');
 	}
 }
 
@@ -243,15 +244,17 @@ void DriverFactoryBase::GetDriversInfo(std::back_insert_iterator<std::string> &o
  * @param name        The name of the driver.
  * @param description A long-ish description of the driver.
  */
-DriverFactoryBase::DriverFactoryBase(Driver::Type type, int priority, std::string_view name, std::string_view description) :
+DriverFactoryBase::DriverFactoryBase(Driver::Type type, int priority, const char *name, const char *description) :
 	type(type), priority(priority), name(name), description(description)
 {
 	/* Prefix the name with driver type to make it unique */
-	std::string typed_name = fmt::format("{}{}", GetDriverTypeName(type), name);
+	char buf[32];
+	strecpy(buf, GetDriverTypeName(type), lastof(buf));
+	strecpy(buf + 5, name, lastof(buf));
 
 	Drivers &drivers = GetDrivers();
-	assert(drivers.find(typed_name) == drivers.end());
-	drivers.insert(Drivers::value_type(typed_name, this));
+	assert(drivers.find(buf) == drivers.end());
+	drivers.insert(Drivers::value_type(buf, this));
 }
 
 /**
@@ -260,9 +263,11 @@ DriverFactoryBase::DriverFactoryBase(Driver::Type type, int priority, std::strin
 DriverFactoryBase::~DriverFactoryBase()
 {
 	/* Prefix the name with driver type to make it unique */
-	std::string typed_name = fmt::format("{}{}", GetDriverTypeName(type), name);
+	char buf[32];
+	strecpy(buf, GetDriverTypeName(type), lastof(buf));
+	strecpy(buf + 5, this->name, lastof(buf));
 
-	Drivers::iterator it = GetDrivers().find(typed_name);
+	Drivers::iterator it = GetDrivers().find(buf);
 	assert(it != GetDrivers().end());
 
 	GetDrivers().erase(it);

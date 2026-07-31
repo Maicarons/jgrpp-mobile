@@ -5,9 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file tcp.cpp Basic functions to receive and send TCP packets.
- */
+/** @file tcp.cpp Basic functions to receive and send TCP packets. */
 
 #include "../../stdafx.h"
 #include "../../debug.h"
@@ -55,12 +53,52 @@ NetworkRecvStatus NetworkTCPSocketHandler::CloseConnection([[maybe_unused]] bool
  * if the OS-network-buffer is full)
  * @param packet the packet to send
  */
-void NetworkTCPSocketHandler::SendPacket(std::unique_ptr<Packet> &&packet)
+void NetworkTCPSocketHandler::SendPacket(std::unique_ptr<Packet> packet)
 {
 	assert(packet != nullptr);
 
-	packet->PrepareToSend();
+	packet->PrepareForSendQueue();
+
 	this->packet_queue.push_back(std::move(packet));
+}
+
+/**
+ * This function puts the packet in the send-queue and it is send as
+ * soon as possible. This is the next tick, or maybe one tick later
+ * if the OS-network-buffer is full)
+ * @param packet the packet to send
+ */
+void NetworkTCPSocketHandler::SendPrependPacket(std::unique_ptr<Packet> packet, int queue_after_packet_type)
+{
+	assert(packet != nullptr);
+
+	packet->PrepareForSendQueue();
+
+	if (queue_after_packet_type >= 0) {
+		for (auto iter = this->packet_queue.begin(); iter != this->packet_queue.end(); ++iter) {
+			if ((*iter)->GetTransmitPacketType() == queue_after_packet_type) {
+				++iter;
+				this->packet_queue.insert(iter, std::move(packet));
+				return;
+			}
+		}
+	}
+
+	/* The very first packet in the queue may be partially written out, so cannot be replaced.
+	 * If the queue is non-empty, swap packet with the first packet in the queue.
+	 * The insert the packet (either the incoming packet or the previous first packet) at the front. */
+	if (!this->packet_queue.empty()) {
+		packet.swap(this->packet_queue.front());
+	}
+	this->packet_queue.push_front(std::move(packet));
+}
+
+/**
+ * Shrink the packet send queue to fit (e.g. after having sent the map to a network client)
+ */
+void NetworkTCPSocketHandler::ShrinkToFitSendQueue()
+{
+	this->packet_queue.shrink_to_fit();
 }
 
 /**
@@ -81,6 +119,7 @@ SendPacketsState NetworkTCPSocketHandler::SendPackets(bool closing_down)
 
 	while (!this->packet_queue.empty()) {
 		Packet &p = *this->packet_queue.front();
+		p.CheckPendingPreSendEncryption();
 		ssize_t res = p.TransferOut(SocketSender{this->sock});
 		if (res == -1) {
 			NetworkError err = NetworkError::GetLast();
@@ -103,6 +142,7 @@ SendPacketsState NetworkTCPSocketHandler::SendPackets(bool closing_down)
 		/* Is this packet sent? */
 		if (p.RemainingBytesToTransfer() == 0) {
 			/* Go to the next packet */
+			if (GetDebugLevel(DebugLevelID::net) >= 5) this->LogSentPacket(p);
 			this->packet_queue.pop_front();
 		} else {
 			return SPS_PARTLY_SENT;
@@ -123,7 +163,7 @@ std::unique_ptr<Packet> NetworkTCPSocketHandler::ReceivePacket()
 	if (!this->IsConnected()) return nullptr;
 
 	if (this->packet_recv == nullptr) {
-		this->packet_recv = std::make_unique<Packet>(this, TCP_MTU);
+		this->packet_recv = std::make_unique<Packet>(Packet::ReadTag{}, this, TCP_MTU);
 	}
 
 	Packet &p = *this->packet_recv.get();
@@ -152,6 +192,7 @@ std::unique_ptr<Packet> NetworkTCPSocketHandler::ReceivePacket()
 
 		/* Parse the size in the received packet and if not valid, close the connection. */
 		if (!p.ParsePacketSize()) {
+			Debug(net, 0, "ParsePacketSize failed, possible packet stream corruption");
 			this->CloseConnection();
 			return nullptr;
 		}
@@ -185,6 +226,8 @@ std::unique_ptr<Packet> NetworkTCPSocketHandler::ReceivePacket()
 	}
 	return std::move(this->packet_recv);
 }
+
+void NetworkTCPSocketHandler::LogSentPacket(const Packet &pkt) {}
 
 /**
  * Check whether this socket can send or receive something.

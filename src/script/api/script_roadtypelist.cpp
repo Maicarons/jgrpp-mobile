@@ -18,7 +18,10 @@ ScriptRoadTypeList::ScriptRoadTypeList(ScriptRoad::RoadTramTypes rtts)
 	EnforceDeityOrCompanyModeValid_Void();
 	::CompanyID owner = ScriptObject::GetCompany();
 	for (RoadType rt = ROADTYPE_BEGIN; rt != ROADTYPE_END; rt++) {
-		if (!HasBit(rtts, GetRoadTramType(rt))) continue;
-		if (::HasRoadTypeAvail(owner, rt)) this->AddItem(rt);
+		if (!::RoadTramTypes{rtts}.Test(GetRoadTramType(rt))) continue;
+		if (::HasRoadTypeAvail(owner, rt) &&
+				!GetRoadTypeInfo(rt)->extra_flags.Test(RoadTypeExtraFlag::NotAvailableAiGs)) {
+			this->AddItem(rt);
+		}
 	}
 }

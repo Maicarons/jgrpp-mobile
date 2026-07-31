@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file depot_sl.cpp Code handling saving and loading of depots */
+/** @file depot_sl.cpp Code handling saving and loading of depots. */
 
 #include "../stdafx.h"
 
@@ -17,6 +17,8 @@
 
 #include "../safeguards.h"
 
+namespace upstream_sl {
+
 static TownID _town_index;
 
 static const SaveLoad _depot_desc[] = {
@@ -25,7 +27,7 @@ static const SaveLoad _depot_desc[] = {
 	SLEG_CONDVAR("town_index", _town_index, SLE_UINT16,       SL_MIN_VERSION, SLV_141),
 	 SLE_CONDREF(Depot, town,       REF_TOWN,                 SLV_141, SL_MAX_VERSION),
 	 SLE_CONDVAR(Depot, town_cn,    SLE_UINT16,               SLV_141, SL_MAX_VERSION),
-	SLE_CONDSSTR(Depot, name,       SLE_STR,                  SLV_141, SL_MAX_VERSION),
+	 SLE_CONDSTR(Depot, name,       SLE_STR, 0,               SLV_141, SL_MAX_VERSION),
 	 SLE_CONDVAR(Depot, build_date, SLE_INT32,                SLV_142, SL_MAX_VERSION),
 };
 
@@ -49,7 +51,7 @@ struct DEPTChunkHandler : ChunkHandler {
 		int index;
 
 		while ((index = SlIterateArray()) != -1) {
-			Depot *depot = new (DepotID(index)) Depot();
+			Depot *depot = Depot::CreateAtIndex(DepotID(index));
 			SlObject(depot, slt);
 
 			/* Set the town 'pointer' so we can restore it later. */
@@ -72,3 +74,5 @@ static const ChunkHandlerRef depot_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _depot_chunk_handlers(depot_chunk_handlers);
+
+}

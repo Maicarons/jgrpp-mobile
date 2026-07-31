@@ -12,31 +12,25 @@
 #include "../../crashlog.h"
 #include "../../core/random_func.hpp"
 #include "../../string_func.h"
+#include "../../thread.h"
 
 #include <time.h>
 #include <signal.h>
 
 #include "../../safeguards.h"
 
-#ifdef __ANDROID__
-#define main SDL_main
-extern "C" int CDECL main(int, char *[]);
-#endif
-
 int CDECL main(int argc, char *argv[])
 {
 	/* Make sure our arguments contain only valid UTF-8 characters. */
-	std::vector<std::string_view> params;
-	for (int i = 0; i < argc; ++i) {
-		StrMakeValidInPlace(argv[i]);
-		params.emplace_back(argv[i]);
-	}
+	for (int i = 0; i < argc; i++) StrMakeValidInPlace(argv[i]);
 
+	PerThreadSetupInit();
 	CrashLog::InitialiseCrashLog();
+	CrashLog::InitialiseExceptionTerminateHandler();
 
-	SetRandomSeed(time(nullptr));
+	InitialiseRandomSeeds();
 
 	signal(SIGPIPE, SIG_IGN);
 
-	return openttd_main(params);
+	return openttd_main(std::span(argv, argc));
 }

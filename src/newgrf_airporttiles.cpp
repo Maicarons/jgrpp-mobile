@@ -11,6 +11,7 @@
 #include "debug.h"
 #include "newgrf_airporttiles.h"
 #include "newgrf_badge.h"
+#include "newgrf_extension.h"
 #include "newgrf_spritegroup.h"
 #include "newgrf_sound.h"
 #include "station_base.h"
@@ -109,12 +110,14 @@ StationGfx GetTranslatedAirportTileID(StationGfx gfx)
  * @param grf_version8 True, if we are dealing with a new NewGRF which uses GRF version >= 8.
  * @return a construction of bits obeying the newgrf format
  */
-static uint32_t GetNearbyAirportTileInformation(uint8_t parameter, TileIndex tile, StationID index, bool grf_version8)
+static uint32_t GetNearbyAirportTileInformation(uint8_t parameter, TileIndex tile, StationID index, bool grf_version8, uint32_t mask)
 {
 	if (parameter != 0) tile = GetNearbyTile(parameter, tile); // only perform if it is required
-	bool is_same_airport = (IsTileType(tile, MP_STATION) && IsAirport(tile) && GetStationIndex(tile) == index);
+	bool is_same_airport = (IsTileType(tile, TileType::Station) && IsAirport(tile) && GetStationIndex(tile) == index);
 
-	return GetNearbyTileInformation(tile, grf_version8) | (is_same_airport ? 1 : 0) << 8;
+	uint32_t result = (is_same_airport ? 1 : 0) << 8;
+	if (mask & ~0x100) result |= GetNearbyTileInformation(tile, grf_version8, mask);
+	return result;
 }
 
 
@@ -161,7 +164,7 @@ static uint32_t GetAirportTileIDAtOffset(TileIndex tile, const Station *st, uint
 	return 0xFF << 8 | ats->grf_prop.subst_id; // so just give it the substitute
 }
 
-/* virtual */ uint32_t AirportTileScopeResolver::GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const
+/* virtual */ uint32_t AirportTileScopeResolver::GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const
 {
 	assert(this->st != nullptr);
 
@@ -179,7 +182,7 @@ static uint32_t GetAirportTileIDAtOffset(TileIndex tile, const Station *st, uint
 		case 0x44: return GetAnimationFrame(this->tile);
 
 		/* Land info of nearby tiles */
-		case 0x60: return GetNearbyAirportTileInformation(parameter, this->tile, this->st->index, this->ro.grffile->grf_version >= 8);
+		case 0x60: return GetNearbyAirportTileInformation(parameter, this->tile, this->st->index, this->ro.grffile->grf_version >= 8, extra.mask);
 
 		/* Animation stage of nearby tiles */
 		case 0x61: {
@@ -194,11 +197,17 @@ static uint32_t GetAirportTileIDAtOffset(TileIndex tile, const Station *st, uint
 		case 0x62: return GetAirportTileIDAtOffset(GetNearbyTile(parameter, this->tile), this->st, this->ro.grffile->grfid);
 
 		case 0x7A: return GetBadgeVariableResult(*this->ro.grffile, this->ats->badges, parameter);
+
+		case A2VRI_AIRPORTTILES_AIRPORT_LAYOUT:
+			return this->st->airport.layout;
+
+		case A2VRI_AIRPORTTILES_AIRPORT_ID:
+			return this->st->airport.GetSpec()->grf_prop.local_id;
 	}
 
 	Debug(grf, 1, "Unhandled airport tile variable 0x{:X}", variable);
 
-	available = false;
+	extra.available = false;
 	return UINT_MAX;
 }
 
@@ -227,7 +236,7 @@ AirportTileResolverObject::AirportTileResolverObject(const AirportTileSpec *ats,
 
 GrfSpecFeature AirportTileResolverObject::GetFeature() const
 {
-	return GSF_AIRPORTTILES;
+	return GrfSpecFeature::AirportTiles;
 }
 
 uint32_t AirportTileResolverObject::GetDebugID() const
@@ -235,14 +244,17 @@ uint32_t AirportTileResolverObject::GetDebugID() const
 	return this->tiles_scope.ats->grf_prop.local_id;
 }
 
-static uint16_t GetAirportTileCallback(CallbackID callback, uint32_t param1, uint32_t param2, const AirportTileSpec *ats, Station *st, TileIndex tile, std::span<int32_t> regs100 = {})
+uint16_t GetAirportTileCallback(CallbackID callback, uint32_t param1, uint32_t param2, const AirportTileSpec *ats, Station *st, TileIndex tile, int extra_data = 0)
 {
 	AirportTileResolverObject object(ats, tile, st, callback, param1, param2);
-	return object.ResolveCallback(regs100);
+	return object.ResolveCallback();
 }
 
-static void AirportDrawTileLayout(const TileInfo *ti, const DrawTileSpriteSpan &dts, Colours colour)
+static void AirportDrawTileLayout(const TileInfo *ti, const TileLayoutSpriteGroup *group, Colours colour)
 {
+	auto processor = group->ProcessRegisters(nullptr);
+	auto dts = processor.GetLayout();
+
 	SpriteID image = dts.ground.sprite;
 	SpriteID pal = dts.ground.pal;
 
@@ -254,7 +266,7 @@ static void AirportDrawTileLayout(const TileInfo *ti, const DrawTileSpriteSpan &
 		}
 	}
 
-	DrawNewGRFTileSeq(ti, &dts, TO_BUILDINGS, 0, GetColourPalette(colour));
+	DrawNewGRFTileSeq(ti, &dts, TransparencyOption::Buildings, 0, GetColourPalette(colour));
 }
 
 bool DrawNewAirportTile(TileInfo *ti, Station *st, const AirportTileSpec *airts)
@@ -267,29 +279,21 @@ bool DrawNewAirportTile(TileInfo *ti, Station *st, const AirportTileSpec *airts)
 			if (callback_res != CALLBACK_FAILED) draw_old_one = ConvertBooleanCallback(airts->grf_prop.grffile, CBID_AIRPTILE_DRAW_FOUNDATIONS, callback_res);
 		}
 
-		if (draw_old_one) DrawFoundation(ti, FOUNDATION_LEVELED);
+		if (draw_old_one) DrawFoundation(ti, Foundation::Leveled);
 	}
 
 	AirportTileResolverObject object(airts, ti->tile, st);
-	const auto *group = object.Resolve<TileLayoutSpriteGroup>();
+	const TileLayoutSpriteGroup *group = object.Resolve<TileLayoutSpriteGroup>();
 	if (group == nullptr) {
 		return false;
 	}
 
-	auto processor = group->ProcessRegisters(object, nullptr);
-	auto dts = processor.GetLayout();
-	AirportDrawTileLayout(ti, dts, Company::Get(st->owner)->colour);
+	AirportDrawTileLayout(ti, group, Company::Get(st->owner)->colour);
 	return true;
 }
 
-/* Simple wrapper for GetAirportTileCallback to keep the animation unified. */
-static uint16_t GetSimpleAirportTileCallback(CallbackID callback, uint32_t param1, uint32_t param2, const AirportTileSpec *ats, Station *st, TileIndex tile, int)
-{
-	return GetAirportTileCallback(callback, param1, param2, ats, st, tile);
-}
-
 /** Helper class for animation control. */
-struct AirportTileAnimationBase : public AnimationBase<AirportTileAnimationBase, AirportTileSpec, Station, int, GetSimpleAirportTileCallback, TileAnimationFrameAnimationHelper<Station>> {
+struct AirportTileAnimationBase : public AnimationBase<AirportTileAnimationBase, AirportTileSpec, Station, int, GetAirportTileCallback, TileAnimationFrameAnimationHelper<Station> > {
 	static constexpr CallbackID cb_animation_speed      = CBID_AIRPTILE_ANIMATION_SPEED;
 	static constexpr CallbackID cb_animation_next_frame = CBID_AIRPTILE_ANIMATION_NEXT_FRAME;
 
@@ -343,4 +347,12 @@ bool TriggerAirportAnimation(Station *st, AirportAnimationTrigger trigger, Cargo
 		}
 	}
 	return ret;
+}
+
+uint8_t GetAirportTileAnimationSpeed(TileIndex tile)
+{
+	const AirportTileSpec *ats = AirportTileSpec::GetByTile(tile);
+	if (ats == nullptr) return 0;
+
+	return AirportTileAnimationBase::GetAnimationSpeed(ats);
 }

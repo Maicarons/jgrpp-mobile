@@ -14,8 +14,8 @@
 #include "script_town.hpp"
 #include "script_error.hpp"
 #include "../../subsidy_base.h"
-#include "../../station_base.h"
 #include "../../subsidy_cmd.h"
+#include "../../station_base.h"
 
 #include "../../safeguards.h"
 
@@ -43,7 +43,7 @@
 	Source from{static_cast<SourceID>(from_id), static_cast<SourceType>(from_type)};
 	Source to{static_cast<SourceID>(to_id), static_cast<SourceType>(to_type)};
 
-	return ScriptObject::Command<CMD_CREATE_SUBSIDY>::Do(cargo_type, from, to);
+	return ScriptObject::Command<Commands::CreateSubsidy>::Do(cargo_type, from, to);
 }
 
 /* static */ ScriptCompany::CompanyID ScriptSubsidy::GetAwardedTo(SubsidyID subsidy_id)
@@ -57,13 +57,13 @@
 {
 	if (!IsValidSubsidy(subsidy_id)) return ScriptDate::DATE_INVALID;
 
-	TimerGameEconomy::YearMonthDay ymd = TimerGameEconomy::ConvertDateToYMD(TimerGameEconomy::date);
+	EconTime::YearMonthDay ymd = EconTime::CurYMD();
 	ymd.day = 1;
 	auto m = ymd.month + ::Subsidy::Get(subsidy_id)->remaining;
 	ymd.month = m % 12;
-	ymd.year += TimerGameEconomy::Year{m / 12};
+	ymd.year += EconTime::YearDelta{m / 12};
 
-	return (ScriptDate::Date)TimerGameEconomy::ConvertYMDToDate(ymd.year, ymd.month, ymd.day).base();
+	return (ScriptDate::Date)EconTime::ConvertYMDToDate(ymd.year, ymd.month, ymd.day).base();
 }
 
 /* static */ CargoType ScriptSubsidy::GetCargoType(SubsidyID subsidy_id)

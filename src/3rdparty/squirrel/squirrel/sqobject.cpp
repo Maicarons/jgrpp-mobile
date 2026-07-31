@@ -3,7 +3,7 @@
  */
 
 #include "../../../stdafx.h"
-#include "../../fmt/format.h"
+#include "../../../core/format.hpp"
 
 #include "sqpcheader.h"
 #include "sqvm.h"
@@ -91,8 +91,7 @@ SQUnsignedInteger TranslateIndex(const SQObjectPtr &idx)
 SQWeakRef *SQRefCounted::GetWeakRef(SQObjectType type)
 {
 	if(!_weakref) {
-		_weakref = (SQWeakRef *)sq_vm_malloc(sizeof(SQWeakRef));
-		new (_weakref, sizeof(SQWeakRef)) SQWeakRef();
+		_weakref = new (SQAllocationTag{}) SQWeakRef();
 		_weakref->_obj._type = type;
 		_weakref->_obj._unVal.pRefCounted = this;
 	}
@@ -111,7 +110,7 @@ void SQWeakRef::Release() {
 	if(ISREFCOUNTED(_obj._type)) {
 		_obj._unVal.pRefCounted->_weakref = nullptr;
 	}
-	sq_delete(this,SQWeakRef);
+	sq_delete_refcounted(this,SQWeakRef);
 }
 
 bool SQDelegable::GetMetaMethod(SQVM *v,SQMetaMethod mm,SQObjectPtr &res) {
@@ -245,7 +244,7 @@ bool SafeWrite(HSQUIRRELVM v,SQWRITEFUNC write,SQUserPointer up,SQUserPointer de
 bool SafeRead(HSQUIRRELVM v,SQWRITEFUNC read,SQUserPointer up,SQUserPointer dest,SQInteger size)
 {
 	if(size && read(up,dest,size) != size) {
-		v->Raise_Error("io error, read function failure, the origin stream could be corrupted/trucated");
+		v->Raise_Error("io error, read function failure, the origin stream could be corrupted/truncated");
 		return false;
 	}
 	return true;

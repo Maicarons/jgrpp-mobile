@@ -1,13 +1,18 @@
 name: CodeQL
 
 on:
-  push:
-    branches:
-    - master
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches:
-    - master
+#  push:
+#    branches:
+#    - master
+#  pull_request:
+#    # The branches below must be a subset of the branches above
+#    branches:
+#    - master
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to build (for Pull Requests, use refs/pull/NNN/head)'
+        required: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,7 +30,14 @@ jobs:
 
     steps:
     - name: Checkout
+      if: github.event_name != 'workflow_dispatch'
       uses: actions/checkout@v6
+
+    - name: Checkout (Manual)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.ref }}
 
     - name: Setup vcpkg
       id: vcpkg

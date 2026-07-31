@@ -17,32 +17,34 @@
 #include "strings_type.h"
 #include "landscape_type.h"
 #include "core/bitmath_func.hpp"
+#include <array>
+#include <vector>
 
 /** Town growth effect when delivering cargo. */
-enum TownAcceptanceEffect : uint8_t {
-	TAE_BEGIN = 0,
-	TAE_NONE = TAE_BEGIN, ///< Cargo has no effect.
-	TAE_PASSENGERS, ///< Cargo behaves passenger-like.
-	TAE_MAIL, ///< Cargo behaves mail-like.
-	TAE_GOODS, ///< Cargo behaves goods/candy-like.
-	TAE_WATER, ///< Cargo behaves water-like.
-	TAE_FOOD, ///< Cargo behaves food/fizzy-drinks-like.
-	TAE_END, ///< End of town effects.
-	NUM_TAE = TAE_END, ///< Amount of town effects.
+enum class TownAcceptanceEffect : uint8_t {
+	Begin = 0,    ///< Used for iteration.
+	None = Begin, ///< Cargo has no effect.
+	Passengers,   ///< Cargo behaves passenger-like.
+	Mail,         ///< Cargo behaves mail-like.
+	Goods,        ///< Cargo behaves goods/candy-like.
+	Water,        ///< Cargo behaves water-like.
+	Food,         ///< Cargo behaves food/fizzy-drinks-like.
+	End,          ///< End of town effects.
 };
+DECLARE_INCREMENT_DECREMENT_OPERATORS(TownAcceptanceEffect)
 
 /** Town effect when producing cargo. */
-enum TownProductionEffect : uint8_t {
-	TPE_NONE, ///< Town will not produce this cargo type.
-	TPE_PASSENGERS, ///< Cargo behaves passenger-like for production.
-	TPE_MAIL, ///< Cargo behaves mail-like for production.
-	NUM_TPE,
+enum class TownProductionEffect : uint8_t {
+	None,       ///< Town will not produce this cargo type.
+	Passengers, ///< Cargo behaves passenger-like for production.
+	Mail,       ///< Cargo behaves mail-like for production.
+	End,        ///< End marker.
 
 	/**
 	 * Invalid town production effect. Used as a sentinel to indicate if a NewGRF has explicitly set an effect.
 	 * This does not 'exist' after cargo types are finalised.
 	 */
-	INVALID_TPE,
+	Invalid,
 };
 
 /** Cargo classes. */
@@ -72,31 +74,31 @@ static const uint TOWN_PRODUCTION_DIVISOR = 256;
 
 /** Specification of a cargo type. */
 struct CargoSpec {
-	CargoLabel label;                ///< Unique label of the cargo type.
+	CargoLabel label;                      ///< Unique label of the cargo type.
 	uint8_t bitnum = INVALID_CARGO_BITNUM; ///< Cargo bit number, is #INVALID_CARGO_BITNUM for a non-used spec.
 	PixelColour legend_colour;
 	PixelColour rating_colour;
-	uint8_t weight;                    ///< Weight of a single unit of this cargo type in 1/16 ton (62.5 kg).
-	uint16_t multiplier = 0x100; ///< Capacity multiplier for vehicles. (8 fractional bits)
-	CargoClasses classes; ///< Classes of this cargo type. @see CargoClass
-	int32_t initial_payment;           ///< Initial payment rate before inflation is applied.
+	uint8_t weight;                        ///< Weight of a single unit of this cargo type in 1/16 ton (62.5 kg).
+	uint16_t multiplier = 0x100;           ///< Capacity multiplier for vehicles. (8 fractional bits)
+	CargoClasses classes;                  ///< Classes of this cargo type. @see CargoClass
+	int32_t initial_payment;               ///< Initial payment rate before inflation is applied.
 	uint8_t transit_periods[2];
 
-	bool is_freight;                 ///< Cargo type is considered to be freight (affects train freight multiplier).
-	TownAcceptanceEffect town_acceptance_effect; ///< The effect that delivering this cargo type has on towns. Also affects destination of subsidies.
-	TownProductionEffect town_production_effect = INVALID_TPE; ///< The effect on town cargo production.
+	bool is_freight;                                                             ///< Cargo type is considered to be freight (affects train freight multiplier).
+	TownAcceptanceEffect town_acceptance_effect;                                 ///< The effect that delivering this cargo type has on towns. Also affects destination of subsidies.
+	TownProductionEffect town_production_effect = TownProductionEffect::Invalid; ///< The effect on town cargo production.
 	uint16_t town_production_multiplier = TOWN_PRODUCTION_DIVISOR; ///< Town production multiplier, if commanded by TownProductionEffect.
-	CargoCallbackMasks callback_mask;             ///< Bitmask of cargo callbacks that have to be called
+	CargoCallbackMasks callback_mask;                              ///< Bitmask of cargo callbacks that have to be called
 
-	StringID name;                   ///< Name of this type of cargo.
-	StringID name_single;            ///< Name of a single entity of this type of cargo.
-	StringID units_volume;           ///< Name of a single unit of cargo of this type.
-	StringID quantifier;             ///< Text for multiple units of cargo of this type.
-	StringID abbrev;                 ///< Two letter abbreviation for this cargo type.
+	StringID name;                        ///< Name of this type of cargo.
+	StringID name_single;                 ///< Name of a single entity of this type of cargo.
+	StringID units_volume;                ///< Name of a single unit of cargo of this type.
+	StringID quantifier;                  ///< Text for multiple units of cargo of this type.
+	StringID abbrev;                      ///< Two letter abbreviation for this cargo type.
 
-	SpriteID sprite;                 ///< Icon to display this cargo type, may be \c 0xFFF (which means to resolve an action123 chain).
+	SpriteID sprite;                      ///< Icon to display this cargo type, may be \c 0xFFF (which means to resolve an action123 chain).
 
-	const struct GRFFile *grffile;   ///< NewGRF where #group belongs to.
+	const struct GRFFile *grffile;        ///< NewGRF where #group belongs to.
 	const struct SpriteGroup *group;
 
 	Money current_payment;
@@ -107,7 +109,7 @@ struct CargoSpec {
 	 */
 	inline CargoType Index() const
 	{
-		return this - CargoSpec::array;
+		return static_cast<CargoType>(this - CargoSpec::array);
 	}
 
 	/**
@@ -130,9 +132,10 @@ struct CargoSpec {
 	}
 
 	/**
-	 * Retrieve cargo details for the given cargo type
-	 * @param index ID of cargo
-	 * @pre index is a valid cargo type
+	 * Retrieve cargo details for the given cargo type.
+	 * @param index ID of cargo.
+	 * @pre index is a valid cargo type.
+	 * @return The cargo specification.
 	 */
 	static inline CargoSpec *Get(size_t index)
 	{
@@ -173,9 +176,7 @@ struct CargoSpec {
 		void ValidateIndex() { while (this->index < CargoSpec::GetArraySize() && !(CargoSpec::Get(this->index)->IsValid())) this->index++; }
 	};
 
-	/*
-	 * Iterable ensemble of all valid CargoSpec
-	 */
+	/** Iterable ensemble of all valid CargoSpec. */
 	struct IterateWrapper {
 		size_t from;
 		IterateWrapper(size_t from = 0) : from(from) {}
@@ -192,15 +193,16 @@ struct CargoSpec {
 	static IterateWrapper Iterate(size_t from = 0) { return IterateWrapper(from); }
 
 	/** List of cargo specs for each Town Product Effect. */
-	static std::array<std::vector<const CargoSpec *>, NUM_TPE> town_production_cargoes;
+	static EnumIndexArray<std::vector<CargoType>, TownProductionEffect, TownProductionEffect::End> town_production_cargoes;
+
+	/** Mask of cargo IDs for each Town Product Effect. */
+	static EnumIndexArray<CargoTypes, TownProductionEffect, TownProductionEffect::End> town_production_cargo_mask;
 
 private:
 	static CargoSpec array[NUM_CARGO]; ///< Array holding all CargoSpecs
-	static inline std::map<CargoLabel, CargoType> label_map{}; ///< Translation map from CargoLabel to Cargo type.
 
 	friend void SetupCargoForClimate(LandscapeType l);
 	friend void BuildCargoLabelMap();
-	friend inline CargoType GetCargoTypeByLabel(CargoLabel ct);
 	friend void FinaliseCargoArray();
 };
 
@@ -213,11 +215,15 @@ void BuildCargoLabelMap();
 
 std::optional<std::string> BuildCargoAcceptanceString(const CargoArray &acceptance, StringID label);
 
+CargoType GetCargoIDByLabelUsingMap(CargoLabel label);
+
 inline CargoType GetCargoTypeByLabel(CargoLabel label)
 {
-	auto found = CargoSpec::label_map.find(label);
-	if (found != std::end(CargoSpec::label_map)) return found->second;
-	return INVALID_CARGO;
+	extern CargoType _cargo_id_passengers;
+	extern CargoType _cargo_id_mail;
+	if (label == CT_PASSENGERS) return _cargo_id_passengers;
+	if (label == CT_MAIL) return _cargo_id_mail;
+	return GetCargoIDByLabelUsingMap(label);
 }
 
 Dimension GetLargestCargoIconSize();
@@ -226,6 +232,9 @@ void InitializeSortedCargoSpecs();
 extern std::array<uint8_t, NUM_CARGO> _sorted_cargo_types;
 extern std::vector<const CargoSpec *> _sorted_cargo_specs;
 extern std::span<const CargoSpec *> _sorted_standard_cargo_specs;
+
+uint ConvertCargoQuantityToDisplayQuantity(CargoType cargo, uint quantity);
+uint ConvertDisplayQuantityToCargoQuantity(CargoType cargo, uint quantity);
 
 /**
  * Does cargo \a c have cargo class \a cc?
@@ -237,8 +246,6 @@ inline bool IsCargoInClass(CargoType cargo, CargoClasses cc)
 {
 	return CargoSpec::Get(cargo)->classes.Any(cc);
 }
-
-using SetCargoBitIterator = SetBitIterator<CargoType, CargoTypes>;
 
 /** Comparator to sort CargoType by according to desired order. */
 struct CargoTypeComparator {

@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file opengl_v.cpp OpenGL video driver support. */
+/** @file opengl.cpp OpenGL video driver support. */
 
 #include "../stdafx.h"
 
@@ -35,6 +35,8 @@
 #include "../blitter/factory.hpp"
 #include "../zoom_func.h"
 #include "../core/string_consumer.hpp"
+#include <array>
+#include <numeric>
 
 #include "../table/opengl_shader.h"
 #include "../table/sprites.h"
@@ -220,7 +222,10 @@ static bool BindGLProc(F &f, const char *name)
 	return f != nullptr;
 }
 
-/** Bind basic information functions. */
+/**
+ * Bind basic information functions.
+ * @return \c true iff all procs could be bound.
+ */
 static bool BindBasicInfoProcs()
 {
 	if (!BindGLProc(_glGetString, "glGetString")) return false;
@@ -230,7 +235,10 @@ static bool BindBasicInfoProcs()
 	return true;
 }
 
-/** Bind OpenGL 1.0 and 1.1 functions. */
+/**
+ * Bind OpenGL 1.0 and 1.1 functions.
+ * @return \c true iff all procs could be bound.
+ */
 static bool BindBasicOpenGLProcs()
 {
 	if (!BindGLProc(_glDisable, "glDisable")) return false;
@@ -253,7 +261,10 @@ static bool BindBasicOpenGLProcs()
 	return true;
 }
 
-/** Bind texture-related extension functions. */
+/**
+ * Bind texture-related extension functions.
+ * @return \c true iff all extension procs could be bound.
+ */
 static bool BindTextureExtensions()
 {
 	if (IsOpenGLVersionAtLeast(1, 3)) {
@@ -265,7 +276,10 @@ static bool BindTextureExtensions()
 	return true;
 }
 
-/** Bind vertex buffer object extension functions. */
+/**
+ * Bind vertex buffer object extension functions.
+ * @return \c true iff all extension procs could be bound.
+ */
 static bool BindVBOExtension()
 {
 	if (IsOpenGLVersionAtLeast(1, 5)) {
@@ -295,7 +309,10 @@ static bool BindVBOExtension()
 	return true;
 }
 
-/** Bind vertex array object extension functions. */
+/**
+ * Bind vertex array object extension functions.
+ * @return \c true iff all extension procs could be bound.
+ */
 static bool BindVBAExtension()
 {
 	/* The APPLE and ARB variants have different semantics (that don't matter for us).
@@ -314,7 +331,10 @@ static bool BindVBAExtension()
 	return true;
 }
 
-/** Bind extension functions for shader support. */
+/**
+ * Bind extension functions for shader support.
+ * @return \c true iff all extension procs could be bound.
+ */
 static bool BindShaderExtensions()
 {
 	if (IsOpenGLVersionAtLeast(2, 0)) {
@@ -380,7 +400,10 @@ static bool BindShaderExtensions()
 	return true;
 }
 
-/** Bind extension functions for persistent buffer mapping. */
+/**
+ * Bind extension functions for persistent buffer mapping.
+ * @return \c true iff all extension procs could be bound.
+ */
 static bool BindPersistentBufferExtensions()
 {
 	/* Optional functions for persistent buffer mapping. */
@@ -401,8 +424,13 @@ static bool BindPersistentBufferExtensions()
 	return true;
 }
 
-/** Callback to receive OpenGL debug messages. */
-void APIENTRY DebugOutputCallback([[maybe_unused]] GLenum source, GLenum type, [[maybe_unused]] GLuint id, GLenum severity, [[maybe_unused]] GLsizei length, const GLchar *message, [[maybe_unused]] const void *userParam)
+/**
+ * Callback to receive OpenGL debug messages.
+ * @param type The type of message.
+ * @param severity The severity of the issue.
+ * @param message The message to convey to the end user.
+ */
+void APIENTRY DebugOutputCallback(GLenum, GLenum type, GLuint, GLenum severity, GLsizei, const GLchar *message, const void *)
 {
 	/* Make severity human readable. */
 	std::string_view severity_str;
@@ -429,7 +457,7 @@ void APIENTRY DebugOutputCallback([[maybe_unused]] GLenum source, GLenum type, [
 void SetupDebugOutput()
 {
 #ifndef NO_DEBUG_MESSAGES
-	if (_debug_driver_level < 6) return;
+	if (GetDebugLevel(DebugLevelID::driver) < 6) return;
 
 	if (IsOpenGLVersionAtLeast(4, 3)) {
 		BindGLProc(_glDebugMessageControl, "glDebugMessageControl");
@@ -442,11 +470,11 @@ void SetupDebugOutput()
 	if (_glDebugMessageControl != nullptr && _glDebugMessageCallback != nullptr) {
 		/* Enable debug output. As synchronous debug output costs performance, we only enable it with a high debug level. */
 		_glEnable(GL_DEBUG_OUTPUT);
-		if (_debug_driver_level >= 8) _glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		if (GetDebugLevel(DebugLevelID::driver) >= 8) _glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
 		_glDebugMessageCallback(&DebugOutputCallback, nullptr);
 		/* Enable all messages on highest debug level.*/
-		_glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, _debug_driver_level >= 9 ? GL_TRUE : GL_FALSE);
+		_glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GetDebugLevel(DebugLevelID::driver) >= 9 ? GL_TRUE : GL_FALSE);
 		/* Get debug messages for errors and undefined/deprecated behaviour. */
 		_glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_ERROR, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 		_glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR, GL_DONT_CARE, 0, nullptr, GL_TRUE);
@@ -459,9 +487,9 @@ void SetupDebugOutput()
  * Create and initialize the singleton back-end class.
  * @param get_proc Callback to get an OpenGL function from the OS driver.
  * @param screen_res Current display resolution.
- * @return std::nullopt on success, error message otherwise.
+ * @return nullptr on success, error message otherwise.
  */
-/* static */ std::optional<std::string_view> OpenGLBackend::Create(GetOGLProcAddressProc get_proc, const Dimension &screen_res)
+/* static */ const char *OpenGLBackend::Create(GetOGLProcAddressProc get_proc, const Dimension &screen_res)
 {
 	if (OpenGLBackend::instance != nullptr) OpenGLBackend::Destroy();
 
@@ -485,6 +513,7 @@ void SetupDebugOutput()
  */
 OpenGLBackend::OpenGLBackend() : cursor_cache(MAX_CACHED_CURSORS)
 {
+	this->SetIs32BppSupported(true);
 }
 
 /**
@@ -525,9 +554,9 @@ static std::tuple<uint8_t, uint8_t> DecodeVersion(std::string_view ver)
 /**
  * Check for the needed OpenGL functionality and allocate all resources.
  * @param screen_res Current display resolution.
- * @return Error string or std::nullopt if successful.
+ * @return Error string or nullptr if successful.
  */
-std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
+const char *OpenGLBackend::Init(const Dimension &screen_res)
 {
 	if (!BindBasicInfoProcs()) return "OpenGL not supported";
 
@@ -732,7 +761,7 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 	this->PrepareContext();
 	(void)_glGetError(); // Clear errors.
 
-	return std::nullopt;
+	return nullptr;
 }
 
 void OpenGLBackend::PrepareContext()
@@ -908,7 +937,7 @@ static void ClearPixelBuffer(size_t len, T data)
  * @param w New width of the window.
  * @param h New height of the window.
  * @param force Recreate resources even if size didn't change.
- * @param False if nothing had to be done, true otherwise.
+ * @return \c false if nothing had to be done, \c true otherwise.
  */
 bool OpenGLBackend::Resize(int w, int h, bool force)
 {
@@ -1087,14 +1116,12 @@ void OpenGLBackend::DrawMouseCursor()
 	}
 }
 
-class OpenGLSpriteAllocator : public SpriteAllocator {
+class OpenGLSpriteAllocator : public UniquePtrSpriteAllocator {
 public:
 	OpenGLSpriteLRUCache &lru;
 	SpriteID sprite;
 
 	OpenGLSpriteAllocator(OpenGLSpriteLRUCache &lru, SpriteID sprite) : lru(lru), sprite(sprite) {}
-protected:
-	void *AllocatePtr(size_t) override { NOT_REACHED(); }
 };
 
 void OpenGLBackend::PopulateCursorCache()
@@ -1116,7 +1143,7 @@ void OpenGLBackend::PopulateCursorCache()
 
 		if (!this->cursor_cache.Contains(sc.image.sprite)) {
 			OpenGLSpriteAllocator allocator(this->cursor_cache, sc.image.sprite);
-			GetRawSprite(sc.image.sprite, SpriteType::Normal, &allocator, this);
+			GetRawSprite(sc.image.sprite, SpriteType::Normal, LOW_ZOOM_ALL_BITS, &allocator, this);
 		}
 	}
 }
@@ -1270,6 +1297,7 @@ void OpenGLBackend::ReleaseAnimBuffer(const Rect &update_rect)
 /**
  * Render a sprite to the back buffer.
  * @param gl_sprite Sprite to render.
+ * @param pal The palette to draw the sprite with.
  * @param x X position of the sprite.
  * @param y Y position of the sprite.
  * @param zoom Zoom level to use.
@@ -1290,7 +1318,7 @@ void OpenGLBackend::RenderOglSprite(const OpenGLSprite *gl_sprite, PaletteID pal
 			_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, OpenGLSprite::pal_pbo);
 			_glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-			_glBufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, 256, GetNonSprite(GB(pal, 0, PALETTE_WIDTH), SpriteType::Recolour) + 1);
+			_glBufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, 256, GetNonSprite(GB(pal, 0, PALETTE_WIDTH), SpriteType::Recolour));
 			_glTexSubImage1D(GL_TEXTURE_1D, 0, 0, 256, GL_RED, GL_UNSIGNED_BYTE, nullptr);
 
 			_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
@@ -1395,6 +1423,7 @@ void OpenGLBackend::RenderOglSprite(const OpenGLSprite *gl_sprite, PaletteID pal
 
 /**
  * Create an OpenGL sprite with a palette remap part.
+ * @param sprite_type The type of sprite to load.
  * @param sprite The sprite to create the OpenGL sprite for
  */
 OpenGLSprite::OpenGLSprite(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite)
@@ -1405,7 +1434,7 @@ OpenGLSprite::OpenGLSprite(SpriteType sprite_type, const SpriteLoader::SpriteCol
 	this->x_offs = root_sprite.x_offs;
 	this->y_offs = root_sprite.y_offs;
 
-	int levels = sprite_type == SpriteType::Font ? 1 : to_underlying(ZoomLevel::End);
+	int levels = sprite_type == SpriteType::Font ? 1 : to_underlying(ZoomLevel::SpriteEnd);
 	assert(levels > 0);
 	(void)_glGetError();
 
@@ -1415,8 +1444,8 @@ OpenGLSprite::OpenGLSprite(SpriteType sprite_type, const SpriteLoader::SpriteCol
 
 	for (int t = TEX_RGBA; t < NUM_TEX; t++) {
 		/* Sprite component present? */
-		if (t == TEX_RGBA && root_sprite.colours == SpriteComponent::Palette) continue;
-		if (t == TEX_REMAP && !root_sprite.colours.Test(SpriteComponent::Palette)) continue;
+		if (t == TEX_RGBA && sprite[ZoomLevel::Min].colours == SpriteComponent::Palette) continue;
+		if (t == TEX_REMAP && !sprite[ZoomLevel::Min].colours.Test(SpriteComponent::Palette)) continue;
 
 		/* Allocate texture. */
 		_glGenTextures(1, &this->tex[t]);
@@ -1440,9 +1469,9 @@ OpenGLSprite::OpenGLSprite(SpriteType sprite_type, const SpriteLoader::SpriteCol
 	}
 
 	/* Upload texture data. */
-	for (ZoomLevel zoom = ZoomLevel::Min; zoom <= (sprite_type == SpriteType::Font ? ZoomLevel::Min : ZoomLevel::Max); ++zoom) {
-		const auto &src_sprite = sprite[zoom];
-		this->Update(src_sprite.width, src_sprite.height, to_underlying(zoom), src_sprite.data);
+	for (int i = 0; i < levels; i++) {
+		const auto &sp = sprite[static_cast<ZoomLevel>(i)];
+		this->Update(sp.width, sp.height, i, sp.data);
 	}
 
 	assert(_glGetError() == GL_NO_ERROR);

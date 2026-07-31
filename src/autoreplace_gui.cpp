@@ -16,21 +16,21 @@
 #include "road.h"
 #include "strings_func.h"
 #include "window_func.h"
+#include "autoreplace_cmd.h"
 #include "autoreplace_func.h"
 #include "company_func.h"
 #include "engine_base.h"
 #include "window_gui.h"
 #include "engine_gui.h"
+#include "settings_cmd.h"
 #include "settings_func.h"
-#include "settings_gui.h"
 #include "core/geometry_func.hpp"
 #include "rail_gui.h"
 #include "road_gui.h"
+#include "group_cmd.h"
 #include "dropdown_type.h"
 #include "dropdown_func.h"
-#include "autoreplace_cmd.h"
-#include "group_cmd.h"
-#include "settings_cmd.h"
+#include "3rdparty/cpp-btree/btree_set.h"
 
 #include "widgets/autoreplace_widget.h"
 
@@ -38,7 +38,8 @@
 
 #include "safeguards.h"
 
-static bool EngineNumberSorter(const GUIEngineListItem &a, const GUIEngineListItem &b)
+/** Compare the (NewGRF) list position. @copydoc GUIList::Sorter. */
+static bool EngineNumberSorter(const GUIEngineListItem &a, const GUIEngineListItem &b, const GUIEngineListSortCache &cache)
 {
 	return Engine::Get(a.engine_id)->list_position < Engine::Get(b.engine_id)->list_position;
 }
@@ -58,7 +59,7 @@ void InvalidateAutoreplaceWindow(EngineID e, GroupID id_g)
 		/* We don't have any of this engine type.
 		 * Either we just sold the last one, we build a new one or we stopped replacing it.
 		 * In all cases, we need to update the left list */
-		InvalidateWindowData(WC_REPLACE_VEHICLE, Engine::Get(e)->type, 1);
+		InvalidateWindowData(WindowClass::ReplaceVehicle, Engine::Get(e)->type, 1);
 	}
 }
 
@@ -68,8 +69,9 @@ void InvalidateAutoreplaceWindow(EngineID e, GroupID id_g)
  */
 void AddRemoveEngineFromAutoreplaceAndBuildWindows(VehicleType type)
 {
-	InvalidateWindowData(WC_REPLACE_VEHICLE, type, 0); // Update the autoreplace window
-	InvalidateWindowClassesData(WC_BUILD_VEHICLE); // The build windows needs updating as well
+	InvalidateWindowData(WindowClass::ReplaceVehicle, type, 0); // Update the autoreplace window
+	InvalidateWindowClassesData(WindowClass::BuildVehicle); // The build windows needs updating as well
+	InvalidateWindowClassesData(WindowClass::BuildVirtualTrain);
 }
 
 static const StringID _start_replace_dropdown[] = {
@@ -81,16 +83,16 @@ static const StringID _start_replace_dropdown[] = {
  * Window for the autoreplacing of vehicles.
  */
 class ReplaceVehicleWindow : public Window {
-	std::array<EngineID, 2> sel_engine{}; ///< Selected engine left and right.
-	std::array<GUIEngineList, 2> engines{}; ///< Left and right list of engines.
-	bool replace_engines = true; ///< If \c true, engines are replaced, if \c false, wagons are replaced (only for trains).
-	bool reset_sel_engine = true; ///< Also reset #sel_engine while updating left and/or right and no valid engine selected.
-	GroupID sel_group = GroupID::Invalid(); ///< Group selected to replace.
-	int details_height = 0; ///< Minimal needed height of the details panels, in text lines (found so far).
-	VehicleType vehicle_type = VEH_INVALID; ///< Type of vehicle in this window.
-	uint8_t sort_criteria = 0; ///< Criteria of sorting vehicles.
-	bool descending_sort_order = false; ///< Order of sorting vehicles.
-	bool show_hidden_engines = false; ///< Whether to show the hidden engines.
+	std::array<EngineID, 2> sel_engine{};            ///< Selected engine left and right.
+	std::array<GUIEngineList, 2> engines{};          ///< Left and right list of engines.
+	bool replace_engines = true;                     ///< If \c true, engines are replaced, if \c false, wagons are replaced (only for trains).
+	bool reset_sel_engine = true;                    ///< Also reset #sel_engine while updating left and/or right and no valid engine selected.
+	GroupID sel_group = GroupID::Invalid();          ///< Group selected to replace.
+	int details_height = 0;                          ///< Minimal needed height of the details panels, in text lines (found so far).
+	VehicleType vehicle_type = VehicleType::Invalid; ///< Type of vehicle in this window.
+	uint8_t sort_criteria = 0;                       ///< Criteria of sorting vehicles.
+	bool descending_sort_order = false;              ///< Order of sorting vehicles.
+	bool show_hidden_engines = false;                ///< Whether to show the hidden engines.
 	RailType sel_railtype = INVALID_RAILTYPE; ///< Type of rail tracks selected. #INVALID_RAILTYPE to show all.
 	RoadType sel_roadtype = INVALID_ROADTYPE; ///< Type of road selected. #INVALID_ROADTYPE to show all.
 	std::array<Scrollbar *, 2> vscroll{};
@@ -108,7 +110,7 @@ class ReplaceVehicleWindow : public Window {
 		const RailVehicleInfo *rvi = RailVehInfo(e);
 
 		/* Ensure that the wagon/engine selection fits the engine. */
-		if ((rvi->railveh_type == RAILVEH_WAGON) == show_engines) return false;
+		if ((rvi->railveh_type == RailVehicleType::Wagon) == show_engines) return false;
 
 		if (draw_left && this->sel_railtype != INVALID_RAILTYPE) {
 			/* Ensure that the railtype is specific to the selected one */
@@ -123,9 +125,9 @@ class ReplaceVehicleWindow : public Window {
 	 */
 	void GenerateReplaceVehList(bool draw_left)
 	{
-		FlatSet<EngineID> variants;
+		btree::btree_set<EngineID> variants;
 		EngineID selected_engine = EngineID::Invalid();
-		VehicleType type = this->window_number;
+		VehicleType type = (VehicleType)this->window_number;
 		uint8_t side = draw_left ? 0 : 1;
 
 		GUIEngineList list;
@@ -134,11 +136,11 @@ class ReplaceVehicleWindow : public Window {
 			if (!draw_left && !this->show_hidden_engines && e->IsVariantHidden(_local_company)) continue;
 			EngineID eid = e->index;
 			switch (type) {
-				case VEH_TRAIN:
+				case VehicleType::Train:
 					if (!this->GenerateReplaceRailList(eid, draw_left, this->replace_engines)) continue; // special rules for trains
 					break;
 
-				case VEH_ROAD:
+				case VehicleType::Road:
 					if (draw_left && this->sel_roadtype != INVALID_ROADTYPE) {
 						/* Ensure that the roadtype is specific to the selected one */
 						if (e->VehInfo<RoadVehicleInfo>().roadtype != this->sel_roadtype) continue;
@@ -184,7 +186,7 @@ class ReplaceVehicleWindow : public Window {
 			EngList_Sort(list, &EngineNumberSorter);
 		} else {
 			_engine_sort_direction = this->descending_sort_order;
-			EngList_Sort(list, _engine_sort_functions[this->window_number][this->sort_criteria]);
+			EngList_Sort(list, GetEngineSortFunctions(this->vehicle_type)[this->sort_criteria]);
 		}
 
 		this->engines[side].clear();
@@ -228,10 +230,12 @@ class ReplaceVehicleWindow : public Window {
 				if (this->reset_sel_engine && this->sel_engine[1] != EngineID::Invalid()) {
 					int position = 0;
 					for (const auto &item : this->engines[1]) {
-						if (item.engine_id == this->sel_engine[1]) break;
+						if (item.engine_id == this->sel_engine[1]) {
+							this->vscroll[1]->ScrollTowards(position);
+							break;
+						}
 						++position;
 					}
-					this->vscroll[1]->ScrollTowards(position);
 				}
 			}
 		}
@@ -249,7 +253,7 @@ class ReplaceVehicleWindow : public Window {
 	{
 		EngineID veh_from = this->sel_engine[0];
 		EngineID veh_to = this->sel_engine[1];
-		Command<CMD_SET_AUTOREPLACE>::Post(this->sel_group, veh_from, veh_to, replace_when_old);
+		Command<Commands::SetAutoreplace>::Post(this->sel_group, veh_from, veh_to, replace_when_old);
 	}
 
 	/**
@@ -270,10 +274,11 @@ class ReplaceVehicleWindow : public Window {
 public:
 	ReplaceVehicleWindow(WindowDesc &desc, VehicleType vehicletype, GroupID id_g) : Window(desc)
 	{
+		this->invalidation_policy = WindowInvalidationPolicy::NoQueue;
 		this->vehicle_type = vehicletype;
 		this->engines[0].ForceRebuild();
 		this->engines[1].ForceRebuild();
-		this->details_height   = ((vehicletype == VEH_TRAIN) ? 10 : 9);
+		this->details_height = ((vehicletype == VehicleType::Train) ? 10 : 9);
 		this->sel_engine[0] = EngineID::Invalid();
 		this->sel_engine[1] = EngineID::Invalid();
 		this->show_hidden_engines = _engine_sort_show_hidden_engines[vehicletype];
@@ -283,7 +288,7 @@ public:
 		this->vscroll[1] = this->GetScrollbar(WID_RV_RIGHT_SCROLLBAR);
 
 		NWidgetCore *widget = this->GetWidget<NWidgetCore>(WID_RV_SHOW_HIDDEN_ENGINES);
-		widget->SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN + vehicletype, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP + vehicletype);
+		widget->SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN + to_underlying(vehicletype), STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP + to_underlying(vehicletype));
 		widget->SetLowered(this->show_hidden_engines);
 		this->FinishInitNested(vehicletype);
 
@@ -295,7 +300,7 @@ public:
 
 	void OnInit() override
 	{
-		this->badge_classes = GUIBadgeClasses(static_cast<GrfSpecFeature>(GSF_TRAINS + this->vehicle_type));
+		this->badge_classes = GUIBadgeClasses(GetGrfSpecFeature(this->vehicle_type));
 	}
 
 	void UpdateWidgetSize(WidgetID widget, Dimension &size, [[maybe_unused]] const Dimension &padding, [[maybe_unused]] Dimension &fill, [[maybe_unused]] Dimension &resize) override
@@ -311,13 +316,13 @@ public:
 
 			case WID_RV_LEFT_MATRIX:
 			case WID_RV_RIGHT_MATRIX:
-				fill.height = resize.height = GetEngineListHeight(this->window_number);
-				size.height = (this->window_number <= VEH_ROAD ? 8 : 4) * resize.height;
+				fill.height = resize.height = GetEngineListHeight((VehicleType)this->window_number);
+				size.height = (this->vehicle_type <= VehicleType::Road ? 8 : 4) * resize.height;
 				break;
 
 			case WID_RV_LEFT_DETAILS:
 			case WID_RV_RIGHT_DETAILS:
-				size.height = GetCharacterHeight(FS_NORMAL) * this->details_height + padding.height;
+				size.height = GetCharacterHeight(FontSize::Normal) * this->details_height + padding.height;
 				break;
 
 			case WID_RV_TRAIN_WAGONREMOVE_TOGGLE: {
@@ -366,7 +371,6 @@ public:
 					d = maxdim(d, GetStringBoundingBox(GetRoadTypeInfo(rt)->strings.replace_text));
 				}
 				d.width += padding.width;
-				d.width += SETTING_BUTTON_HEIGHT;
 				d.height += padding.height;
 				size = maxdim(size, d);
 				break;
@@ -376,7 +380,6 @@ public:
 				Dimension d = GetStringBoundingBox(STR_REPLACE_VEHICLES_START);
 				d = maxdim(d, GetStringListBoundingBox(_start_replace_dropdown));
 				d.width += padding.width;
-				d.width += SETTING_BUTTON_HEIGHT;
 				d.height += padding.height;
 				size = maxdim(size, d);
 				break;
@@ -403,7 +406,7 @@ public:
 				break;
 
 			case WID_RV_SORT_DROPDOWN:
-				return GetString(std::data(_engine_sort_listing[this->window_number])[this->sort_criteria]);
+				return GetString(GetEngineSortNames(this->vehicle_type)[this->sort_criteria]);
 
 			case WID_RV_TRAIN_WAGONREMOVE_TOGGLE:
 				if (const Group *g = Group::GetIfValid(this->sel_group); g != nullptr) {
@@ -452,7 +455,7 @@ public:
 					str = GetString(STR_REPLACE_NOT_REPLACING_VEHICLE_SELECTED);
 				}
 
-				DrawString(r.Shrink(WidgetDimensions::scaled.frametext, WidgetDimensions::scaled.framerect), std::move(str), TC_BLACK, SA_HOR_CENTER);
+				DrawString(r.Shrink(WidgetDimensions::scaled.frametext, WidgetDimensions::scaled.framerect), std::move(str), TextColour::Black, SA_HOR_CENTER);
 				break;
 			}
 
@@ -461,7 +464,8 @@ public:
 				int side = (widget == WID_RV_LEFT_MATRIX) ? 0 : 1;
 
 				/* Do the actual drawing */
-				DrawEngineList(this->window_number, r, this->engines[side], *this->vscroll[side], this->sel_engine[side], side == 0, this->sel_group, this->badge_classes);
+				DrawEngineList((VehicleType)this->window_number, r, this->engines[side], *this->vscroll[side], this->sel_engine[side], side == 0,
+						this->sel_group, this->badge_classes, GetEngineSortNames(this->vehicle_type)[this->sort_criteria]);
 				break;
 			}
 		}
@@ -493,14 +497,13 @@ public:
 				if (this->sel_engine[side] != EngineID::Invalid()) {
 					/* Use default engine details without refitting */
 					const Engine *e = Engine::Get(this->sel_engine[side]);
-					TestedEngineDetails ted;
-					ted.cost = 0;
+					TestedEngineDetails ted{};
 					ted.FillDefaultCapacities(e);
 
 					const Rect r = this->GetWidget<NWidgetBase>(side == 0 ? WID_RV_LEFT_DETAILS : WID_RV_RIGHT_DETAILS)->GetCurrentRect()
 							.Shrink(WidgetDimensions::scaled.frametext, WidgetDimensions::scaled.framerect);
 					int text_end = DrawVehiclePurchaseInfo(r.left, r.right, r.top, this->sel_engine[side], ted);
-					needed_height = std::max(needed_height, (text_end - r.top) / GetCharacterHeight(FS_NORMAL));
+					needed_height = std::max(needed_height, (text_end - r.top) / GetCharacterHeight(FontSize::Normal));
 				}
 			}
 			if (needed_height != this->details_height) { // Details window are not high enough, enlarge them.
@@ -516,21 +519,21 @@ public:
 		switch (widget) {
 			case WID_RV_SORT_ASCENDING_DESCENDING:
 				this->descending_sort_order ^= true;
-				_engine_sort_last_order[this->window_number] = this->descending_sort_order;
+				_engine_sort_last_order[this->vehicle_type] = this->descending_sort_order;
 				this->engines[1].ForceRebuild();
 				this->SetDirty();
 				break;
 
 			case WID_RV_SHOW_HIDDEN_ENGINES:
 				this->show_hidden_engines ^= true;
-				_engine_sort_show_hidden_engines[this->window_number] = this->show_hidden_engines;
+				_engine_sort_show_hidden_engines[this->vehicle_type] = this->show_hidden_engines;
 				this->engines[1].ForceRebuild();
 				this->SetWidgetLoweredState(widget, this->show_hidden_engines);
 				this->SetDirty();
 				break;
 
 			case WID_RV_SORT_DROPDOWN:
-				DisplayVehicleSortDropDown(this, this->window_number, this->sort_criteria, WID_RV_SORT_DROPDOWN);
+				DisplayVehicleSortDropDown(this, static_cast<VehicleType>(this->window_number), this->sort_criteria, WID_RV_SORT_DROPDOWN);
 				break;
 
 			case WID_RV_TRAIN_ENGINEWAGON_DROPDOWN: {
@@ -541,21 +544,25 @@ public:
 				break;
 			}
 
-			case WID_RV_RAIL_TYPE_DROPDOWN: // Railtype selection dropdown menu
-				ShowDropDownList(this, GetRailTypeDropDownList(true, true), this->sel_railtype, widget);
+			case WID_RV_RAIL_TYPE_DROPDOWN: { // Railtype selection dropdown menu
+				static std::string railtype_filter;
+				ShowDropDownList(this, GetRailTypeDropDownList(true, true), this->sel_railtype, widget, 0, DropDownOption::Filterable, &railtype_filter);
 				break;
+			}
 
-			case WID_RV_ROAD_TYPE_DROPDOWN: // Roadtype selection dropdown menu
-				ShowDropDownList(this, GetRoadTypeDropDownList(RTTB_ROAD | RTTB_TRAM, true, true), this->sel_roadtype, widget);
+			case WID_RV_ROAD_TYPE_DROPDOWN: { // Roadtype selection dropdown menu
+				static std::string roadtype_filter;
+				ShowDropDownList(this, GetRoadTypeDropDownList(ROADTRAMTYPES_ALL, true, true), this->sel_roadtype, widget, 0, DropDownOption::Filterable, &roadtype_filter);
 				break;
+			}
 
 			case WID_RV_TRAIN_WAGONREMOVE_TOGGLE: {
 				const Group *g = Group::GetIfValid(this->sel_group);
 				if (g != nullptr) {
-					Command<CMD_SET_GROUP_FLAG>::Post(this->sel_group, GroupFlag::ReplaceWagonRemoval, !g->flags.Test(GroupFlag::ReplaceWagonRemoval), _ctrl_pressed);
+					Command<Commands::SetGroupFlag>::Post(this->sel_group, GroupFlag::ReplaceWagonRemoval, !g->flags.Test(GroupFlag::ReplaceWagonRemoval), _ctrl_pressed);
 				} else {
 					/* toggle renew_keep_length */
-					Command<CMD_CHANGE_COMPANY_SETTING>::Post("company.renew_keep_length", Company::Get(_local_company)->settings.renew_keep_length ? 0 : 1);
+					Command<Commands::ChangeCompanySetting>::Post("company.renew_keep_length", Company::Get(_local_company)->settings.renew_keep_length ? 0 : 1);
 				}
 				break;
 			}
@@ -573,7 +580,7 @@ public:
 
 			case WID_RV_STOP_REPLACE: { // Stop replacing
 				EngineID veh_from = this->sel_engine[0];
-				Command<CMD_SET_AUTOREPLACE>::Post(this->sel_group, veh_from, EngineID::Invalid(), false);
+				Command<Commands::SetAutoreplace>::Post(this->sel_group, veh_from, EngineID::Invalid(), false);
 				break;
 			}
 
@@ -597,8 +604,9 @@ public:
 						Engine *engine = Engine::Get(item.variant_id);
 						engine->display_flags.Flip(EngineDisplayFlag::IsFolded);
 
-						InvalidateWindowData(WC_REPLACE_VEHICLE, this->window_number, 0); // Update the autoreplace window
-						InvalidateWindowClassesData(WC_BUILD_VEHICLE); // The build windows needs updating as well
+						InvalidateWindowData(WindowClass::ReplaceVehicle, (VehicleType)this->window_number, 0); // Update the autoreplace window
+						InvalidateWindowClassesData(WindowClass::BuildVehicle); // The build windows needs updating as well
+						InvalidateWindowClassesData(WindowClass::BuildVirtualTrain);
 						return;
 					}
 					if (!item.flags.Test(EngineDisplayFlag::Shaded)) e = item.engine_id;
@@ -609,7 +617,7 @@ public:
 				if (click_side == 0 && _ctrl_pressed && e != EngineID::Invalid() &&
 					(GetGroupNumEngines(_local_company, sel_group, e) == 0 || GetGroupNumEngines(_local_company, ALL_GROUP, e) == 0)) {
 						EngineID veh_from = e;
-						Command<CMD_SET_AUTOREPLACE>::Post(this->sel_group, veh_from, EngineID::Invalid(), false);
+						Command<Commands::SetAutoreplace>::Post(this->sel_group, veh_from, EngineID::Invalid(), false);
 						break;
 				}
 
@@ -631,7 +639,7 @@ public:
 			case WID_RV_SORT_DROPDOWN:
 				if (this->sort_criteria != index) {
 					this->sort_criteria = index;
-					_engine_sort_last_criteria[this->window_number] = this->sort_criteria;
+					_engine_sort_last_criteria[this->vehicle_type] = this->sort_criteria;
 					this->engines[1].ForceRebuild();
 					this->SetDirty();
 				}
@@ -703,179 +711,176 @@ public:
 
 static constexpr std::initializer_list<NWidgetPart> _nested_replace_rail_vehicle_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
-		NWidget(WWT_CAPTION, COLOUR_GREY, WID_RV_CAPTION),
-		NWidget(WWT_SHADEBOX, COLOUR_GREY),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_GREY),
-		NWidget(WWT_STICKYBOX, COLOUR_GREY),
+		NWidget(WWT_CLOSEBOX, Colours::Grey),
+		NWidget(WWT_CAPTION, Colours::Grey, WID_RV_CAPTION),
+		NWidget(WWT_SHADEBOX, Colours::Grey),
+		NWidget(WWT_DEFSIZEBOX, Colours::Grey),
+		NWidget(WWT_STICKYBOX, Colours::Grey),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY),
-			NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_REPLACE_VEHICLE_VEHICLES_IN_USE, STR_REPLACE_VEHICLE_VEHICLES_IN_USE_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+		NWidget(WWT_PANEL, Colours::Grey),
+			NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_REPLACE_VEHICLE_VEHICLES_IN_USE, STR_REPLACE_VEHICLE_VEHICLES_IN_USE_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 		EndContainer(),
-		NWidget(WWT_PANEL, COLOUR_GREY),
-			NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES, STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+		NWidget(WWT_PANEL, Colours::Grey),
+			NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES, STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
 		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_RAIL_TYPE_DROPDOWN), SetMinimalSize(136, 12), SetToolTip(STR_REPLACE_RAILTYPE_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
-				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_TRAIN_ENGINEWAGON_DROPDOWN), SetToolTip(STR_REPLACE_ENGINE_WAGON_SELECT_TOOLTIP),
+				NWidget(WWT_DROPDOWN, Colours::Grey, WID_RV_RAIL_TYPE_DROPDOWN), SetMinimalSize(136, 12), SetToolTip(STR_REPLACE_RAILTYPE_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
+				NWidget(WWT_DROPDOWN, Colours::Grey, WID_RV_TRAIN_ENGINEWAGON_DROPDOWN), SetToolTip(STR_REPLACE_ENGINE_WAGON_SELECT_TOOLTIP),
 			EndContainer(),
-			NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), EndContainer(),
+			NWidget(WWT_PANEL, Colours::Grey), SetResize(1, 0), EndContainer(),
 		EndContainer(),
 		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_SORT_ASCENDING_DESCENDING), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER), SetFill(1, 1),
-				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_SORT_DROPDOWN), SetResize(1, 0), SetFill(1, 1), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_SORT_ASCENDING_DESCENDING), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER), SetFill(1, 1),
+				NWidget(WWT_DROPDOWN, Colours::Grey, WID_RV_SORT_DROPDOWN), SetResize(1, 0), SetFill(1, 1), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_RV_SHOW_HIDDEN_ENGINES), SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP),
-				NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), SetFill(1, 1), EndContainer(),
+				NWidget(WWT_TEXTBTN, Colours::Grey, WID_RV_SHOW_HIDDEN_ENGINES), SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP),
+				NWidget(WWT_PANEL, Colours::Grey), SetResize(1, 0), SetFill(1, 1), EndContainer(),
 			EndContainer(),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_LEFT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_LEFT_SCROLLBAR),
-		NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_RIGHT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_RIGHT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_RIGHT_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_RIGHT_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::Grey, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_LEFT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Grey, WID_RV_LEFT_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::Grey, WID_RV_RIGHT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_RIGHT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_RIGHT_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Grey, WID_RV_RIGHT_SCROLLBAR),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_LEFT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_LEFT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
 		NWidget(NWID_VERTICAL),
-			NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_RIGHT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
-			NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_TRAIN_WAGONREMOVE_TOGGLE), SetMinimalSize(138, 12), SetToolTip(STR_REPLACE_REMOVE_WAGON_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
+			NWidget(WWT_PANEL, Colours::Grey, WID_RV_RIGHT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
+			NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_TRAIN_WAGONREMOVE_TOGGLE), SetMinimalSize(138, 12), SetToolTip(STR_REPLACE_REMOVE_WAGON_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(NWID_PUSHBUTTON_DROPDOWN, COLOUR_GREY, WID_RV_START_REPLACE), SetMinimalSize(139, 12), SetStringTip(STR_REPLACE_VEHICLES_START, STR_REPLACE_START_BUTTON_TOOLTIP),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_INFO_TAB), SetMinimalSize(167, 12), SetToolTip(STR_REPLACE_REPLACE_INFO_TAB_TOOLTIP), SetResize(1, 0),
+		NWidget(NWID_PUSHBUTTON_DROPDOWN, Colours::Grey, WID_RV_START_REPLACE), SetMinimalSize(139, 12), SetStringTip(STR_REPLACE_VEHICLES_START, STR_REPLACE_START_BUTTON_TOOLTIP),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_INFO_TAB), SetMinimalSize(167, 12), SetToolTip(STR_REPLACE_REPLACE_INFO_TAB_TOOLTIP), SetResize(1, 0),
 		EndContainer(),
-		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_STOP_REPLACE), SetMinimalSize(150, 12), SetStringTip(STR_REPLACE_VEHICLES_STOP, STR_REPLACE_STOP_BUTTON_TOOLTIP),
-		NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+		NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_STOP_REPLACE), SetMinimalSize(150, 12), SetStringTip(STR_REPLACE_VEHICLES_STOP, STR_REPLACE_STOP_BUTTON_TOOLTIP),
+		NWidget(WWT_RESIZEBOX, Colours::Grey),
 	EndContainer(),
 };
 
-static WindowDesc _replace_rail_vehicle_desc(
-	WDP_AUTO, "replace_vehicle_train", 500, 140,
-	WC_REPLACE_VEHICLE, WC_NONE,
+static WindowDesc _replace_rail_vehicle_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "replace_vehicle_train", 500, 140,
+	WindowClass::ReplaceVehicle, WindowClass::None,
 	WindowDefaultFlag::Construction,
 	_nested_replace_rail_vehicle_widgets
 );
 
 static constexpr std::initializer_list<NWidgetPart> _nested_replace_road_vehicle_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
-		NWidget(WWT_CAPTION, COLOUR_GREY, WID_RV_CAPTION),
-		NWidget(WWT_SHADEBOX, COLOUR_GREY),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_GREY),
-		NWidget(WWT_STICKYBOX, COLOUR_GREY),
+		NWidget(WWT_CLOSEBOX, Colours::Grey),
+		NWidget(WWT_CAPTION, Colours::Grey, WID_RV_CAPTION),
+		NWidget(WWT_SHADEBOX, Colours::Grey),
+		NWidget(WWT_DEFSIZEBOX, Colours::Grey),
+		NWidget(WWT_STICKYBOX, Colours::Grey),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY),
-			NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_REPLACE_VEHICLE_VEHICLES_IN_USE, STR_REPLACE_VEHICLE_VEHICLES_IN_USE_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+		NWidget(WWT_PANEL, Colours::Grey),
+			NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_REPLACE_VEHICLE_VEHICLES_IN_USE, STR_REPLACE_VEHICLE_VEHICLES_IN_USE_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 		EndContainer(),
-		NWidget(WWT_PANEL, COLOUR_GREY),
-			NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES, STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+		NWidget(WWT_PANEL, Colours::Grey),
+			NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES, STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
 		NWidget(NWID_VERTICAL),
-			NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_ROAD_TYPE_DROPDOWN), SetMinimalSize(136, 12), SetToolTip(STR_REPLACE_ROADTYPE_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
-			NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), EndContainer(),
+			NWidget(WWT_DROPDOWN, Colours::Grey, WID_RV_ROAD_TYPE_DROPDOWN), SetMinimalSize(136, 12), SetToolTip(STR_REPLACE_ROADTYPE_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
+			NWidget(WWT_PANEL, Colours::Grey), SetResize(1, 0), EndContainer(),
 		EndContainer(),
 		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_SORT_ASCENDING_DESCENDING), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER), SetFill(1, 1),
-				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_SORT_DROPDOWN), SetResize(1, 0), SetFill(1, 1), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_SORT_ASCENDING_DESCENDING), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER), SetFill(1, 1),
+				NWidget(WWT_DROPDOWN, Colours::Grey, WID_RV_SORT_DROPDOWN), SetResize(1, 0), SetFill(1, 1), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_RV_SHOW_HIDDEN_ENGINES), SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP),
-				NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), SetFill(1, 1), EndContainer(),
+				NWidget(WWT_TEXTBTN, Colours::Grey, WID_RV_SHOW_HIDDEN_ENGINES), SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP),
+				NWidget(WWT_PANEL, Colours::Grey), SetResize(1, 0), SetFill(1, 1), EndContainer(),
 			EndContainer(),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_LEFT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_LEFT_SCROLLBAR),
-		NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_RIGHT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_RIGHT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_RIGHT_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_RIGHT_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::Grey, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_LEFT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Grey, WID_RV_LEFT_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::Grey, WID_RV_RIGHT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_RIGHT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_RIGHT_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Grey, WID_RV_RIGHT_SCROLLBAR),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_LEFT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_RIGHT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_LEFT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_RIGHT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(NWID_PUSHBUTTON_DROPDOWN, COLOUR_GREY, WID_RV_START_REPLACE), SetMinimalSize(139, 12), SetStringTip(STR_REPLACE_VEHICLES_START, STR_REPLACE_START_BUTTON_TOOLTIP),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_INFO_TAB), SetMinimalSize(167, 12), SetToolTip(STR_REPLACE_REPLACE_INFO_TAB_TOOLTIP), SetResize(1, 0),
+		NWidget(NWID_PUSHBUTTON_DROPDOWN, Colours::Grey, WID_RV_START_REPLACE), SetMinimalSize(139, 12), SetStringTip(STR_REPLACE_VEHICLES_START, STR_REPLACE_START_BUTTON_TOOLTIP),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_INFO_TAB), SetMinimalSize(167, 12), SetToolTip(STR_REPLACE_REPLACE_INFO_TAB_TOOLTIP), SetResize(1, 0),
 		EndContainer(),
-		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_STOP_REPLACE), SetMinimalSize(150, 12), SetStringTip(STR_REPLACE_VEHICLES_STOP, STR_REPLACE_STOP_BUTTON_TOOLTIP),
-		NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+		NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_STOP_REPLACE), SetMinimalSize(150, 12), SetStringTip(STR_REPLACE_VEHICLES_STOP, STR_REPLACE_STOP_BUTTON_TOOLTIP),
+		NWidget(WWT_RESIZEBOX, Colours::Grey),
 	EndContainer(),
 };
 
-static WindowDesc _replace_road_vehicle_desc(
-	WDP_AUTO, "replace_vehicle_road", 500, 140,
-	WC_REPLACE_VEHICLE, WC_NONE,
+static WindowDesc _replace_road_vehicle_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "replace_vehicle_road", 500, 140,
+	WindowClass::ReplaceVehicle, WindowClass::None,
 	WindowDefaultFlag::Construction,
 	_nested_replace_road_vehicle_widgets
 );
 
 static constexpr std::initializer_list<NWidgetPart> _nested_replace_vehicle_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
-		NWidget(WWT_CAPTION, COLOUR_GREY, WID_RV_CAPTION), SetMinimalSize(433, 14),
-		NWidget(WWT_SHADEBOX, COLOUR_GREY),
-		NWidget(WWT_DEFSIZEBOX, COLOUR_GREY),
-		NWidget(WWT_STICKYBOX, COLOUR_GREY),
+		NWidget(WWT_CLOSEBOX, Colours::Grey),
+		NWidget(WWT_CAPTION, Colours::Grey, WID_RV_CAPTION), SetMinimalSize(433, 14),
+		NWidget(WWT_SHADEBOX, Colours::Grey),
+		NWidget(WWT_DEFSIZEBOX, Colours::Grey),
+		NWidget(WWT_STICKYBOX, Colours::Grey),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY),
-			NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_REPLACE_VEHICLE_VEHICLES_IN_USE, STR_REPLACE_VEHICLE_VEHICLES_IN_USE_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+		NWidget(WWT_PANEL, Colours::Grey),
+			NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_REPLACE_VEHICLE_VEHICLES_IN_USE, STR_REPLACE_VEHICLE_VEHICLES_IN_USE_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 		EndContainer(),
-		NWidget(WWT_PANEL, COLOUR_GREY),
-			NWidget(WWT_LABEL, INVALID_COLOUR), SetStringTip(STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES, STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
+		NWidget(WWT_PANEL, Colours::Grey),
+			NWidget(WWT_LABEL, Colours::Invalid), SetStringTip(STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES, STR_REPLACE_VEHICLE_AVAILABLE_VEHICLES_TOOLTIP), SetFill(1, 1), SetMinimalTextLines(1, WidgetDimensions::unscaled.framerect.Vertical()), SetResize(1, 0),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PANEL, Colours::Grey), SetResize(1, 0), EndContainer(),
 		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_SORT_ASCENDING_DESCENDING), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER),
-				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_SORT_DROPDOWN), SetResize(1, 0), SetFill(1, 1), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_SORT_ASCENDING_DESCENDING), SetStringTip(STR_BUTTON_SORT_BY, STR_TOOLTIP_SORT_ORDER),
+				NWidget(WWT_DROPDOWN, Colours::Grey, WID_RV_SORT_DROPDOWN), SetResize(1, 0), SetFill(1, 1), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
 			EndContainer(),
-			NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_LEFT_DETAILS), SetMinimalSize(228, 92), SetResize(1, 0), EndContainer(),
-		EndContainer(),
-		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL),
-				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_RV_SHOW_HIDDEN_ENGINES), SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP),
-				NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), SetFill(1, 1), EndContainer(),
+				NWidget(WWT_TEXTBTN, Colours::Grey, WID_RV_SHOW_HIDDEN_ENGINES), SetStringTip(STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN, STR_SHOW_HIDDEN_ENGINES_VEHICLE_TRAIN_TOOLTIP),
+				NWidget(WWT_PANEL, Colours::Grey), SetResize(1, 0), SetFill(1, 1), EndContainer(),
 			EndContainer(),
 		EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_LEFT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_LEFT_SCROLLBAR),
-		NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_RIGHT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_RIGHT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_RIGHT_SCROLLBAR),
-		NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_RIGHT_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::Grey, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_LEFT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Grey, WID_RV_LEFT_SCROLLBAR),
+		NWidget(WWT_MATRIX, Colours::Grey, WID_RV_RIGHT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_RIGHT_ARRAY_TOOLTIP), SetResize(1, 1), SetScrollbar(WID_RV_RIGHT_SCROLLBAR),
+		NWidget(NWID_VSCROLLBAR, Colours::Grey, WID_RV_RIGHT_SCROLLBAR),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_LEFT_DETAILS), SetMinimalSize(228, 92), SetResize(1, 0), EndContainer(),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_RIGHT_DETAILS), SetMinimalSize(228, 92), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_LEFT_DETAILS), SetMinimalSize(228, 92), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_RIGHT_DETAILS), SetMinimalSize(228, 92), SetResize(1, 0), EndContainer(),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(NWID_PUSHBUTTON_DROPDOWN, COLOUR_GREY, WID_RV_START_REPLACE), SetMinimalSize(139, 12), SetStringTip(STR_REPLACE_VEHICLES_START, STR_REPLACE_START_BUTTON_TOOLTIP),
-		NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_INFO_TAB), SetMinimalSize(167, 12), SetToolTip(STR_REPLACE_REPLACE_INFO_TAB_TOOLTIP), SetResize(1, 0), EndContainer(),
-		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_STOP_REPLACE), SetMinimalSize(138, 12), SetStringTip(STR_REPLACE_VEHICLES_STOP, STR_REPLACE_STOP_BUTTON_TOOLTIP),
-		NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+		NWidget(NWID_PUSHBUTTON_DROPDOWN, Colours::Grey, WID_RV_START_REPLACE), SetMinimalSize(139, 12), SetStringTip(STR_REPLACE_VEHICLES_START, STR_REPLACE_START_BUTTON_TOOLTIP),
+		NWidget(WWT_PANEL, Colours::Grey, WID_RV_INFO_TAB), SetMinimalSize(167, 12), SetToolTip(STR_REPLACE_REPLACE_INFO_TAB_TOOLTIP), SetResize(1, 0), EndContainer(),
+		NWidget(WWT_PUSHTXTBTN, Colours::Grey, WID_RV_STOP_REPLACE), SetMinimalSize(138, 12), SetStringTip(STR_REPLACE_VEHICLES_STOP, STR_REPLACE_STOP_BUTTON_TOOLTIP),
+		NWidget(WWT_RESIZEBOX, Colours::Grey),
 	EndContainer(),
 };
 
-static WindowDesc _replace_vehicle_desc(
-	WDP_AUTO, "replace_vehicle", 456, 118,
-	WC_REPLACE_VEHICLE, WC_NONE,
+static WindowDesc _replace_vehicle_desc(__FILE__, __LINE__,
+	WindowPosition::Automatic, "replace_vehicle", 456, 118,
+	WindowClass::ReplaceVehicle, WindowClass::None,
 	WindowDefaultFlag::Construction,
 	_nested_replace_vehicle_widgets
 );
@@ -887,10 +892,10 @@ static WindowDesc _replace_vehicle_desc(
  */
 void ShowReplaceGroupVehicleWindow(GroupID id_g, VehicleType vehicletype)
 {
-	CloseWindowById(WC_REPLACE_VEHICLE, vehicletype);
+	CloseWindowById(WindowClass::ReplaceVehicle, vehicletype);
 	switch (vehicletype) {
-		case VEH_TRAIN: new ReplaceVehicleWindow(_replace_rail_vehicle_desc, vehicletype, id_g); break;
-		case VEH_ROAD:  new ReplaceVehicleWindow(_replace_road_vehicle_desc, vehicletype, id_g); break;
-		default:        new ReplaceVehicleWindow(_replace_vehicle_desc, vehicletype, id_g);      break;
+		case VehicleType::Train: new ReplaceVehicleWindow(_replace_rail_vehicle_desc, vehicletype, id_g); break;
+		case VehicleType::Road: new ReplaceVehicleWindow(_replace_road_vehicle_desc, vehicletype, id_g); break;
+		default: new ReplaceVehicleWindow(_replace_vehicle_desc, vehicletype, id_g); break;
 	}
 }

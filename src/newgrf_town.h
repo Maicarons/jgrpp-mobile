@@ -34,8 +34,26 @@ struct TownScopeResolver : public ScopeResolver {
 	{
 	}
 
-	uint32_t GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const override;
-	void StorePSA(uint reg, int32_t value) override;
+	virtual uint32_t GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const override;
+	virtual void StorePSA(uint reg, int32_t value) override;
+};
+
+/**
+ * Fake scope resolver for nonexistent towns.
+ *
+ * The purpose of this class is to provide a house resolver for a given house type
+ * but not an actual house instatntion. We need this when e.g. drawing houses in
+ * GUI to keep backward compatibility with GRFs that were created before this
+ * functionality. When querying house sprites, certain GRF may read various town
+ * variables e.g. the population. Since the building doesn't exists and is not
+ * bounded to any town we have no real values that we can return. Instead of
+ * failing, this resolver will return fake values.
+ */
+struct FakeTownScopeResolver : public ScopeResolver {
+	FakeTownScopeResolver(ResolverObject &ro) : ScopeResolver(ro)
+	{ }
+
+	virtual uint32_t GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const override;
 };
 
 /** Resolver of town properties. */
@@ -44,7 +62,7 @@ struct TownResolverObject : public ResolverObject {
 
 	TownResolverObject(const struct GRFFile *grffile, Town *t, bool readonly);
 
-	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, uint8_t relative = 0) override
+	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, VarSpriteGroupScopeOffset relative = 0) override
 	{
 		switch (scope) {
 			case VSG_SCOPE_SELF: return &town_scope;

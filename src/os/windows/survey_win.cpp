@@ -9,13 +9,15 @@
 
 #include "../../stdafx.h"
 
-#include "../../3rdparty/fmt/format.h"
-#include "../../survey.h"
+#include "../../core/format.hpp"
+#include "../../3rdparty/nlohmann/json.hpp"
 
 #include <thread>
 #include <windows.h>
 
 #include "../../safeguards.h"
+
+extern std::string SurveyMemoryToText(uint64_t memory);
 
 void SurveyOS(nlohmann::json &json)
 {

@@ -11,11 +11,16 @@
 #define WINDOW_FUNC_H
 
 #include "window_type.h"
+#include "window_type_trait.h"
 #include "company_type.h"
+#include "core/enum_type.hpp"
 #include "core/geometry_type.hpp"
+
+#include <bitset>
 
 Window *FindWindowById(WindowClass cls, WindowNumber number);
 Window *FindWindowByClass(WindowClass cls);
+Window *FindWindowByToken(WindowToken token);
 Window *GetMainWindow();
 void ChangeWindowOwner(Owner old_owner, Owner new_owner);
 
@@ -35,15 +40,26 @@ void SetupColoursAndInitialWindow();
 void InputLoop();
 
 void InvalidateWindowData(WindowClass cls, WindowNumber number, int data = 0, bool gui_scope = false);
-void InvalidateWindowData(WindowClass cls, WindowNumber number, ConvertibleThroughBase auto data, bool gui_scope = false) { InvalidateWindowData(cls, number, data.base(), gui_scope); }
+
+template <typename T> requires std::is_base_of_v<struct PoolIDBase, T>
+void InvalidateWindowData(WindowClass cls, WindowNumber number, T data, bool gui_scope = false) { InvalidateWindowData(cls, number, data.base(), gui_scope); }
+
+template <typename T> requires is_convertible_to_window_invalidation_data_v<T>
+void InvalidateWindowData(WindowClass cls, WindowNumber number, T data, bool gui_scope = false) { InvalidateWindowData(cls, number, to_underlying(data), gui_scope); }
+
 void InvalidateWindowClassesData(WindowClass cls, int data = 0, bool gui_scope = false);
-void InvalidateWindowClassesData(WindowClass cls, ConvertibleThroughBase auto data, bool gui_scope = false) { InvalidateWindowClassesData(cls, data.base(), gui_scope); }
+
+template <typename T> requires std::is_base_of_v<struct PoolIDBase, T>
+void InvalidateWindowClassesData(WindowClass cls, T data, bool gui_scope = false) { InvalidateWindowClassesData(cls, data.base(), gui_scope); }
+
+template <typename T> requires is_convertible_to_window_invalidation_data_v<T>
+void InvalidateWindowClassesData(WindowClass cls, T data, bool gui_scope = false) { InvalidateWindowClassesData(cls, to_underlying(data), gui_scope); }
 
 void CloseNonVitalWindows();
 void CloseAllNonVitalWindows();
 void DeleteAllMessages();
-void CloseToolbarLinkedWindows();
 void CloseConstructionWindows();
+void CloseNetworkClientWindows();
 void HideVitalWindows();
 void ShowVitalWindows();
 
@@ -58,10 +74,35 @@ void SetWindowDirty(WindowClass cls, WindowNumber number);
 void SetWindowClassesDirty(WindowClass cls);
 
 void CloseWindowById(WindowClass cls, WindowNumber number, bool force = true, int data = 0);
+void CloseAllWindowsById(WindowClass cls, WindowNumber number, bool force = true, int data = 0);
 void CloseWindowByClass(WindowClass cls, int data = 0);
+
+bool FocusWindowById(WindowClass cls, WindowNumber number);
+
+class WindowClassBitset {
+	std::bitset<to_underlying(WindowClass::End)> data{};
+
+public:
+	bool operator[](WindowClass wc) const { return wc < WindowClass::End ? this->data[to_underlying(wc)] : false; }
+	void set(WindowClass wc) { this->data.set(to_underlying(wc)); }
+	void reset(WindowClass wc) { this->data.reset(to_underlying(wc)); }
+	void clear() { this->data.reset(); }
+	bool none() const { return this->data.none(); }
+
+	void operator &=(const WindowClassBitset other) { this->data &= other.data; }
+};
+
+inline bool HaveWindowByClass(WindowClass wc)
+{
+	extern WindowClassBitset _present_window_types;
+	return _present_window_types[wc];
+}
 
 bool EditBoxInGlobalFocus();
 bool FocusedWindowIsConsole();
+bool FocusedWindowSuppressesTabToFastForward();
 Point GetCaretPosition();
+
+void DumpWindowInfo(struct format_target &buffer, const Window *w);
 
 #endif /* WINDOW_FUNC_H */

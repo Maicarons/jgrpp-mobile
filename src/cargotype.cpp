@@ -9,11 +9,14 @@
 
 #include "stdafx.h"
 #include "cargotype.h"
+#include "core/format.hpp"
 #include "core/geometry_func.hpp"
+#include "gfx_func.h"
 #include "newgrf_cargo.h"
 #include "string_func.h"
 #include "strings_func.h"
 #include "settings_type.h"
+#include "3rdparty/cpp-btree/btree_map.h"
 
 #include "table/sprites.h"
 #include "table/strings.h"
@@ -22,7 +25,8 @@
 #include "safeguards.h"
 
 CargoSpec CargoSpec::array[NUM_CARGO];
-std::array<std::vector<const CargoSpec *>, NUM_TPE> CargoSpec::town_production_cargoes{};
+EnumIndexArray<std::vector<CargoType>, TownProductionEffect, TownProductionEffect::End> CargoSpec::town_production_cargoes{};
+EnumIndexArray<CargoTypes, TownProductionEffect, TownProductionEffect::End> CargoSpec::town_production_cargo_mask{};
 
 /**
  * Bitmask of cargo types available. This includes phony cargoes like regearing cargoes.
@@ -40,6 +44,10 @@ CargoTypes _standard_cargo_mask;
  * This is done by label so that a cargo label can be redefined in a different slot.
  */
 static std::vector<CargoLabel> _default_cargo_labels;
+
+static btree::btree_map<CargoLabel, CargoType> _cargo_label_map; ///< Translation map from CargoLabel to Cargo ID.
+CargoType _cargo_id_passengers = INVALID_CARGO;
+CargoType _cargo_id_mail = INVALID_CARGO;
 
 /**
  * Default cargo translation for up to version 7 NewGRFs.
@@ -63,7 +71,7 @@ void SetupCargoForClimate(LandscapeType l)
 {
 	assert(to_underlying(l) < std::size(_default_climate_cargo));
 
-	_cargo_mask = 0;
+	_cargo_mask.Reset();
 	_default_cargo_labels.clear();
 	_climate_dependent_cargo_labels.fill(CT_INVALID);
 	_climate_independent_cargo_labels.fill(CT_INVALID);
@@ -92,7 +100,7 @@ void SetupCargoForClimate(LandscapeType l)
 		*insert = std::visit(visitor{}, cl);
 
 		if (insert->IsValid()) {
-			SetBit(_cargo_mask, insert->Index());
+			_cargo_mask.Set(insert->Index());
 			_default_cargo_labels.push_back(insert->label);
 			_climate_dependent_cargo_labels[insert->Index()] = insert->label;
 			_climate_independent_cargo_labels[insert->bitnum] = insert->label;
@@ -131,15 +139,17 @@ std::span<const CargoLabel> GetClimateIndependentCargoTranslationTable()
  */
 void BuildCargoLabelMap()
 {
-	CargoSpec::label_map.clear();
+	_cargo_label_map.clear();
 	for (const CargoSpec &cs : CargoSpec::array) {
 		/* During initialization, CargoSpec can be marked valid before the label has been set. */
 		if (!cs.IsValid() || cs.label == CargoLabel{} || cs.label == CT_INVALID) continue;
 		/* Label already exists, don't add again. */
-		if (CargoSpec::label_map.count(cs.label) != 0) continue;
+		if (_cargo_label_map.count(cs.label) != 0) continue;
 
-		CargoSpec::label_map.emplace(cs.label, cs.Index());
+		_cargo_label_map.insert(std::make_pair(cs.label, cs.Index()));
 	}
+	_cargo_id_passengers = GetCargoIDByLabelUsingMap(CT_PASSENGERS);
+	_cargo_id_mail = GetCargoIDByLabelUsingMap(CT_MAIL);
 }
 
 /**
@@ -169,6 +179,13 @@ Dimension GetLargestCargoIconSize()
 	return size;
 }
 
+CargoType GetCargoIDByLabelUsingMap(CargoLabel label)
+{
+	auto found = _cargo_label_map.find(label);
+	if (found != _cargo_label_map.end()) return found->second;
+	return INVALID_CARGO;
+}
+
 /**
  * Get sprite for showing cargo of this type.
  * @return Sprite number to use.
@@ -186,15 +203,17 @@ SpriteID CargoSpec::GetCargoIcon() const
 	return sprite;
 }
 
-std::array<uint8_t, NUM_CARGO> _sorted_cargo_types; ///< Sort order of cargoes by cargo type.
-std::vector<const CargoSpec *> _sorted_cargo_specs;   ///< Cargo specifications sorted alphabetically by name.
+std::array<uint8_t, NUM_CARGO> _sorted_cargo_types;        ///< Sort order of cargoes by cargo ID.
+std::vector<const CargoSpec *> _sorted_cargo_specs;        ///< Cargo specifications sorted alphabetically by name.
 std::span<const CargoSpec *> _sorted_standard_cargo_specs; ///< Standard cargo specifications sorted alphabetically by name.
 
-/** Sort cargo specifications by their name. */
+/** Sort cargo specifications by their name. @copydoc GUIList::Sorter */
 static bool CargoSpecNameSorter(const CargoSpec * const &a, const CargoSpec * const &b)
 {
-	std::string a_name = GetString(a->name);
-	std::string b_name = GetString(b->name);
+	format_buffer a_name;
+	format_buffer b_name;
+	AppendStringInPlace(a_name, a->name);
+	AppendStringInPlace(b_name, b->name);
 
 	int res = StrNaturalCompare(a_name, b_name); // Sort by name (natural sorting).
 
@@ -202,7 +221,7 @@ static bool CargoSpecNameSorter(const CargoSpec * const &a, const CargoSpec * co
 	return (res != 0) ? res < 0 : (a->bitnum < b->bitnum);
 }
 
-/** Sort cargo specifications by their cargo class. */
+/** Sort cargo specifications by their cargo class. @copydoc GUIList::Sorter */
 static bool CargoSpecClassSorter(const CargoSpec * const &a, const CargoSpec * const &b)
 {
 	int res = b->classes.Test(CargoClass::Passengers) - a->classes.Test(CargoClass::Passengers);
@@ -223,6 +242,7 @@ static bool CargoSpecClassSorter(const CargoSpec * const &a, const CargoSpec * c
 void InitializeSortedCargoSpecs()
 {
 	for (auto &tpc : CargoSpec::town_production_cargoes) tpc.clear();
+	for (auto &tpc : CargoSpec::town_production_cargo_mask) tpc = CargoTypes{};
 	_sorted_cargo_specs.clear();
 	/* Add each cargo spec to the list, and determine the largest cargo icon size. */
 	for (const CargoSpec *cargo : CargoSpec::Iterate()) {
@@ -238,14 +258,15 @@ void InitializeSortedCargoSpecs()
 	}
 
 	/* Count the number of standard cargos and fill the mask. */
-	_standard_cargo_mask = 0;
+	_standard_cargo_mask.Reset();
 	uint8_t nb_standard_cargo = 0;
 	for (const auto &cargo : _sorted_cargo_specs) {
-		assert(cargo->town_production_effect != INVALID_TPE);
-		CargoSpec::town_production_cargoes[cargo->town_production_effect].push_back(cargo);
+		assert(cargo->town_production_effect != TownProductionEffect::Invalid);
+		CargoSpec::town_production_cargoes[cargo->town_production_effect].push_back(cargo->Index());
+		CargoSpec::town_production_cargo_mask[cargo->town_production_effect].Set(cargo->Index());
 		if (cargo->classes.Test(CargoClass::Special)) break;
 		nb_standard_cargo++;
-		SetBit(_standard_cargo_mask, cargo->Index());
+		_standard_cargo_mask.Set(cargo->Index());
 	}
 
 	/* _sorted_standard_cargo_specs is a subset of _sorted_cargo_specs. */
@@ -268,26 +289,27 @@ std::optional<std::string> BuildCargoAcceptanceString(const CargoArray &acceptan
 {
 	std::string_view list_separator = GetListSeparator();
 
-	std::stringstream line;
+	/* Cargo acceptance is displayed in a extra multiline */
+	format_buffer line;
 
 	bool found = false;
 	for (const CargoSpec *cs : _sorted_cargo_specs) {
 		CargoType cargo_type = cs->Index();
 		if (acceptance[cargo_type] > 0) {
 			/* Add a comma between each item. */
-			if (found) line << list_separator;
+			if (found) line.append(list_separator);
 			found = true;
 
 			/* If the accepted value is less than 8, show it in 1/8:ths */
 			if (acceptance[cargo_type] < 8) {
-				line << GetString(STR_LAND_AREA_INFORMATION_CARGO_EIGHTS, acceptance[cargo_type], cs->name);
+				AppendStringInPlace(line, STR_LAND_AREA_INFORMATION_CARGO_EIGHTS, acceptance[cargo_type], cs->name);
 			} else {
-				line << GetString(cs->name);
+				AppendStringInPlace(line, cs->name);
 			}
 		}
 	}
 
-	if (found) return GetString(label, line.str());
+	if (found) return GetString(label, line);
 
 	return std::nullopt;
 }

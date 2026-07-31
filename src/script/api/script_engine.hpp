@@ -15,6 +15,7 @@
 #include "script_rail.hpp"
 #include "script_airport.hpp"
 #include "script_date.hpp"
+#include <optional>
 
 /**
  * Class that handles all engine related functions.

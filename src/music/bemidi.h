@@ -18,7 +18,7 @@
 /** The midi player for BeOS. */
 class MusicDriver_BeMidi : public MusicDriver {
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -29,7 +29,7 @@ public:
 	bool IsSongPlaying() override;
 
 	void SetVolume(uint8_t vol) override;
-	std::string_view GetName() const override { return "bemidi"; }
+	const char *GetName() const override { return "bemidi"; }
 
 private:
 	BMidiSynthFile *midi_synth_file = nullptr;
@@ -40,7 +40,7 @@ private:
 /** Factory for the BeOS midi player. */
 class FMusicDriver_BeMidi : public DriverFactoryBase {
 public:
-	FMusicDriver_BeMidi() : DriverFactoryBase(Driver::DT_MUSIC, 10, "bemidi", "BeOS MIDI Driver") {}
+	FMusicDriver_BeMidi() : DriverFactoryBase(Driver::Type::Music, 10, "bemidi", "BeOS MIDI Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<MusicDriver_BeMidi>(); }
 };
 

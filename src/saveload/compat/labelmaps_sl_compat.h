@@ -12,9 +12,13 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _label_object_desc. */
 const SaveLoadCompat _label_object_sl_compat[] = {
 	SLC_VAR("label"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_LABELMAPS_H */

@@ -14,7 +14,7 @@
 
 class MusicDriver_Cocoa : public MusicDriver {
 public:
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 
 	void Stop() override;
 
@@ -25,12 +25,12 @@ public:
 	bool IsSongPlaying() override;
 
 	void SetVolume(uint8_t vol) override;
-	std::string_view GetName() const override { return "cocoa"; }
+	const char *GetName() const override { return "cocoa"; }
 };
 
 class FMusicDriver_Cocoa : public DriverFactoryBase {
 public:
-	FMusicDriver_Cocoa() : DriverFactoryBase(Driver::DT_MUSIC, 10, "cocoa", "Cocoa MIDI Driver") {}
+	FMusicDriver_Cocoa() : DriverFactoryBase(Driver::Type::Music, 10, "cocoa", "Cocoa MIDI Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<MusicDriver_Cocoa>(); }
 };
 

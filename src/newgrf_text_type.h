@@ -5,15 +5,19 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file newgrf_text_type.h Header of Action 04 "universal holder" structure */
+/** @file newgrf_text_type.h Header of Action 04 "universal holder" structure. */
 
 #ifndef NEWGRF_TEXT_TYPE_H
 #define NEWGRF_TEXT_TYPE_H
 
 #include "core/strong_typedef_type.hpp"
 
+#include <utility>
+#include <vector>
+
 /** Type for GRF-internal string IDs. */
-using GRFStringID = StrongType::Typedef<uint32_t, struct GRFStringIDTag, StrongType::Compare, StrongType::Integer>;
+struct GRFStringIDTag : public StrongType::TypedefTraits<uint32_t, StrongType::Compare, StrongType::Integer> {};
+using GRFStringID = StrongType::Typedef<GRFStringIDTag>;
 
 static constexpr GRFStringID GRFSTR_MISC_GRF_TEXT{0xD000}; ///< Miscellaneous GRF text range.
 

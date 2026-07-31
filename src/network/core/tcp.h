@@ -5,18 +5,20 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file tcp.h Basic functions to receive and send TCP packets.
- */
+/** @file tcp.h Basic functions to receive and send TCP packets. */
 
 #ifndef NETWORK_CORE_TCP_H
 #define NETWORK_CORE_TCP_H
 
 #include "address.h"
 #include "packet.h"
+#include "../../3rdparty/cpp-ring-buffer/ring_buffer.hpp"
 
 #include <atomic>
 #include <chrono>
+#include <map>
+#include <memory>
+#include <vector>
 #include <thread>
 
 /** The states of sending the packets. */
@@ -30,10 +32,9 @@ enum SendPacketsState : uint8_t {
 /** Base socket handler for all TCP sockets */
 class NetworkTCPSocketHandler : public NetworkSocketHandler {
 private:
-	std::deque<std::unique_ptr<Packet>> packet_queue{}; ///< Packets that are awaiting delivery. Cannot be std::queue as that does not have a clear() function.
-	std::unique_ptr<Packet> packet_recv = nullptr; ///< Partially received packet
+	jgr::ring_buffer<std::unique_ptr<Packet>> packet_queue{}; ///< Packets that are awaiting delivery
+	std::unique_ptr<Packet> packet_recv = nullptr;            ///< Partially received packet
 
-	void EmptyPacketQueue();
 public:
 	SOCKET sock = INVALID_SOCKET; ///< The socket currently connected to
 	bool writable = false; ///< Can we write to this socket?
@@ -47,10 +48,14 @@ public:
 	virtual NetworkRecvStatus CloseConnection(bool error = true);
 	void CloseSocket();
 
-	virtual void SendPacket(std::unique_ptr<Packet> &&packet);
+	void SendPacket(std::unique_ptr<Packet> packet);
+	void SendPrependPacket(std::unique_ptr<Packet> packet, int queue_after_packet_type);
+	void ShrinkToFitSendQueue();
+
 	SendPacketsState SendPackets(bool closing_down = false);
 
 	virtual std::unique_ptr<Packet> ReceivePacket();
+	virtual void LogSentPacket(const Packet &pkt);
 
 	bool CanSendReceive();
 
@@ -65,7 +70,7 @@ public:
 	 * @param s The just opened TCP connection.
 	 */
 	NetworkTCPSocketHandler(SOCKET s = INVALID_SOCKET) : sock(s) {}
-	~NetworkTCPSocketHandler();
+	~NetworkTCPSocketHandler() override;
 };
 
 /**
@@ -152,6 +157,7 @@ public:
 	}
 };
 
+/** TCPConnecter that resolves the server invite code if needed before connecting. */
 class TCPServerConnecter : public TCPConnecter {
 private:
 	SOCKET socket = INVALID_SOCKET; ///< The socket when a connection is established.

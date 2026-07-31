@@ -5,10 +5,13 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file kdtree.hpp K-d tree template specialised for 2-dimensional Manhattan geometry */
+/** @file kdtree.hpp K-d tree template specialised for 2-dimensional Manhattan geometry. */
 
 #ifndef KDTREE_HPP
 #define KDTREE_HPP
+
+#include <vector>
+#include <limits>
 
 /**
  * K-dimensional tree, specialised for 2-dimensional space.
@@ -48,7 +51,11 @@ class Kdtree {
 	size_t root;                   ///< Index of root node
 	size_t unbalanced;             ///< Number approximating how unbalanced the tree might be
 
-	/** Create one new node in the tree, return its index in the pool */
+	/**
+	 * Create one new node in the tree
+	 * @param element The element to add.
+	 * @return The element's index in the pool.
+	 */
 	size_t AddNode(const T &element)
 	{
 		if (this->free_list.empty()) {
@@ -62,7 +69,13 @@ class Kdtree {
 		}
 	}
 
-	/** Find a coordinate value to split a range of elements at */
+	/**
+	 * Find a coordinate value to split a range of elements at.
+	 * @param begin The begin of the range to consider.
+	 * @param end The end of the range to consider.
+	 * @param level The depth into the tree.
+	 * @return The coordinate to split at.
+	 */
 	template <typename It>
 	CoordT SelectSplitCoord(It begin, It end, int level)
 	{
@@ -71,7 +84,13 @@ class Kdtree {
 		return TxyFunc()(*mid, level % 2);
 	}
 
-	/** Construct a subtree from elements between begin and end iterators, return index of root */
+	/**
+	 * Construct a subtree from elements between begin and end iterators.
+	 * @param begin The begin of the range to consider.
+	 * @param end The end of the range to consider.
+	 * @param level The depth into the tree.
+	 * @return The index of root.
+	 */
 	template <typename It>
 	size_t BuildSubtree(It begin, It end, int level)
 	{
@@ -93,7 +112,12 @@ class Kdtree {
 		}
 	}
 
-	/** Rebuild the tree with all existing elements, optionally adding or removing one more */
+	/**
+	 * Rebuild the tree with all existing elements, optionally adding or removing one more.
+	 * @param include_element Element to add to the tree, if not \c nullptr.
+	 * @param exclude_element Element to remove from the tree, if not \c nullptr.
+	 * @return \c true iff the tree is still considered balanced.
+	 */
 	bool Rebuild(const T *include_element, const T *exclude_element)
 	{
 		size_t initial_count = this->Count();
@@ -114,11 +138,16 @@ class Kdtree {
 		}
 
 		this->Build(elements.begin(), elements.end());
-		assert(initial_count == this->Count());
+		dbg_assert(initial_count == this->Count());
 		return true;
 	}
 
-	/** Insert one element in the tree somewhere below node_idx */
+	/**
+	 * Insert one element in the tree somewhere below node_idx.
+	 * @param element The element to insert.
+	 * @param node_idx The root of the sub-tree to try to insert to.
+	 * @param level The current depth in the tree.
+	 */
 	void InsertRecursive(const T &element, size_t node_idx, int level)
 	{
 		/* Dimension index of current level */
@@ -145,7 +174,8 @@ class Kdtree {
 	}
 
 	/**
-	 * Free all children of the given node
+	 * Free all children of the given node.
+	 * @param node_idx The root node.
 	 * @return Collection of elements that were removed from tree.
 	 */
 	std::vector<T> FreeSubtree(size_t node_idx)
@@ -205,7 +235,7 @@ class Kdtree {
 			CoordT ec = TxyFunc()(element, dim);
 			/* Which side to remove from */
 			size_t next = (ec < nc) ? n.left : n.right;
-			assert(next != INVALID_NODE); // node must exist somewhere and must be found before a leaf is reached
+			dbg_assert(next != INVALID_NODE); // node must exist somewhere and must be found before a leaf is reached
 			/* Descend */
 			size_t new_branch = this->RemoveRecursive(element, next, level + 1);
 			if (new_branch != next) {
@@ -225,7 +255,12 @@ class Kdtree {
 
 	/** A data element and its distance to a searched-for point */
 	using node_distance = std::pair<T, DistT>;
-	/** Ordering function for node_distance objects, elements with equal distance are ordered by less-than comparison */
+	/**
+	 * Ordering function for node_distance objects, elements with equal distance are ordered by less-than comparison.
+	 * @param a The first distance to compare.
+	 * @param b The second distance to compare.
+	 * @return The nearest distance.
+	 */
 	static node_distance SelectNearestNodeDistance(const node_distance &a, const node_distance &b)
 	{
 		if (a.second < b.second) return a;
@@ -234,7 +269,14 @@ class Kdtree {
 		if (b.first < a.first) return b;
 		NOT_REACHED(); // a.first == b.first: same element must not be inserted twice
 	}
-	/** Search a sub-tree for the element nearest to a given point */
+	/**
+	 * Search a sub-tree for the element nearest to a given point.
+	 * @param xy The coordinate to start from.
+	 * @param node_idx The root node to start from.
+	 * @param level The current search level.
+	 * @param limit Distance to limit searching at.
+	 * @return The distance to the nearest element.
+	 */
 	node_distance FindNearestRecursive(CoordT xy[2], size_t node_idx, int level, DistT limit = std::numeric_limits<DistT>::max()) const
 	{
 		/* Dimension index of current level */
@@ -292,7 +334,12 @@ class Kdtree {
 		if (p2[dim] > ec && n.right != INVALID_NODE) this->FindContainedRecursive(p1, p2, n.right, level + 1, outputter);
 	}
 
-	/** Debugging function, counts number of occurrences of an element regardless of its correct position in the tree */
+	/**
+	 * Debugging function, counts number of occurrences of an element regardless of its correct position in the tree.
+	 * @param element The element to look for.
+	 * @param node_idx The root to start searching from.
+	 * @return The number of occurrences.
+	 */
 	size_t CountValue(const T &element, size_t node_idx) const
 	{
 		if (node_idx == INVALID_NODE) return 0;
@@ -305,7 +352,10 @@ class Kdtree {
 		this->unbalanced += amount;
 	}
 
-	/** Check if the entire tree is in need of rebuilding */
+	/**
+	 * Check if the entire tree is in need of rebuilding.
+	 * @return \c true iff the tree should be rebalanced.
+	 */
 	bool IsUnbalanced() const
 	{
 		size_t count = this->Count();
@@ -313,7 +363,15 @@ class Kdtree {
 		return this->unbalanced > count / 4;
 	}
 
-	/** Verify that the invariant is true for a sub-tree, assert if not */
+	/**
+	 * Verify that the invariant is true for a sub-tree, assert if not.
+	 * @param node_idx The root of the sub-tree.
+	 * @param level The current level in the tree.
+	 * @param min_x The expected minimum X-coordinate.
+	 * @param max_x The expected maximum X-coordinate.
+	 * @param min_y The expected minimum Y-coordinate.
+	 * @param max_y The expected maximum Y-coordinate.
+	 */
 	void CheckInvariant(size_t node_idx, int level, CoordT min_x, CoordT max_x, CoordT min_y, CoordT max_y) const
 	{
 		if (node_idx == INVALID_NODE) return;
@@ -322,10 +380,10 @@ class Kdtree {
 		CoordT cx = TxyFunc()(n.element, 0);
 		CoordT cy = TxyFunc()(n.element, 1);
 
-		assert(cx >= min_x);
-		assert(cx < max_x);
-		assert(cy >= min_y);
-		assert(cy < max_y);
+		dbg_assert(cx >= min_x);
+		dbg_assert(cx < max_x);
+		dbg_assert(cy >= min_y);
+		dbg_assert(cy < max_y);
 
 		if (level % 2 == 0) {
 			/* split in dimension 0 = x */
@@ -392,6 +450,7 @@ public:
 	 * Insert a single element in the tree.
 	 * Repeatedly inserting single elements may cause the tree to become unbalanced.
 	 * Undefined behaviour if the element already exists in the tree.
+	 * @param element The element to add.
 	 */
 	void Insert(const T &element)
 	{
@@ -411,6 +470,7 @@ public:
 	 * Since elements are stored in interior nodes as well as leaf nodes, removing one may
 	 * require a larger sub-tree to be re-built. Because of this, worst case run time is
 	 * as bad as a full tree rebuild.
+	 * @param element The element to remove.
 	 */
 	void Remove(const T &element)
 	{
@@ -424,10 +484,13 @@ public:
 		this->CheckInvariant();
 	}
 
-	/** Get number of elements stored in tree */
+	/**
+	 * Get number of elements stored in tree.
+	 * @return The element count.
+	 */
 	size_t Count() const
 	{
-		assert(this->free_list.size() <= this->nodes.size());
+		dbg_assert(this->free_list.size() <= this->nodes.size());
 		return this->nodes.size() - this->free_list.size();
 	}
 
@@ -435,10 +498,13 @@ public:
 	 * Find the element closest to given coordinate, in Manhattan distance.
 	 * For multiple elements with the same distance, the one comparing smaller with
 	 * a less-than comparison is chosen.
+	 * @param x The X-coordinate.
+	 * @param y The Y-coordinate.
+	 * @return The nearest element.
 	 */
 	T FindNearest(CoordT x, CoordT y) const
 	{
-		assert(this->Count() > 0);
+		dbg_assert(this->Count() > 0);
 
 		CoordT xy[2] = { x, y };
 		return this->FindNearestRecursive(xy, this->root, 0).first;
@@ -446,7 +512,7 @@ public:
 
 	/**
 	 * Find all items contained within the given rectangle.
-	 * @note Start coordinates are inclusive, end coordinates are exclusive. x1<x2 && y1<y2 is a precondition.
+	 * @note Start coordinates are inclusive, end coordinates are exclusive. x1 < x2 && y1 < y2 is a precondition.
 	 * @param x1 Start first coordinate, points found are greater or equals to this.
 	 * @param y1 Start second coordinate, points found are greater or equals to this.
 	 * @param x2 End first coordinate, points found are less than this.
@@ -456,8 +522,8 @@ public:
 	template <typename Outputter>
 	void FindContained(CoordT x1, CoordT y1, CoordT x2, CoordT y2, const Outputter &outputter) const
 	{
-		assert(x1 < x2);
-		assert(y1 < y2);
+		dbg_assert(x1 < x2);
+		dbg_assert(y1 < y2);
 
 		if (this->Count() == 0) return;
 
@@ -468,7 +534,12 @@ public:
 
 	/**
 	 * Find all items contained within the given rectangle.
-	 * @note End coordinates are exclusive, x1<x2 && y1<y2 is a precondition.
+	 * @note End coordinates are exclusive, x1 < x2 && y1 < y2 is a precondition.
+	 * @param x1 Start first coordinate, points found are greater or equals to this.
+	 * @param y1 Start second coordinate, points found are greater or equals to this.
+	 * @param x2 End first coordinate, points found are less than this.
+	 * @param y2 End second coordinate, points found are less than this.
+	 * @return The result of the search.
 	 */
 	std::vector<T> FindContained(CoordT x1, CoordT y1, CoordT x2, CoordT y2) const
 	{

@@ -5,16 +5,15 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file http.h Basic functions to send and receive HTTP packets.
- */
+/** @file http.h Basic functions to send and receive HTTP packets. */
 
 #ifndef NETWORK_CORE_HTTP_H
 #define NETWORK_CORE_HTTP_H
 
 #include "tcp.h"
+#include "../../core/alloc_type.hpp"
 
-constexpr int HTTP_429_TOO_MANY_REQUESTS = 429;
+constexpr int HTTP_429_TOO_MANY_REQUESTS = 429; ///< HTTP error code for when the client is doing too many requests.
 
 /** Callback for when the HTTP handler has something to tell us. */
 struct HTTPCallback {
@@ -30,7 +29,7 @@ struct HTTPCallback {
 	 * @param length the amount of received data, 0 when all data has been received.
 	 * @note When nullptr is sent the HTTP socket handler is closed/freed.
 	 */
-	virtual void OnReceiveData(std::unique_ptr<char[]> data, size_t length) = 0;
+	virtual void OnReceiveData(UniqueBuffer<char> data) = 0;
 
 	/**
 	 * Check if there is a request to cancel the transfer.
@@ -55,7 +54,7 @@ public:
 	 * @param callback the callback to send data back on.
 	 * @param data     the data we want to send. When non-empty, this will be a POST request, otherwise a GET request.
 	 */
-	static void Connect(std::string_view uri, HTTPCallback *callback, std::string &&data = "");
+	static void Connect(std::string_view uri, HTTPCallback *callback, std::string &&data = {});
 
 	/**
 	 * Do the receiving for all HTTP connections.

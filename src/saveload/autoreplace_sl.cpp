@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file autoreplace_sl.cpp Code handling saving and loading of autoreplace rules */
+/** @file autoreplace_sl.cpp Code handling saving and loading of autoreplace rules. */
 
 #include "../stdafx.h"
 
@@ -15,6 +15,8 @@
 #include "../autoreplace_base.h"
 
 #include "../safeguards.h"
+
+namespace upstream_sl {
 
 static const SaveLoad _engine_renew_desc[] = {
 	    SLE_VAR(EngineRenew, from,     SLE_UINT16),
@@ -45,7 +47,7 @@ struct ERNWChunkHandler : ChunkHandler {
 		int index;
 
 		while ((index = SlIterateArray()) != -1) {
-			EngineRenew *er = new (EngineRenewID(index)) EngineRenew();
+			EngineRenew *er = EngineRenew::CreateAtIndex(EngineRenewID(index));
 			SlObject(er, slt);
 
 			/* Advanced vehicle lists, ungrouped vehicles got added */
@@ -71,3 +73,5 @@ static const ChunkHandlerRef autoreplace_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _autoreplace_chunk_handlers(autoreplace_chunk_handlers);
+
+}

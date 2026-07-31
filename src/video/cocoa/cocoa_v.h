@@ -28,8 +28,8 @@ private:
 public:
 	bool setup; ///< Window is currently being created.
 
-	OTTD_CocoaWindow *window;    ///< Pointer to window object
-	OTTD_CocoaView *cocoaview;   ///< Pointer to view object
+	OTTD_CocoaWindow *window;     ///< Pointer to window object
+	OTTD_CocoaView *cocoaview;    ///< Pointer to view object
 	CGColorSpaceRef colour_space; ///< Window colour space
 
 	OTTD_CocoaWindowDelegate *delegate; //!< Window delegate object
@@ -57,6 +57,10 @@ public:
 
 	void MainLoopReal();
 
+	/**
+	 * Resize the window.
+	 * @param force If true window resizing will be forced.
+	 */
 	virtual void AllocateBackingStore(bool force = false) = 0;
 
 protected:
@@ -71,15 +75,22 @@ protected:
 
 	void GameSizeChanged();
 
-	std::optional<std::string_view> Initialize();
+	const char *Initialize();
 
 	void UpdateVideoModes();
 
 	bool MakeWindow(int width, int height);
 
+	/**
+	 * Allocate the view to show the game on.
+	 * @return The allocated view.
+	 */
 	virtual NSView *AllocateDrawView() = 0;
 
-	/** Get a pointer to the video buffer. */
+	/**
+	 * Get a pointer to the video buffer.
+	 * @return The pointer.
+	 */
 	virtual void *GetVideoPointer() = 0;
 	/** Hand video buffer back to the drawing backend. */
 	virtual void ReleaseVideoPointer() {}
@@ -108,11 +119,10 @@ public:
 
 	VideoDriver_CocoaQuartz();
 
-	std::optional<std::string_view> Start(const StringList &param) override;
+	const char *Start(const StringList &param) override;
 	void Stop() override;
 
-	/** Return driver name */
-	std::string_view GetName() const override { return "cocoa"; }
+	const char *GetName() const override { return "cocoa"; }
 
 	void AllocateBackingStore(bool force = false) override;
 
@@ -127,7 +137,7 @@ protected:
 
 class FVideoDriver_CocoaQuartz : public DriverFactoryBase {
 public:
-	FVideoDriver_CocoaQuartz() : DriverFactoryBase(Driver::DT_VIDEO, 8, "cocoa", "Cocoa Video Driver") {}
+	FVideoDriver_CocoaQuartz() : DriverFactoryBase(Driver::Type::Video, 8, "cocoa", "Cocoa Video Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<VideoDriver_CocoaQuartz>(); }
 };
 

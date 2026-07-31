@@ -31,7 +31,7 @@
 	ScriptLog::Log(ScriptLogTypes::LOG_ERROR, message);
 }
 
-/* static */ void ScriptLog::Log(ScriptLogTypes::ScriptLogType level, const std::string &message)
+/* static */ void ScriptLog::Log(ScriptLogTypes::ScriptLogType level, std::string_view message)
 {
 	ScriptLogTypes::LogData &logdata = ScriptObject::GetLogData();
 
@@ -57,5 +57,13 @@
 
 	/* Also still print to debug window */
 	Debug(script, level, "[{}] [{}] {}", ScriptObject::GetRootCompany(), logc, line.text);
-	InvalidateWindowClassesData(WC_SCRIPT_DEBUG, ScriptObject::GetRootCompany());
+	InvalidateWindowClassesData(WindowClass::ScriptDebug, ScriptObject::GetRootCompany());
+}
+
+/* static */ void ScriptLog::LogOnce(ScriptLogTypes::ScriptLogType level, std::string &&message)
+{
+	if (ScriptObject::IsNewUniqueLogMessage(message)) {
+		ScriptLog::Log(level, message);
+		ScriptObject::RegisterUniqueLogMessage(std::move(message));
+	}
 }

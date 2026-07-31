@@ -10,24 +10,29 @@
 #ifndef LINKGRAPH_TYPE_H
 #define LINKGRAPH_TYPE_H
 
-#include "../core/pool_type.hpp"
+#include "../core/pool_id_type.hpp"
 
-using LinkGraphID = PoolID<uint16_t, struct LinkGraphIDTag, 0xFFFF, 0xFFFF>;
-using LinkGraphJobID = PoolID<uint16_t, struct LinkGraphJobIDTag, 0xFFFF, 0xFFFF>;
+struct LinkGraphIDTag : public PoolIDTraits<uint16_t, 0xFFFF, 0xFFFF> {};
+using LinkGraphID = PoolID<LinkGraphIDTag>;
+
+struct LinkGraphJobIDTag : public PoolIDTraits<uint16_t, 0xFFFF, 0xFFFF> {};
+using LinkGraphJobID = PoolID<LinkGraphJobIDTag>;
 
 typedef uint16_t NodeID;
 static const NodeID INVALID_NODE = UINT16_MAX;
 
-enum DistributionType : uint8_t {
-	DT_BEGIN = 0,
-	DT_MIN = 0,
-	DT_MANUAL = 0,           ///< Manual distribution. No link graph calculations are run.
-	DT_ASYMMETRIC = 1,       ///< Asymmetric distribution. Usually cargo will only travel in one direction.
-	DT_MAX_NONSYMMETRIC = 1, ///< Maximum non-symmetric distribution.
-	DT_SYMMETRIC = 2,        ///< Symmetric distribution. The same amount of cargo travels in each direction between each pair of nodes.
-	DT_MAX = 2,
-	DT_NUM = 3,
-	DT_END = 3
+/**
+ * Distribution types.
+ */
+enum class DistributionType : uint8_t {
+	Manual = 0,              ///< Manual distribution. No link graph calculations are run.
+	Asymmetric = 1,          ///< Asymmetric distribution. Usually cargo will only travel in one direction.
+	Symmetric = 2,           ///< Symmetric distribution. The same amount of cargo travels in each direction between each pair of nodes.
+
+	AsymmetricEqual = 20,    ///< Asymmetric distribution (equal). Usually cargo will only travel in one direction. Attempt to distribute the same amount of cargo to each sink.
+	AsymmetricNearest = 21,  ///< Asymmetric distribution (nearest). Usually cargo will only travel in one direction. Attempt to distribute cargo to the nearest sink.
+
+	PerCargoDefault = 128,   ///< Per cargo: Use default value
 };
 
 /**
@@ -48,6 +53,7 @@ enum class EdgeUpdateMode : uint8_t {
 	Refresh, ///< Refresh capacity.
 	Restricted, ///< Use restricted link.
 	Unrestricted, ///< Use unrestricted link.
+	Aircraft, ///< Capacity is an aircraft link.
 };
 
 using EdgeUpdateModes = EnumBitSet<EdgeUpdateMode, uint8_t>;

@@ -25,13 +25,19 @@ enum ToolTipsWidgets : WidgetID {
 enum AboutWidgets : WidgetID {
 	WID_A_SCROLLING_TEXT, ///< The actually scrolling text.
 	WID_A_WEBSITE,        ///< URL of OpenTTD website.
+	WID_A_WEBSITE1,       ///< URL of patchpack thread.
+	WID_A_WEBSITE2,       ///< URL of patchpack github.
 	WID_A_COPYRIGHT,      ///< Copyright string
 };
 
 /** Widgets of the #QueryStringWindow class. */
 enum QueryStringWidgets : WidgetID {
 	WID_QS_CAPTION, ///< Caption of the window.
+	WID_QS_LABEL1,  ///< Label of text1.
+	WID_QS_LABEL2,  ///< Label of text2.
 	WID_QS_TEXT,    ///< Text of the query.
+	WID_QS_TEXT2,   ///< Second text, if present.
+	WID_QS_WARNING, ///< Warning label about password security
 	WID_QS_DEFAULT, ///< Default button.
 	WID_QS_DEFAULT_SEL, ///< Container for default button, which can be hidden.
 	WID_QS_CANCEL,  ///< Cancel button.
@@ -59,6 +65,12 @@ enum TextfileWidgets : WidgetID {
 	WID_TF_BACKGROUND,   ///< Panel to draw the textfile on.
 	WID_TF_VSCROLLBAR,   ///< Vertical scrollbar to scroll through the textfile up-and-down.
 	WID_TF_HSCROLLBAR,   ///< Horizontal scrollbar to scroll through the textfile left-to-right.
+};
+
+/** Widgets of the #TextfileWindow class. */
+enum ModifierKeyToggleWidgets : WidgetID {
+	WID_MKT_SHIFT,
+	WID_MKT_CTRL,
 };
 
 #endif /* WIDGETS_MISC_WIDGET_H */

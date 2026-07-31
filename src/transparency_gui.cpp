@@ -20,11 +20,35 @@
 
 #include "safeguards.h"
 
-TransparencyOptionBits _transparency_opt;  ///< The bits that should be transparent.
-TransparencyOptionBits _transparency_lock; ///< Prevent these bits from flipping with X.
-TransparencyOptionBits _invisibility_opt;  ///< The bits that should be invisible.
-uint8_t _display_opt; ///< What do we want to draw/do?
+TransparencyOptions _transparency_opt;  ///< The bits that should be transparent.
+TransparencyOptions _transparency_lock; ///< Prevent these bits from flipping with X.
+TransparencyOptions _transparency_opt_base;   ///< Separate base and extra fields for config save/load.
+TransparencyOptions _transparency_lock_base;  ///< "
+TransparencyOptions _transparency_opt_extra;  ///< "
+TransparencyOptions _transparency_lock_extra; ///< "
+TransparencyOptions _invisibility_opt;  ///< The bits that should be invisible.
+DisplayOptions _display_opt; ///< What do we want to draw/do?
+uint8_t _extra_display_opt;
 StationFacilities _facility_display_opt; ///< What station facilities to draw.
+
+void PreTransparencyOptionSave()
+{
+	auto handler = [](TransparencyOptions value, TransparencyOptions &base, TransparencyOptions &extra) {
+		base.edit_base() = value.base() & 0x1FF;
+		extra.edit_base() = (value.base() >> 9) & 0x1;
+	};
+	handler(_transparency_opt, _transparency_opt_base, _transparency_opt_extra);
+	handler(_transparency_lock, _transparency_lock_base, _transparency_lock_extra);
+}
+
+void PostTransparencyOptionLoad()
+{
+	auto handler = [](TransparencyOptions base, TransparencyOptions extra) -> TransparencyOptions {
+		return static_cast<TransparencyOptions>((base.base() & 0x3FF) | ((extra.base() & 0x1) << 9));
+	};
+	_transparency_opt = handler(_transparency_opt_base, _transparency_opt_extra);
+	_transparency_lock = handler(_transparency_lock_base, _transparency_lock_extra);
+}
 
 class TransparenciesWindow : public Window
 {
@@ -40,6 +64,17 @@ public:
 		this->DrawWidgets();
 	}
 
+	/**
+	 * Get the \c TransparencyOption associated with a widget.
+	 * @param widget the widget.
+	 * @return Transparency option associated with the widget.
+	 */
+	TransparencyOption GetTransparencyOptionOfWidget(WidgetID widget) const
+	{
+		if (!IsInsideMM(widget, WID_TT_BEGIN, WID_TT_END)) return TransparencyOption::Invalid;
+		return static_cast<TransparencyOption>(widget - WID_TT_BEGIN);
+	}
+
 	void DrawWidget(const Rect &r, WidgetID widget) const override
 	{
 		switch (widget) {
@@ -51,19 +86,20 @@ public:
 			case WID_TT_BRIDGES:
 			case WID_TT_STRUCTURES:
 			case WID_TT_CATENARY:
-			case WID_TT_TEXT: {
-				int i = widget - WID_TT_BEGIN;
-				if (HasBit(_transparency_lock, i)) DrawSprite(SPR_LOCK, PAL_NONE, r.left + WidgetDimensions::scaled.fullbevel.left, r.top + WidgetDimensions::scaled.fullbevel.top);
+			case WID_TT_LOADING:
+			case WIT_TT_TUNNELS: {
+				TransparencyOption to = GetTransparencyOptionOfWidget(widget);
+				if (_transparency_lock.Test(to)) DrawSprite(SPR_LOCK, PAL_NONE, r.left + WidgetDimensions::scaled.fullbevel.left, r.top + WidgetDimensions::scaled.fullbevel.top);
 				break;
 			}
 			case WID_TT_BUTTONS: {
 				const Rect fr = r.Shrink(WidgetDimensions::scaled.framerect);
 				for (WidgetID i = WID_TT_BEGIN; i < WID_TT_END; i++) {
-					if (i == WID_TT_TEXT) continue; // Loading and cost/income text has no invisibility button.
+					if (i == WID_TT_LOADING || i == WIT_TT_TUNNELS) continue; // Do not draw button for invisible loading indicators.
 
 					const Rect wr = this->GetWidget<NWidgetBase>(i)->GetCurrentRect().Shrink(WidgetDimensions::scaled.fullbevel);
-					DrawFrameRect(wr.WithY(fr), COLOUR_PALE_GREEN,
-							HasBit(_invisibility_opt, i - WID_TT_BEGIN) ? FrameFlag::Lowered : FrameFlags{});
+					TransparencyOption to = GetTransparencyOptionOfWidget(i);
+					DrawFrameRect(wr.WithY(fr), Colours::PaleGreen, _invisibility_opt.Test(to) ? FrameFlag::Lowered : FrameFlags{});
 				}
 				break;
 			}
@@ -75,11 +111,11 @@ public:
 		if (widget >= WID_TT_BEGIN && widget < WID_TT_END) {
 			if (_ctrl_pressed) {
 				/* toggle the bit of the transparencies lock variable */
-				ToggleTransparencyLock((TransparencyOption)(widget - WID_TT_BEGIN));
+				ToggleTransparencyLock(GetTransparencyOptionOfWidget(widget));
 				this->SetDirty();
 			} else {
 				/* toggle the bit of the transparencies variable and play a sound */
-				ToggleTransparency((TransparencyOption)(widget - WID_TT_BEGIN));
+				ToggleTransparency(GetTransparencyOptionOfWidget(widget));
 				SndClickBeep();
 				MarkWholeScreenDirty();
 			}
@@ -91,13 +127,13 @@ public:
 					break;
 				}
 			}
-			if (i == WID_TT_TEXT|| i == WID_TT_END) return;
+			if (i == WID_TT_LOADING || i == WID_TT_END) return;
 
-			ToggleInvisibility((TransparencyOption)(i - WID_TT_BEGIN));
+			ToggleInvisibility(GetTransparencyOptionOfWidget(i));
 			SndClickBeep();
 
 			/* Redraw whole screen only if transparency is set */
-			if (IsTransparencySet((TransparencyOption)(i - WID_TT_BEGIN))) {
+			if (IsTransparencySet(GetTransparencyOptionOfWidget(i))) {
 				MarkWholeScreenDirty();
 			} else {
 				this->SetWidgetDirty(WID_TT_BUTTONS);
@@ -105,7 +141,7 @@ public:
 		}
 	}
 
-	Point OnInitialPosition([[maybe_unused]] int16_t sm_width, [[maybe_unused]] int16_t sm_height, [[maybe_unused]] int window_number) override
+	Point OnInitialPosition(int16_t sm_width, int16_t sm_height, int window_number) override
 	{
 		Point pt = GetToolbarAlignedWindowPosition(sm_width);
 		pt.y += 2 * (sm_height - this->GetWidget<NWidgetBase>(WID_TT_BUTTONS)->current_y);
@@ -121,37 +157,38 @@ public:
 	{
 		if (!gui_scope) return;
 		for (WidgetID i = WID_TT_BEGIN; i < WID_TT_END; i++) {
-			this->SetWidgetLoweredState(i, IsTransparencySet((TransparencyOption)(i - WID_TT_BEGIN)));
+			this->SetWidgetLoweredState(i, IsTransparencySet(GetTransparencyOptionOfWidget(i)));
 		}
 	}
 };
 
 static constexpr std::initializer_list<NWidgetPart> _nested_transparency_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_DARK_GREEN),
-		NWidget(WWT_CAPTION, COLOUR_DARK_GREEN), SetStringTip(STR_TRANSPARENCY_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
-		NWidget(WWT_STICKYBOX, COLOUR_DARK_GREEN),
+		NWidget(WWT_CLOSEBOX, Colours::DarkGreen),
+		NWidget(WWT_CAPTION, Colours::DarkGreen), SetStringTip(STR_TRANSPARENCY_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
+		NWidget(WWT_STICKYBOX, Colours::DarkGreen),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_SIGNS), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_SIGN, STR_TRANSPARENT_SIGNS_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_TREES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_PLANTTREES, STR_TRANSPARENT_TREES_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_HOUSES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_TOWN, STR_TRANSPARENT_HOUSES_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_INDUSTRIES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_INDUSTRY, STR_TRANSPARENT_INDUSTRIES_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_BUILDINGS), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_COMPANY_LIST, STR_TRANSPARENT_BUILDINGS_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_BRIDGES), SetToolbarMinimalSize(2), SetFill(0, 1), SetSpriteTip(SPR_IMG_BRIDGE, STR_TRANSPARENT_BRIDGES_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_STRUCTURES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_TRANSMITTER, STR_TRANSPARENT_STRUCTURES_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_CATENARY), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_BUILD_X_ELRAIL, STR_TRANSPARENT_CATENARY_TOOLTIP),
-		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_TT_TEXT), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_TRAINLIST, STR_TRANSPARENT_TEXT_TOOLTIP),
-		NWidget(WWT_PANEL, COLOUR_DARK_GREEN), SetFill(1, 1), EndContainer(),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_SIGNS), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_SIGN, STR_TRANSPARENT_SIGNS_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_TREES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_PLANTTREES, STR_TRANSPARENT_TREES_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_HOUSES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_TOWN, STR_TRANSPARENT_HOUSES_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_INDUSTRIES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_INDUSTRY, STR_TRANSPARENT_INDUSTRIES_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_BUILDINGS), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_COMPANY_LIST, STR_TRANSPARENT_BUILDINGS_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_BRIDGES), SetToolbarMinimalSize(2), SetFill(0, 1), SetSpriteTip(SPR_IMG_BRIDGE, STR_TRANSPARENT_BRIDGES_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_STRUCTURES), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_TRANSMITTER, STR_TRANSPARENT_STRUCTURES_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_CATENARY), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_BUILD_X_ELRAIL, STR_TRANSPARENT_CATENARY_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WID_TT_LOADING), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_TRAINLIST, STR_TRANSPARENT_LOADING_TOOLTIP),
+		NWidget(WWT_IMGBTN, Colours::DarkGreen, WIT_TT_TUNNELS), SetToolbarMinimalSize(1), SetFill(0, 1), SetSpriteTip(SPR_IMG_ROAD_TUNNEL, STR_TRANSPARENT_TUNNELS_TOOLTIP),
+		NWidget(WWT_PANEL, Colours::DarkGreen), SetFill(1, 1), EndContainer(),
 	EndContainer(),
 	/* Panel with 'invisibility' buttons. */
-	NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_TT_BUTTONS), SetSizingType(NWST_BUTTON), SetMinimalSize(219, 13), SetToolTip(STR_TRANSPARENT_INVISIBLE_TOOLTIP),
+	NWidget(WWT_PANEL, Colours::DarkGreen, WID_TT_BUTTONS), SetMinimalSize(219, 13), SetToolTip(STR_TRANSPARENT_INVISIBLE_TOOLTIP),
 	EndContainer(),
 };
 
-static WindowDesc _transparency_desc(
-	WDP_MANUAL, "toolbar_transparency", 0, 0,
-	WC_TRANSPARENCY_TOOLBAR, WC_NONE,
+static WindowDesc _transparency_desc(__FILE__, __LINE__,
+	WindowPosition::Manual, "toolbar_transparency", 0, 0,
+	WindowClass::TransparencyToolbar, WindowClass::None,
 	{},
 	_nested_transparency_widgets
 );

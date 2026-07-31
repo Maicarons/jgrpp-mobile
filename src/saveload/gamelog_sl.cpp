@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file gamelog_sl.cpp Code handling saving and loading of gamelog data */
+/** @file gamelog_sl.cpp Code handling saving and loading of gamelog data. */
 
 #include "../stdafx.h"
 
@@ -14,16 +14,18 @@
 
 #include "../gamelog_internal.h"
 #include "../fios.h"
+#include "../load_check.h"
 #include "../string_func.h"
 
 #include "../safeguards.h"
 
+namespace upstream_sl {
 
 class SlGamelogMode : public DefaultSaveLoadHandler<SlGamelogMode, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeMode, mode,      "mode.mode",      SLE_UINT8),
-		SLE_VARNAME(LoggedChangeMode, landscape, "mode.landscape", SLE_UINT8),
+		SLE_VAR(LoggedChange, mode.mode,         SLE_UINT8),
+		SLE_VAR(LoggedChange, mode.landscape,    SLE_UINT8),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_mode_sl_compat;
 
@@ -42,23 +44,24 @@ public:
 	void LoadCheck(LoggedChange *lc) const override { this->Load(lc); }
 };
 
+static char _old_revision_text[GAMELOG_REVISION_LENGTH];
+static std::string _revision_text;
+
 class SlGamelogRevision : public DefaultSaveLoadHandler<SlGamelogRevision, LoggedChange> {
 public:
-	static const size_t GAMELOG_REVISION_LENGTH = 15;
-	static char revision_text[GAMELOG_REVISION_LENGTH];
-
 	static inline const SaveLoad description[] = {
-		    SLEG_CONDARR("revision.text", SlGamelogRevision::revision_text,   SLE_UINT8, GAMELOG_REVISION_LENGTH, SL_MIN_VERSION,     SLV_STRING_GAMELOG),
-		SLE_CONDSSTRNAME(LoggedChangeRevision, text,     "revision.text",     SLE_STR,                            SLV_STRING_GAMELOG, SL_MAX_VERSION),
-		     SLE_VARNAME(LoggedChangeRevision, newgrf,   "revision.newgrf",   SLE_UINT32),
-		     SLE_VARNAME(LoggedChangeRevision, slver,    "revision.slver",    SLE_UINT16),
-		     SLE_VARNAME(LoggedChangeRevision, modified, "revision.modified", SLE_UINT8),
+		SLEG_CONDARR("revision.text", _old_revision_text, SLE_UINT8, GAMELOG_REVISION_LENGTH, SL_MIN_VERSION,     SLV_STRING_GAMELOG),
+		SLEG_CONDSSTR("revision.text",    _revision_text, SLE_STR,                            SLV_STRING_GAMELOG, SL_MAX_VERSION),
+		SLE_VAR(LoggedChange, revision.newgrf,   SLE_UINT32),
+		SLE_VAR(LoggedChange, revision.slver,    SLE_UINT16),
+		SLE_VAR(LoggedChange, revision.modified, SLE_UINT8),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_revision_sl_compat;
 
 	void Save(LoggedChange *lc) const override
 	{
 		if (lc->ct != GLCT_REVISION) return;
+		_revision_text = lc->revision.text != nullptr ? lc->revision.text : "";
 		SlObject(lc, this->GetDescription());
 	}
 
@@ -66,22 +69,22 @@ public:
 	{
 		if (lc->ct != GLCT_REVISION) return;
 		SlObject(lc, this->GetLoadDescription());
-
 		if (IsSavegameVersionBefore(SLV_STRING_GAMELOG)) {
-			static_cast<LoggedChangeRevision *>(lc)->text = StrMakeValid(std::string_view(std::begin(SlGamelogRevision::revision_text), std::end(SlGamelogRevision::revision_text)));
+			lc->revision.text = stredup(_old_revision_text, lastof(_old_revision_text));
+		} else {
+			lc->revision.text = stredup(_revision_text.c_str());
 		}
+		StrMakeValidInPlace(lc->revision.text);
 	}
 
 	void LoadCheck(LoggedChange *lc) const override { this->Load(lc); }
 };
 
-/* static */ char SlGamelogRevision::revision_text[GAMELOG_REVISION_LENGTH];
-
 class SlGamelogOldver : public DefaultSaveLoadHandler<SlGamelogOldver, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeOldVersion, type,    "oldver.type",    SLE_UINT32),
-		SLE_VARNAME(LoggedChangeOldVersion, version, "oldver.version", SLE_UINT32),
+		SLE_VAR(LoggedChange, oldver.type,       SLE_UINT32),
+		SLE_VAR(LoggedChange, oldver.version,    SLE_UINT32),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_oldver_sl_compat;
 
@@ -103,9 +106,9 @@ public:
 class SlGamelogSetting : public DefaultSaveLoadHandler<SlGamelogSetting, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_SSTRNAME(LoggedChangeSettingChanged, name,   "setting.name",   SLE_STR),
-		 SLE_VARNAME(LoggedChangeSettingChanged, oldval, "setting.oldval", SLE_INT32),
-		 SLE_VARNAME(LoggedChangeSettingChanged, newval, "setting.newval", SLE_INT32),
+		SLE_STR(LoggedChange, setting.name,      SLE_STR,    128),
+		SLE_VAR(LoggedChange, setting.oldval,    SLE_INT32),
+		SLE_VAR(LoggedChange, setting.newval,    SLE_INT32),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_setting_sl_compat;
 
@@ -127,8 +130,8 @@ public:
 class SlGamelogGrfadd : public DefaultSaveLoadHandler<SlGamelogGrfadd, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeGRFAdd, grfid,  "grfadd.grfid",  SLE_UINT32    ),
-		SLE_ARRNAME(LoggedChangeGRFAdd, md5sum, "grfadd.md5sum", SLE_UINT8,  16),
+		SLE_VAR(LoggedChange, grfadd.grfid,      SLE_UINT32    ),
+		SLE_ARR(LoggedChange, grfadd.md5sum,     SLE_UINT8,  16),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_grfadd_sl_compat;
 
@@ -150,7 +153,7 @@ public:
 class SlGamelogGrfrem : public DefaultSaveLoadHandler<SlGamelogGrfrem, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeGRFRemoved, grfid, "grfrem.grfid", SLE_UINT32),
+		SLE_VAR(LoggedChange, grfrem.grfid,      SLE_UINT32),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_grfrem_sl_compat;
 
@@ -172,8 +175,8 @@ public:
 class SlGamelogGrfcompat : public DefaultSaveLoadHandler<SlGamelogGrfcompat, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeGRFChanged, grfid,  "grfcompat.grfid",  SLE_UINT32    ),
-		SLE_ARRNAME(LoggedChangeGRFChanged, md5sum, "grfcompat.md5sum", SLE_UINT8,  16),
+		SLE_VAR(LoggedChange, grfcompat.grfid,   SLE_UINT32    ),
+		SLE_ARR(LoggedChange, grfcompat.md5sum,  SLE_UINT8,  16),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_grfcompat_sl_compat;
 
@@ -195,7 +198,7 @@ public:
 class SlGamelogGrfparam : public DefaultSaveLoadHandler<SlGamelogGrfparam, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeGRFParameterChanged, grfid, "grfparam.grfid", SLE_UINT32),
+		SLE_VAR(LoggedChange, grfparam.grfid,    SLE_UINT32),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_grfparam_sl_compat;
 
@@ -217,8 +220,8 @@ public:
 class SlGamelogGrfmove : public DefaultSaveLoadHandler<SlGamelogGrfmove, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeGRFMoved, grfid,  "grfmove.grfid",  SLE_UINT32),
-		SLE_VARNAME(LoggedChangeGRFMoved, offset, "grfmove.offset", SLE_INT32),
+		SLE_VAR(LoggedChange, grfmove.grfid,     SLE_UINT32),
+		SLE_VAR(LoggedChange, grfmove.offset,    SLE_INT32),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_grfmove_sl_compat;
 
@@ -240,9 +243,9 @@ public:
 class SlGamelogGrfbug : public DefaultSaveLoadHandler<SlGamelogGrfbug, LoggedChange> {
 public:
 	static inline const SaveLoad description[] = {
-		SLE_VARNAME(LoggedChangeGRFBug, data,  "grfbug.data",  SLE_UINT64),
-		SLE_VARNAME(LoggedChangeGRFBug, grfid, "grfbug.grfid", SLE_UINT32),
-		SLE_VARNAME(LoggedChangeGRFBug, bug,   "grfbug.bug",   SLE_UINT8),
+		SLE_VAR(LoggedChange, grfbug.data,       SLE_UINT64),
+		SLE_VAR(LoggedChange, grfbug.grfid,      SLE_UINT32),
+		SLE_VAR(LoggedChange, grfbug.bug,        SLE_UINT8),
 	};
 	static inline const SaveLoadCompatTable compat_description = _gamelog_grfbug_sl_compat;
 
@@ -265,7 +268,7 @@ static bool _is_emergency_save = true;
 
 class SlGamelogEmergency : public DefaultSaveLoadHandler<SlGamelogEmergency, LoggedChange> {
 public:
-	/* We need to store something, so store a "true" value. */
+	/** We need to store something, so store a "true" value. */
 	static inline const SaveLoad description[] = {
 		SLEG_CONDVAR("is_emergency_save", _is_emergency_save, SLE_BOOL, SLV_RIFF_TO_ARRAY, SL_MAX_VERSION),
 	};
@@ -289,27 +292,6 @@ public:
 	void LoadCheck(LoggedChange *lc) const override { this->Load(lc); }
 };
 
-static std::unique_ptr<LoggedChange> MakeLoggedChange(GamelogChangeType type)
-{
-	switch (type) {
-		case GLCT_MODE:      return std::make_unique<LoggedChangeMode>();
-		case GLCT_REVISION:  return std::make_unique<LoggedChangeRevision>();
-		case GLCT_OLDVER:    return std::make_unique<LoggedChangeOldVersion>();
-		case GLCT_SETTING:   return std::make_unique<LoggedChangeSettingChanged>();
-		case GLCT_GRFADD:    return std::make_unique<LoggedChangeGRFAdd>();
-		case GLCT_GRFREM:    return std::make_unique<LoggedChangeGRFRemoved>();
-		case GLCT_GRFCOMPAT: return std::make_unique<LoggedChangeGRFChanged>();
-		case GLCT_GRFPARAM:  return std::make_unique<LoggedChangeGRFParameterChanged>();
-		case GLCT_GRFMOVE:   return std::make_unique<LoggedChangeGRFMoved>();
-		case GLCT_GRFBUG:    return std::make_unique<LoggedChangeGRFBug>();
-		case GLCT_EMERGENCY: return std::make_unique<LoggedChangeEmergencySave>();
-		case GLCT_END:
-		case GLCT_NONE:
-		default:
-			SlErrorCorrupt("Invalid gamelog action type");
-	}
-}
-
 class SlGamelogAction : public DefaultSaveLoadHandler<SlGamelogAction, LoggedAction> {
 public:
 	static inline const SaveLoad description[] = {
@@ -330,37 +312,42 @@ public:
 
 	void Save(LoggedAction *la) const override
 	{
-		SlSetStructListLength(la->change.size());
+		SlSetStructListLength(la->changes.size());
 
-		for (auto &lc : la->change) {
-			assert(lc->ct < GLCT_END);
-			SlObject(lc.get(), this->GetDescription());
+		for (LoggedChange &lc : la->changes) {
+			assert((uint)lc.ct < GLCT_END);
+			SlObject(&lc, this->GetDescription());
 		}
-	}
-
-	void LoadChange(LoggedAction *la, GamelogChangeType type) const
-	{
-		std::unique_ptr<LoggedChange> lc = MakeLoggedChange(type);
-		SlObject(lc.get(), this->GetLoadDescription());
-		la->change.push_back(std::move(lc));
 	}
 
 	void Load(LoggedAction *la) const override
 	{
+		la->changes.clear();
+
 		if (IsSavegameVersionBefore(SLV_RIFF_TO_ARRAY)) {
 			uint8_t type;
 			while ((type = SlReadByte()) != GLCT_NONE) {
 				if (type >= GLCT_END) SlErrorCorrupt("Invalid gamelog change type");
-				LoadChange(la, (GamelogChangeType)type);
+				GamelogChangeType ct = (GamelogChangeType)type;
+
+				la->changes.push_back({});
+				LoggedChange *lc = &la->changes.back();
+				lc->ct = ct;
+
+				SlObject(lc, this->GetLoadDescription());
 			}
 			return;
 		}
 
 		size_t length = SlGetStructListLength(UINT32_MAX);
-		la->change.reserve(length);
+		la->changes.reserve(length);
 
 		for (size_t i = 0; i < length; i++) {
-			LoadChange(la, (GamelogChangeType)SlReadByte());
+			la->changes.push_back({});
+			LoggedChange *lc = &la->changes.back();
+
+			lc->ct = (GamelogChangeType)SlReadByte();
+			SlObject(lc, this->GetLoadDescription());
 		}
 	}
 
@@ -377,9 +364,9 @@ static const SaveLoad _gamelog_desc[] = {
 struct GLOGChunkHandler : ChunkHandler {
 	GLOGChunkHandler() : ChunkHandler('GLOG', CH_TABLE) {}
 
-	void LoadCommon(Gamelog &gamelog) const
+	void LoadCommon(std::vector<LoggedAction> &gamelog_actions) const
 	{
-		assert(gamelog.data->action.empty());
+		assert(gamelog_actions.empty());
 
 		const std::vector<SaveLoad> slt = SlCompatTableHeader(_gamelog_desc, _gamelog_sl_compat);
 
@@ -388,7 +375,8 @@ struct GLOGChunkHandler : ChunkHandler {
 			while ((type = SlReadByte()) != GLAT_NONE) {
 				if (type >= GLAT_END) SlErrorCorrupt("Invalid gamelog action type");
 
-				LoggedAction &la = gamelog.data->action.emplace_back();
+				LoggedAction &la = gamelog_actions.emplace_back();
+
 				la.at = (GamelogActionType)type;
 				SlObject(&la, slt);
 			}
@@ -396,7 +384,8 @@ struct GLOGChunkHandler : ChunkHandler {
 		}
 
 		while (SlIterateArray() != -1) {
-			LoggedAction &la = gamelog.data->action.emplace_back();
+			LoggedAction &la = gamelog_actions.emplace_back();
+
 			SlObject(&la, slt);
 		}
 	}
@@ -406,20 +395,21 @@ struct GLOGChunkHandler : ChunkHandler {
 		SlTableHeader(_gamelog_desc);
 
 		uint i = 0;
-		for (LoggedAction &la : _gamelog.data->action) {
-			SlSetArrayIndex(i++);
+		for (LoggedAction &la : _gamelog_actions) {
+			SlSetArrayIndex(i);
 			SlObject(&la, _gamelog_desc);
+			i++;
 		}
 	}
 
 	void Load() const override
 	{
-		this->LoadCommon(_gamelog);
+		this->LoadCommon(_gamelog_actions);
 	}
 
 	void LoadCheck(size_t) const override
 	{
-		this->LoadCommon(_load_check_data.gamelog);
+		this->LoadCommon(_load_check_data.gamelog_actions);
 	}
 };
 
@@ -429,3 +419,5 @@ static const ChunkHandlerRef gamelog_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _gamelog_chunk_handlers(gamelog_chunk_handlers);
+
+}

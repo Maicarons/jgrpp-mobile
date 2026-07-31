@@ -16,10 +16,11 @@
 /** Most trivial 8bpp blitter. */
 class Blitter_8bppSimple final : public Blitter_8bppBase {
 public:
+	using Blitter_8bppBase::Blitter_8bppBase;
 	void Draw(Blitter::BlitterParams *bp, BlitterMode mode, ZoomLevel zoom) override;
 	Sprite *Encode(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator) override;
 
-	std::string_view GetName() override { return "8bpp-simple"; }
+	const char *GetName() const override { return "8bpp-simple"; }
 };
 
 /** Factory for the most trivial 8bpp blitter. */

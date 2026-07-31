@@ -26,13 +26,13 @@ void FindVehiclesWithOrder(VehiclePredicate veh_pred, OrderPredicate ord_pred, V
 	for (const OrderList *orderlist : OrderList::Iterate()) {
 
 		/* We assume all vehicles sharing an order list match the condition. */
-		Vehicle *v = orderlist->GetFirstSharedVehicle();
+		const Vehicle *v = orderlist->GetFirstSharedVehicle();
 		if (!veh_pred(v)) continue;
 
 		/* Vehicle is a candidate, search for a matching order. */
-		for (const Order &order : orderlist->GetOrders()) {
+		for (const Order *order : orderlist->Orders()) {
 
-			if (!ord_pred(&order)) continue;
+			if (!ord_pred(order)) continue;
 
 			/* An order matches, we can add all shared vehicles to the list. */
 			for (; v != nullptr; v = v->NextShared()) {

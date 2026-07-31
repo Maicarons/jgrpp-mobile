@@ -19,7 +19,6 @@
 #include "ai.hpp"
 
 #include "../script/script_storage.hpp"
-#include "../script/script_cmd.h"
 #include "../script/script_gui.h"
 #include "ai_info.hpp"
 #include "ai_instance.hpp"
@@ -35,7 +34,7 @@
 #include "../safeguards.h"
 
 AIInstance::AIInstance() :
-	ScriptInstance("AI")
+	ScriptInstance("AI", ScriptType::AI)
 {}
 
 void AIInstance::Initialize(AIInfo *info)
@@ -55,7 +54,7 @@ void AIInstance::RegisterAPI()
 	/* Register all classes */
 	SQAI_RegisterAll(*this->engine);
 
-	if (!this->LoadCompatibilityScripts(AI_DIR, AIInfo::ApiVersions)) this->Died();
+	if (!this->LoadCompatibilityScripts(Subdirectory::Ai, AIInfo::ApiVersions)) this->Died();
 }
 
 void AIInstance::Died()
@@ -63,16 +62,16 @@ void AIInstance::Died()
 	ScriptInstance::Died();
 
 	/* Intro is not supposed to use AI, but it may have 'dummy' AI which instant dies. */
-	if (_game_mode == GM_MENU) return;
+	if (_game_mode == GameMode::Menu) return;
 
 	/* Don't show errors while loading savegame. They will be shown at end of loading anyway. */
-	if (_switch_mode != SM_NONE) return;
+	if (_switch_mode != SwitchMode::None) return;
 
 	ShowScriptDebugWindow(_current_company);
 
 	const AIInfo *info = AIConfig::GetConfig(_current_company)->GetInfo();
 	if (info != nullptr) {
-		ShowErrorMessage(GetEncodedString(STR_ERROR_AI_PLEASE_REPORT_CRASH), {}, WL_WARNING);
+		ShowErrorMessage(GetEncodedString(STR_ERROR_AI_PLEASE_REPORT_CRASH), {}, WarningLevel::Warning);
 
 		if (!info->GetURL().empty()) {
 			ScriptLog::Info("Please report the error to the following URL:");
@@ -99,12 +98,8 @@ ScriptInfo *AIInstance::FindLibrary(const std::string &library, int version)
 
 /**
  * DoCommand callback function for all commands executed by AIs.
- * @param cmd cmd as given to DoCommandPInternal.
- * @param result The result of the command.
- * @param data Command data as given to Command<>::Post.
- * @param result_data Additional returned data from the command.
  */
-void CcAI(Commands cmd, const CommandCost &result, const CommandDataBuffer &data, CommandDataBuffer result_data)
+void CcAI(const CommandCost &result, Commands cmd, TileIndex tile, const CommandPayloadBase &payload, CallbackParameter param)
 {
 	/*
 	 * The company might not exist anymore. Check for this.
@@ -115,12 +110,12 @@ void CcAI(Commands cmd, const CommandCost &result, const CommandDataBuffer &data
 	const Company *c = Company::GetIfValid(_current_company);
 	if (c == nullptr || c->ai_instance == nullptr) return;
 
-	if (c->ai_instance->DoCommandCallback(result, data, std::move(result_data), cmd)) {
+	if (c->ai_instance->DoCommandCallback(result, cmd, tile, payload, param)) {
 		c->ai_instance->Continue();
 	}
 }
 
-CommandCallbackData *AIInstance::GetDoCommandCallback()
+CommandCallback AIInstance::GetDoCommandCallback()
 {
-	return &CcAI;
+	return CommandCallback::AI;
 }

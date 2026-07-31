@@ -14,6 +14,7 @@
 #include "vehicle_gui.h"
 #include "landscape.h"
 #include "window_func.h"
+#include "tunnel_map.h"
 
 #include "widgets/vehicle_widget.h"
 
@@ -29,25 +30,25 @@ enum AccelStatus : uint8_t {
  */
 struct GroundVehicleCache {
 	/* Cached acceleration values, recalculated when the cargo on a vehicle changes (in addition to the conditions below) */
-	uint32_t cached_weight = 0; ///< Total weight of the consist (valid only for the first engine).
+	uint32_t cached_weight = 0;           ///< Total weight of the consist (valid only for the first engine).
 	uint32_t cached_slope_resistance = 0; ///< Resistance caused by weight when this vehicle part is at a slope.
-	uint32_t cached_max_te = 0; ///< Maximum tractive effort of consist (valid only for the first engine).
-	uint16_t cached_axle_resistance = 0; ///< Resistance caused by the axles of the vehicle (valid only for the first engine).
+	uint32_t cached_max_te = 0;           ///< Maximum tractive effort of consist (valid only for the first engine).
+	uint16_t cached_axle_resistance = 0;  ///< Resistance caused by the axles of the vehicle (valid only for the first engine).
 
 	/* Cached acceleration values, recalculated on load and each time a vehicle is added to/removed from the consist. */
 	uint16_t cached_max_track_speed = 0; ///< Maximum consist speed (in internal units) limited by track type (valid only for the first engine).
-	uint32_t cached_power = 0; ///< Total power of the consist (valid only for the first engine).
-	uint32_t cached_air_drag = 0; ///< Air drag coefficient of the vehicle (valid only for the first engine).
+	uint32_t cached_power = 0;           ///< Total power of the consist (valid only for the first engine).
+	uint32_t cached_air_drag = 0;        ///< Air drag coefficient of the vehicle (valid only for the first engine).
 
 	/* Cached NewGRF values, recalculated on load and each time a vehicle is added to/removed from the consist. */
-	uint16_t cached_total_length = 0; ///< Length of the whole vehicle (valid only for the first engine).
+	uint16_t cached_total_length = 0;            ///< Length of the whole vehicle (valid only for the first engine).
 	EngineID first_engine = EngineID::Invalid(); ///< Cached EngineID of the front vehicle. EngineID::Invalid() for the front vehicle itself.
-	uint8_t cached_veh_length = 0; ///< Length of this vehicle in units of 1/VEHICLE_LENGTH of normal length. It is cached because this can be set by a callback.
+	uint8_t cached_veh_length = 0;               ///< Length of this vehicle in units of 1/VEHICLE_LENGTH of normal length. It is cached because this can be set by a callback.
 
 	/* Cached UI information. */
 	uint16_t last_speed = 0; ///< The last speed we did display, so we only have to redraw when this changes.
 
-	auto operator<=>(const GroundVehicleCache &) const = default;
+	bool operator==(const GroundVehicleCache &) const = default;
 };
 
 /** Ground vehicle flags. */
@@ -55,7 +56,66 @@ enum GroundVehicleFlags : uint8_t {
 	GVF_GOINGUP_BIT              = 0,  ///< Vehicle is currently going uphill. (Cached track information for acceleration)
 	GVF_GOINGDOWN_BIT            = 1,  ///< Vehicle is currently going downhill. (Cached track information for acceleration)
 	GVF_SUPPRESS_IMPLICIT_ORDERS = 2,  ///< Disable insertion and removal of automatic orders until the vehicle completes the real order.
+	GVF_CHUNNEL_BIT              = 3,  ///< Vehicle may currently be in a chunnel. (Cached track information for inclination changes)
 };
+
+struct GroundVehicleAcceleration {
+	int acceleration;
+	int braking;
+};
+
+/** Base class for GroundVehicle. */
+struct BaseGroundVehicle : public Vehicle {
+	GroundVehicleCache gcache{}; ///< Cache of often calculated values.
+	uint16_t gv_flags = 0;       ///< @see GroundVehicleFlags.
+
+	using Vehicle::Vehicle;
+};
+
+/**
+ * Access the ground vehicle cache of the vehicle.
+ * @pre The vehicle is a #GroundVehicle.
+ * @return #GroundVehicleCache of the vehicle.
+ */
+GroundVehicleCache *Vehicle::GetGroundVehicleCache()
+{
+	dbg_assert(this->IsGroundVehicle());
+	return &static_cast<BaseGroundVehicle *>(this)->gcache;
+}
+
+/**
+ * Access the ground vehicle cache of the vehicle.
+ * @pre The vehicle is a #GroundVehicle.
+ * @return #GroundVehicleCache of the vehicle.
+ */
+const GroundVehicleCache *Vehicle::GetGroundVehicleCache() const
+{
+	dbg_assert(this->IsGroundVehicle());
+	return &static_cast<const BaseGroundVehicle *>(this)->gcache;
+}
+
+
+/**
+ * Access the ground vehicle flags of the vehicle.
+ * @pre The vehicle is a #GroundVehicle.
+ * @return #GroundVehicleFlags of the vehicle.
+ */
+uint16_t &Vehicle::GetGroundVehicleFlags()
+{
+	dbg_assert(this->IsGroundVehicle());
+	return static_cast<BaseGroundVehicle *>(this)->gv_flags;
+}
+
+/**
+ * Access the ground vehicle flags of the vehicle.
+ * @pre The vehicle is a #GroundVehicle.
+ * @return #GroundVehicleFlags of the vehicle.
+ */
+uint16_t Vehicle::GetGroundVehicleFlags() const
+{
+	dbg_assert(this->IsGroundVehicle());
+	return static_cast<const BaseGroundVehicle *>(this)->gv_flags;
+}
 
 /**
  * Base class for all vehicles that move through ground.
@@ -64,36 +124,39 @@ enum GroundVehicleFlags : uint8_t {
  * These functions are not defined as pure virtual functions at this class to improve performance.
  *
  * virtual uint16_t      GetPower() const = 0;
- * virtual uint16_t      GetPoweredPartPower(const T *head) const = 0;
+ * virtual uint16_t      GetPoweredPartPower() const = 0;
+ * virtual uint16_t      GetWeightWithoutCargo() const = 0;
+ * virtual uint16_t      GetCargoWeight() const = 0;
  * virtual uint16_t      GetWeight() const = 0;
- * virtual uint8_t        GetTractiveEffort() const = 0;
- * virtual uint8_t        GetAirDrag() const = 0;
- * virtual uint8_t        GetAirDragArea() const = 0;
- * virtual AccelStatus GetAccelerationStatus() const = 0;
+ * virtual uint8_t       GetTractiveEffort() const = 0;
+ * virtual uint8_t       GetAirDrag() const = 0;
+ * virtual uint8_t       GetAirDragArea() const = 0;
+ * virtual AccelStatus   GetAccelerationStatus() const = 0;
  * virtual uint16_t      GetCurrentSpeed() const = 0;
  * virtual uint32_t      GetRollingFriction() const = 0;
- * virtual int         GetAccelerationType() const = 0;
+ * virtual int           GetAccelerationType() const = 0;
  * virtual int32_t       GetSlopeSteepness() const = 0;
- * virtual int         GetDisplayMaxSpeed() const = 0;
+ * virtual int           GetDisplayMaxSpeed() const = 0;
  * virtual uint16_t      GetMaxTrackSpeed() const = 0;
- * virtual bool        TileMayHaveSlopedTrack() const = 0;
+ * virtual bool          TileMayHaveSlopedTrack() const = 0;
  */
 template <class T, VehicleType Type>
-struct GroundVehicle : public SpecializedVehicle<T, Type> {
-	GroundVehicleCache gcache{}; ///< Cache of often calculated values.
-	uint16_t gv_flags = 0; ///< @see GroundVehicleFlags.
-
+struct GroundVehicle : public SpecializedVehicle<T, Type, BaseGroundVehicle> {
 	typedef GroundVehicle<T, Type> GroundVehicleBase; ///< Our type
 
 	/**
 	 * The constructor at SpecializedVehicle must be called.
+	 * @param index The index into the vehicle pool.
 	 */
-	GroundVehicle() : SpecializedVehicle<T, Type>() {}
+	GroundVehicle(VehicleID index) : SpecializedVehicle<T, Type, BaseGroundVehicle>(index) {}
 
 	void PowerChanged();
 	void CargoChanged();
-	int GetAcceleration() const;
 	bool IsChainInDepot() const override;
+
+	void CalculatePower(uint32_t &power, uint32_t &max_te, bool breakdowns) const;
+
+	GroundVehicleAcceleration GetAcceleration();
 
 	/**
 	 * Common code executed for crashed ground vehicles
@@ -114,9 +177,12 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 	 * Calculates the total slope resistance for this vehicle.
 	 * @return Slope resistance.
 	 */
-	inline int64_t GetSlopeResistance() const
+	inline int64_t GetSlopeResistance()
 	{
+		if (likely(HasBit(this->vcache.cached_veh_flags, VCF_GV_ZERO_SLOPE_RESIST))) return 0;
+
 		int64_t incl = 0;
+		bool zero_slope_resist = true;
 
 		for (const T *u = T::From(this); u != nullptr; u = u->Next()) {
 			if (HasBit(u->gv_flags, GVF_GOINGUP_BIT)) {
@@ -124,7 +190,9 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 			} else if (HasBit(u->gv_flags, GVF_GOINGDOWN_BIT)) {
 				incl -= u->gcache.cached_slope_resistance;
 			}
+			if (incl != 0) zero_slope_resist = false;
 		}
+		AssignBit(this->vcache.cached_veh_flags, VCF_GV_ZERO_SLOPE_RESIST, zero_slope_resist);
 
 		return incl;
 	}
@@ -150,6 +218,7 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 
 			if (middle_z != this->z_pos) {
 				SetBit(this->gv_flags, (middle_z > this->z_pos) ? GVF_GOINGUP_BIT : GVF_GOINGDOWN_BIT);
+				ClrBit(this->First()->vcache.cached_veh_flags, VCF_GV_ZERO_SLOPE_RESIST);
 			}
 		}
 	}
@@ -166,26 +235,26 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 		/* The following code does this: */
 
 		if (HasBit(this->gv_flags, GVF_GOINGUP_BIT)) {
-			switch (this->direction) {
-				case DIR_NE:
+			switch (this->GetMovingDirection()) {
+				case Direction::NE:
 					this->z_pos += (this->x_pos & 1) ^ 1; break;
-				case DIR_SW:
+				case Direction::SW:
 					this->z_pos += (this->x_pos & 1); break;
-				case DIR_NW:
+				case Direction::NW:
 					this->z_pos += (this->y_pos & 1) ^ 1; break;
-				case DIR_SE:
+				case Direction::SE:
 					this->z_pos += (this->y_pos & 1); break;
 				default: break;
 			}
 		} else if (HasBit(this->gv_flags, GVF_GOINGDOWN_BIT)) {
-			switch (this->direction) {
-				case DIR_NE:
+			switch (this->GetMovingDirection()) {
+				case Direction::NE:
 					this->z_pos -= (this->x_pos & 1) ^ 1; break;
-				case DIR_SW:
+				case Direction::SW:
 					this->z_pos -= (this->x_pos & 1); break;
-				case DIR_NW:
+				case Direction::NW:
 					this->z_pos -= (this->y_pos & 1) ^ 1; break;
-				case DIR_SE:
+				case Direction::SE:
 					this->z_pos -= (this->y_pos & 1); break;
 				default: break;
 			}
@@ -207,23 +276,31 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 				return;
 			}
 			/* DirToDiagDir() is a simple right shift */
-			DiagDirection dir = DirToDiagDir(this->direction);
+			DiagDirection dir = DirToDiagDir(this->GetMovingDirection());
 			/* Read variables, so the compiler knows the access doesn't trap */
 			int8_t x_pos = this->x_pos;
 			int8_t y_pos = this->y_pos;
 			/* DiagDirToAxis() is a simple mask */
-			int8_t d = DiagDirToAxis(dir) == AXIS_X ? x_pos : y_pos;
+			int8_t d = DiagDirToAxis(dir) == Axis::X ? x_pos : y_pos;
 			/* We need only the least significant bit */
 			d &= 1;
-			d ^= (int8_t)(dir == DIAGDIR_NW || dir == DIAGDIR_NE);
+			d ^= (int8_t)(dir == DiagDirection::NW || dir == DiagDirection::NE);
 			/* Subtraction instead of addition because we are testing for GVF_GOINGUP_BIT.
 			 * GVF_GOINGUP_BIT is used because it's bit 0, so simple AND can be used,
 			 * without any shift */
 			this->z_pos += HasBit(this->gv_flags, GVF_GOINGUP_BIT) ? d : -d;
 		}
 
+#ifdef _DEBUG
 		assert(this->z_pos == GetSlopePixelZ(this->x_pos, this->y_pos, true));
+#endif
+
+		if (HasBit(this->gv_flags, GVF_CHUNNEL_BIT) && !IsTunnelTile(this->tile)) {
+			ClrBit(this->gv_flags, GVF_CHUNNEL_BIT);
+		}
 	}
+
+	void UpdateZPositionInWormhole();
 
 	/**
 	 * Checks if the vehicle is in a slope and sets the required flags in that case.
@@ -231,11 +308,13 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 	 * @param update_delta Indicates to also update the delta.
 	 * @return Old height of the vehicle.
 	 */
-	inline int UpdateInclination(bool new_tile, bool update_delta)
+	inline int UpdateInclination(bool new_tile, bool update_delta, bool in_wormhole = false)
 	{
 		int old_z = this->z_pos;
 
-		if (new_tile) {
+		if (in_wormhole) {
+			if (HasBit(this->gv_flags, GVF_CHUNNEL_BIT)) this->UpdateZPositionInWormhole();
+		} else if (new_tile) {
 			this->UpdateZPositionAndInclination();
 		} else {
 			this->UpdateZPosition();
@@ -296,6 +375,16 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 	inline void ClearFreeWagon() { ClrBit(this->subtype, GVSF_FREE_WAGON); }
 
 	/**
+	 * Set a vehicle as a virtual vehicle.
+	 */
+	inline void SetVirtual() { SetBit(this->subtype, GVSF_VIRTUAL); }
+
+	/**
+	 * Clear a vehicle from being a virtual vehicle.
+	 */
+	inline void ClearVirtual() { ClrBit(this->subtype, GVSF_VIRTUAL); }
+
+	/**
 	 * Set a vehicle as a multiheaded engine.
 	 */
 	inline void SetMultiheaded() { SetBit(this->subtype, GVSF_MULTIHEADED); }
@@ -330,10 +419,34 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 	inline bool IsMultiheaded() const { return HasBit(this->subtype, GVSF_MULTIHEADED); }
 
 	/**
+	* Tell if we are dealing with a virtual vehicle (used for templates).
+	* @return True if the vehicle is a virtual vehicle.
+	*/
+	inline bool IsVirtual() const { return HasBit(this->subtype, GVSF_VIRTUAL); }
+
+	/**
 	 * Tell if we are dealing with the rear end of a multiheaded engine.
 	 * @return True if the engine is the rear part of a dualheaded engine.
 	 */
 	inline bool IsRearDualheaded() const { return this->IsMultiheaded() && !this->IsEngine(); }
+
+	/**
+	 * Check if the vehicle is a front engine.
+	 * @return Returns true if the vehicle is a front engine.
+	 */
+	inline bool IsFrontEngine() const
+	{
+		return HasBit(this->subtype, GVSF_FRONT);
+	}
+
+	/**
+	 * Check if the vehicle is an articulated part of an engine.
+	 * @return Returns true if the vehicle is an articulated part.
+	 */
+	inline bool IsArticulatedPart() const
+	{
+		return HasBit(this->subtype, GVSF_ARTICULATED_PART);
+	}
 
 	/**
 	 * Update the GUI variant of the current speed of the vehicle.
@@ -343,50 +456,28 @@ struct GroundVehicle : public SpecializedVehicle<T, Type> {
 	inline void SetLastSpeed()
 	{
 		if (this->cur_speed != this->gcache.last_speed) {
-			SetWindowWidgetDirty(WC_VEHICLE_VIEW, this->index, WID_VV_START_STOP);
+			SetWindowWidgetDirty(WindowClass::VehicleView, this->index, WID_VV_START_STOP);
 			this->gcache.last_speed = this->cur_speed;
+			if (HasBit(this->vcache.cached_veh_flags, VCF_REDRAW_ON_SPEED_CHANGE)) {
+				this->RefreshImageCacheOfChain();
+			}
+		}
+	}
+
+	/**
+	 * Refresh cached image of all vehicles in the chain (after the current vehicle)
+	 */
+	inline void RefreshImageCacheOfChain()
+	{
+		ClrBit(this->vcache.cached_veh_flags, VCF_REDRAW_ON_SPEED_CHANGE);
+		ClrBit(this->vcache.cached_veh_flags, VCF_REDRAW_ON_TRIGGER);
+		for (Vehicle *u = this; u != nullptr; u = u->Next()) {
+			SetBit(this->vcache.cached_veh_flags, VCF_IMAGE_REFRESH_NEXT);
 		}
 	}
 
 protected:
-	/**
-	 * Update the speed of the vehicle.
-	 *
-	 * It updates the cur_speed and subspeed variables depending on the state
-	 * of the vehicle; in this case the current acceleration, minimum and
-	 * maximum speeds of the vehicle. It returns the distance that that the
-	 * vehicle can drive this tick. #Vehicle::GetAdvanceDistance() determines
-	 * the distance to drive before moving a step on the map.
-	 * @param accel     The acceleration we would like to give this vehicle.
-	 * @param min_speed The minimum speed here, in vehicle specific units.
-	 * @param max_speed The maximum speed here, in vehicle specific units.
-	 * @return Distance to drive.
-	 */
-	inline uint DoUpdateSpeed(uint accel, int min_speed, int max_speed)
-	{
-		uint spd = this->subspeed + accel;
-		this->subspeed = (uint8_t)spd;
-
-		/* When we are going faster than the maximum speed, reduce the speed
-		 * somewhat gradually. But never lower than the maximum speed. */
-		int tempmax = max_speed;
-		if (this->cur_speed > max_speed) {
-			tempmax = std::max(this->cur_speed - (this->cur_speed / 10) - 1, max_speed);
-		}
-
-		/* Enforce a maximum and minimum speed. Normally we would use something like
-		 * Clamp for this, but in this case min_speed might be below the maximum speed
-		 * threshold for some reason. That makes acceleration fail and assertions
-		 * happen in Clamp. So make it explicit that min_speed overrules the maximum
-		 * speed by explicit ordering of min and max. */
-		this->cur_speed = spd = std::max(std::min(this->cur_speed + ((int)spd >> 8), tempmax), min_speed);
-
-		int scaled_spd = this->GetAdvanceSpeed(spd);
-
-		scaled_spd += this->progress;
-		this->progress = 0; // set later in *Handler or *Controller
-		return scaled_spd;
-	}
+	uint DoUpdateSpeed(GroundVehicleAcceleration accel, int min_speed, int max_speed, int advisory_max_speed, bool use_realistic_braking);
 };
 
 #endif /* GROUND_VEHICLE_HPP */

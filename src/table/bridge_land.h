@@ -8,7 +8,8 @@
 #include "table/strings.h"
 
 /**
- * @file bridge_land.h This file contains all the sprites for bridges
+ * @file bridge_land.h This file contains all the sprites for bridges.
+ *
  * It consists of a number of arrays.
  * <ul><li>_bridge_sprite_table_n_m. Defines all the sprites of a bridge besides the pylons.
  * n defines the number of the bridge type, m the number of the section. the highest m for
@@ -36,15 +37,10 @@
 # define MW(a) {a, PALETTE_TO_STRUCT_WHITE}
 # define MC(a) {a, PALETTE_TO_STRUCT_CONCRETE}
 
-/* Sprite table for middle part of aqueduct. */
-static const PalSpriteID _aqueduct_sprite_table_middle[] = {
-	{SPR_AQUEDUCT_MIDDLE_X, PAL_NONE}, {0x0, PAL_NONE}, {SPR_AQUEDUCT_PILLAR_X, PAL_NONE}, {0x0, PAL_NONE}, // AXIS_X
-	{SPR_AQUEDUCT_MIDDLE_Y, PAL_NONE}, {0x0, PAL_NONE}, {SPR_AQUEDUCT_PILLAR_Y, PAL_NONE}, {0x0, PAL_NONE}, // AIXS_Y
-};
-
-/* Sprite table for head part of aqueduct. */
-static const PalSpriteID _aqueduct_sprite_table_heads[] = {
-	{SPR_AQUEDUCT_RAMP_SW, PAL_NONE}, {SPR_AQUEDUCT_RAMP_SE, PAL_NONE}, {SPR_AQUEDUCT_RAMP_NE, PAL_NONE}, {SPR_AQUEDUCT_RAMP_NW, PAL_NONE},
+static const PalSpriteID _aqueduct_sprites[] = {
+	{ SPR_AQUEDUCT_MIDDLE_X, PAL_NONE }, {                  0x0, PAL_NONE }, { SPR_AQUEDUCT_PILLAR_X, PAL_NONE }, {                  0x0, PAL_NONE },
+	{ SPR_AQUEDUCT_MIDDLE_Y, PAL_NONE }, {                  0x0, PAL_NONE }, { SPR_AQUEDUCT_PILLAR_Y, PAL_NONE }, {                  0x0, PAL_NONE },
+	{  SPR_AQUEDUCT_RAMP_SW, PAL_NONE }, { SPR_AQUEDUCT_RAMP_SE, PAL_NONE }, {  SPR_AQUEDUCT_RAMP_NE, PAL_NONE }, { SPR_AQUEDUCT_RAMP_NW, PAL_NONE },
 };
 
 static const PalSpriteID _bridge_sprite_table_suspension_oxide_north[] = {
@@ -730,6 +726,9 @@ static const std::span<const std::span<const PalSpriteID>> _bridge_sprite_table[
 	_bridge_sprite_table_tubular_oxide,
 	_bridge_sprite_table_tubular_yellow,
 	_bridge_sprite_table_tubular_silicon,
+	_bridge_sprite_table_tubular_silicon,
+	_bridge_sprite_table_tubular_silicon,
+	_bridge_sprite_table_tubular_silicon,
 };
 
 /**
@@ -746,41 +745,11 @@ static const std::span<const std::span<const PalSpriteID>> _bridge_sprite_table[
  * @param nrd description of the road bridge in query tool
  */
 #define MBR(y, mnl, mxl, p, mxs, spr, plt, dsc, nrl, nrd, pillars) \
-	{TimerGameCalendar::Year{y}, mnl, mxl, p, mxs, spr, plt, dsc, { nrl, nrd }, {}, 0, {}, pillars}
+	{CalTime::Year{y}, mnl, mxl, p, mxs, spr, plt, dsc, { nrl, nrd }, {}, 0, 0, pillars}
 
-static constexpr BridgePillarFlags BRIDGEPILLARFLAGS_ALL_CORNERS = {
-	BridgePillarFlag::CornerW, BridgePillarFlag::CornerS, BridgePillarFlag::CornerE, BridgePillarFlag::CornerN
-};
-
-/** Pillar flags for bridges which have pillars on the all corners on each piece. */
-static const BridgeMiddlePillarFlags ALL_PILLARS = {{
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS, BRIDGEPILLARFLAGS_ALL_CORNERS}},
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS, BRIDGEPILLARFLAGS_ALL_CORNERS}},
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS, BRIDGEPILLARFLAGS_ALL_CORNERS}},
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS, BRIDGEPILLARFLAGS_ALL_CORNERS}},
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS, BRIDGEPILLARFLAGS_ALL_CORNERS}},
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS, BRIDGEPILLARFLAGS_ALL_CORNERS}},
-}};
-
-/** Pillar flags for suspension style bridges. */
-static const BridgeMiddlePillarFlags SUSPENSION_PILLARS = {{
-	{{{BridgePillarFlag::CornerW, BridgePillarFlag::CornerS}, {BridgePillarFlag::CornerS, BridgePillarFlag::CornerE}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-	{{{BridgePillarFlag::CornerW, BridgePillarFlag::CornerS}, {BridgePillarFlag::CornerS, BridgePillarFlag::CornerE}}},
-	{{BRIDGEPILLARFLAGS_ALL_CORNERS,                          BRIDGEPILLARFLAGS_ALL_CORNERS}},
-	{{{},                                                     {}}},
-}};
-
-/** Pillar flags for cantilever style bridges. */
-static const BridgeMiddlePillarFlags CANTILEVER_PILLARS = {{
-	{{{},                                                     {}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-	{{{BridgePillarFlag::CornerE, BridgePillarFlag::CornerN}, {BridgePillarFlag::CornerW, BridgePillarFlag::CornerN}}},
-}};
+#define ALL_PILLARS  { 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F }
+#define SUSP_PILLARS { 0x03, 0x06, 0x0C, 0x09, 0x0C, 0x09, 0x03, 0x06, 0x0F, 0x0F, 0x00, 0x00 }
+#define CANT_PILLARS { 0x00, 0x00, 0x0C, 0x09, 0x0C, 0x09, 0x0C, 0x09, 0x0C, 0x09, 0x0C, 0x09 }
 
 const BridgeSpec _orig_bridge[] = {
 /*
@@ -803,36 +772,43 @@ const BridgeSpec _orig_bridge[] = {
 	   STR_BRIDGE_NAME_GIRDER_STEEL,         STR_LAI_BRIDGE_DESCRIPTION_RAIL_GIRDER_STEEL,        STR_LAI_BRIDGE_DESCRIPTION_ROAD_GIRDER_STEEL, ALL_PILLARS),
 
 	MBR(   0, 2,     10, 168,  80, 0xA22, PALETTE_TO_STRUCT_CONCRETE,
-	   STR_BRIDGE_NAME_SUSPENSION_CONCRETE,  STR_LAI_BRIDGE_DESCRIPTION_RAIL_SUSPENSION_CONCRETE, STR_LAI_BRIDGE_DESCRIPTION_ROAD_SUSPENSION_CONCRETE, SUSPENSION_PILLARS),
+	   STR_BRIDGE_NAME_SUSPENSION_CONCRETE,  STR_LAI_BRIDGE_DESCRIPTION_RAIL_SUSPENSION_CONCRETE, STR_LAI_BRIDGE_DESCRIPTION_ROAD_SUSPENSION_CONCRETE, SUSP_PILLARS),
 
 	MBR(1930, 3, 0xFFFF, 185,  96, 0xA22, PAL_NONE,
-	   STR_BRIDGE_NAME_SUSPENSION_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_SUSPENSION_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_SUSPENSION_STEEL, SUSPENSION_PILLARS),
+	   STR_BRIDGE_NAME_SUSPENSION_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_SUSPENSION_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_SUSPENSION_STEEL, SUSP_PILLARS),
 
 	MBR(1930, 3, 0xFFFF, 192, 112, 0xA22, PALETTE_TO_STRUCT_YELLOW,
-	   STR_BRIDGE_NAME_SUSPENSION_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_SUSPENSION_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_SUSPENSION_STEEL, SUSPENSION_PILLARS),
+	   STR_BRIDGE_NAME_SUSPENSION_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_SUSPENSION_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_SUSPENSION_STEEL, SUSP_PILLARS),
 
 	MBR(1930, 3,      7, 224, 160, 0xA23, PAL_NONE,
-	   STR_BRIDGE_NAME_CANTILEVER_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_CANTILEVER_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_CANTILEVER_STEEL, CANTILEVER_PILLARS),
+	   STR_BRIDGE_NAME_CANTILEVER_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_CANTILEVER_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_CANTILEVER_STEEL, CANT_PILLARS),
 
 	MBR(1930, 3,      8, 232, 208, 0xA23, PALETTE_TO_STRUCT_BROWN,
-	   STR_BRIDGE_NAME_CANTILEVER_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_CANTILEVER_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_CANTILEVER_STEEL, CANTILEVER_PILLARS),
+	   STR_BRIDGE_NAME_CANTILEVER_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_CANTILEVER_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_CANTILEVER_STEEL, CANT_PILLARS),
 
 	MBR(1930, 3,      9, 248, 240, 0xA23, PALETTE_TO_STRUCT_RED,
-	   STR_BRIDGE_NAME_CANTILEVER_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_CANTILEVER_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_CANTILEVER_STEEL, CANTILEVER_PILLARS),
+	   STR_BRIDGE_NAME_CANTILEVER_STEEL,     STR_LAI_BRIDGE_DESCRIPTION_RAIL_CANTILEVER_STEEL,    STR_LAI_BRIDGE_DESCRIPTION_ROAD_CANTILEVER_STEEL, CANT_PILLARS),
 
 	MBR(1930, 0,      2, 240, 256, 0xA27, PAL_NONE,
 	   STR_BRIDGE_NAME_GIRDER_STEEL,         STR_LAI_BRIDGE_DESCRIPTION_RAIL_GIRDER_STEEL,        STR_LAI_BRIDGE_DESCRIPTION_ROAD_GIRDER_STEEL, ALL_PILLARS),
 
 	MBR(1995, 2, 0xFFFF, 255, 320, 0xA28, PAL_NONE,
-	   STR_BRIDGE_NAME_TUBULAR_STEEL,        STR_LAI_BRIDGE_DESCRIPTION_RAIL_TUBULAR_STEEL,       STR_LAI_BRIDGE_DESCRIPTION_ROAD_TUBULAR_STEEL, CANTILEVER_PILLARS),
+	   STR_BRIDGE_NAME_TUBULAR_STEEL,        STR_LAI_BRIDGE_DESCRIPTION_RAIL_TUBULAR_STEEL,       STR_LAI_BRIDGE_DESCRIPTION_ROAD_TUBULAR_STEEL, CANT_PILLARS),
 
 	MBR(2005, 2, 0xFFFF, 380, 512, 0xA28, PALETTE_TO_STRUCT_YELLOW,
-	   STR_BRIDGE_NAME_TUBULAR_STEEL,        STR_LAI_BRIDGE_DESCRIPTION_RAIL_TUBULAR_STEEL,       STR_LAI_BRIDGE_DESCRIPTION_ROAD_TUBULAR_STEEL, CANTILEVER_PILLARS),
+	   STR_BRIDGE_NAME_TUBULAR_STEEL,        STR_LAI_BRIDGE_DESCRIPTION_RAIL_TUBULAR_STEEL,       STR_LAI_BRIDGE_DESCRIPTION_ROAD_TUBULAR_STEEL, CANT_PILLARS),
 
 	MBR(2010, 2, 0xFFFF, 510, 608, 0xA28, PALETTE_TO_STRUCT_CONCRETE,
-	   STR_BRIDGE_TUBULAR_SILICON,           STR_LAI_BRIDGE_DESCRIPTION_RAIL_TUBULAR_STEEL,       STR_LAI_BRIDGE_DESCRIPTION_ROAD_TUBULAR_STEEL, CANTILEVER_PILLARS),
+	   STR_BRIDGE_TUBULAR_SILICON,           STR_LAI_BRIDGE_DESCRIPTION_RAIL_TUBULAR_STEEL,       STR_LAI_BRIDGE_DESCRIPTION_ROAD_TUBULAR_STEEL, CANT_PILLARS),
+
+	MBR(CalTime::MAX_YEAR + 1, 1, 0, 1, 0xFFFF, 0xA28, PALETTE_TO_STRUCT_CONCRETE, STR_EMPTY, STR_EMPTY, STR_EMPTY, ALL_PILLARS),
+	MBR(CalTime::MAX_YEAR + 1, 1, 0, 1, 0xFFFF, 0xA28, PALETTE_TO_STRUCT_CONCRETE, STR_EMPTY, STR_EMPTY, STR_EMPTY, ALL_PILLARS),
+	MBR(CalTime::MAX_YEAR + 1, 1, 0, 1, 0xFFFF, 0xA28, PALETTE_TO_STRUCT_CONCRETE, STR_EMPTY, STR_EMPTY, STR_EMPTY, ALL_PILLARS),
 };
 
+#undef CANT_PILLARS
+#undef SUSP_PILLARS
+#undef ALL_PILLARS
 #undef MBR
 #undef MN
 #undef MR

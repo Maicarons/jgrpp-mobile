@@ -15,23 +15,24 @@
 #include "../widget_type.h"
 #include "../window_gui.h"
 #include "linkgraph_base.h"
+#include <vector>
 
 /**
  * Monthly statistics for a link between two stations.
  * Only the cargo type of the most saturated linkgraph is taken into account.
  */
 struct LinkProperties {
-	LinkProperties() {}
-
 	/** Return the usage of the link to display. */
 	uint Usage() const { return std::max(this->usage, this->planned); }
 
+	uint capacity = 0;               ///< Capacity of the link.
+	uint usage = 0;                  ///< Actual usage of the link.
+	uint planned = 0;                ///< Planned usage of the link.
 	CargoType cargo = INVALID_CARGO; ///< Cargo type of the link.
-	uint capacity = 0; ///< Capacity of the link.
-	uint usage = 0; ///< Actual usage of the link.
-	uint planned = 0; ///< Planned usage of the link.
-	uint32_t time = 0; ///< Travel time of the link.
-	bool shared = false; ///< If this is a shared link to be drawn dashed.
+	uint32_t time = 0;               ///< Travel time of the link.
+	bool shared = false;             ///< If this is a shared link to be drawn dashed.
+
+	bool operator==(const LinkProperties&) const = default;
 };
 
 /**
@@ -40,9 +41,26 @@ struct LinkProperties {
  */
 class LinkGraphOverlay {
 public:
-	typedef std::map<StationID, LinkProperties> StationLinkMap;
-	typedef std::map<StationID, StationLinkMap> LinkMap;
-	typedef std::vector<std::pair<StationID, uint> > StationSupplyList;
+	struct StationSupplyInfo {
+		StationID id;
+		uint quantity;
+		Point pt;
+
+		bool operator==(const StationSupplyInfo&) const = default;
+	};
+
+	struct LinkInfo {
+		StationID from_id;
+		StationID to_id;
+		Point from_pt;
+		Point to_pt;
+		LinkProperties prop;
+
+		bool operator==(const LinkInfo&) const = default;
+	};
+
+	typedef std::vector<StationSupplyInfo> StationSupplyList;
+	typedef std::vector<LinkInfo> LinkList;
 
 	static const PixelColour LINK_COLOURS[][12];
 
@@ -55,10 +73,15 @@ public:
 	 * @param scale Desired thickness of lines and size of station dots.
 	 */
 	LinkGraphOverlay(Window *w, WidgetID wid, CargoTypes cargo_mask, CompanyMask company_mask, uint scale) :
-			window(w), widget_id(wid), cargo_mask(cargo_mask), company_mask(company_mask), scale(scale), dirty(true)
+			window(w), widget_id(wid), cargo_mask(cargo_mask), scale(scale), company_mask(company_mask), dirty(true)
 	{}
 
-	void Draw(const DrawPixelInfo *dpi);
+	bool RebuildCacheCheckChanged();
+	void RebuildCache(bool incremental = false);
+	bool CacheStillValid() const;
+	void MarkStationViewportLinksDirty(const Station *st);
+	void PrepareDraw();
+	void Draw(class Blitter *blitter, const DrawPixelInfo *dpi) const;
 	void SetCargoMask(CargoTypes cargo_mask);
 	void SetCompanyMask(CompanyMask company_mask);
 
@@ -68,34 +91,38 @@ public:
 	void SetDirty() { this->dirty = true; }
 
 	/** Get a bitmask of the currently shown cargoes. */
-	CargoTypes GetCargoMask() { return this->cargo_mask; }
+	CargoTypes GetCargoMask() const { return this->cargo_mask; }
 
 	/** Get a bitmask of the currently shown companies. */
-	CompanyMask GetCompanyMask() { return this->company_mask; }
+	CompanyMask GetCompanyMask() const { return this->company_mask; }
+
+	uint64_t GetRebuildCounter() const { return this->rebuild_counter; }
 
 protected:
 	Window *window;                    ///< Window to be drawn into.
 	const WidgetID widget_id;          ///< ID of Widget in Window to be drawn to.
 	CargoTypes cargo_mask;             ///< Bitmask of cargos to be displayed.
-	CompanyMask company_mask;          ///< Bitmask of companies to be displayed.
-	LinkMap cached_links;              ///< Cache for links to reduce recalculation.
+	LinkList cached_links;             ///< Cache for links to reduce recalculation.
 	StationSupplyList cached_stations; ///< Cache for stations to be drawn.
+	Rect cached_region;                ///< Region covered by cached_links and cached_stations.
 	uint scale;                        ///< Width of link lines.
+	CompanyMask company_mask;          ///< Bitmask of companies to be displayed.
 	bool dirty;                        ///< Set if overlay should be rebuilt.
+	uint64_t last_update_number = 0;   ///< Last window update number
+	uint64_t rebuild_counter = 0;      ///< Rebuild counter
 
 	Point GetStationMiddle(const Station *st) const;
 
-	void AddLinks(const Station *sta, const Station *stb);
-	void DrawLinks(const DrawPixelInfo *dpi) const;
-	void DrawStationDots(const DrawPixelInfo *dpi) const;
-	void DrawContent(Point pta, Point ptb, const LinkProperties &cargo) const;
+	void RefreshDrawCache();
+	void DrawLinks(class Blitter *blitter, const DrawPixelInfo *dpi) const;
+	void DrawStationDots(class Blitter *blitter, const DrawPixelInfo *dpi) const;
+	void DrawContent(class Blitter *blitter, const DrawPixelInfo *dpi, Point pta, Point ptb, const LinkProperties &cargo) const;
 	bool IsLinkVisible(Point pta, Point ptb, const DrawPixelInfo *dpi, int padding = 0) const;
 	bool IsPointVisible(Point pt, const DrawPixelInfo *dpi, int padding = 0) const;
-	void GetWidgetDpi(DrawPixelInfo *dpi) const;
-	void RebuildCache();
+	void GetWidgetDpi(DrawPixelInfo *dpi, uint margin = 0) const;
 
-	static void AddStats(CargoType new_cargo, uint new_cap, uint new_usg, uint new_flow, uint32_t time, bool new_shared, LinkProperties &cargo);
-	static void DrawVertex(int x, int y, int size, PixelColour colour, PixelColour border_colour);
+	static void AddStats(CargoType new_cargo, uint new_cap, uint new_usg, uint new_plan, uint32_t time, bool new_shared, LinkProperties &cargo);
+	static void DrawVertex(class Blitter *blitter, const DrawPixelInfo *dpi, int x, int y, int size, PixelColour colour, PixelColour border_colour);
 };
 
 void ShowLinkGraphLegend();
@@ -106,7 +133,7 @@ void ShowLinkGraphLegend();
 struct LinkGraphLegendWindow : Window {
 public:
 	LinkGraphLegendWindow(WindowDesc &desc, int window_number);
-	void SetOverlay(std::shared_ptr<LinkGraphOverlay> overlay);
+	void SetOverlay(LinkGraphOverlay *overlay);
 
 	void UpdateWidgetSize(WidgetID widget, Dimension &size, [[maybe_unused]] const Dimension &padding, [[maybe_unused]] Dimension &fill, [[maybe_unused]] Dimension &resize) override;
 	void DrawWidget(const Rect &r, WidgetID widget) const override;
@@ -115,7 +142,7 @@ public:
 	void OnInvalidateData(int data = 0, bool gui_scope = true) override;
 
 private:
-	std::shared_ptr<LinkGraphOverlay> overlay{};
+	LinkGraphOverlay *overlay = nullptr;
 	size_t num_cargo = 0;
 
 	void UpdateOverlayCompanies();

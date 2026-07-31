@@ -30,7 +30,14 @@ jobs:
 
     steps:
     - name: Checkout
+      if: github.event_name != 'workflow_dispatch'
       uses: actions/checkout@v6
+
+    - name: Checkout (Manual)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.ref }}
 
     - name: Setup vcpkg
       id: vcpkg
@@ -50,6 +57,7 @@ jobs:
           libharfbuzz-dev \
           libicu-dev \
           liblzma-dev \
+          libzstd-dev \
           liblzo2-dev \
           libogg-dev \
           libopus-dev \
@@ -65,7 +73,7 @@ jobs:
 
         # We only use breakpad from vcpkg, as its CMake files
         # are a bit special. So the Ubuntu's variant doesn't work.
-        ${{ steps.vcpkg.outputs.vcpkg }} install breakpad
+        #${{ steps.vcpkg.outputs.vcpkg }} install breakpad
 
         echo "::endgroup::"
       env:
@@ -100,7 +108,7 @@ jobs:
 
         echo "::group::Build"
         echo "Running on $(nproc) cores"
-        cmake --build . -j $(nproc)
+        cmake --build . -j $(nproc) --target all openttd_test
         echo "::endgroup::"
 
     - name: Test

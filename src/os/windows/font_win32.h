@@ -10,7 +10,6 @@
 #ifndef FONT_WIN32_H
 #define FONT_WIN32_H
 
-#include "../../core/alloc_type.hpp"
 #include "../../fontcache/truetypefontcache.h"
 #include "win32.h"
 
@@ -26,8 +25,6 @@ private:
 	SIZE glyph_size;      ///< Maximum size of regular glyphs.
 	std::string fontname; ///< Cached copy of loaded font facename
 
-	ReusableBuffer<uint8_t> render_buffer; ///< Temporary buffer for rendering glyphs.
-
 	void SetFontSize(int pixels);
 
 protected:
@@ -35,7 +32,7 @@ protected:
 
 public:
 	Win32FontCache(FontSize fs, const LOGFONT &logfont, int pixels);
-	~Win32FontCache();
+	~Win32FontCache() override;
 	void ClearFontCache() override;
 	GlyphID MapCharToGlyph(char32_t key, bool allow_fallback = true) override;
 	std::string GetFontName() override { return this->fontname; }

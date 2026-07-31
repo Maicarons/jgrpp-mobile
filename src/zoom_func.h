@@ -21,7 +21,7 @@
  */
 inline int ScaleByZoom(int value, ZoomLevel zoom)
 {
-	return value << to_underlying(zoom);
+	return ((uint) value) << to_underlying(zoom);
 }
 
 /**
@@ -55,7 +55,7 @@ inline int AdjustByZoom(int value, int zoom)
  */
 inline int ScaleByZoomLower(int value, ZoomLevel zoom)
 {
-	return value << to_underlying(zoom);
+	return ((uint) value) << to_underlying(zoom);
 }
 
 /**

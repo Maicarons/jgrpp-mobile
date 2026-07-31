@@ -43,7 +43,7 @@ static OSStatus audioCallback(void *, AudioUnitRenderActionFlags *, const AudioT
 }
 
 
-std::optional<std::string_view> SoundDriver_Cocoa::Start(const StringList &parm)
+const char *SoundDriver_Cocoa::Start(const StringList &parm)
 {
 	struct AURenderCallbackStruct callback;
 	AudioStreamBasicDescription requestedDesc;
@@ -107,7 +107,7 @@ std::optional<std::string_view> SoundDriver_Cocoa::Start(const StringList &parm)
 	}
 
 	/* We're running! */
-	return std::nullopt;
+	return nullptr;
 }
 
 

@@ -12,9 +12,13 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _animated_tile_desc. */
 const SaveLoadCompat _animated_tile_sl_compat[] = {
 	SLC_VAR("tiles"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_ANIMATED_TILE_H */

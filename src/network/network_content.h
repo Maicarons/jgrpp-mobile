@@ -13,8 +13,9 @@
 #include <ranges>
 #include "core/tcp_content.h"
 #include "core/http.h"
-#include <unordered_map>
 #include "../core/container_func.hpp"
+#include "../3rdparty/cpp-btree/btree_map.h"
+#include <vector>
 
 /** Vector with content info */
 using ContentVector = std::vector<std::unique_ptr<ContentInfo>>;
@@ -63,26 +64,27 @@ struct ContentCallback {
 class ClientNetworkContentSocketHandler : public NetworkContentSocketHandler, ContentCallback, HTTPCallback {
 protected:
 	using ContentIDList = std::vector<ContentID>; ///< List of content IDs to (possibly) select.
-	std::vector<ContentCallback *> callbacks; ///< Callbacks to notify "the world"
-	ContentIDList requested; ///< ContentIDs we already requested (so we don't do it again)
-	ContentIDList queued; ///< ContentID queue to be requested.
-	ContentVector infos; ///< All content info we received
-	std::unordered_multimap<ContentID, ContentID> reverse_dependency_map; ///< Content reverse dependency map
-	std::vector<char> http_response; ///< The HTTP response to the requests we've been doing
-	int http_response_index = -2; ///< Where we are, in the response, with handling it
+	std::vector<ContentCallback *> callbacks;     ///< Callbacks to notify "the world"
+	ContentIDList requested;                      ///< ContentIDs we already requested (so we don't do it again)
+	ContentIDList queued;                         ///< ContentID queue to be requested.
+	ContentVector infos;                          ///< All content info we received
+	btree::btree_multimap<ContentID, ContentID> reverse_dependency_map; ///< Content reverse dependency map
+	std::vector<char> http_response;              ///< The HTTP response to the requests we've been doing
+	int http_response_index = -2;                 ///< Where we are, in the response, with handling it
 
-	std::optional<FileHandle> cur_file; ///< Currently downloaded file
-	std::unique_ptr<ContentInfo> cur_info; ///< Information about the currently downloaded file
-	bool is_connecting = false; ///< Whether we're connecting
-	bool is_cancelled = false; ///< Whether the download has been cancelled
+	std::optional<FileHandle> cur_file;           ///< Currently downloaded file
+	std::unique_ptr<ContentInfo> cur_info;        ///< Information about the currently downloaded file
+	bool is_connecting = false;                   ///< Whether we're connecting
+	bool is_cancelled = false;                    ///< Whether the download has been cancelled
 	std::chrono::steady_clock::time_point last_activity = std::chrono::steady_clock::now(); ///< The last time there was network activity
 
 	friend class NetworkContentConnecter;
 
-	bool Receive_SERVER_INFO(Packet &p) override;
-	bool Receive_SERVER_CONTENT(Packet &p) override;
+	bool ReceiveServerInfo(Packet &p) override;
+	bool ReceiveServerContent(Packet &p) override;
 
-	ContentInfo *GetContent(ContentID cid) const;
+	ContentInfo *GetContent(ContentID cid);
+	const ContentInfo *GetContent(ContentID cid) const { return const_cast<ClientNetworkContentSocketHandler *>(this)->GetContent(cid); }
 	void DownloadContentInfo(ContentID cid);
 
 	void OnConnect(bool success) override;
@@ -92,7 +94,7 @@ protected:
 	void OnDownloadComplete(ContentID cid) override;
 
 	void OnFailure() override;
-	void OnReceiveData(std::unique_ptr<char[]> data, size_t length) override;
+	void OnReceiveData(UniqueBuffer<char> data) override;
 	bool IsCancelled() const override;
 
 	bool BeforeDownload();
@@ -135,15 +137,22 @@ public:
 
 	void Clear();
 
-	/** Add a callback to this class */
+	/**
+	 * Add a callback to this class, if it doesn't already exist.
+	 * @param cb The callback to add.
+	 */
 	void AddCallback(ContentCallback *cb) { include(this->callbacks, cb); }
-	/** Remove a callback */
+
+	/**
+	 * Remove a callback.
+	 * @param cb The callback to remove.
+	 */
 	void RemoveCallback(ContentCallback *cb) { this->callbacks.erase(std::ranges::find(this->callbacks, cb)); }
 };
 
 extern ClientNetworkContentSocketHandler _network_content_client;
 
-void ShowNetworkContentListWindow(ContentVector *cv = nullptr, ContentType type1 = CONTENT_TYPE_END, ContentType type2 = CONTENT_TYPE_END);
+void ShowNetworkContentListWindow(ContentVector *cv = nullptr, ContentType type1 = ContentType::End, ContentType type2 = ContentType::End);
 
 void ShowMissingContentWindow(const GRFConfigList &list);
 

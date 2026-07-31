@@ -10,7 +10,6 @@
 #ifndef YAPF_NODE_RAIL_HPP
 #define YAPF_NODE_RAIL_HPP
 
-#include "../../misc/dbg_helpers.h"
 #include "../../train.h"
 #include "nodelist.hpp"
 #include "yapf_node.hpp"
@@ -18,6 +17,8 @@
 
 /** key for cached segment cost for rail YAPF */
 struct CYapfRailSegmentKey {
+	using HashKey = uint32_t;
+
 	uint32_t value;
 
 	inline CYapfRailSegmentKey(const CYapfNodeKeyTrackDir &node_key)
@@ -35,7 +36,7 @@ struct CYapfRailSegmentKey {
 		this->value = (node_key.tile.base() << 4) | node_key.td;
 	}
 
-	inline int32_t CalcHash() const
+	inline HashKey GetHashKey() const
 	{
 		return this->value;
 	}
@@ -55,7 +56,7 @@ struct CYapfRailSegmentKey {
 		return this->value == other.value;
 	}
 
-	void Dump(DumpTarget &dmp) const
+	template <class D> void Dump(D &dmp) const
 	{
 		dmp.WriteTile("tile", this->GetTile());
 		dmp.WriteEnumT("td", this->GetTrackdir());
@@ -73,7 +74,6 @@ struct CYapfRailSegment {
 	TileIndex last_signal_tile = INVALID_TILE;
 	Trackdir last_signal_td = INVALID_TRACKDIR;
 	EndSegmentReasons end_segment_reason{};
-	CYapfRailSegment *hash_next = nullptr;
 
 	inline CYapfRailSegment(const CYapfRailSegmentKey &key) : key(key) {}
 
@@ -87,17 +87,7 @@ struct CYapfRailSegment {
 		return this->key.GetTile();
 	}
 
-	inline CYapfRailSegment *GetHashNext()
-	{
-		return this->hash_next;
-	}
-
-	inline void SetHashNext(CYapfRailSegment *next)
-	{
-		this->hash_next = next;
-	}
-
-	void Dump(DumpTarget &dmp) const
+	template <class D> void Dump(D &dmp) const
 	{
 		dmp.WriteStructT("key", &this->key);
 		dmp.WriteTile("last_tile", this->last_tile);
@@ -114,27 +104,33 @@ struct CYapfRailNode : CYapfNodeT<CYapfNodeKeyTrackDir, CYapfRailNode> {
 	typedef CYapfNodeT<CYapfNodeKeyTrackDir, CYapfRailNode> base;
 	typedef CYapfRailSegment CachedData;
 
-	CYapfRailSegment *segment;
-	uint16_t num_signals_passed;
+	CYapfRailSegment  *segment;
+	uint16_t          num_signals_passed;
 	union {
-		uint32_t inherited_flags;
+		uint32_t        inherited_flags;
 		struct {
-			bool target_seen;
-			bool choice_seen;
-			bool last_signal_was_red;
+			bool          target_seen : 1;
+			bool          choice_seen : 1;
+			bool          last_signal_was_red : 1;
+			bool          reverse_pending : 1;
+			bool          teleport : 1;
 		} flags_s;
 	} flags_u;
-	SignalType last_red_signal_type;
-	SignalType last_signal_type;
+	SignalType        last_red_signal_type;
+	SignalType        last_signal_type;
+	Trackdir          last_non_reserve_through_signal_td;
+	TileIndex         last_non_reserve_through_signal_tile;
 
 	inline void Set(CYapfRailNode *parent, TileIndex tile, Trackdir td, bool is_choice)
 	{
 		this->base::Set(parent, tile, td, is_choice);
 		this->segment = nullptr;
 		if (parent == nullptr) {
-			this->num_signals_passed      = 0;
-			this->flags_u.inherited_flags = 0;
-			this->last_red_signal_type    = SIGTYPE_BLOCK;
+			this->num_signals_passed                   = 0;
+			this->last_non_reserve_through_signal_tile = INVALID_TILE;
+			this->last_non_reserve_through_signal_td   = INVALID_TRACKDIR;
+			this->flags_u.inherited_flags              = 0;
+			this->last_red_signal_type                 = SignalType::Block;
 			/* We use PBS as initial signal type because if we are in
 			 * a PBS section and need to route, i.e. we're at a safe
 			 * waiting point of a station, we need to account for the
@@ -145,66 +141,108 @@ struct CYapfRailNode : CYapfNodeT<CYapfNodeKeyTrackDir, CYapfRailNode> {
 			 * then avoiding that train with help of the reservation
 			 * costs is not a bad thing, actually it would probably
 			 * be a good thing to do. */
-			this->last_signal_type        = SIGTYPE_PBS;
+			this->last_signal_type = SignalType::Path;
 		} else {
-			this->num_signals_passed      = parent->num_signals_passed;
-			this->flags_u.inherited_flags = parent->flags_u.inherited_flags;
-			this->last_red_signal_type    = parent->last_red_signal_type;
-			this->last_signal_type        = parent->last_signal_type;
+			this->num_signals_passed                   = parent->num_signals_passed;
+			this->last_non_reserve_through_signal_tile = parent->last_non_reserve_through_signal_tile;
+			this->last_non_reserve_through_signal_td   = parent->last_non_reserve_through_signal_td;
+			this->flags_u.inherited_flags              = parent->flags_u.inherited_flags;
+			this->last_red_signal_type                 = parent->last_red_signal_type;
+			this->last_signal_type                     = parent->last_signal_type;
 		}
 		this->flags_u.flags_s.choice_seen |= is_choice;
+		this->flags_u.flags_s.teleport = false;
 	}
 
 	inline TileIndex GetLastTile() const
 	{
-		assert(this->segment != nullptr);
+		dbg_assert(this->segment != nullptr);
 		return this->segment->last_tile;
 	}
 
 	inline Trackdir GetLastTrackdir() const
 	{
-		assert(this->segment != nullptr);
+		dbg_assert(this->segment != nullptr);
 		return this->segment->last_td;
 	}
 
 	inline void SetLastTileTrackdir(TileIndex tile, Trackdir td)
 	{
-		assert(this->segment != nullptr);
+		dbg_assert(this->segment != nullptr);
 		this->segment->last_tile = tile;
 		this->segment->last_td = td;
 	}
 
-	template <class Tbase, class Tfunc, class Tpf>
-	bool IterateTiles(const Train *v, Tpf &yapf, Tbase &obj, bool (Tfunc::*func)(TileIndex, Trackdir)) const
+	template <class Tbase, class Tpf, class Tfunc>
+	bool IterateTiles(const Train *v, Tpf &yapf, Tfunc func) const
 	{
 		typename Tbase::TrackFollower follower{v, yapf.GetCompatibleRailTypes()};
 		TileIndex cur = this->base::GetTile();
 		Trackdir  cur_td = this->base::GetTrackdir();
 
-		while (cur != this->GetLastTile() || cur_td != this->GetLastTrackdir()) {
-			if (!((obj.*func)(cur, cur_td))) return false;
+		while (cur != GetLastTile() || cur_td != GetLastTrackdir()) {
+			if (!(func(cur, cur_td))) return false;
 
 			if (!follower.Follow(cur, cur_td)) break;
 			cur = follower.new_tile;
-			assert(KillFirstBit(follower.new_td_bits) == TRACKDIR_BIT_NONE);
+			dbg_assert(KillFirstBit(follower.new_td_bits) == TRACKDIR_BIT_NONE);
 			cur_td = FindFirstTrackdir(follower.new_td_bits);
 		}
 
-		return (obj.*func)(cur, cur_td);
+		return func(cur, cur_td);
 	}
 
-	void Dump(DumpTarget &dmp) const
+	template <class Tbase, class Tpf, class Tfunc>
+	bool IterateTiles(const Train *v, Tpf &yapf, Tbase &obj, bool (Tfunc::*func)(TileIndex, Trackdir)) const
 	{
-		this->base::Dump(dmp);
+		return this->template IterateTiles<Tbase>(v, yapf, [&](TileIndex tile, Trackdir td) -> bool {
+			return (obj.*func)(tile, td);
+		});
+	}
+
+	template <class Tbase, class Tpf>
+	uint GetNodeLength(const Train *v, Tpf &yapf, Tbase &obj) const
+	{
+		typename Tbase::TrackFollower ft(v, yapf.GetCompatibleRailTypes());
+		TileIndex cur = base::GetTile();
+		Trackdir  cur_td = base::GetTrackdir();
+
+		uint length = 0;
+
+		while (cur != GetLastTile() || cur_td != GetLastTrackdir()) {
+			length += IsDiagonalTrackdir(cur_td) ? TILE_SIZE : (TILE_SIZE / 2);
+			if (!ft.Follow(cur, cur_td)) break;
+			length += TILE_SIZE * ft.tiles_skipped;
+			cur = ft.new_tile;
+			dbg_assert(KillFirstBit(ft.new_td_bits) == TRACKDIR_BIT_NONE);
+			cur_td = FindFirstTrackdir(ft.new_td_bits);
+		}
+
+		EndSegmentReasons esr = this->segment->end_segment_reason;
+		if (!esr.Test(EndSegmentReason::DeadEnd) || esr.Test(EndSegmentReason::DeadEndEol)) {
+			length += IsDiagonalTrackdir(cur_td) ? TILE_SIZE : (TILE_SIZE / 2);
+			if (IsTileType(cur, TileType::TunnelBridge) && IsTunnelBridgeSignalSimulationEntrance(cur) && TrackdirEntersTunnelBridge(cur, cur_td)) {
+				length += TILE_SIZE * GetTunnelBridgeLength(cur, GetOtherTunnelBridgeEnd(cur));
+			}
+		}
+
+		return length;
+	}
+
+	template <class D> void Dump(D &dmp) const
+	{
+		base::Dump(dmp);
 		dmp.WriteStructT("segment", this->segment);
 		dmp.WriteValue("num_signals_passed", this->num_signals_passed);
 		dmp.WriteValue("target_seen", this->flags_u.flags_s.target_seen ? "Yes" : "No");
 		dmp.WriteValue("choice_seen", this->flags_u.flags_s.choice_seen ? "Yes" : "No");
 		dmp.WriteValue("last_signal_was_red", this->flags_u.flags_s.last_signal_was_red ? "Yes" : "No");
+		dmp.WriteValue("reverse_pending", this->flags_u.flags_s.reverse_pending ? "Yes" : "No");
+		dmp.WriteValue("teleport", this->flags_u.flags_s.teleport ? "Yes" : "No");
 		dmp.WriteEnumT("last_red_signal_type", this->last_red_signal_type);
 	}
 };
 
-typedef NodeList<CYapfRailNode, 8, 10> CRailNodeList;
+typedef NodeList<CYapfRailNode> CRailNodeList;
 
 #endif /* YAPF_NODE_RAIL_HPP */

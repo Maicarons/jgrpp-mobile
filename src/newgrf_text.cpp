@@ -6,33 +6,41 @@
  */
 
 /**
- * @file newgrf_text.cpp
- * Implementation of  Action 04 "universal holder" structure and functions.
+ * @file newgrf_text.cpp Implementation of Action 04 "universal holder" structure and functions.
+ *
  * This file implements a linked-lists of strings,
  * holding everything that the newgrf action 04 will send over to OpenTTD.
  * One of the biggest problems is that Dynamic lang Array uses ISO codes
  * as way to identifying current user lang, while newgrf uses bit shift codes
- * not related to ISO.  So equivalence functionality had to be set.
+ * not related to ISO. So equivalence functionality had to be set.
  */
 
 #include "stdafx.h"
 
-#include "debug.h"
 #include "newgrf.h"
 #include "strings_internal.h"
+#include "core/string_builder.hpp"
+#include "strings_func.h"
 #include "newgrf_storage.h"
 #include "newgrf_text.h"
 #include "newgrf_cargo.h"
+#include "newgrf_config.h"
 #include "string_func.h"
-#include "timer/timer_game_calendar.h"
+#include "date_type.h"
 #include "debug.h"
 #include "core/string_builder.hpp"
 #include "core/string_consumer.hpp"
+#include "core/typed_container.hpp"
 #include "language.h"
+#include <sstream>
+#include <map>
 #include <ranges>
 
 #include "table/strings.h"
 #include "table/control_codes.h"
+
+#include <array>
+#include <utility>
 
 #include "safeguards.h"
 
@@ -74,7 +82,6 @@ struct GRFTextEntry {
 
 
 static TypedIndexContainer<std::vector<GRFTextEntry>, StringIndexInTab> _grf_text;
-static uint8_t _current_lang_id = GRFLX_ENGLISH;  ///< by default, english is used.
 
 /**
  * Get the mapping from the NewGRF supplied ID to OpenTTD's internal ID.
@@ -122,20 +129,21 @@ struct UnmappedChoiceList {
 	int offset;             ///< The offset for the plural/gender form.
 
 	/** Mapping of NewGRF supplied ID to the different strings in the choice list. */
-	std::map<int, std::string> strings;
+	using Buffer = format_buffer_sized<128>;
+	std::map<int, Buffer> strings;
 
 	/**
 	 * Flush this choice list into the destination string.
 	 * @param lm The current language mapping.
 	 * @param dest Target to write to.
 	 */
-	void Flush(const LanguageMap *lm, std::string &dest)
+	void Flush(const LanguageMap *lm, format_target &dest)
 	{
 		if (this->strings.find(0) == this->strings.end()) {
 			/* In case of a (broken) NewGRF without a default,
 			 * assume an empty string. */
 			GrfMsg(1, "choice list misses default value");
-			this->strings[0] = std::string();
+			this->strings[0].clear();
 		}
 
 		StringBuilder builder(dest);
@@ -219,7 +227,7 @@ struct UnmappedChoiceList {
 				int idx = (this->type == SCC_GENDER_LIST ? lm->GetReverseMapping(i, true) : i + 1);
 				const auto &str = this->strings[this->strings.find(idx) != this->strings.end() ? idx : 0];
 				uint8_t len = ClampTo<uint8_t>(str.size());
-				builder += str.substr(0, len);
+				builder += std::string_view(str.data(), len);
 			}
 		}
 	}
@@ -246,9 +254,9 @@ std::string TranslateTTDPatchCodes(uint32_t grfid, uint8_t language_id, bool all
 
 	/* Helper variable for a possible (string) mapping of plural/gender and cases. */
 	std::optional<UnmappedChoiceList> mapping_pg, mapping_c;
-	std::optional<std::reference_wrapper<std::string>> dest_c;
+	std::optional<std::reference_wrapper<UnmappedChoiceList::Buffer>> dest_c;
 
-	std::string dest;
+	format_buffer dest;
 	StringBuilder builder(dest);
 	while (consumer.AnyBytesLeft()) {
 		char32_t c;
@@ -387,7 +395,7 @@ std::string TranslateTTDPatchCodes(uint32_t grfid, uint8_t language_id, bool all
 							GrfMsg(1, "choice list end marker found when not expected");
 						} else {
 							auto &mapping = mapping_pg ? mapping_pg : mapping_c;
-							auto &new_dest = mapping_pg && dest_c ? dest_c->get() : dest;
+							auto &new_dest = mapping_pg && dest_c ? (format_target &)dest_c->get() : dest;
 							/* Now we can start flushing everything and clean everything up. */
 							mapping->Flush(LanguageMap::GetLanguageMap(grfid, language_id), new_dest);
 							if (!mapping_pg) dest_c.reset();
@@ -466,7 +474,7 @@ string_end:
 		GrfMsg(1, "choice list was incomplete, the whole list is ignored");
 	}
 
-	return dest;
+	return dest.to_string();
 }
 
 /**
@@ -532,6 +540,14 @@ void AddGRFTextToList(GRFTextWrapper &list, std::string_view text_to_add)
 
 /**
  * Add the new read string into our structure.
+ * @param grfid The GRF to load the string for.
+ * @param stringid The GRF-local identifier of the string.
+ * @param langid_to_add The language to add them to.
+ * @param new_scheme Is the NewGRF version 7 or higher?
+ * @param allow_newlines Whether newlines are allowed in the string.
+ * @param text_to_add The actual text of the string.
+ * @param def_string The fallback string if a translation for this string isn't available.
+ * @return The OpenTTD internal string identifier.
  */
 StringID AddGRFString(uint32_t grfid, GRFStringID stringid, uint8_t langid_to_add, bool new_scheme, bool allow_newlines, std::string_view text_to_add, StringID def_string)
 {
@@ -553,36 +569,76 @@ StringID AddGRFString(uint32_t grfid, GRFStringID stringid, uint8_t langid_to_ad
 		}
 	}
 
-	auto it = std::ranges::find_if(_grf_text, [&grfid, &stringid](const GRFTextEntry &grf_text) { return grf_text.grfid == grfid && grf_text.stringid == stringid; });
-	if (it == std::end(_grf_text)) {
-		/* Too many strings allocated, return empty. */
-		if (_grf_text.size() == TAB_SIZE_NEWGRF) return STR_EMPTY;
+	StringIndexInTab id{};
+	extern GRFFile *GetFileByGRFIDExpectCurrent(uint32_t grfid);
+	GRFFile *grf = GetFileByGRFIDExpectCurrent(grfid);
+	if (grf == nullptr) return STR_EMPTY;
 
-		/* We didn't find our stringid and grfid in the list, allocate a new id. */
-		it = _grf_text.emplace(std::end(_grf_text));
-		it->grfid      = grfid;
-		it->stringid   = stringid;
-		it->def_string = def_string;
+	auto iter = grf->string_map.lower_bound(stringid);
+	if (iter != grf->string_map.end() && iter->first == stringid) {
+		/* Found */
+		id = iter->second;
+	} else {
+		/* Too many strings allocated, return empty */
+		if (_grf_text.size() == TAB_SIZE_NEWGRF) {
+			_grf_bug_too_many_strings = true;
+			return STR_EMPTY;
+		}
+
+		/* Allocate new ID */
+		id = StringIndexInTab{(uint)_grf_text.size()};
+		GRFTextEntry &entry = _grf_text.emplace_back();
+		entry.grfid      = grfid;
+		entry.stringid   = stringid;
+		entry.def_string = def_string;
+
+		grf->string_map.insert(iter, std::make_pair(stringid, id));
 	}
-	StringIndexInTab id(it - std::begin(_grf_text));
 
 	std::string newtext = TranslateTTDPatchCodes(grfid, langid_to_add, allow_newlines, text_to_add);
-	AddGRFTextToList(it->textholder, langid_to_add, newtext);
+	AddGRFTextToList(_grf_text[id].textholder, langid_to_add, newtext);
 
-	GrfMsg(3, "Added 0x{:X} grfid {:08X} string 0x{:X} lang 0x{:X} string '{}' ({:X})", id, grfid, stringid, langid_to_add, newtext, MakeStringID(TEXT_TAB_NEWGRF_START, id));
+	GrfMsg(3, "Added 0x{:X}: grfid {:08X} string 0x{:X} lang 0x{:X} string '{}' ({:X})", id, grfid, stringid, langid_to_add, newtext.c_str(), MakeStringID(TEXT_TAB_NEWGRF_START, id));
 
 	return MakeStringID(TEXT_TAB_NEWGRF_START, id);
 }
 
 /**
+ * Returns the index for this stringid associated with its grfID.
+ * This form should be preferred over the uint32_t grfid form, to avoid redundant GRFID to GRF lookups.
+ * @param grfid The GRF to find the string for.
+ * @param stringid The GRF-local identifier of the string.
+ * @return The string identifier, or STR_UNDEFINED when it can't be found.
+ */
+StringID GetGRFStringID(const GRFFile *grf, GRFStringID stringid)
+{
+	if (stringid > UINT16_MAX || grf == nullptr) return STR_UNDEFINED;
+
+	auto iter = grf->string_map.find(stringid);
+	if (iter != grf->string_map.end()) return MakeStringID(TEXT_TAB_NEWGRF_START, iter->second);
+
+	return STR_UNDEFINED;
+}
+
+/**
  * Returns the index for this stringid associated with its grfID
+ * @param grfid The GRF to find the string for.
+ * @param stringid The GRF-local identifier of the string.
+ * @return The string identifier, or STR_UNDEFINED when it can't be found.
  */
 StringID GetGRFStringID(uint32_t grfid, GRFStringID stringid)
 {
-	auto it = std::ranges::find_if(_grf_text, [&grfid, &stringid](const GRFTextEntry &grf_text) { return grf_text.grfid == grfid && grf_text.stringid == stringid; });
-	if (it != std::end(_grf_text)) {
-		StringIndexInTab id(it - std::begin(_grf_text));
-		return MakeStringID(TEXT_TAB_NEWGRF_START, id);
+	extern GRFFile *GetFileByGRFIDExpectCurrent(uint32_t grfid);
+	const GRFFile *grf = GetFileByGRFIDExpectCurrent(grfid);
+	if (unlikely(grf == nullptr)) {
+		auto it = std::ranges::find_if(_grf_text, [&grfid, &stringid](const GRFTextEntry &grf_text) { return grf_text.grfid == grfid && grf_text.stringid == stringid; });
+		if (it != std::end(_grf_text)) {
+			StringIndexInTab id(it - std::begin(_grf_text));
+			return MakeStringID(TEXT_TAB_NEWGRF_START, id);
+		}
+	} else {
+		auto iter = grf->string_map.find(stringid);
+		if (iter != grf->string_map.end()) return MakeStringID(TEXT_TAB_NEWGRF_START, iter->second);
 	}
 
 	return STR_UNDEFINED;
@@ -595,6 +651,7 @@ StringID GetGRFStringID(uint32_t grfid, GRFStringID stringid)
  * is returned. If there is neither a default nor a translation for the
  * current language nullptr is returned.
  * @param text_list The GRFTextList to get the string from.
+ * @return The content of the requested string, or \c std::nullopt.
  */
 std::optional<std::string_view> GetGRFStringFromGRFText(const GRFTextList &text_list)
 {
@@ -602,7 +659,7 @@ std::optional<std::string_view> GetGRFStringFromGRFText(const GRFTextList &text_
 
 	/* Search the list of lang-strings of this stringid for current lang */
 	for (const auto &text : text_list) {
-		if (text.langid == _current_lang_id) return text.text;
+		if (text.langid == _current_language->newgrflangid) return text.text;
 
 		/* If the current string is English or American, set it as the
 		 * fallback language if the specific language isn't available. */
@@ -614,50 +671,62 @@ std::optional<std::string_view> GetGRFStringFromGRFText(const GRFTextList &text_
 	return default_text;
 }
 
+const char *GetDefaultLangGRFStringFromGRFText(const GRFTextList &text_list)
+{
+	const char *default_text = nullptr;
+
+	for (const auto &text : text_list) {
+		/* If the current string is English or American, set it as the
+		 * fallback language if the specific language isn't available. */
+		if (text.langid == GRFLX_UNSPECIFIED || (default_text == nullptr && (text.langid == GRFLX_ENGLISH || text.langid == GRFLX_AMERICAN))) {
+			default_text = text.text.c_str();
+		}
+	}
+
+	return default_text;
+}
+
 /**
  * Get a C-string from a GRFText-list. If there is a translation for the
  * current language it is returned, otherwise the default translation
  * is returned. If there is neither a default nor a translation for the
  * current language nullptr is returned.
- * @param text The GRFTextList to get the string from.
+ * @param text The GRFTextWrapper to get the string from.
+ * @return The content of the requested string, or \c std::nullopt.
  */
 std::optional<std::string_view> GetGRFStringFromGRFText(const GRFTextWrapper &text)
 {
 	return text ? GetGRFStringFromGRFText(*text) : std::nullopt;
 }
 
+const char *GetDefaultLangGRFStringFromGRFText(const GRFTextWrapper &text)
+{
+	return text ? GetDefaultLangGRFStringFromGRFText(*text) : nullptr;
+}
+
 /**
  * Get a C-string from a stringid set by a newgrf.
+ * @param stringid The index of the string in the NewGRF string-tab.
+ * @return The raw string.
  */
 std::string_view GetGRFStringPtr(StringIndexInTab stringid)
 {
-	assert(stringid.base() < _grf_text.size());
-	assert(_grf_text[stringid].grfid != 0);
+	if (stringid.base() >= _grf_text.size() || _grf_text[stringid].grfid == 0) {
+		Debug(misc, 0, "Invalid NewGRF string ID: {}", stringid);
+		return "(invalid StringID)";
+	}
 
 	auto str = GetGRFStringFromGRFText(_grf_text[stringid].textholder);
 	if (str.has_value()) return *str;
 
-	/* Use the default string ID if the fallback string isn't available */
-	return GetStringPtr(_grf_text[stringid].def_string);
-}
-
-/**
- * Equivalence Setter function between game and newgrf langID.
- * This function will adjust _currentLangID as to what is the LangID
- * of the current language set by the user.
- * This function is called after the user changed language,
- * from strings.cpp:ReadLanguagePack
- * @param language_id iso code of current selection
- */
-void SetCurrentGrfLangID(uint8_t language_id)
-{
-	_current_lang_id = language_id;
+ 	/* Use the default string ID if the fallback string isn't available */
+ 	return GetStringPtr(_grf_text[stringid].def_string);
 }
 
 bool CheckGrfLangID(uint8_t lang_id, uint8_t grf_version)
 {
 	if (grf_version < 7) {
-		switch (_current_lang_id) {
+		switch (_current_language->newgrflangid) {
 			case GRFLX_GERMAN:  return (lang_id & GRFLB_GERMAN)  != 0;
 			case GRFLX_FRENCH:  return (lang_id & GRFLB_FRENCH)  != 0;
 			case GRFLX_SPANISH: return (lang_id & GRFLB_SPANISH) != 0;
@@ -665,7 +734,7 @@ bool CheckGrfLangID(uint8_t lang_id, uint8_t grf_version)
 		}
 	}
 
-	return (lang_id == _current_lang_id || lang_id == GRFLX_UNSPECIFIED);
+	return (lang_id == _current_language->newgrflangid || lang_id == GRFLX_UNSPECIFIED);
 }
 
 /**
@@ -678,6 +747,7 @@ void CleanUpStrings()
 }
 
 struct TextRefStack {
+	bool error = false;
 private:
 	std::vector<uint8_t> stack;
 public:
@@ -693,7 +763,10 @@ public:
 
 	uint8_t PopUnsignedByte()
 	{
-		if (this->stack.empty()) return 0;
+		if (this->stack.empty()) {
+			this->error = true;
+			return 0;
+		}
 		auto res = this->stack.back();
 		this->stack.pop_back();
 		return res;
@@ -832,7 +905,7 @@ static void ProcessNewGRFStringControlCode(char32_t scc, StringConsumer &consume
 
 		/* Dates from NewGRFs have 1920-01-01 as their zero point, convert it to OpenTTD's epoch. */
 		case SCC_NEWGRF_PRINT_WORD_DATE_LONG:
-		case SCC_NEWGRF_PRINT_WORD_DATE_SHORT:  params.emplace_back(CalendarTime::DAYS_TILL_ORIGINAL_BASE_YEAR + stack.PopUnsignedWord()); break;
+		case SCC_NEWGRF_PRINT_WORD_DATE_SHORT:  params.emplace_back(CalTime::DAYS_TILL_ORIGINAL_BASE_YEAR + stack.PopUnsignedWord()); break;
 
 		case SCC_NEWGRF_DISCARD_WORD:           stack.PopUnsignedWord(); break;
 
@@ -952,6 +1025,16 @@ char32_t RemapNewGRFStringControlCode(char32_t scc, StringConsumer &consumer)
 	}
 }
 
+uint32_t GetStringGRFID(StringID string)
+{
+	switch (GetStringTab(string)) {
+		case TEXT_TAB_NEWGRF_START:
+			return _grf_text[GetStringIndex(string)].grfid;
+		default:
+			return 0;
+	}
+}
+
 /**
  * Handle control codes in a NewGRF string, processing the stack and filling parameters.
  * @param str String to process.
@@ -985,6 +1068,14 @@ std::vector<StringParameter> GetGRFStringTextStackParameters(const GRFFile *grff
 
 	TextRefStack stack{grffile, textstack};
 	HandleNewGRFStringControlCodes(str, stack, params);
+
+	if (stack.error) {
+		if (grffile != nullptr) {
+			Debug(misc, 0, "Too many NewGRF string parameters (in {:08X}, {}).", std::byteswap(grffile->grfid), grffile->filename);
+		} else {
+			Debug(misc, 0, "Too many NewGRF string parameters.");
+		}
+	}
 
 	return params;
 }

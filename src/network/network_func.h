@@ -18,12 +18,17 @@
 // #define DEBUG_FAILED_DUMP_COMMANDS
 
 #include "network_type.h"
-#include "../core/convertible_through_base.hpp"
+#include "../core/typed_container.hpp"
 #include "../console_type.h"
 #include "../gfx_type.h"
 #include "../openttd.h"
 #include "../company_type.h"
 #include "../string_type.h"
+
+extern TypedIndexContainer<std::array<NetworkCompanyState, MAX_COMPANIES>, CompanyID> _network_company_states;
+extern std::string _network_company_server_id;
+extern std::array<uint8_t, 16> _network_company_password_storage_token;
+extern std::array<uint8_t, 32> _network_company_password_storage_key;
 
 extern ClientID _network_own_client_id;
 extern ClientID _redirect_console_to_client;
@@ -33,6 +38,7 @@ extern StringList _network_host_list;
 extern StringList _network_ban_list;
 
 uint8_t NetworkSpectatorCount();
+uint NetworkClientCount();
 bool NetworkIsValidClientName(std::string_view client_name);
 bool NetworkValidateOurClientName();
 bool NetworkValidateClientName(std::string &client_name);
@@ -40,22 +46,26 @@ bool NetworkValidateServerName(std::string &server_name);
 void NetworkUpdateClientName(const std::string &client_name);
 void NetworkUpdateServerGameType();
 bool NetworkCompanyHasClients(CompanyID company);
+std::string NetworkChangeCompanyPassword(CompanyID company_id, std::string password);
 void NetworkReboot();
 void NetworkDisconnect(bool close_admins = true);
 void NetworkGameLoop();
 void NetworkBackgroundLoop();
 std::string_view ParseFullConnectionString(std::string_view connection_string, uint16_t &port, CompanyID *company_id = nullptr);
-using NetworkCompanyStatsArray = TypedIndexContainer<std::array<NetworkCompanyStats, MAX_COMPANIES>, CompanyID>;
+using NetworkCompanyStatsArray = TypedIndexContainer<std::array<NetworkCompanyStats, MAX_COMPANIES>, CompanyID>; ///< Container with statistics for all possible companies.
 NetworkCompanyStatsArray NetworkGetCompanyStats();
 
 void NetworkUpdateClientInfo(ClientID client_id);
 void NetworkClientsToSpectators(CompanyID cid);
-bool NetworkClientConnectGame(std::string_view connection_string, CompanyID default_company, const std::string &join_server_password = "");
+bool NetworkClientConnectGame(std::string_view connection_string, CompanyID default_company, std::string_view join_server_password = {}, std::string_view join_company_password = {});
 void NetworkClientJoinGame();
-void NetworkClientRequestMove(CompanyID company);
+void NetworkClientRequestMove(CompanyID company, std::string_view pass = {});
 void NetworkClientSendRcon(std::string_view password, std::string_view command);
-void NetworkClientSendChat(NetworkAction action, DestType type, int dest, std::string_view msg, int64_t data = 0);
+void NetworkClientSendSettingsPassword(std::string_view password);
+void NetworkClientSendChat(NetworkAction action, NetworkChatDestinationType type, int dest, std::string_view msg, NetworkTextMessageData data = NetworkTextMessageData());
+void NetworkClientSendDesyncMsg(std::string_view msg);
 bool NetworkClientPreferTeamChat(const NetworkClientInfo *cio);
+bool NetworkCompanyIsPassworded(CompanyID company_id);
 uint NetworkMaxCompaniesAllowed();
 bool NetworkMaxCompaniesReached();
 void NetworkPrintClients();
@@ -65,6 +75,10 @@ void NetworkHandlePauseChange(PauseModes prev_mode, PauseMode changed_mode);
 void NetworkOnGameStart();
 
 /*** Commands ran by the server ***/
+void NetworkServerEconomyDailyLoop();
+void NetworkServerEconomyMonthlyLoop();
+void NetworkServerEconomyYearlyLoop();
+void NetworkServerCalendarYearlyLoop();
 void NetworkServerSendConfigUpdate();
 void NetworkServerUpdateGameInfo();
 void NetworkServerShowStatusToConsole();
@@ -73,11 +87,11 @@ void NetworkServerNewCompany(const Company *company, NetworkClientInfo *ci);
 bool NetworkServerChangeClientName(ClientID client_id, const std::string &new_name);
 
 
-bool NetworkCanJoinCompany(CompanyID company_id);
 void NetworkServerDoMove(ClientID client_id, CompanyID company_id);
-void NetworkServerSendRcon(ClientID client_id, TextColour colour_code, std::string_view string);
-void NetworkServerSendChat(NetworkAction action, DestType type, int dest, std::string_view msg, ClientID from_id, int64_t data = 0, bool from_admin = false);
-void NetworkServerSendExternalChat(std::string_view source, TextColour colour, std::string_view user, std::string_view msg);
+void NetworkServerSendRcon(ClientID client_id, ExtendedTextColour colour_code, std::string_view string);
+void NetworkServerSendRconDenied(ClientID client_id);
+void NetworkServerSendChat(NetworkAction action, NetworkChatDestinationType type, int dest, std::string_view msg, ClientID from_id, NetworkTextMessageData data = NetworkTextMessageData(), bool from_admin = false);
+void NetworkServerSendExternalChat(std::string_view source, ExtendedTextColour colour, std::string_view user, std::string_view msg);
 
 void NetworkServerKickClient(ClientID client_id, std::string_view reason);
 uint NetworkServerKickOrBanIP(ClientID client_id, bool ban, std::string_view reason);
@@ -85,8 +99,9 @@ uint NetworkServerKickOrBanIP(std::string_view ip, bool ban, std::string_view re
 
 void NetworkInitChatMessage();
 void NetworkReInitChatBoxSize();
-void CDECL NetworkAddChatMessage(TextColour colour, uint duration, const std::string &message);
+void NetworkAddChatMessage(ExtendedTextColour colour, uint duration, const std::string_view message);
 void NetworkUndrawChatMessage();
+void NetworkChatMessageLoop();
 
 void NetworkAfterNewGRFScan();
 

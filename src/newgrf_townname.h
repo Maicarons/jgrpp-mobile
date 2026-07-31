@@ -5,32 +5,30 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/**
- * @file newgrf_townname.h
- * Header of Action 0F "universal holder" structure and functions
- */
+/** @file newgrf_townname.h Header of Action 0F "universal holder" structure and functions. */
 
 #ifndef NEWGRF_TOWNNAME_H
 #define NEWGRF_TOWNNAME_H
 
+#include <vector>
 #include "strings_type.h"
 
 struct NamePart {
 	std::string text; ///< If probability bit 7 is clear
-	uint8_t id;          ///< If probability bit 7 is set
-	uint8_t prob;        ///< The relative probability of the following name to appear in the bottom 7 bits.
+	uint8_t id;       ///< If probability bit 7 is set
+	uint8_t prob;     ///< The relative probability of the following name to appear in the bottom 7 bits.
 };
 
 struct NamePartList {
-	uint8_t bitstart;  ///< Start of random seed bits to use.
-	uint8_t bitcount;  ///< Number of bits of random seed to use.
+	uint8_t bitstart; ///< Start of random seed bits to use.
+	uint8_t bitcount; ///< Number of bits of random seed to use.
 	uint16_t maxprob; ///< Total probability of all parts.
 	std::vector<NamePart> parts; ///< List of parts to choose from.
 };
 
 struct TownNameStyle {
 	StringID name; ///< String ID of this town name style.
-	uint8_t id;       ///< Index within partlist for this town name style.
+	uint8_t id;    ///< Index within partlist for this town name style.
 
 	TownNameStyle(StringID name, uint8_t id) : name(name), id(id) { }
 };
@@ -38,7 +36,7 @@ struct TownNameStyle {
 struct GRFTownName {
 	static const uint MAX_LISTS = 128; ///< Maximum number of town name lists that can be defined per GRF.
 
-	uint32_t grfid;                                   ///< GRF ID of NewGRF.
+	uint32_t grfid;                                 ///< GRF ID of NewGRF.
 	std::vector<TownNameStyle> styles;              ///< Style names defined by the Town Name NewGRF.
 	std::vector<NamePartList> partlists[MAX_LISTS]; ///< Lists of town name parts.
 };

@@ -28,10 +28,11 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 	 */
 	ZoomLevel zoom_min = ZoomLevel::Min;
 	ZoomLevel zoom_max = ZoomLevel::Min;
+	LowZoomLevels missing_zoom_levels = {};
 	if (sprite_type != SpriteType::Font) {
 		zoom_min = _settings_client.gui.zoom_min;
-		zoom_max = _settings_client.gui.zoom_max;
-		if (zoom_max == zoom_min) zoom_max = ZoomLevel::Max;
+		zoom_max = std::min<ZoomLevel>(_settings_client.gui.zoom_max, ZoomLevel::SpriteMax);
+		if (zoom_max == zoom_min) zoom_max = ZoomLevel::SpriteMax;
 	}
 
 	/* Calculate sizes and allocate. */
@@ -39,13 +40,21 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 	uint all_sprites_size = 0;
 	for (ZoomLevel z = zoom_min; z <= zoom_max; z++) {
 		const SpriteLoader::Sprite *src_sprite = &sprite[z];
-		auto &info = sd.infos[z];
-		info.sprite_width = src_sprite->width;
-		info.sprite_offset = all_sprites_size;
-		info.sprite_line_size = sizeof(Colour) * src_sprite->width + sizeof(uint32_t) * META_LENGTH;
+		if (src_sprite->data == nullptr) {
+			sd.infos[z].sprite_offset = 0;
+			sd.infos[z].mv_offset = 0;
+			sd.infos[z].sprite_line_size = 0;
+			sd.infos[z].sprite_width = 0;
+			missing_zoom_levels.Set(z);
+			continue;
+		}
 
-		const uint rgba_size = info.sprite_line_size * src_sprite->height;
-		info.mv_offset = all_sprites_size + rgba_size;
+		sd.infos[z].sprite_width = src_sprite->width;
+		sd.infos[z].sprite_offset = all_sprites_size;
+		sd.infos[z].sprite_line_size = sizeof(Colour) * src_sprite->width + sizeof(uint32_t) * META_LENGTH;
+
+		const uint rgba_size = sd.infos[z].sprite_line_size * src_sprite->height;
+		sd.infos[z].mv_offset = all_sprites_size + rgba_size;
 
 		const uint mv_size = sizeof(MapValue) * src_sprite->width * src_sprite->height;
 		all_sprites_size += rgba_size + mv_size;
@@ -57,7 +66,9 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 	dst_sprite->width = root_sprite.width;
 	dst_sprite->x_offs = root_sprite.x_offs;
 	dst_sprite->y_offs = root_sprite.y_offs;
-	std::copy_n(reinterpret_cast<std::byte *>(&sd), sizeof(SpriteData), dst_sprite->data);
+	dst_sprite->next = nullptr;
+	dst_sprite->missing_zoom_levels = missing_zoom_levels;
+	memcpy(dst_sprite->data, &sd, sizeof(SpriteData));
 
 	/* Copy colours and determine flags. */
 	bool has_remap = false;
@@ -65,10 +76,12 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 	bool has_translucency = false;
 	for (ZoomLevel z = zoom_min; z <= zoom_max; z++) {
 		const SpriteLoader::Sprite *src_sprite = &sprite[z];
+		if (src_sprite->data == nullptr) {
+			continue;
+		}
 		const SpriteLoader::CommonPixel *src = (const SpriteLoader::CommonPixel *) src_sprite->data;
-		const auto &info = sd.infos[z];
-		Colour *dst_rgba_line = reinterpret_cast<Colour *>(&dst_sprite->data[sizeof(SpriteData) + info.sprite_offset]);
-		MapValue *dst_mv = reinterpret_cast<MapValue *>(&dst_sprite->data[sizeof(SpriteData) + info.mv_offset]);
+		Colour *dst_rgba_line = (Colour *) &dst_sprite->data[sizeof(SpriteData) + sd.infos[z].sprite_offset];
+		MapValue *dst_mv = (MapValue *) &dst_sprite->data[sizeof(SpriteData) + sd.infos[z].mv_offset];
 		for (uint y = src_sprite->height; y != 0; y--) {
 			Colour *dst_rgba = dst_rgba_line + META_LENGTH;
 			for (uint x = src_sprite->width; x != 0; x--) {
@@ -76,7 +89,20 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 					dst_rgba->a = src->a;
 					if (src->a != 0 && src->a != 255) has_translucency = true;
 					dst_mv->m = src->m;
-					if (src->m != 0) {
+					if (to_underlying(z) >= _settings_client.gui.disable_water_animation && src->m >= 245 && src->m <= 254) {
+						/* Get brightest value */
+						uint8_t rgb_max = std::max({ src->r, src->g, src->b });
+
+						/* Black pixel (8bpp or old 32bpp image), so use default value */
+						if (rgb_max == 0) rgb_max = DEFAULT_BRIGHTNESS;
+
+						extern Colour _water_palette[10];
+						Colour c = AdjustBrightneSSE(_water_palette[src->m - 245], rgb_max);
+						dst_rgba->r = c.r;
+						dst_rgba->g = c.g;
+						dst_rgba->b = c.b;
+						dst_mv->v = DEFAULT_BRIGHTNESS;
+					} else if (src->m != 0) {
 						/* Do some accounting for flags. */
 						has_remap = true;
 						if (src->m >= PALETTE_ANIM_START) has_anim = true;
@@ -116,7 +142,7 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 			dst_rgba_line->data = nb_pix_transp;
 
 			Colour *nb_right = dst_rgba_line + 1;
-			dst_rgba_line = reinterpret_cast<Colour *>(reinterpret_cast<std::byte *>(dst_rgba_line) + info.sprite_line_size);
+			dst_rgba_line = (Colour*) ((uint8_t*) dst_rgba_line + sd.infos[z].sprite_line_size);
 
 			/* Count the number of transparent pixels from the right. */
 			dst_rgba = dst_rgba_line - 1;
@@ -131,11 +157,11 @@ Sprite *Blitter_32bppSSE_Base::Encode(SpriteType sprite_type, const SpriteLoader
 	}
 
 	/* Store sprite flags. */
-	sd.flags = {};
-	if (has_translucency) sd.flags.Set(SpriteFlag::Translucent);
-	if (!has_remap) sd.flags.Set(SpriteFlag::NoRemap);
-	if (!has_anim) sd.flags.Set(SpriteFlag::NoAnim);
-	std::copy_n(reinterpret_cast<std::byte *>(&sd), sizeof(SpriteData), dst_sprite->data);
+	sd.flags = BSF_NONE;
+	if (has_translucency) sd.flags |= BSF_TRANSLUCENT;
+	if (!has_remap) sd.flags |= BSF_NO_REMAP;
+	if (!has_anim) sd.flags |= BSF_NO_ANIM;
+	memcpy(dst_sprite->data, &sd, sizeof(SpriteData));
 
 	return dst_sprite;
 }

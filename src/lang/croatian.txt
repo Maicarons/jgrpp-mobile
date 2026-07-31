@@ -1247,8 +1247,8 @@ STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HELPTEXT                  :Postavi razinu 
 STR_CONFIG_SETTING_RECESSIONS                                   :Recesije: {STRING}
 STR_CONFIG_SETTING_RECESSIONS_HELPTEXT                          :Ukoliko je uključeno, recesija se može pojaviti svakih nekoliko godina. Tijekom recesije sva proizvodnja je značajno manja (vraća se na prethodnu razinu kada recesija završi)
 
-STR_CONFIG_SETTING_TRAIN_REVERSING                              :Zabrani okretanje vlakova na stanicama: {STRING}
-STR_CONFIG_SETTING_TRAIN_REVERSING_HELPTEXT                     :Ukoliko je uključeno, vlakovi se neće okretati na stanicama koje nisu krajnje čak i ukoliko postoji kraći put do njihovog sljedećeg odredišta prilikom okretanja
+
+###length 3
 
 STR_CONFIG_SETTING_DISASTERS                                    :Nesreće: {STRING}
 STR_CONFIG_SETTING_DISASTERS_HELPTEXT                           :Uključivanje nesreća koje mogu povremeno blokirati ili uništiti vozila ili infrastrukturu
@@ -1425,6 +1425,8 @@ STR_CONFIG_SETTING_NEVER_EXPIRE_VEHICLES_HELPTEXT               :Kada je uključ
 ###setting-zero-is-special
 
 
+###setting-zero-is-special
+
 STR_CONFIG_SETTING_AUTORENEW_VEHICLE                            :Automatski obnovi vozilo kada postane staro: {STRING}
 STR_CONFIG_SETTING_AUTORENEW_VEHICLE_HELPTEXT                   :Kada je uključeno, vozilo kojem se bliži kraj vijeka trajanja se automatski obnavlja ukoliko su uvjeti za obnavljanje ispunjeni
 
@@ -1486,6 +1488,8 @@ STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_SMOOTH             :Vrlo glatko
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_SMOOTH                  :Glatko
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_ROUGH                   :Grubo
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_ROUGH              :Vrlo grubo
+
+###length 4
 
 STR_CONFIG_SETTING_VARIETY                                      :Raspodjela raznolikosti: {STRING}
 STR_CONFIG_SETTING_VARIETY_HELPTEXT                             :(Samo TerraGenesis) Odredite hoće li karta sadržavati i planinska i ravna područja. Kako ovo čini kartu još ravnijom, ostale bi postavke trebale biti postavljene na planinske.
@@ -1623,12 +1627,7 @@ STR_CONFIG_SETTING_TIMETABLE_SHOW_ARRIVAL_DEPARTURE_HELPTEXT    :Prikaži predvi
 STR_CONFIG_SETTING_QUICKGOTO                                    :Brzo kreiranje naredbi vozila: {STRING}
 STR_CONFIG_SETTING_QUICKGOTO_HELPTEXT                           :Pred-odaberi kursor naredbe "otiđi na" kod otvaranja prozora s naredbama
 
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE                            :Inicijalna vrsta pruge (poslije nove igre/podizanja igre): {STRING}
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_HELPTEXT                   :Vrsta željeznice koja će biti odabrana prilikom pokretanja ili učitavanja igre. "Prva dostupna" odabire najstariju vrstu, "zadnja dostupna" odabire najnoviju vrstu, "najčešće korištena" odabire vrstu koja je trenutno najviše u upotrebi
 ###length 3
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_FIRST                      :Prva dostupna
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_LAST                       :Zadnja dostupna
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_MOST_USED                  :Najčešće korištena
 
 STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION                       :Pokaži rezervirane tračnice: {STRING}
 STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION_HELPTEXT              :Prikaži rezervirane pruge u drugoj boji kako bi se olakšalo rješavanje problema sa vlakovima koji ne žele ući u određenu dionicu puta
@@ -1724,6 +1723,7 @@ STR_CONFIG_SETTING_NOSERVICE_HELPTEXT                           :Kada je uključ
 
 STR_CONFIG_SETTING_WAGONSPEEDLIMITS                             :Omogući ograničenje brzine za vagone: {STRING}
 STR_CONFIG_SETTING_WAGONSPEEDLIMITS_HELPTEXT                    :Kada je uključeno, koristiti će se i limit brzine vagona kod određivanja najveće brzine nekog vlaka
+
 
 STR_CONFIG_SETTING_DISABLE_ELRAILS                              :Onemogući električnu prugu: {STRING}
 STR_CONFIG_SETTING_DISABLE_ELRAILS_HELPTEXT                     :Uključivanjem ove postavke, isključuje se potreba elektrificiranja pruge da bi po njoj mogli voziti električni vlakovi
@@ -2010,10 +2010,11 @@ STR_CONFIG_ERROR_INVALID_BASE_GRAPHICS_NOT_FOUND                :{WHITE}... zaob
 STR_CONFIG_ERROR_INVALID_BASE_SOUNDS_NOT_FOUND                  :{WHITE}... zaobilazim Osnovni Zvukovni set '{STRING}': nije pronađen
 STR_CONFIG_ERROR_INVALID_BASE_MUSIC_NOT_FOUND                   :{WHITE}... zaobilazim Osnovni glazbeni set '{STRING}': nije pronađen
 
-# Video initalization errors
+# Video initialization errors
 STR_VIDEO_DRIVER_ERROR                                          :{WHITE}Pogreška video postavka...
 
 # Intro window
+STR_INTRO_CAPTION                                               :{WHITE}OpenTTD {REV}
 
 STR_INTRO_NEW_GAME                                              :{BLACK}Nova igra
 STR_INTRO_LOAD_GAME                                             :{BLACK}Učitaj igru
@@ -2224,15 +2225,13 @@ STR_NETWORK_CONNECTING_WAITING                                  :{BLACK}{NUM} kl
 STR_NETWORK_CONNECTING_DOWNLOADING_1                            :{BLACK}{BYTES} preuzeto do sada
 STR_NETWORK_CONNECTING_DOWNLOADING_2                            :{BLACK}{BYTES} / {BYTES} preuzeto do sada
 
-###length 8
+###length 6
 STR_NETWORK_CONNECTING_1                                        :{BLACK}(1/6) Spajanje u tijeku...
 STR_NETWORK_CONNECTING_2                                        :{BLACK}(2/6) Provjera ovlaštenja...
 STR_NETWORK_CONNECTING_3                                        :{BLACK}(3/6) Čekanje...
 STR_NETWORK_CONNECTING_4                                        :{BLACK}(4/6) Preuzimanje karte...
 STR_NETWORK_CONNECTING_5                                        :{BLACK}(5/6) Obrada podataka...
 STR_NETWORK_CONNECTING_6                                        :{BLACK}(6/6) Prijavljivanje...
-STR_NETWORK_CONNECTING_SPECIAL_1                                :{BLACK}Dohvaćanje podataka o igri...
-STR_NETWORK_CONNECTING_SPECIAL_2                                :{BLACK}Dohvaćanje podataka o tvrtki...
 
 STR_NETWORK_CONNECTION_DISCONNECT                               :{BLACK}Odspoji
 
@@ -2519,6 +2518,8 @@ STR_STATION_BUILD_PLATFORM_LENGTH                               :{BLACK}Dužina 
 STR_STATION_BUILD_PLATFORM_LENGTH_TOOLTIP                       :{BLACK}Odaberi dužinu željezničke postaje
 STR_STATION_BUILD_DRAG_DROP                                     :{BLACK}Povuci i spusti
 STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Napravi postaju koristeći drag & drop
+
+
 
 
 
@@ -3250,6 +3251,7 @@ STR_EDIT_SIGN_SIGN_OSKTITLE                                     :{BLACK}Unesi im
 # Town directory window
 STR_TOWN_DIRECTORY_NONE                                         :{ORANGE}- Ništa -
 STR_TOWN_DIRECTORY_TOWN                                         :{ORANGE}{TOWN}{BLACK} ({COMMA})
+STR_TOWN_DIRECTORY_CITY                                         :{ORANGE}{TOWN}{YELLOW} (Grad){BLACK} ({COMMA})
 STR_TOWN_DIRECTORY_LIST_TOOLTIP                                 :{BLACK}Imena gradova - klikni na ime kako bi centrirao pogled na grad. Ctrl+klik otvara novi prozor sa lokacijom grada
 STR_TOWN_POPULATION                                             :{BLACK}Svjetsko stanovništvo: {COMMA}
 
@@ -3671,6 +3673,8 @@ STR_PURCHASE_INFO_MAX_TE                                        :{BLACK} Najveć
 STR_PURCHASE_INFO_AIRCRAFT_RANGE                                :{BLACK}Domet: {GOLD}{COMMA} polja
 STR_PURCHASE_INFO_AIRCRAFT_TYPE                                 :{BLACK}Vrsta zrakoplova: {GOLD}{STRING}
 
+# Vehicle sort details
+
 ###length 3
 
 ###length VEHICLE_TYPES
@@ -3829,6 +3833,7 @@ STR_DEPOT_SELL_CONFIRMATION_TEXT                                :{YELLOW}Upravo 
 STR_ENGINE_PREVIEW_CAPTION                                      :{WHITE}Poruka od proizvođača vozila
 STR_ENGINE_PREVIEW_MESSAGE                                      :{GOLD}Upravo smo dizajnirali novi {STRING} - jeste li zainteresirani za jednogodišnje ekskluzivno pravo uporabe ovog vozila, kako bi vidjeli kako se vozilo ponaša prije nego što postane univerzalno dostupno?
 
+
 STR_ENGINE_PREVIEW_RAILROAD_LOCOMOTIVE                          :željeznička lokomotiva
 STR_ENGINE_PREVIEW_ELRAIL_LOCOMOTIVE                            :lokomotiva za elektrificiranu željeznicu
 STR_ENGINE_PREVIEW_MONORAIL_LOCOMOTIVE                          :jednotračna željeznička lokomotiva
@@ -3980,7 +3985,6 @@ STR_VEHICLE_INFO_WEIGHT_POWER_MAX_SPEED                         :{BLACK}Težina:
 STR_VEHICLE_INFO_WEIGHT_POWER_MAX_SPEED_MAX_TE                  :{BLACK}Težina: {LTBLUE}{WEIGHT_SHORT} {BLACK}Snaga: {LTBLUE}{POWER}{BLACK} Najveća brzina: {LTBLUE}{VELOCITY} {BLACK}Najveća vučna sila: {LTBLUE}{FORCE}
 
 STR_VEHICLE_INFO_PROFIT_THIS_YEAR_LAST_YEAR                     :{BLACK}Dobit ove godine: {LTBLUE}{CURRENCY_LONG} (prošle godine: {CURRENCY_LONG})
-STR_VEHICLE_INFO_RELIABILITY_BREAKDOWNS                         :{BLACK}Pouzdanost: {LTBLUE}{COMMA}%  {BLACK}Broj kvarova od posljednjeg servisa: {LTBLUE}{COMMA}
 
 STR_VEHICLE_INFO_BUILT_VALUE                                    :{LTBLUE}{ENGINE} {BLACK}Izgrađen: {LTBLUE}{NUM}{BLACK} Vrijednost: {LTBLUE}{CURRENCY_LONG}
 STR_VEHICLE_INFO_NO_CAPACITY                                    :{BLACK}Nosivost: {LTBLUE}Ništa{STRING}
@@ -4102,7 +4106,7 @@ STR_ORDER_DROP_HALT_DEPOT                                       :Stani
 STR_ORDER_CONDITIONAL_VARIABLE_TOOLTIP                          :{BLACK}Podaci vozila prema kojima se zasniva skok
 
 # Conditional order variables, must follow order of OrderConditionVariable enum
-###length 8
+###length 9
 STR_ORDER_CONDITIONAL_LOAD_PERCENTAGE                           :Postotak ukrcaja
 STR_ORDER_CONDITIONAL_RELIABILITY                               :Pouzdanost
 STR_ORDER_CONDITIONAL_MAX_SPEED                                 :Najveća brzina
@@ -4222,6 +4226,7 @@ STR_TIMETABLE_TOOLTIP                                           :{BLACK}Vozni re
 STR_TIMETABLE_NO_TRAVEL                                         :Nema putovanja
 STR_TIMETABLE_NOT_TIMETABLEABLE                                 :Putovanje (automatsko; prema rasporedu sljedeće ručno određene naredbe)
 STR_TIMETABLE_TRAVEL_NOT_TIMETABLED                             :Putovanje (izvan voznog reda)
+STR_TIMETABLE_TRAVEL_NOT_TIMETABLED_SPEED                       :Putovanje (nije mjereno) uz najviše {VELOCITY}
 STR_TIMETABLE_TRAVEL_FOR                                        :Putovanje za {STRING}
 STR_TIMETABLE_TRAVEL_FOR_SPEED                                  :Putuj prema {STRING} uz najviše {VELOCITY}
 STR_TIMETABLE_TRAVEL_FOR_ESTIMATED                              :Putovanje (za {STRING}, nije mjereno)
@@ -4471,7 +4476,6 @@ STR_ERROR_CAN_T_GENERATE_TOWN                                   :{WHITE}Nije mog
 STR_ERROR_CAN_T_RENAME_TOWN                                     :{WHITE}Nije moguće preimenovati grad...
 STR_ERROR_CAN_T_FOUND_TOWN_HERE                                 :{WHITE}Ovdje nije moguće izgraditi grad...
 STR_ERROR_CAN_T_EXPAND_TOWN                                     :{WHITE}Nemoguće proširiti grad...
-STR_ERROR_TOO_CLOSE_TO_EDGE_OF_MAP_SUB                          :{WHITE}... preblizu rubu karte
 STR_ERROR_TOO_CLOSE_TO_ANOTHER_TOWN                             :{WHITE}... preblizu drugome gradu
 STR_ERROR_TOO_MANY_TOWNS                                        :{WHITE}... previše gradova
 STR_ERROR_NO_SPACE_FOR_TOWN                                     :{WHITE}... nema više mjesta na karti
@@ -5323,42 +5327,4 @@ STR_PLANE                                                       :{BLACK}{PLANE}
 STR_SHIP                                                        :{BLACK}{SHIP}
 
 STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
-
-# Android strings
-STR_ABOUT_MENU_TUTORIAL                                         :{BLACK}Uputstva
-STR_SMALLMAP_TOOLTIP_SHOW_LEGEND                                :{BLACK}Prikaži legendu mape / opis simbola na mapi
-STR_CONFIG_SETTING_VERTICAL_TOOLBAR                             :Okomita alatna traka: {STRING}
-STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT                    :Glavna alatna traka je podijeljena na dvije okomite alatne trake na rubovima ekrana
-STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR                     :Kompaktna okomita alatna traka: {STRING}
-STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR_HELPTEXT            :Ne postoji dugme 'Izmijeni alatnu traku' u okomitoj alatnoj traci ali postoje pod-meniji
-STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Veličina tipki
-STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Veličina svih elemenata korisničkog sučelja
-STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Veličina fonta
-STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Veličina svih fontova u igri
-STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Potvrdi akcije: {STRING}
-STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :Prikaži dijalog potvrde pri gradnji cesta i stanica
-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Naslovne trake
-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Prikaži naslovne trake za sve prozore ili ih sakrij za uštedu prostora na ekranu
-STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Ukrasi prozora: {STRING}
-STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Ukrasi na rubovima prozora
-STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bita
-STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT                          :{BLACK}Postavi dubinu boja videa na 8 bitova po pikselu, ovaj način podržava animaciju vode
-STR_CONFIG_SETTING_VIDEO_16BPP                                  :{BLACK}16 bita
-STR_CONFIG_SETTING_VIDEO_16BPP_HELPTEXT                         :{BLACK}Postavi dubinu boja videa na 16 bitova po pikselu, za ovo treba restart, ovaj način ne podržava animaciju vode
-STR_CONFIG_SETTING_VIDEO_24BPP                                  :{BLACK}24 bita
-STR_CONFIG_SETTING_VIDEO_24BPP_HELPTEXT                         :{BLACK}Postavi dubinu boja videa na 24 bita po pikselu, ovaj način podržava animaciju vode
-STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Zatvori sve otvorene prozore (osim zakačenih)
-STR_TABLET_SHIFT_TOOLTIP                                        :{BLACK}Pritisnuti za procjenu troškova izvođenja neke akcije
-STR_TABLET_CTRL_TOOLTIP                                         :{BLACK}Koristiti za sve akcije za koje se koristi tipka "CTRL"
-STR_TUTORIAL_WINDOW_TITLE                                       :{BLACK}Videi za učenje
-STR_TUTORIAL_WINDOW_TOOLTIP                                     :{BLACK}Otvori prikazivač videa za gledanje videa za učenje
-STR_TUTORIAL_ROADS_AND_STATIONS                                 :{BLACK}Građenje cesta i stanica, kupnja vozila
-STR_TUTORIAL_RAILWAYS                                           :{BLACK}Pruge i vlakovi
-STR_TUTORIAL_ROAD_VEHICLES                                      :{BLACK}Cestovna vozila
-STR_TUTORIAL_SHIPS                                              :{BLACK}Brodovi i dokovi
-STR_TUTORIAL_CARGO                                              :{BLACK}Vrste tereta
-STR_SAVELOAD_LOAD_NETWORK_BUTTON                                :{BLACK}Učitaj sa mreže
-STR_SAVELOAD_LOAD_NETWORK_TOOLTIP                               :{BLACK}Učitaj igru sa mrežne pohrane podataka
-STR_SAVELOAD_SAVE_NETWORK_BUTTON                                :{BLACK}Spremi na mrežu
-STR_SAVELOAD_SAVE_NETWORK_TOOLTIP                               :{BLACK}Spremi igru na mrežnu pohranu podataka
 

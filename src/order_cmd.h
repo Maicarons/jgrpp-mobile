@@ -12,35 +12,56 @@
 
 #include "command_type.h"
 #include "order_base.h"
-#include "misc/endian_buffer.hpp"
+#include "order_type.h"
 
-CommandCost CmdModifyOrder(DoCommandFlags flags, VehicleID veh, VehicleOrderID sel_ord, ModifyOrderFlags mof, uint16_t data);
-CommandCost CmdSkipToOrder(DoCommandFlags flags, VehicleID veh_id, VehicleOrderID sel_ord);
-CommandCost CmdDeleteOrder(DoCommandFlags flags, VehicleID veh_id, VehicleOrderID sel_ord);
-CommandCost CmdInsertOrder(DoCommandFlags flags, VehicleID veh, VehicleOrderID sel_ord, const Order &new_order);
-CommandCost CmdOrderRefit(DoCommandFlags flags, VehicleID veh, VehicleOrderID order_number, CargoType cargo);
-CommandCost CmdCloneOrder(DoCommandFlags flags, CloneOptions action, VehicleID veh_dst, VehicleID veh_src);
-CommandCost CmdMoveOrder(DoCommandFlags flags, VehicleID veh, VehicleOrderID moving_order, VehicleOrderID target_order);
-CommandCost CmdClearOrderBackup(DoCommandFlags flags, TileIndex tile, ClientID user_id);
+enum class ReverseOrderOperation : uint8_t {
+	Reverse,
+	AppendReversed,
+};
 
-DEF_CMD_TRAIT(CMD_MODIFY_ORDER,       CmdModifyOrder,       CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_SKIP_TO_ORDER,      CmdSkipToOrder,       CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_DELETE_ORDER,       CmdDeleteOrder,       CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_INSERT_ORDER,       CmdInsertOrder,       CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_ORDER_REFIT,        CmdOrderRefit,        CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_CLONE_ORDER,        CmdCloneOrder,        CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_MOVE_ORDER,         CmdMoveOrder,         CommandFlag::Location, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_CLEAR_ORDER_BACKUP, CmdClearOrderBackup,  CommandFlag::ClientID, CommandType::ServerSetting)
+struct InsertOrderCmdData final : public CommandPayloadSerialisable<InsertOrderCmdData> {
+	static constexpr bool HasStringSanitiser = false;
 
-template <typename Tcont, typename Titer>
-inline EndianBufferWriter<Tcont, Titer> &operator <<(EndianBufferWriter<Tcont, Titer> &buffer, const Order &order)
-{
-	return buffer << order.type << order.flags << order.dest.value << order.refit_cargo << order.wait_time << order.travel_time << order.max_speed;
-}
+	using OrderFields = MemberPtrTupleTypeAdapter<decltype(Order::GetCmdRefFields())>;
 
-inline EndianBufferReader &operator >>(EndianBufferReader &buffer, Order &order)
-{
-	return buffer >> order.type >> order.flags >> order.dest.value >> order.refit_cargo >> order.wait_time >> order.travel_time >> order.max_speed;
-}
+	VehicleID veh;
+	VehicleOrderID sel_ord; // This may be INVALID_VEH_ORDER_ID to append to the end of the order list
+	OrderFields::Value new_order;
+
+	InsertOrderCmdData() = default;
+	InsertOrderCmdData(VehicleID veh, VehicleOrderID sel_ord, const Order &order) :
+			veh(veh), sel_ord(sel_ord), new_order(MemberPtrsTie(order, Order::GetCmdRefFields())) {}
+
+	void SerialisePayload(BufferSerialisationRef buffer) const;
+	bool Deserialise(DeserialisationBuffer &buffer, StringValidationSettings default_string_validation);
+	void FormatDebugSummary(struct format_target &) const;
+};
+
+DEF_CMD_TUPLE_LT (Commands::ModifyOrder,            CmdModifyOrder,                     {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleOrderID, ModifyOrderFlags, uint16_t, CargoType, std::string>)
+DEF_CMD_TUPLE_LT (Commands::SkipToOrder,            CmdSkipToOrder,                     {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleOrderID>)
+DEF_CMD_TUPLE_LT (Commands::DeleteOrder,            CmdDeleteOrder,                     {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleOrderID>)
+DEF_CMD_DIRECT_LT(Commands::InsertOrder,            CmdInsertOrder,                     {}, CommandType::RouteManagement, InsertOrderCmdData)
+DEF_CMD_TUPLE_LT (Commands::OrderRefit,             CmdOrderRefit,                      {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleOrderID, CargoType>)
+DEF_CMD_TUPLE_LT (Commands::CloneOrder,             CmdCloneOrder,                      {}, CommandType::RouteManagement, CmdDataT<CloneOptions, VehicleID, VehicleID>)
+DEF_CMD_TUPLE_LT (Commands::InsertOrdersFromVeh,    CmdInsertOrdersFromVehicle,         {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleID, VehicleOrderID>)
+DEF_CMD_TUPLE_LT (Commands::MoveOrder,              CmdMoveOrder,                       {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleOrderID, VehicleOrderID, uint16_t>)
+DEF_CMD_TUPLE_LT (Commands::ReverseOrderList,       CmdReverseOrderList,                {}, CommandType::RouteManagement, CmdDataT<VehicleID, ReverseOrderOperation>)
+DEF_CMD_TUPLE_LT (Commands::DuplicateOrder,         CmdDuplicateOrder,                  {}, CommandType::RouteManagement, CmdDataT<VehicleID, VehicleOrderID>)
+DEF_CMD_TUPLE_LT (Commands::SetRouteOverlayColour,  CmdSetRouteOverlayColour,           {}, CommandType::RouteManagement, CmdDataT<VehicleID, Colours>)
+DEF_CMD_TUPLE_NT (Commands::MassChangeOrder,        CmdMassChangeOrder,                 {}, CommandType::RouteManagement, CmdDataT<DestinationID, VehicleType, OrderType, CargoType, DestinationID>)
+DEF_CMD_TUPLE    (Commands::ClearOrderBackup,       CmdClearOrderBackup,     CMD_CLIENT_ID, CommandType::ServerSetting,   CmdDataT<ClientID>)
+
+struct BulkOrderCmdData final : public CommandPayloadSerialisable<BulkOrderCmdData> {
+	static constexpr bool HasStringSanitiser = false;
+
+	VehicleID veh;
+	std::vector<uint8_t> cmds;
+
+	void SerialisePayload(BufferSerialisationRef buffer) const;
+	bool Deserialise(DeserialisationBuffer &buffer, StringValidationSettings default_string_validation);
+	void FormatDebugSummary(format_target &output) const;
+};
+
+DEF_CMD_DIRECT_NT(Commands::BulkOrder,         CmdBulkOrder,              CMD_NO_TEST, CommandType::RouteManagement, BulkOrderCmdData)
 
 #endif /* ORDER_CMD_H */

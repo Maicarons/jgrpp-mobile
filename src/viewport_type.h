@@ -11,7 +11,11 @@
 #define VIEWPORT_TYPE_H
 
 #include "core/enum_type.hpp"
+#include "strings_type.h"
 #include "zoom_type.h"
+
+#include <limits>
+#include <vector>
 
 class LinkGraphOverlay;
 
@@ -24,6 +28,26 @@ enum class ViewportStringFlag : uint8_t {
 	TextColour, ///< Draw text in colour.
 };
 using ViewportStringFlags = EnumBitSet<ViewportStringFlag, uint8_t>;
+
+enum ViewportMapType {
+	VPMT_BEGIN = 0,
+	VPMT_VEGETATION = 0,
+	VPMT_OWNER,
+	VPMT_ROUTES,
+	VPMT_INDUSTRY,
+	VPMT_END,
+
+	VPMT_MIN = VPMT_VEGETATION,
+	VPMT_MAX = VPMT_INDUSTRY,
+};
+
+using ViewPortBlockT = size_t;
+static constexpr uint VP_BLOCK_BITS = std::numeric_limits<ViewPortBlockT>::digits;
+
+struct ViewPortMapDrawVehiclesCache {
+	uint64_t done_hash_bits[64];
+	std::vector<ViewPortBlockT> vehicle_pixels;
+};
 
 /**
  * Data structure for viewport, display of a part of the world
@@ -39,8 +63,53 @@ struct Viewport {
 	int virtual_width;   ///< width << zoom
 	int virtual_height;  ///< height << zoom
 
-	ZoomLevel zoom; ///< The zoom level of the viewport.
-	std::shared_ptr<LinkGraphOverlay> overlay;
+	ZoomLevel zoom;      ///< The zoom level of the viewport.
+	ViewportMapType map_type;  ///< Rendering type
+
+	LinkGraphOverlay *overlay;
+
+	std::vector<ViewPortBlockT> dirty_blocks;
+	uint dirty_blocks_column_pitch;
+	uint dirty_blocks_per_column;
+	uint dirty_blocks_per_row;
+	uint8_t dirty_block_left_margin;
+	bool is_dirty = false;
+	bool is_drawn = false;
+	bool update_vehicles = false;
+	uint64_t last_overlay_rebuild_counter = 0;
+	uint64_t last_plan_update_number = 0;
+	ViewPortMapDrawVehiclesCache map_draw_vehicles_cache;
+	std::vector<uint8_t> land_pixel_cache;
+	std::vector<uint8_t> overlay_pixel_cache;
+	std::vector<uint8_t> plan_pixel_cache;
+
+	uint GetDirtyBlockWidthShift() const { return this->GetDirtyBlockShift(); }
+	uint GetDirtyBlockHeightShift() const { return this->GetDirtyBlockShift(); }
+	uint GetDirtyBlockWidth() const { return 1 << this->GetDirtyBlockWidthShift(); }
+	uint GetDirtyBlockHeight() const { return 1 << this->GetDirtyBlockHeightShift(); }
+
+	void ClearDirty()
+	{
+		if (this->is_dirty) {
+			this->dirty_blocks.assign(this->dirty_blocks.size(), false);
+			this->is_dirty = false;
+		}
+		this->is_drawn = false;
+		this->update_vehicles = false;
+	}
+
+	size_t ScreenArea() const
+	{
+		return ((size_t)this->width) * ((size_t)this->height);
+	}
+
+private:
+	uint GetDirtyBlockShift() const
+	{
+		if (this->zoom >= ZoomLevel::DrawMap) return 3;
+		if (this->zoom >= ZoomLevel::Out2x) return 4;
+		return 7 - to_underlying(this->zoom);
+	}
 };
 
 /** Location information about a sign as seen on the viewport */
@@ -50,26 +119,26 @@ struct ViewportSign {
 	uint16_t width_normal = 0; ///< The width when not zoomed out (normal font)
 	uint16_t width_small = 0; ///< The width when zoomed out (small font)
 
-	auto operator<=>(const ViewportSign &) const = default;
-
-	void UpdatePosition(int center, int top, std::string_view str, std::string_view str_small = {});
-	void MarkDirty(ZoomLevel maxzoom = ZoomLevel::Max) const;
+	void UpdatePosition(ZoomLevel maxzoom, int center, int top, std::span<StringParameter> params, StringID str, StringID str_small = STR_NULL);
+	void MarkDirty(ZoomLevel maxzoom) const;
 };
 
 /** Specialised ViewportSign that tracks whether it is valid for entering into a Kdtree */
 struct TrackedViewportSign : ViewportSign {
 	bool kdtree_valid = false; ///< Are the sign data valid for use with the _viewport_sign_kdtree?
 
-	auto operator<=>(const TrackedViewportSign &) const = default;
-
 	/**
 	 * Update the position of the viewport sign.
 	 * Note that this function hides the base class function.
+	 * @param center The (preferred) center of the viewport sign.
+	 * @param top The new top of the sign.
+	 * @param str The string to show in the sign.
+	 * @param str_small The string to show when zoomed out. If the string is empty then the \a str is used.
 	 */
-	void UpdatePosition(int center, int top, std::string_view str, std::string_view str_small = {})
+	void UpdatePosition(ZoomLevel maxzoom, int center, int top, std::span<StringParameter> params, StringID str, StringID str_small = STR_NULL)
 	{
 		this->kdtree_valid = true;
-		this->ViewportSign::UpdatePosition(center, top, str, str_small);
+		this->ViewportSign::UpdatePosition(maxzoom, center, top, params, str, str_small);
 	}
 };
 
@@ -103,7 +172,7 @@ enum ViewportPlaceMethod : uint8_t {
 	VPM_FIX_VERTICAL    =    6, ///< drag only in vertical direction
 	VPM_X_LIMITED       =    7, ///< Drag only in X axis with limited size
 	VPM_Y_LIMITED       =    8, ///< Drag only in Y axis with limited size
-	VPM_SINGLE_TILE     =    9, ///< Drag around the screen, selecting only the end tile
+	VPM_A_B_LINE        =    9, ///< Drag a line from tile A to tile B
 	VPM_RAILDIRS        = 0x40, ///< all rail directions
 	VPM_SIGNALDIRS      = 0x80, ///< similar to VMP_RAILDIRS, but with different cursor
 };
@@ -124,7 +193,11 @@ enum ViewportDragDropSelectionProcess : uint8_t {
 	DDSP_CREATE_RIVER,         ///< Create rivers
 	DDSP_PLANT_TREES,          ///< Plant trees
 	DDSP_BUILD_BRIDGE,         ///< Bridge placement
+	DDSP_MEASURE,              ///< Measurement tool
+	DDSP_DRAW_PLANLINE,        ///< Draw a line for a plan
+	DDSP_BUY_LAND,             ///< Purchase land
 	DDSP_BUILD_OBJECT,         ///< Build an object
+	DDSP_PLACE_HOUSE,          ///< Place a house
 
 	/* Rail specific actions */
 	DDSP_PLACE_RAIL,           ///< Rail placement
@@ -132,6 +205,7 @@ enum ViewportDragDropSelectionProcess : uint8_t {
 	DDSP_BUILD_STATION,        ///< Station placement
 	DDSP_REMOVE_STATION,       ///< Station removal
 	DDSP_CONVERT_RAIL,         ///< Rail conversion
+	DDSP_CONVERT_RAIL_TRACK,   ///< Rail conversion (track)
 
 	/* Road specific actions */
 	DDSP_PLACE_ROAD_X_DIR,     ///< Road placement (X axis)
@@ -144,9 +218,6 @@ enum ViewportDragDropSelectionProcess : uint8_t {
 	DDSP_REMOVE_BUSSTOP,       ///< Road stop removal (buses)
 	DDSP_REMOVE_TRUCKSTOP,     ///< Road stop removal (trucks)
 	DDSP_CONVERT_ROAD,         ///< Road conversion
-
-	/* Single tile dragging */
-	DDSP_SINGLE_TILE,          ///< Single tile actions (build industry, town, etc.)
 };
 
 
@@ -157,6 +228,28 @@ enum ViewportScrollTarget : uint8_t {
 	VST_EVERYONE, ///< All players
 	VST_COMPANY,  ///< All players in specific company
 	VST_CLIENT,   ///< Single player
+};
+
+/** Enumeration of multi-part foundations */
+enum FoundationPart : uint8_t {
+	FOUNDATION_PART_NONE     = 0xFF,  ///< Neither foundation nor groundsprite drawn yet.
+	FOUNDATION_PART_NORMAL   = 0,     ///< First part (normal foundation or no foundation)
+	FOUNDATION_PART_HALFTILE = 1,     ///< Second part (halftile foundation)
+	FOUNDATION_PART_END
+};
+
+enum ViewportMarkDirtyFlags : uint8_t {
+	VMDF_NONE                  = 0,
+	VMDF_NOT_MAP_MODE          = 0x1,
+	VMDF_NOT_MAP_MODE_NON_VEG  = 0x2,
+	VMDF_NOT_LANDSCAPE         = 0x4,
+};
+DECLARE_ENUM_AS_BIT_SET(ViewportMarkDirtyFlags)
+
+enum class ChildScreenSpritePositionMode : uint8_t {
+	Relative,
+	NonRelative,
+	Absolute,
 };
 
 #endif /* VIEWPORT_TYPE_H */

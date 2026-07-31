@@ -12,6 +12,8 @@
 
 #include "core/enum_type.hpp"
 #include "string_type.h"
+#include <array>
+#include <map>
 
 std::optional<std::string_view> GetDriverParam(const StringList &parm, std::string_view name);
 bool GetDriverParamBool(const StringList &parm, std::string_view name);
@@ -23,9 +25,9 @@ public:
 	/**
 	 * Start this driver.
 	 * @param parm Parameters passed to the driver.
-	 * @return std::nullopt if everything went okay, otherwise an error message.
+	 * @return nullptr if everything went okay, otherwise an error message.
 	 */
-	virtual std::optional<std::string_view> Start(const StringList &parm) = 0;
+	virtual const char *Start(const StringList &parm) = 0;
 
 	/**
 	 * Stop this driver.
@@ -35,19 +37,19 @@ public:
 	virtual ~Driver() = default;
 
 	/** The type of driver */
-	enum Type : uint8_t {
-		DT_BEGIN = 0, ///< Helper for iteration
-		DT_MUSIC = 0, ///< A music driver, needs to be before sound to properly shut down extmidi forked music players
-		DT_SOUND,     ///< A sound driver
-		DT_VIDEO,     ///< A video driver
-		DT_END,       ///< Helper for iteration
+	enum class Type : uint8_t {
+		Begin = 0, ///< Helper for iteration
+		Music = 0, ///< A music driver, needs to be before sound to properly shut down extmidi forked music players
+		Sound, ///< A sound driver
+		Video, ///< A video driver
+		End, ///< Helper for iteration
 	};
 
 	/**
 	 * Get the name of this driver.
 	 * @return The name of the driver.
 	 */
-	virtual std::string_view GetName() const = 0;
+	virtual const char *GetName() const = 0;
 };
 
 DECLARE_INCREMENT_DECREMENT_OPERATORS(Driver::Type)
@@ -62,13 +64,14 @@ private:
 
 	Driver::Type type;       ///< The type of driver.
 	int priority;            ///< The priority of this factory.
-	std::string_view name;        ///< The name of the drivers of this factory.
-	std::string_view description; ///< The description of this driver.
+	const char *name;        ///< The name of the drivers of this factory.
+	const char *description; ///< The description of this driver.
 
 	typedef std::map<std::string, DriverFactoryBase *> Drivers; ///< Type for a map of drivers.
 
 	/**
 	 * Get the map with drivers.
+	 * @return A reference to the drivers.
 	 */
 	static Drivers &GetDrivers()
 	{
@@ -83,7 +86,7 @@ private:
 	 */
 	static std::unique_ptr<Driver> &GetActiveDriver(Driver::Type type)
 	{
-		static std::array<std::unique_ptr<Driver>, Driver::DT_END> s_driver{};
+		static EnumIndexArray<std::unique_ptr<Driver>, Driver::Type, Driver::Type::End> s_driver{};
 		return s_driver[type];
 	}
 
@@ -92,9 +95,11 @@ private:
 	 * @param type The type of driver to get the name of.
 	 * @return The name of the type.
 	 */
-	static std::string_view GetDriverTypeName(Driver::Type type)
+	static const char *GetDriverTypeName(Driver::Type type)
 	{
-		static const std::string_view driver_type_name[] = { "music", "sound", "video" };
+		static constexpr EnumIndexArray<const char *, Driver::Type, Driver::Type::End> driver_type_name{
+			"music", "sound", "video"
+		};
 		return driver_type_name[type];
 	}
 
@@ -103,7 +108,7 @@ private:
 	static void MarkVideoDriverOperational();
 
 protected:
-	DriverFactoryBase(Driver::Type type, int priority, std::string_view name, std::string_view description);
+	DriverFactoryBase(Driver::Type type, int priority, const char *name, const char *description);
 
 	virtual ~DriverFactoryBase();
 
@@ -122,20 +127,20 @@ public:
 	 */
 	static void ShutdownDrivers()
 	{
-		for (Driver::Type dt = Driver::DT_BEGIN; dt < Driver::DT_END; dt++) {
+		for (Driver::Type dt = Driver::Type::Begin; dt != Driver::Type::End; ++dt) {
 			auto &driver = GetActiveDriver(dt);
 			if (driver != nullptr) driver->Stop();
 		}
 	}
 
 	static void SelectDriver(const std::string &name, Driver::Type type);
-	static void GetDriversInfo(std::back_insert_iterator<std::string> &output_iterator);
+	static void GetDriversInfo(struct format_target &output);
 
 	/**
 	 * Get a nice description of the driver-class.
 	 * @return The description.
 	 */
-	std::string_view GetDescription() const
+	const char *GetDescription() const
 	{
 		return this->description;
 	}

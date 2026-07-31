@@ -9,6 +9,7 @@ add_files(
     company_widget.h
     console_widget.h
     date_widget.h
+    departures_widget.h
     depot_widget.h
     dock_widget.h
     dropdown_widget.h
@@ -40,6 +41,7 @@ add_files(
     order_widget.h
     osk_widget.h
     picker_widget.h
+    plans_widget.h
     rail_widget.h
     road_widget.h
     screenshot_widget.h

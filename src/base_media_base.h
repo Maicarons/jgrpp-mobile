@@ -14,7 +14,7 @@
 #include "textfile_type.h"
 #include "textfile_gui.h"
 #include "3rdparty/md5/md5.h"
-#include <unordered_map>
+#include <vector>
 
 struct IniFile;
 struct IniGroup;
@@ -24,11 +24,11 @@ struct ContentInfo;
 /** Structure holding filename and MD5 information about a single file */
 struct MD5File {
 	/** The result of a checksum check */
-	enum ChecksumResult : uint8_t {
-		CR_UNKNOWN,  ///< The file has not been checked yet
-		CR_MATCH,    ///< The file did exist and the md5 checksum did match
-		CR_MISMATCH, ///< The file did exist, just the md5 checksum did not match
-		CR_NO_FILE,  ///< The file did not exist
+	enum class ChecksumResult : uint8_t {
+		Unknown, ///< The file has not been checked yet
+		Match, ///< The file did exist and the md5 checksum did match
+		Mismatch, ///< The file did exist, just the md5 checksum did not match
+		NoFile, ///< The file did not exist
 	};
 
 	std::string filename;        ///< filename
@@ -42,14 +42,43 @@ struct MD5File {
 /** Defines the traits of a BaseSet type. */
 template <class T> struct BaseSetTraits;
 
+struct BaseSetVersionPrinter {
+	std::span<const uint32_t> version{};
+
+	void fmt_format_value(struct format_target &output) const;
+};
+
+struct BaseSetBase {
+	/** Mapping of translations: language -> string. */
+	typedef std::vector<std::pair<std::string, std::string>> TranslatedStrings;
+
+	std::string name;              ///< The name of the base set
+	std::string url;               ///< URL for information about the base set
+	TranslatedStrings description; ///< Description of the base set
+	uint32_t shortname = 0;        ///< Four letter short variant of the name
+	std::vector<uint32_t> version; ///< The version of this base set
+	bool fallback = false;         ///< This set is a fallback set, i.e. it should be used only as last resort
+
+	uint found_files = 0; ///< Number of the files that could be found
+	uint valid_files = 0; ///< Number of the files that could be found and are valid
+
+	const std::string &GetDescription(std::string_view isocode) const;
+
+	BaseSetVersionPrinter FormatVersion() const
+	{
+		return BaseSetVersionPrinter{this->version};
+	}
+
+protected:
+	bool ReadVersionString(std::string_view version_str);
+};
+
 /**
  * Information about a single base set.
  * @tparam T the real class we're going to be
  */
 template <class T>
-struct BaseSet {
-	typedef std::unordered_map<std::string, std::string, StringHash, std::equal_to<>> TranslatedStrings;
-
+struct BaseSet : public BaseSetBase {
 	/** Number of files in this set */
 	static constexpr size_t NUM_FILES = BaseSetTraits<T>::num_files;
 
@@ -59,16 +88,7 @@ struct BaseSet {
 	/** BaseSet type name. */
 	static constexpr std::string_view SET_TYPE = BaseSetTraits<T>::set_type;
 
-	std::string name;              ///< The name of the base set
-	std::string url;               ///< URL for information about the base set
-	TranslatedStrings description; ///< Description of the base set
-	uint32_t shortname = 0; ///< Four letter short variant of the name
-	std::vector<uint32_t> version; ///< The version of this base set
-	bool fallback = false; ///< This set is a fallback set, i.e. it should be used only as last resort
-
 	std::array<MD5File, BaseSet<T>::NUM_FILES> files{}; ///< All files part of this set
-	uint found_files = 0; ///< Number of the files that could be found
-	uint valid_files = 0; ///< Number of the files that could be found and are valid
 
 	/**
 	 * Get the number of missing files.
@@ -93,39 +113,21 @@ struct BaseSet {
 	const IniItem *GetMandatoryItem(std::string_view full_filename, const IniGroup &group, std::string_view name) const;
 
 	bool FillSetDetails(const IniFile &ini, const std::string &path, const std::string &full_filename, bool allow_empty_filename = true);
-	void CopyCompatibleConfig([[maybe_unused]] const T &src) {}
 
 	/**
-	 * Get the description for the given ISO code.
-	 * It falls back to the first two characters of the ISO code in case
-	 * no match could be made with the full ISO code. If even then the
-	 * matching fails the default is returned.
-	 * @param isocode the isocode to search for
-	 * @return the description
+	 * Copy settings from the given set into this set when they are compatible.
+	 * @param src The location to copy settings from.
 	 */
-	const std::string &GetDescription(std::string_view isocode) const
-	{
-		if (!isocode.empty()) {
-			/* First the full ISO code */
-			auto desc = this->description.find(isocode);
-			if (desc != this->description.end()) return desc->second;
-
-			/* Then the first two characters */
-			desc = this->description.find(isocode.substr(0, 2));
-			if (desc != this->description.end()) return desc->second;
-		}
-		/* Then fall back */
-		return this->description.at(std::string{});
-	}
+	void CopyCompatibleConfig([[maybe_unused]] const T &src) {}
 
 	/**
 	 * Calculate and check the MD5 hash of the supplied file.
 	 * @param file The file get the hash of.
 	 * @param subdir The sub directory to get the files from.
 	 * @return
-	 * - #CR_MATCH if the MD5 hash matches
-	 * - #CR_MISMATCH if the MD5 does not match
-	 * - #CR_NO_FILE if the file misses
+	 * - #MD5File::ChecksumResult::Match if the MD5 hash matches
+	 * - #MD5File::ChecksumResult::Mismatch if the MD5 does not match
+	 * - #MD5File::ChecksumResult::NoFile if the file misses
 	 */
 	static MD5File::ChecksumResult CheckMD5(const MD5File *file, Subdirectory subdir)
 	{
@@ -140,7 +142,7 @@ struct BaseSet {
 	std::optional<std::string> GetTextfile(TextfileType type) const
 	{
 		for (const auto &file : this->files) {
-			auto textfile = ::GetTextfile(type, BASESET_DIR, file.filename);
+			auto textfile = ::GetTextfile(type, Subdirectory::Baseset, file.filename);
 			if (textfile.has_value()) {
 				return textfile;
 			}
@@ -187,13 +189,16 @@ public:
 	 */
 	static bool DetermineBestSet();
 
-	/** Do the scan for files. */
+	/**
+	 * Do the scan for files.
+	 * @return The number of sets that have been found.
+	 */
 	static uint FindSets()
 	{
 		BaseMedia<Tbase_set> fs;
 		/* Searching in tars is only done in the old "data" directories basesets. */
-		uint num = fs.Scan(GetExtension(), Tbase_set::SEARCH_IN_TARS ? OLD_DATA_DIR : OLD_GM_DIR, Tbase_set::SEARCH_IN_TARS);
-		return num + fs.Scan(GetExtension(), BASESET_DIR, Tbase_set::SEARCH_IN_TARS);
+		uint num = fs.Scan(GetExtension(), Tbase_set::SEARCH_IN_TARS ? Subdirectory::OldData : Subdirectory::OldGm, Tbase_set::SEARCH_IN_TARS);
+		return num + fs.Scan(GetExtension(), Subdirectory::Baseset, Tbase_set::SEARCH_IN_TARS);
 	}
 
 	/**
@@ -205,7 +210,7 @@ public:
 	static bool SetSet(const Tbase_set *set);
 	static bool SetSetByName(const std::string &name);
 	static bool SetSetByShortname(uint32_t shortname);
-	static void GetSetsList(std::back_insert_iterator<std::string> &output_iterator);
+	static void GetSetsList(struct format_target &output);
 	static int GetNumSets();
 	static int GetIndexOfUsedSet();
 	static const Tbase_set *GetSet(int index);
@@ -224,7 +229,7 @@ public:
  * Check whether there's a base set matching some information.
  * @param ci The content info to compare it to.
  * @param md5sum Should the MD5 checksum be tested as well?
- * @param s The list with sets.
+ * @param sets The span with sets.
  * @return The filename of the first file of the base set, or \c std::nullopt if there is no match.
  */
 template <class Tbase_set>

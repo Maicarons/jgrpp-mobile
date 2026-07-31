@@ -26,7 +26,7 @@ static MIDI *_midi = nullptr;
  */
 extern int _allegro_instance_count;
 
-std::optional<std::string_view> MusicDriver_Allegro::Start(const StringList &)
+const char *MusicDriver_Allegro::Start(const StringList &)
 {
 	if (_allegro_instance_count == 0 && install_allegro(SYSTEM_AUTODETECT, &errno, nullptr)) {
 		Debug(driver, 0, "allegro: install_allegro failed '{}'", allegro_error);
@@ -46,7 +46,7 @@ std::optional<std::string_view> MusicDriver_Allegro::Start(const StringList &)
 		return "No sound card found";
 	}
 
-	return std::nullopt;
+	return nullptr;
 }
 
 void MusicDriver_Allegro::Stop()

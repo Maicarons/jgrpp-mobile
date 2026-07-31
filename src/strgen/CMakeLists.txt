@@ -8,19 +8,20 @@ if (NOT HOST_BINARY_DIR)
     set(sourcefiles
             strgen.cpp
             strgen_base.cpp
-            ../3rdparty/fmt/format.cc
+            ../core/alloc_func.cpp
+            ../core/format.cpp
+            ../core/string_builder.cpp
+            ../core/string_consumer.cpp
+            ../core/utf8.cpp
             ../misc/getoptdata.cpp
             ../error.cpp
             ../string.cpp
-            ../core/string_builder.cpp
-            ../core/string_consumer.cpp
-            ../core/string_inplace.cpp
-            ../core/utf8.cpp
+            ../3rdparty/fmt/format.cc
     )
     add_definitions(-DSTRGEN)
     add_executable(strgen ${sourcefiles})
 
-    export(TARGETS strgen FILE ${CMAKE_BINARY_DIR}/strgen.cmake)
+    export(TARGETS strgen NAMESPACE host FILE ${CMAKE_BINARY_DIR}/strgen.cmake)
     add_dependencies(tools strgen)
 endif()
 

@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file story_sl.cpp Code handling saving and loading of story pages */
+/** @file story_sl.cpp Code handling saving and loading of story pages. */
 
 #include "../stdafx.h"
 
@@ -19,7 +19,7 @@
 /** Called after load to trash broken pages. */
 void AfterLoadStoryBook()
 {
-	if (IsSavegameVersionBefore(SLV_185)) {
+	if (upstream_sl::IsSavegameVersionBefore(SLV_185)) {
 		/* Trash all story pages and page elements because
 		 * they were saved with wrong data types.
 		 */
@@ -27,6 +27,8 @@ void AfterLoadStoryBook()
 		_story_page_pool.CleanPool();
 	}
 }
+
+namespace upstream_sl {
 
 static const SaveLoad _story_page_elements_desc[] = {
 	SLE_CONDVAR(StoryPageElement, sort_value,    SLE_FILE_U16 | SLE_VAR_U32, SL_MIN_VERSION,   SLV_185),
@@ -58,7 +60,7 @@ struct STPEChunkHandler : ChunkHandler {
 		int index;
 		uint32_t max_sort_value = 0;
 		while ((index = SlIterateArray()) != -1) {
-			StoryPageElement *s = new (StoryPageElementID(index)) StoryPageElement();
+			StoryPageElement *s = StoryPageElement::CreateAtIndex(StoryPageElementID(index));
 			SlObject(s, slt);
 			if (s->sort_value > max_sort_value) {
 				max_sort_value = s->sort_value;
@@ -100,7 +102,7 @@ struct STPAChunkHandler : ChunkHandler {
 		int index;
 		uint32_t max_sort_value = 0;
 		while ((index = SlIterateArray()) != -1) {
-			StoryPage *s = new (StoryPageID(index)) StoryPage();
+			StoryPage *s = StoryPage::CreateAtIndex(StoryPageID(index));
 			SlObject(s, slt);
 			if (s->sort_value > max_sort_value) {
 				max_sort_value = s->sort_value;
@@ -121,3 +123,5 @@ static const ChunkHandlerRef story_page_chunk_handlers[] = {
 };
 
 extern const ChunkHandlerTable _story_page_chunk_handlers(story_page_chunk_handlers);
+
+}

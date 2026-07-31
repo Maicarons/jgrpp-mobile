@@ -5,20 +5,22 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/* @file midifile.hpp Parser for standard MIDI files */
+/** @file midifile.hpp Parser for standard MIDI files. */
 
 #ifndef MUSIC_MIDIFILE_HPP
 #define MUSIC_MIDIFILE_HPP
 
 #include "../fileio_type.h"
 #include "midi.h"
+#include <vector>
+#include <string>
 
 struct MusicSongInfo;
 
 struct MidiFile {
 	struct DataBlock {
-		uint32_t ticktime; ///< tick number since start of file this block should be triggered at
-		int64_t realtime = 0; ///< real-time (microseconds) since start of file this block should be triggered at
+		uint32_t ticktime;         ///< tick number since start of file this block should be triggered at
+		int64_t realtime = 0;      ///< real-time (microseconds) since start of file this block should be triggered at
 		std::vector<uint8_t> data; ///< raw midi data contained in block
 		DataBlock(uint32_t _ticktime = 0) : ticktime(_ticktime) { }
 	};
@@ -35,15 +37,15 @@ struct MidiFile {
 	MidiFile();
 	~MidiFile();
 
-	bool LoadFile(const std::string &filename);
+	bool LoadFile(const char *filename);
 	bool LoadMpsData(const uint8_t *data, size_t length);
 	bool LoadSong(const MusicSongInfo &song);
 	void MoveFrom(MidiFile &other);
 
-	bool WriteSMF(const std::string &filename);
+	bool WriteSMF(const char *filename);
 
 	static std::string GetSMFFile(const MusicSongInfo &song);
-	static bool ReadSMFHeader(const std::string &filename, SMFHeader &header);
+	static bool ReadSMFHeader(const char *filename, SMFHeader &header);
 	static bool ReadSMFHeader(FileHandle &file, SMFHeader &header);
 };
 

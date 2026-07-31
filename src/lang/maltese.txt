@@ -474,7 +474,6 @@ STR_GAME_OPTIONS_RESOLUTION_OTHER                               :oħrajn
 
 ###length 3
 
-###setting-zero-is-special
 
 
 ###setting-zero-is-special
@@ -503,8 +502,8 @@ STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HELPTEXT                  :Stabbilixxi l-l
 STR_CONFIG_SETTING_RECESSIONS                                   :Riċessjonijiet: {STRING}
 STR_CONFIG_SETTING_RECESSIONS_HELPTEXT                          :Jekk mixgħula kull ftit snin tista' sseħħ riċessjoni. Waqt riċessjoni, il-produzzjoni ta' kollox tonqos (tirritorna għal kemm kienet qabel kif tgħaddi r-riċessjoni)
 
-STR_CONFIG_SETTING_TRAIN_REVERSING                              :Tħallix li ferrovija ddur lura fi stazzjon: {STRING}
-STR_CONFIG_SETTING_TRAIN_REVERSING_HELPTEXT                     :Jekk tinxtegħel, ferroviji ma jdurux lura fi stazzjonijiet li mhumiex fit-tarf, jekk teżisti rotta iqsar għad-destinazzjoni li jmiss
+
+###length 3
 
 STR_CONFIG_SETTING_DISASTERS                                    :Diżastri: {STRING}
 STR_CONFIG_SETTING_DISASTERS_HELPTEXT                           :Ixgħel jew itfi diżastri li xi drabi jistgħu jaffetwaw jew ikissru vetturi jew infrastrutturi
@@ -576,6 +575,8 @@ STR_CONFIG_SETTING_WARN_LOST_VEHICLE                            :Avza jekk jinti
 ###setting-zero-is-special
 
 
+###setting-zero-is-special
+
 
 ###length 2
 
@@ -594,6 +595,8 @@ STR_CONFIG_SETTING_WARN_LOST_VEHICLE                            :Avza jekk jinti
 
 
 
+
+###length 4
 
 ###length 4
 
@@ -701,6 +704,7 @@ STR_CONFIG_SETTING_ADVANCED_VEHICLE_LISTS_HELPTEXT              :Ippermetti l-uz
 
 
 
+
 ###length 3
 
 
@@ -762,9 +766,10 @@ STR_CONFIG_SETTING_ADVANCED_VEHICLE_LISTS_HELPTEXT              :Ippermetti l-uz
 
 # Config errors
 
-# Video initalization errors
+# Video initialization errors
 
 # Intro window
+STR_INTRO_CAPTION                                               :{WHITE}OpenTTD {REV}
 
 
 
@@ -812,7 +817,7 @@ STR_NETWORK_SERVER_LIST_MAP_SIZE_SHORT                          :{BLACK}{COMMA}x
 STR_NETWORK_CONNECTING_DOWNLOADING_1                            :{BLACK}{BYTES} imnizzlin s'issa
 STR_NETWORK_CONNECTING_DOWNLOADING_2                            :{BLACK}{BYTES} / {BYTES} imnizzlin s'issa
 
-###length 8
+###length 6
 
 
 
@@ -885,6 +890,8 @@ STR_NETWORK_SERVER_MESSAGE                                      :*** {STRING}
 # Rail waypoint construction window
 
 # Rail station construction window
+
+
 
 
 
@@ -1148,6 +1155,8 @@ STR_FINANCES_POSITIVE_INCOME                                    :{BLACK}+{CURREN
 ###length VEHICLE_TYPES
 
 
+# Vehicle sort details
+
 ###length 3
 
 ###length VEHICLE_TYPES
@@ -1208,6 +1217,7 @@ STR_DEPOT_VEHICLE_TOOLTIP_CARGO                                 :{}{CARGO_LONG} 
 
 
 # Engine preview window
+
 
 
 
@@ -1295,7 +1305,7 @@ STR_ORDER_INDEX                                                 :{COMMA}:{NBSP}
 
 
 # Conditional order variables, must follow order of OrderConditionVariable enum
-###length 8
+###length 9
 ###next-name-looks-similar
 
 
@@ -1331,6 +1341,7 @@ STR_ORDER_IMPLICIT                                              :(Awtomatiku)
 
 STR_TIMETABLE_TOOLTIP                                           :{BLACK}Skeda - agħfas fuq ordni biex tagħzilha.
 
+STR_TIMETABLE_TRAVEL_NOT_TIMETABLED_SPEED                       :Патуваат со најмногу {VELOCITY} (не е време-Увезени)
 STR_TIMETABLE_TRAVEL_FOR_SPEED                                  :патуваат за {STRING} со најмногу {VELOCITY}
 
 STR_TIMETABLE_TOTAL_TIME                                        :{BLACK}Din l-iskeda ser iddum {STRING} biex titlesta

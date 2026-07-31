@@ -11,7 +11,7 @@
 #define NEWGRF_AIRPORT_H
 
 #include "airport.h"
-#include "timer/timer_game_calendar.h"
+#include "date_type.h"
 #include "newgrf_badge_type.h"
 #include "newgrf_class.h"
 #include "newgrf_commons.h"
@@ -58,7 +58,10 @@ public:
 		return *this;
 	}
 
-	/** Get the StationGfx for the current tile. */
+	/**
+	 * Get the StationGfx for the current tile.
+	 * @return The identifier of the graphics for this tile.
+	 */
 	StationGfx GetStationGfx() const
 	{
 		return this->iter->gfx;
@@ -70,18 +73,14 @@ public:
 	}
 };
 
-/** List of default airport classes. */
-enum AirportClassID : uint8_t {
-	APC_BEGIN     = 0,  ///< Lowest valid airport class id
-	APC_SMALL     = 0,  ///< id for small airports class
-	APC_LARGE,          ///< id for large airports class
-	APC_HUB,            ///< id for hub airports class
-	APC_HELIPORT,       ///< id for heliports
-	APC_MAX       = 16, ///< maximum number of airport classes
-};
+/** Class IDs for airports. */
+struct AirportClassIDTag : public PoolIDTraits<uint8_t, 16, UINT8_MAX> {};
+using AirportClassID = PoolID<AirportClassIDTag>;
 
-/** Allow incrementing of AirportClassID variables */
-DECLARE_INCREMENT_DECREMENT_OPERATORS(AirportClassID)
+static constexpr AirportClassID APC_SMALL{0}; ///< id for small airports class.
+static constexpr AirportClassID APC_LARGE{1}; ///< id for large airports class.
+static constexpr AirportClassID APC_HUB{2}; ///< id for hub airports class.
+static constexpr AirportClassID APC_HELIPORT{3}; ///< id for heliports.
 
 /** TTDP airport types. Used to map our types to TTDPatch's */
 enum TTDPAirportType : uint8_t {
@@ -110,19 +109,19 @@ struct AirportSpec : NewGRFSpecBase<AirportClassID> {
 	const struct AirportFTAClass *fsm;     ///< the finite statemachine for the default airports
 	std::vector<AirportTileLayout> layouts; ///< List of layouts composing the airport.
 	std::span<const HangarTileTable> depots; ///< Position of the depots on the airports.
-	uint8_t size_x;                           ///< size of airport in x direction
-	uint8_t size_y;                           ///< size of airport in y direction
-	uint8_t noise_level;                      ///< noise that this airport generates
-	uint8_t catchment;                        ///< catchment area of this airport
-	TimerGameCalendar::Year min_year;      ///< first year the airport is available
-	TimerGameCalendar::Year max_year;      ///< last year the airport is available
+	uint8_t size_x;                        ///< size of airport in x direction
+	uint8_t size_y;                        ///< size of airport in y direction
+	uint8_t noise_level;                   ///< noise that this airport generates
+	uint8_t catchment;                     ///< catchment area of this airport
+	CalTime::Year min_year;                ///< first year the airport is available
+	CalTime::Year max_year;                ///< last year the airport is available
 	StringID name;                         ///< name of this airport
 	TTDPAirportType ttd_airport_type;      ///< ttdpatch airport type (Small/Large/Helipad/Oilrig)
 	SpriteID preview_sprite;               ///< preview sprite for this airport
-	uint16_t maintenance_cost;               ///< maintenance cost multiplier
+	uint16_t maintenance_cost;             ///< maintenance cost multiplier
 	/* Newgrf data */
 	bool enabled;                          ///< Entity still available (by default true). Newgrf can disable it, though.
-	SubstituteGRFFileProps grf_prop; ///< Properties related to the grf file.
+	SubstituteGRFFileProps grf_prop;       ///< Properties related to the grf file.
 	std::vector<BadgeID> badges;
 
 	static const AirportSpec *Get(uint8_t type);
@@ -133,7 +132,10 @@ struct AirportSpec : NewGRFSpecBase<AirportClassID> {
 
 	static void ResetAirports();
 
-	/** Get the index of this spec. */
+	/**
+	 * Get the index of this spec.
+	 * @return The offset in the specs table.
+	 */
 	uint8_t GetIndex() const
 	{
 		assert(this >= std::begin(specs) && this < std::end(specs));
@@ -149,7 +151,7 @@ private:
 };
 
 /** Information related to airport classes. */
-using AirportClass = NewGRFClass<AirportSpec, AirportClassID, APC_MAX>;
+using AirportClass = NewGRFClass<AirportSpec, AirportClassID>;
 
 void BindAirportSpecs();
 
@@ -174,7 +176,7 @@ struct AirportScopeResolver : public ScopeResolver {
 	}
 
 	uint32_t GetRandomBits() const override;
-	uint32_t GetVariable(uint8_t variable, [[maybe_unused]] uint32_t parameter, bool &available) const override;
+	uint32_t GetVariable(uint16_t variable, uint32_t parameter, GetVariableExtra &extra) const override;
 	void StorePSA(uint pos, int32_t value) override;
 };
 
@@ -189,7 +191,7 @@ struct AirportResolverObject : public ResolverObject {
 
 	TownScopeResolver *GetTown();
 
-	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, uint8_t relative = 0) override
+	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, VarSpriteGroupScopeOffset relative = 0) override
 	{
 		switch (scope) {
 			case VSG_SCOPE_SELF: return &this->airport_scope;

@@ -12,6 +12,8 @@
 
 #include "../saveload.h"
 
+namespace upstream_sl {
+
 /** Original field order for _economy_desc. */
 const SaveLoadCompat _economy_sl_compat[] = {
 	SLC_NULL(4, SL_MIN_VERSION, SLV_65),
@@ -34,5 +36,7 @@ const SaveLoadCompat _cargopayment_sl_compat[] = {
 	SLC_VAR("visual_profit"),
 	SLC_VAR("visual_transfer"),
 };
+
+}
 
 #endif /* SAVELOAD_COMPAT_ECONOMY_H */

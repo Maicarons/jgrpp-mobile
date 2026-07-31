@@ -5,18 +5,20 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
- /** @file newgrf_profiling.cpp Profiling of NewGRF action 2 handling. */
+/** @file newgrf_profiling.cpp Profiling of NewGRF action 2 handling. */
 
 #include "stdafx.h"
 
 #include "newgrf_profiling.h"
+#include "date_func.h"
 #include "fileio_func.h"
 #include "string_func.h"
 #include "console_func.h"
 #include "spritecache.h"
-#include "3rdparty/fmt/chrono.h"
+#include "walltime_func.h"
 #include "timer/timer.h"
 #include "timer/timer_game_tick.h"
+#include "3rdparty/fmt/chrono.h"
 
 #include <chrono>
 
@@ -28,7 +30,6 @@ std::vector<NewGRFProfiler> _newgrf_profilers;
 /**
  * Create profiler object and begin profiling session.
  * @param grffile   The GRF file to collect profiling data on
- * @param end_date  Game date to end profiling on
  */
 NewGRFProfiler::NewGRFProfiler(const GRFFile *grffile) : grffile(grffile)
 {
@@ -51,7 +52,7 @@ void NewGRFProfiler::BeginResolve(const ResolverObject &resolver)
 	this->cur_call.root_sprite = resolver.root_spritegroup->nfo_line;
 	this->cur_call.subs = 0;
 	this->cur_call.time = (uint32_t)time_point_cast<microseconds>(high_resolution_clock::now()).time_since_epoch().count();
-	this->cur_call.tick = TimerGameTick::counter;
+	this->cur_call.tick = _tick_counter;
 	this->cur_call.cb = resolver.callback;
 	this->cur_call.feat = resolver.GetFeature();
 	this->cur_call.item = resolver.GetDebugID();
@@ -59,35 +60,22 @@ void NewGRFProfiler::BeginResolve(const ResolverObject &resolver)
 
 /**
  * Capture the completion of a sprite group resolution.
+ * @param result The result to process.
  */
-void NewGRFProfiler::EndResolve(const ResolverResult &result)
+void NewGRFProfiler::EndResolve(const SpriteGroup *result)
 {
 	using namespace std::chrono;
 	this->cur_call.time = (uint32_t)time_point_cast<microseconds>(high_resolution_clock::now()).time_since_epoch().count() - this->cur_call.time;
 
-	struct visitor {
-		uint32_t operator()(std::monostate)
-		{
-			return 0;
-		}
-		uint32_t operator()(CallbackResult cb_result)
-		{
-			return cb_result;
-		}
-		uint32_t operator()(const ResultSpriteGroup *group)
-		{
-			return group == nullptr ? 0 : GetSpriteLocalID(group->sprite);
-		}
-		uint32_t operator()(const TileLayoutSpriteGroup *group)
-		{
-			return group == nullptr ? 0 : group->nfo_line;
-		}
-		uint32_t operator()(const IndustryProductionSpriteGroup *group)
-		{
-			return group == nullptr ? 0 : group->nfo_line;
-		}
-	};
-	this->cur_call.result = std::visit(visitor{}, result);
+	if (result == nullptr) {
+		this->cur_call.result = 0;
+	} else if (result->type == SGT_CALLBACK) {
+		this->cur_call.result = static_cast<const CallbackResultSpriteGroup *>(result)->result;
+	} else if (result->type == SGT_RESULT) {
+		this->cur_call.result = GetSpriteLocalID(static_cast<const ResultSpriteGroup *>(result)->sprite);
+	} else {
+		this->cur_call.result = result->nfo_line;
+	}
 
 	this->calls.push_back(this->cur_call);
 }
@@ -104,7 +92,7 @@ void NewGRFProfiler::Start()
 {
 	this->Abort();
 	this->active = true;
-	this->start_tick = TimerGameTick::counter;
+	this->start_tick = _tick_counter;
 }
 
 uint32_t NewGRFProfiler::Finish()
@@ -123,14 +111,14 @@ uint32_t NewGRFProfiler::Finish()
 
 	uint32_t total_microseconds = 0;
 
-	auto f = FioFOpenFile(filename, "wt", Subdirectory::NO_DIRECTORY);
+	auto f = FioFOpenFile(filename, "wt", Subdirectory::None);
 
 	if (!f.has_value()) {
 		IConsolePrint(CC_ERROR, "Failed to open '{}' for writing.", filename);
 	} else {
-		fmt::print(*f, "Tick,Sprite,Feature,Item,CallbackID,Microseconds,Depth,Result\n");
+		fmt_print_no_system_error(*f, "Tick,Sprite,Feature,Item,CallbackID,Microseconds,Depth,Result\n");
 		for (const Call &c : this->calls) {
-			fmt::print(*f, "{},{},0x{:X},{},0x{:X},{},{},{}\n", c.tick, c.root_sprite, c.feat, c.item, (uint)c.cb, c.time, c.subs, c.result);
+			fmt_print_no_system_error(*f, "{},{},0x{:X},{},0x{:X},{},{},{}\n", c.tick, c.root_sprite, c.feat, c.item, (uint)c.cb, c.time, c.subs, c.result);
 			total_microseconds += c.time;
 		}
 	}
@@ -163,7 +151,7 @@ std::string NewGRFProfiler::GetOutputFilename() const
 	for (NewGRFProfiler &pr : _newgrf_profilers) {
 		if (pr.active) {
 			total_microseconds += pr.Finish();
-			max_ticks = std::max(max_ticks, TimerGameTick::counter - pr.start_tick);
+			max_ticks = std::max(max_ticks, _tick_counter - pr.start_tick);
 		}
 	}
 
@@ -177,17 +165,18 @@ std::string NewGRFProfiler::GetOutputFilename() const
 /**
  * Check whether profiling is active and should be finished.
  */
-static TimeoutTimer<TimerGameTick> _profiling_finish_timeout({ TimerGameTick::Priority::NONE, 0 }, []()
+static TimeoutTimer<TimerGameTick> _profiling_finish_timeout({ TimerGameTick::Priority::None, 0 }, []()
 {
 	NewGRFProfiler::FinishAll();
 });
 
 /**
  * Start the timeout timer that will finish all profiling sessions.
+ * @param ticks The timeout in game ticks.
  */
 /* static */ void NewGRFProfiler::StartTimer(uint64_t ticks)
 {
-	_profiling_finish_timeout.Reset({ TimerGameTick::Priority::NONE, static_cast<uint>(ticks) });
+	_profiling_finish_timeout.Reset({ TimerGameTick::Priority::None, static_cast<uint>(ticks) });
 }
 
 /**

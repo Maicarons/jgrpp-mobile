@@ -14,9 +14,8 @@
 #include "group_type.h"
 #include "vehicle_type.h"
 #include "vehiclelist.h"
-#include "vehiclelist_cmd.h"
 
-enum Colours : uint8_t;
+enum class Colours : uint8_t;
 enum class GroupFlag : uint8_t;
 
 /** Action for \c CmdAlterGroup. */
@@ -25,25 +24,14 @@ enum class AlterGroupMode : uint8_t {
 	SetParent, ///< Change group parent.
 };
 
-std::tuple<CommandCost, GroupID> CmdCreateGroup(DoCommandFlags flags, VehicleType vt, GroupID parent_group);
-CommandCost CmdAlterGroup(DoCommandFlags flags, AlterGroupMode mode, GroupID group_id, GroupID parent_id, const std::string &text);
-CommandCost CmdDeleteGroup(DoCommandFlags flags, GroupID group_id);
-std::tuple<CommandCost, GroupID> CmdAddVehicleGroup(DoCommandFlags flags, GroupID group_id, VehicleID veh_id, bool add_shared, const VehicleListIdentifier &vli);
-CommandCost CmdAddSharedVehicleGroup(DoCommandFlags flags, GroupID id_g, VehicleType type);
-CommandCost CmdRemoveAllVehiclesGroup(DoCommandFlags flags, GroupID group_id);
-CommandCost CmdSetGroupFlag(DoCommandFlags flags, GroupID group_id, GroupFlag flag, bool value, bool recursive);
-CommandCost CmdSetGroupLivery(DoCommandFlags flags, GroupID group_id, bool primary, Colours colour);
-
-DEF_CMD_TRAIT(CMD_CREATE_GROUP,              CmdCreateGroup,            {}, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_DELETE_GROUP,              CmdDeleteGroup,            {}, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_ALTER_GROUP,               CmdAlterGroup,             {}, CommandType::OtherManagement)
-DEF_CMD_TRAIT(CMD_ADD_VEHICLE_GROUP,         CmdAddVehicleGroup,        {}, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_ADD_SHARED_VEHICLE_GROUP,  CmdAddSharedVehicleGroup,  {}, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_REMOVE_ALL_VEHICLES_GROUP, CmdRemoveAllVehiclesGroup, {}, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_SET_GROUP_FLAG,            CmdSetGroupFlag,           {}, CommandType::RouteManagement)
-DEF_CMD_TRAIT(CMD_SET_GROUP_LIVERY,          CmdSetGroupLivery,         {}, CommandType::RouteManagement)
-
-void CcCreateGroup(Commands cmd, const CommandCost &result, GroupID new_group, VehicleType vt, GroupID parent_group);
-void CcAddVehicleNewGroup(Commands cmd, const CommandCost &result, GroupID new_group, GroupID, VehicleID veh_id, bool, const VehicleListIdentifier &);
+DEF_CMD_TUPLE_NT(Commands::CreateGroup,              CmdCreateGroup,             {}, CommandType::RouteManagement, CmdDataT<VehicleType, GroupID>)
+DEF_CMD_TUPLE_NT(Commands::DeleteGroup,              CmdDeleteGroup,             {}, CommandType::RouteManagement, CmdDataT<GroupID>)
+DEF_CMD_TUPLE_NT(Commands::AlterGroup,               CmdAlterGroup,              {}, CommandType::OtherManagement, CmdDataT<AlterGroupMode, GroupID, GroupID, std::string>)
+DEF_CMD_TUPLE_NT(Commands::AddVehicleToGroup,        CmdAddVehicleGroup,         {}, CommandType::RouteManagement, CmdDataT<GroupID, VehicleID, bool>)
+DEF_CMD_TUPLE_NT(Commands::AddSharedVehiclesToGroup, CmdAddSharedVehicleGroup,   {}, CommandType::RouteManagement, CmdDataT<GroupID, VehicleType>)
+DEF_CMD_TUPLE_NT(Commands::RemoveAllVehiclesGroup,   CmdRemoveAllVehiclesGroup,  {}, CommandType::RouteManagement, CmdDataT<GroupID>)
+DEF_CMD_TUPLE_NT(Commands::SetGroupFlag,             CmdSetGroupFlag,            {}, CommandType::RouteManagement, CmdDataT<GroupID, GroupFlag, bool, bool>)
+DEF_CMD_TUPLE_NT(Commands::SetGroupLivery,           CmdSetGroupLivery,          {}, CommandType::RouteManagement, CmdDataT<GroupID, bool, Colours>)
+DEF_CMD_TUPLE_NT(Commands::CreateGroupFromList,      CmdCreateGroupFromList,     {}, CommandType::OtherManagement, CmdDataT<VehicleListIdentifier, CargoType, std::string>)
 
 #endif /* GROUP_CMD_H */

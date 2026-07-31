@@ -14,23 +14,33 @@
 #include "company_type.h"
 #include "livery.h"
 
-enum ClientID : uint32_t;
-enum Colours : uint8_t;
+enum class Colours : uint8_t;
 
-CommandCost CmdCompanyCtrl(DoCommandFlags flags, CompanyCtrlAction cca, CompanyID company_id, CompanyRemoveReason reason, ClientID client_id);
-CommandCost CmdCompanyAllowListCtrl(DoCommandFlags flags, CompanyAllowListCtrlAction action, const std::string &public_key);
-CommandCost CmdGiveMoney(DoCommandFlags flags, Money money, CompanyID dest_company);
-CommandCost CmdRenameCompany(DoCommandFlags flags, const std::string &text);
-CommandCost CmdRenamePresident(DoCommandFlags flags, const std::string &text);
-CommandCost CmdSetCompanyManagerFace(DoCommandFlags flags, uint style, uint32_t bits);
-CommandCost CmdSetCompanyColour(DoCommandFlags flags, LiveryScheme scheme, bool primary, Colours colour);
+struct CmdCompanyCtrlInnerData {
+	CompanyCtrlAction cca;
+	CompanyID company_id;
+	CompanyRemoveReason reason;
+	ClientID client_id;
+	CompanyID to_merge_id;
 
-DEF_CMD_TRAIT(CMD_COMPANY_CTRL,             CmdCompanyCtrl,           CommandFlags({CommandFlag::Spectator, CommandFlag::ClientID, CommandFlag::NoEst}), CommandType::ServerSetting)
-DEF_CMD_TRAIT(CMD_COMPANY_ALLOW_LIST_CTRL,  CmdCompanyAllowListCtrl,  CommandFlag::NoEst,                    CommandType::ServerSetting)
-DEF_CMD_TRAIT(CMD_GIVE_MONEY,               CmdGiveMoney,             {},                                          CommandType::MoneyManagement)
-DEF_CMD_TRAIT(CMD_RENAME_COMPANY,           CmdRenameCompany,         {},                                          CommandType::CompanySetting)
-DEF_CMD_TRAIT(CMD_RENAME_PRESIDENT,         CmdRenamePresident,       {},                                          CommandType::CompanySetting)
-DEF_CMD_TRAIT(CMD_SET_COMPANY_MANAGER_FACE, CmdSetCompanyManagerFace, {},                                          CommandType::CompanySetting)
-DEF_CMD_TRAIT(CMD_SET_COMPANY_COLOUR,       CmdSetCompanyColour,      {},                                          CommandType::CompanySetting)
+	/* This must include all fields */
+	using Self = CmdCompanyCtrlInnerData;
+	static constexpr auto GetTupleFields() { return std::make_tuple(&Self::cca, &Self::company_id, &Self::reason, &Self::client_id, &Self::to_merge_id); }
+};
+struct CmdCompanyCtrlData final : public TupleRefCmdData<CmdCompanyCtrlData, CmdCompanyCtrlInnerData> {
+	void FormatDebugSummary(struct format_target &) const;
+};
+
+DEF_CMD_TUPLE_NT (Commands::CompanyControl,           CmdCompanyCtrl,           CMD_SPECTATOR | CMD_CLIENT_ID | CMD_NO_EST, CommandType::ServerSetting,   CmdCompanyCtrlData)
+DEF_CMD_TUPLE_NT (Commands::CompanyAllowListControl,  CmdCompanyAllowListCtrl,  CMD_NO_EST,                                 CommandType::OtherManagement, CmdDataT<CompanyAllowListCtrlAction, std::string>)
+DEF_CMD_TUPLE_NT (Commands::GiveMoney,                CmdGiveMoney,             {},                                         CommandType::MoneyManagement, CmdDataT<Money, CompanyID>)
+DEF_CMD_TUPLE_NT (Commands::RenameCompany,            CmdRenameCompany,         {},                                         CommandType::CompanySetting,  CmdDataT<std::string>)
+DEF_CMD_TUPLE_NT (Commands::RenamePresident,          CmdRenamePresident,       {},                                         CommandType::CompanySetting,  CmdDataT<std::string>)
+DEF_CMD_TUPLE_NT (Commands::SetCompanyManagerFace,    CmdSetCompanyManagerFace, {},                                         CommandType::CompanySetting,  CmdDataT<uint, uint32_t>)
+DEF_CMD_TUPLE_NT (Commands::SetCompanyColour,         CmdSetCompanyColour,      {},                                         CommandType::CompanySetting,  CmdDataT<LiveryScheme, bool, Colours>)
+DEF_CMD_TUPLE_NT (Commands::BuyShareInCompany,        CmdBuyShareInCompany,     {},                                         CommandType::MoneyManagement, CmdDataT<CompanyID>)
+DEF_CMD_TUPLE_NT (Commands::SellShareInCompany,       CmdSellShareInCompany,    {},                                         CommandType::MoneyManagement, CmdDataT<CompanyID>)
+DEF_CMD_TUPLE_NT (Commands::BuyCompany,               CmdBuyCompany,            {},                                         CommandType::MoneyManagement, CmdDataT<CompanyID, bool>)
+DEF_CMD_TUPLE_NT (Commands::DeclineBuyCompany,        CmdDeclineBuyCompany,     CMD_NO_EST,                                 CommandType::ServerSetting,   CmdDataT<CompanyID>)
 
 #endif /* COMPANY_CMD_H */

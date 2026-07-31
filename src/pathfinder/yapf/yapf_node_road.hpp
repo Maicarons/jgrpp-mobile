@@ -30,6 +30,6 @@ struct CYapfRoadNode : CYapfNodeT<CYapfNodeKeyExitDir, CYapfRoadNode> {
 	}
 };
 
-typedef NodeList<CYapfRoadNode, 8, 10> CRoadNodeList;
+typedef NodeList<CYapfRoadNode> CRoadNodeList;
 
 #endif /* YAPF_NODE_ROAD_HPP */

@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
- /** @file random_access_file.cpp Actual implementation of the RandomAccessFile class. */
+/** @file random_access_file.cpp Actual implementation of the RandomAccessFile class. */
 
 #include "stdafx.h"
 #include "random_access_file_type.h"
@@ -42,7 +42,7 @@ RandomAccessFile::RandomAccessFile(std::string_view filename, Subdirectory subdi
 	this->simplified_filename = name_without_path.substr(0, name_without_path.rfind('.'));
 	strtolower(this->simplified_filename);
 
-	this->SeekTo(static_cast<size_t>(pos), SEEK_SET);
+	this->SeekToIntl(static_cast<size_t>(pos), SEEK_SET);
 }
 
 /**
@@ -89,6 +89,30 @@ bool RandomAccessFile::AtEndOfFile() const
  */
 void RandomAccessFile::SeekTo(size_t pos, int mode)
 {
+	if (mode == SEEK_CUR) {
+		if (this->buffer + pos <= this->buffer_end) {
+			/* Seeking within existing buffer, no need to clear and re-read buffer */
+			this->buffer += pos;
+			return;
+		}
+	} else {
+		if (pos <= this->pos && (this->pos - pos) <= (size_t)(this->buffer_end - this->buffer_start)) {
+			/* Seeking within existing buffer, no need to clear and re-read buffer */
+			this->buffer = this->buffer_end - (this->pos - pos);
+			return;
+		}
+	}
+
+	this->SeekToIntl(pos, mode);
+}
+
+/**
+ * Seek in the current file.
+ * @param pos New position.
+ * @param mode Type of seek (\c SEEK_CUR means \a pos is relative to current position, \c SEEK_SET means \a pos is absolute).
+ */
+void RandomAccessFile::SeekToIntl(size_t pos, int mode)
+{
 	if (mode == SEEK_CUR) pos += this->GetPos();
 
 	this->pos = pos;
@@ -104,7 +128,7 @@ void RandomAccessFile::SeekTo(size_t pos, int mode)
  * Read a byte from the file.
  * @return Read byte.
  */
-uint8_t RandomAccessFile::ReadByte()
+uint8_t RandomAccessFile::ReadByteIntl()
 {
 	if (this->buffer == this->buffer_end) {
 		this->buffer = this->buffer_start;
@@ -121,20 +145,20 @@ uint8_t RandomAccessFile::ReadByte()
  * Read a word (16 bits) from the file (in low endian format).
  * @return Read word.
  */
-uint16_t RandomAccessFile::ReadWord()
+uint16_t RandomAccessFile::ReadWordIntl()
 {
-	uint8_t b = this->ReadByte();
-	return (this->ReadByte() << 8) | b;
+	uint8_t b = this->ReadByteIntl();
+	return (this->ReadByteIntl() << 8) | b;
 }
 
 /**
  * Read a double word (32 bits) from the file (in low endian format).
  * @return Read word.
  */
-uint32_t RandomAccessFile::ReadDword()
+uint32_t RandomAccessFile::ReadDwordIntl()
 {
-	uint b = this->ReadWord();
-	return (this->ReadWord() << 16) | b;
+	uint b = this->ReadWordIntl();
+	return (this->ReadWordIntl() << 16) | b;
 }
 
 /**
@@ -146,12 +170,15 @@ void RandomAccessFile::ReadBlock(void *ptr, size_t size)
 {
 	if (this->buffer != this->buffer_end) {
 		size_t to_copy = std::min<size_t>(size, this->buffer_end - this->buffer);
-		std::copy_n(this->buffer, to_copy, static_cast<uint8_t *>(ptr));
+		memcpy(ptr, this->buffer, to_copy);
 		this->buffer += to_copy;
 		size -= to_copy;
 		if (size == 0) return;
-		ptr = static_cast<char *>(ptr) + to_copy;
+		ptr = ((char *)ptr) + to_copy;
 	}
+
+	/* Reset the buffer, so the next ReadByte will read bytes from the file. */
+	this->buffer = this->buffer_end = this->buffer_start;
 
 	this->pos += fread(ptr, 1, size, *this->file_handle);
 }
@@ -167,6 +194,6 @@ void RandomAccessFile::SkipBytes(size_t n)
 	if (n <= remaining) {
 		this->buffer += n;
 	} else {
-		this->SeekTo(n, SEEK_CUR);
+		this->SeekToIntl(n, SEEK_CUR);
 	}
 }

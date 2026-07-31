@@ -10,19 +10,19 @@
 #ifndef VIDEO_VIDEO_DRIVER_HPP
 #define VIDEO_VIDEO_DRIVER_HPP
 
-#include "../debug.h"
 #include "../driver.h"
 #include "../core/geometry_type.hpp"
 #include "../core/math_func.hpp"
 #include "../gfx_func.h"
 #include "../settings_type.h"
 #include "../zoom_type.h"
-#include "../network/network_func.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <vector>
+#include <functional>
 
 extern std::string _ini_videodriver;
 extern std::vector<Dimension> _resolutions;
@@ -83,10 +83,10 @@ public:
 		return true;
 	}
 
-	virtual bool ClaimMousePointer()
-	{
-		return true;
-	}
+	/**
+	 * Claim the exclusive rights for the mouse pointer.
+	 */
+	virtual void ClaimMousePointer() {}
 
 	/**
 	 * Get whether the mouse cursor is drawn by the video driver.
@@ -142,9 +142,9 @@ public:
 	 * Get a pointer to the animation buffer of the video back-end.
 	 * @return Pointer to the buffer or nullptr if no animation buffer is supported.
 	 */
-	virtual uint8_t *GetAnimBuffer()
+	inline uint8_t *GetAnimBuffer()
 	{
-		return nullptr;
+		return this->anim_buffer;
 	}
 
 	/**
@@ -166,7 +166,11 @@ public:
 		return {};
 	}
 
-	virtual std::string_view GetInfoString() const
+	/**
+	 * Get some information about the selected driver/backend to be shown to the user.
+	 * @return The information.
+	 */
+	virtual const char *GetInfoString() const
 	{
 		return this->GetName();
 	}
@@ -187,19 +191,19 @@ public:
 	void GameLoopPause();
 
 	/**
-	 * Set clipboard contents, the video thread will call the OS clipboard API
+	 * Prevents the system from going to sleep.
+	 *
+	 * @param inhibited If true, sleep will be disabled. If false, sleep will be enabled.
 	 */
-	void SetClipboardContents(const std::string &text)
-	{
-		this->set_clipboard_text = text;
-	}
+	virtual void SetScreensaverInhibited([[maybe_unused]] bool inhibited) {}
 
 	/**
 	 * Get the currently active instance of the video driver.
+	 * @return The instance.
 	 */
 	static VideoDriver *GetInstance()
 	{
-		return static_cast<VideoDriver *>(DriverFactoryBase::GetActiveDriver(Driver::DT_VIDEO).get());
+		return static_cast<VideoDriver *>(DriverFactoryBase::GetActiveDriver(Driver::Type::Video).get());
 	}
 
 	static std::string GetCaption();
@@ -223,11 +227,14 @@ public:
 		bool unlock; ///< Stores if the lock did anything that has to be undone.
 	};
 
+	static bool EmergencyAcquireGameLock(uint tries, uint delay_ms);
+
 protected:
 	const uint ALLOWED_DRIFT = 5; ///< How many times videodriver can miss deadlines without it being overly compensated.
 
 	/**
 	 * Get the resolution of the main screen.
+	 * @return The dimension of the screen in pixels.
 	 */
 	virtual Dimension GetScreenSize() const { return { DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT }; }
 
@@ -303,6 +310,8 @@ protected:
 	 */
 	void SleepTillNextTick();
 
+	void InvalidateGameOptionsWindow();
+
 	std::chrono::steady_clock::duration GetGameInterval()
 	{
 #ifdef DEBUG_DUMP_COMMANDS
@@ -310,8 +319,6 @@ protected:
 		extern bool _ddc_fastforward;
 		if (_ddc_fastforward) return std::chrono::microseconds(0);
 #endif /* DEBUG_DUMP_COMMANDS */
-
-		TicToc::Tick("GameTick");
 
 		/* If we are paused, run on normal speed. */
 		if (_pause_mode.Any()) return std::chrono::milliseconds(MILLISECONDS_PER_TICK);
@@ -323,8 +330,6 @@ protected:
 
 	std::chrono::steady_clock::duration GetDrawInterval()
 	{
-		TicToc::Tick("DrawTick");
-
 		/* If vsync, draw interval is decided by the display driver */
 		if (_video_vsync && this->uses_hardware_acceleration) return std::chrono::microseconds(0);
 		return std::chrono::microseconds(1000000 / _settings_client.gui.refresh_rate);
@@ -353,14 +358,15 @@ protected:
 
 	bool fast_forward_key_pressed; ///< The fast-forward key is being pressed.
 	bool fast_forward_via_key; ///< The fast-forward was enabled by key press.
-	std::string set_clipboard_text; ///< New clipboard contents to set
 
 	bool is_game_threaded;
 	std::thread game_thread;
-	std::mutex game_state_mutex;
+	std::recursive_mutex game_state_mutex;
 	std::mutex game_thread_wait_mutex;
 
 	bool uses_hardware_acceleration;
+
+	uint8_t *anim_buffer = nullptr; ///< Animation buffer, (not used by all drivers, here because it is accessed very frequently)
 
 	static void GameThreadThunk(VideoDriver *drv);
 

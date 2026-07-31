@@ -5,7 +5,7 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file hotkeys.cpp Implementation of hotkey related functions */
+/** @file hotkeys.cpp Implementation of hotkey related functions. */
 
 #include "stdafx.h"
 #include "openttd.h"
@@ -87,6 +87,9 @@ static const std::initializer_list<KeycodeNames> _keycode_to_name = {
 	{".", WKC_PERIOD}, /* deprecated, use PERIOD */
 	{"MINUS", WKC_MINUS},
 	{"-", WKC_MINUS}, /* deprecated, use MINUS */
+	{"HASH", WKC_HASH},
+	{"PAGE_UP", WKC_PAGEUP},
+	{"PAGE_DOWN", WKC_PAGEDOWN},
 };
 
 /**
@@ -218,26 +221,24 @@ std::string SaveKeycodes(const Hotkey &hotkey)
  * @param name The name of this hotkey.
  * @param num Number of this hotkey, should be unique within the hotkey list.
  */
-Hotkey::Hotkey(uint16_t default_keycode, const std::string &name, int num) :
+Hotkey::Hotkey(uint16_t default_keycode, const char *name, int num) :
 	name(name),
 	num(num)
 {
-	if (default_keycode != 0) this->AddKeycode(default_keycode);
+	if (default_keycode != 0) this->keycodes.push_back(default_keycode);
 }
 
 /**
  * Create a new Hotkey object with multiple default keycodes.
- * @param default_keycodes An array of default keycodes terminated with 0.
+ * @param default_keycodes An array of default keycodes.
  * @param name The name of this hotkey.
  * @param num Number of this hotkey, should be unique within the hotkey list.
  */
-Hotkey::Hotkey(const std::vector<uint16_t> &default_keycodes, const std::string &name, int num) :
+Hotkey::Hotkey(std::initializer_list<uint16_t> default_keycodes, const char *name, int num) :
 	name(name),
 	num(num)
 {
-	for (uint16_t keycode : default_keycodes) {
-		this->AddKeycode(keycode);
-	}
+	this->keycodes = default_keycodes;
 }
 
 /**
@@ -247,12 +248,23 @@ Hotkey::Hotkey(const std::vector<uint16_t> &default_keycodes, const std::string 
  */
 void Hotkey::AddKeycode(uint16_t keycode)
 {
-	this->keycodes.insert(keycode);
+	for (uint16_t k : this->keycodes) {
+		if (k == keycode) return; // already present
+	}
+	this->keycodes.push_back(keycode);
 }
 
-HotkeyList::HotkeyList(const std::string &ini_group, const std::vector<Hotkey> &items, GlobalHotkeyHandlerFunc global_hotkey_handler) :
-	global_hotkey_handler(global_hotkey_handler), ini_group(ini_group), items(items)
+HotkeyList::HotkeyList(const char *ini_group, std::vector<Hotkey> items, GlobalHotkeyHandlerFunc global_hotkey_handler) :
+	global_hotkey_handler(global_hotkey_handler), ini_group(ini_group), items(std::move(items))
 {
+	if (_hotkey_lists == nullptr) _hotkey_lists = new std::vector<HotkeyList*>();
+	_hotkey_lists->push_back(this);
+}
+
+HotkeyList::HotkeyList(const char *ini_group, std::span<const Hotkey> items, GlobalHotkeyHandlerFunc global_hotkey_handler) :
+	global_hotkey_handler(global_hotkey_handler), ini_group(ini_group)
+{
+	this->items.assign(items.begin(), items.end());
 	if (_hotkey_lists == nullptr) _hotkey_lists = new std::vector<HotkeyList*>();
 	_hotkey_lists->push_back(this);
 }
@@ -300,11 +312,11 @@ void HotkeyList::Save(IniFile &ini) const
  */
 int HotkeyList::CheckMatch(uint16_t keycode, bool global_only) const
 {
-	for (const Hotkey &hotkey : this->items) {
-		auto begin = hotkey.keycodes.begin();
-		auto end = hotkey.keycodes.end();
+	for (const Hotkey &list : this->items) {
+		auto begin = list.keycodes.begin();
+		auto end = list.keycodes.end();
 		if (std::find(begin, end, keycode | WKC_GLOBAL_HOTKEY) != end || (!global_only && std::find(begin, end, keycode) != end)) {
-			return hotkey.num;
+			return list.num;
 		}
 	}
 	return -1;
@@ -314,7 +326,7 @@ int HotkeyList::CheckMatch(uint16_t keycode, bool global_only) const
 static void SaveLoadHotkeys(bool save)
 {
 	IniFile ini{};
-	ini.LoadFromDisk(_hotkeys_file, NO_DIRECTORY);
+	ini.LoadFromDisk(_hotkeys_file, Subdirectory::None);
 
 	for (HotkeyList *list : *_hotkey_lists) {
 		if (save) {
@@ -340,7 +352,7 @@ void SaveHotkeysToConfig()
 	SaveLoadHotkeys(true);
 }
 
-void HandleGlobalHotkeys([[maybe_unused]] char32_t key, uint16_t keycode)
+void HandleGlobalHotkeys(char32_t key, uint16_t keycode)
 {
 	for (HotkeyList *list : *_hotkey_lists) {
 		if (list->global_hotkey_handler == nullptr) continue;

@@ -1,0 +1,25 @@
+From 661b4615678c57dae2022c5cce89e9be983f72fb Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 19 Mar 2014 21:44:52 +0200
+Subject: [PATCH 0077/1053] Fixed save/load dialog too tall
+
+---
+ src/fios_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index 287d98d4b4..c8a0d64867 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -474,7 +474,7 @@ public:
+ 
+ 			case WID_SL_DRIVES_DIRECTORIES_LIST:
+ 				resize->height = GetMinSizing(NWST_STEP, FONT_HEIGHT_NORMAL);
+-				size->height = resize->height * 10 + WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM;
++				size->height = resize->height * 5 + WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM;
+ 				break;
+ 			case WID_SL_SORT_BYNAME:
+ 			case WID_SL_SORT_BYDATE: {
+-- 
+2.55.0
+

@@ -1,0 +1,391 @@
+From d1daf34c9181b0e56bfbd60c89603d8eab1d42ad Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Wed, 25 Jan 2023 23:40:57 +0100
+Subject: [PATCH 0856/1053] Fix: missing/duplicate documentation tags for
+ scripts
+
+---
+ src/script/api/script_clientlist.hpp    |  4 +-
+ src/script/api/script_event.hpp         |  1 +
+ src/script/api/script_event_types.hpp   | 72 ++++++++++++++++++++-----
+ src/script/api/script_game.hpp          |  1 +
+ src/script/api/script_group.hpp         |  4 ++
+ src/script/api/script_industrytype.hpp  |  2 +-
+ src/script/api/script_league.hpp        |  2 +
+ src/script/api/script_objecttype.hpp    |  2 +-
+ src/script/api/script_priorityqueue.hpp |  1 +
+ src/script/api/script_road.hpp          |  3 +-
+ src/script/api/script_story_page.hpp    |  3 ++
+ src/script/api/script_viewport.hpp      |  3 ++
+ 12 files changed, 80 insertions(+), 18 deletions(-)
+
+diff --git a/src/script/api/script_clientlist.hpp b/src/script/api/script_clientlist.hpp
+index 39a85fd6e0..ea7859a6af 100644
+--- a/src/script/api/script_clientlist.hpp
++++ b/src/script/api/script_clientlist.hpp
+@@ -5,7 +5,7 @@
+  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+-/** @file script_clientlist.hpp List all the TODO. */
++/** @file script_clientlist.hpp List all the clients in a game or in a company. */
+ 
+ #ifndef SCRIPT_CLIENTLIST_HPP
+ #define SCRIPT_CLIENTLIST_HPP
+@@ -32,7 +32,7 @@ public:
+ class ScriptClientList_Company : public ScriptList {
+ public:
+ 	/**
+-	 * @param company_id The company to list clients for.
++	 * @param company The company to list clients for.
+ 	 */
+ 	ScriptClientList_Company(ScriptCompany::CompanyID company);
+ };
+diff --git a/src/script/api/script_event.hpp b/src/script/api/script_event.hpp
+index 8e8f181701..2ff813aa81 100644
+--- a/src/script/api/script_event.hpp
++++ b/src/script/api/script_event.hpp
+@@ -61,6 +61,7 @@ public:
+ 
+ 	/**
+ 	 * Constructor of ScriptEvent, to get the type of event.
++	 * @param type The type of event to construct.
+ 	 */
+ 	ScriptEvent(ScriptEvent::ScriptEventType type) :
+ 		type(type)
+diff --git a/src/script/api/script_event_types.hpp b/src/script/api/script_event_types.hpp
+index 2a004e4f87..5431fcf1ee 100644
+--- a/src/script/api/script_event_types.hpp
++++ b/src/script/api/script_event_types.hpp
+@@ -892,10 +892,19 @@ public:
+ 	 */
+ 	static ScriptEventAdminPort *Convert(ScriptEvent *instance) { return (ScriptEventAdminPort *)instance; }
+ 
++#ifndef DOXYGEN_API
+ 	/**
+-	 * Get the information that was sent to you back as Squirrel object.
++	 * The GetObject() wrapper from Squirrel.
+ 	 */
+ 	SQInteger GetObject(HSQUIRRELVM vm);
++#else
++	/**
++	 * Get the information that was sent to you back as Squirrel object.
++	 * @return The object.
++	 */
++	SQObject GetObject();
++#endif /* DOXYGEN_API */
++
+ 
+ private:
+ 	std::string json; ///< The JSON string.
+@@ -951,16 +960,19 @@ public:
+ 
+ 	/**
+ 	 * Get the class of the window that was clicked.
++	 * @return The clicked window class.
+ 	 */
+ 	ScriptWindow::WindowClass GetWindowClass() { return this->window; }
+ 
+ 	/**
+ 	 * Get the number of the window that was clicked.
++	 * @return The clicked identifying number of the widget within the class.
+ 	 */
+ 	uint32 GetWindowNumber() { return this->number; }
+ 
+ 	/**
+ 	 * Get the number of the widget that was clicked.
++	 * @return The number of the clicked widget.
+ 	 */
+ 	uint8 GetWidgetNumber() { return this->widget; }
+ 
+@@ -1001,16 +1013,19 @@ public:
+ 
+ 	/**
+ 	 * Get the unique id of the question.
++	 * @return The unique id.
+ 	 */
+ 	uint16 GetUniqueID() { return this->uniqueid; }
+ 
+ 	/**
+ 	 * Get the company that pressed a button.
++	 * @return The company.
+ 	 */
+ 	ScriptCompany::CompanyID GetCompany() { return this->company; }
+ 
+ 	/**
+ 	 * Get the button that got pressed.
++	 * @return The button.
+ 	 */
+ 	ScriptGoal::QuestionButton GetButton() { return this->button; }
+ 
+@@ -1182,13 +1197,22 @@ public:
+ 	 */
+ 	static ScriptEventStoryPageButtonClick *Convert(ScriptEvent *instance) { return (ScriptEventStoryPageButtonClick *)instance; }
+ 
+-	/** Get the CompanyID of the player that selected a tile. */
++	/**
++	 * Get the CompanyID of the player that selected a tile.
++	 * @return The ID of the company.
++	 */
+ 	ScriptCompany::CompanyID GetCompanyID() { return this->company_id; }
+ 
+-	/** Get the StoryPageID of the storybook page the clicked button is located on. */
++	/**
++	 * Get the StoryPageID of the storybook page the clicked button is located on.
++	 * @return The ID of the page in the story book the click was on.
++	 */
+ 	StoryPageID GetStoryPageID() { return this->page_id; }
+ 
+-	/** Get the StoryPageElementID of the button element that was clicked. */
++	/**
++	 * Get the StoryPageElementID of the button element that was clicked.
++	 * @return The ID of the element that was clicked.
++	 */
+ 	StoryPageElementID GetElementID() { return this->element_id; }
+ 
+ private:
+@@ -1226,16 +1250,28 @@ public:
+ 	 */
+ 	static ScriptEventStoryPageTileSelect *Convert(ScriptEvent *instance) { return (ScriptEventStoryPageTileSelect *)instance; }
+ 
+-	/** Get the CompanyID of the player that selected a tile. */
++	/**
++	 * Get the CompanyID of the player that selected a tile.
++	 * @return The company that selected the tile.
++	 */
+ 	ScriptCompany::CompanyID GetCompanyID() { return this->company_id; }
+ 
+-	/** Get the StoryPageID of the storybook page the used selection button is located on. */
++	/**
++	 * Get the StoryPageID of the storybook page the used selection button is located on.
++	 * @return The ID of the story page selection was done from.
++	 */
+ 	StoryPageID GetStoryPageID() { return this->page_id; }
+ 
+-	/** Get the StoryPageElementID of the selection button used to select the tile. */
++	/**
++	 * Get the StoryPageElementID of the selection button used to select the tile.
++	 * @return The ID of the element that was used to select the tile.
++	 */
+ 	StoryPageElementID GetElementID() { return this->element_id; }
+ 
+-	/** Get the TileIndex of the tile the player selected */
++	/**
++	 * Get the TileIndex of the tile the player selected.
++	 * @return The selected tile.
++	 */
+ 	TileIndex GetTile() { return this->tile_index; }
+ 
+ private:
+@@ -1274,16 +1310,28 @@ public:
+ 	 */
+ 	static ScriptEventStoryPageVehicleSelect *Convert(ScriptEvent *instance) { return (ScriptEventStoryPageVehicleSelect *)instance; }
+ 
+-	/** Get the CompanyID of the player that selected a tile. */
++	/**
++	 * Get the CompanyID of the player that selected a tile.
++	 * @return The company's ID.
++	 */
+ 	ScriptCompany::CompanyID GetCompanyID() { return this->company_id; }
+ 
+-	/** Get the StoryPageID of the storybook page the used selection button is located on. */
++	/**
++	 * Get the StoryPageID of the storybook page the used selection button is located on.
++	 * @return The ID of the storybook page the selected element is on.
++	 */
+ 	StoryPageID GetStoryPageID() { return this->page_id; }
+ 
+-	/** Get the StoryPageElementID of the selection button used to select the vehicle. */
++	/**
++	 * Get the StoryPageElementID of the selection button used to select the vehicle.
++	 * @return The ID of the selected element of the story page.
++	 */
+ 	StoryPageElementID GetElementID() { return this->element_id; }
+ 
+-	/** Get the VehicleID of the vehicle the player selected */
++	/**
++	 * Get the VehicleID of the vehicle the player selected.
++	 * @return The ID of the vehicle.
++	 */
+ 	VehicleID GetVehicleID() { return this->vehicle_id; }
+ 
+ private:
+diff --git a/src/script/api/script_game.hpp b/src/script/api/script_game.hpp
+index a9e5b7a258..b5fd62c524 100644
+--- a/src/script/api/script_game.hpp
++++ b/src/script/api/script_game.hpp
+@@ -53,6 +53,7 @@ public:
+ 
+ 	/**
+ 	 * Get the current landscape.
++	 * @return The type of landscape.
+ 	 */
+ 	static LandscapeType GetLandscape();
+ 
+diff --git a/src/script/api/script_group.hpp b/src/script/api/script_group.hpp
+index 384fea7a28..df3ddc3303 100644
+--- a/src/script/api/script_group.hpp
++++ b/src/script/api/script_group.hpp
+@@ -232,6 +232,7 @@ public:
+ 	 * @param group_id The group id to set the colour of.
+ 	 * @param colour Colour to set.
+ 	 * @pre IsValidGroup(group_id).
++	 * @return True iff the colour was set successfully.
+ 	 */
+ 	static bool SetPrimaryColour(GroupID group_id, ScriptCompany::Colours colour);
+ 
+@@ -240,6 +241,7 @@ public:
+ 	 * @param group_id The group id to set the colour of.
+ 	 * @param colour Colour to set.
+ 	 * @pre IsValidGroup(group_id).
++	 * @return True iff the colour was set successfully.
+ 	 */
+ 	static bool SetSecondaryColour(GroupID group_id, ScriptCompany::Colours colour);
+ 
+@@ -247,6 +249,7 @@ public:
+ 	 * Get primary colour of a group.
+ 	 * @param group_id The group id to get the colour of.
+ 	 * @pre IsValidGroup(group_id).
++	 * @return The primary colour of the group.
+ 	 */
+ 	static ScriptCompany::Colours GetPrimaryColour(GroupID group_id);
+ 
+@@ -254,6 +257,7 @@ public:
+ 	 * Get secondary colour for a group.
+ 	 * @param group_id The group id to get the colour of.
+ 	 * @pre IsValidGroup(group_id).
++	 * @return The secondary colour of the group.
+ 	 */
+ 	static ScriptCompany::Colours GetSecondaryColour(GroupID group_id);
+ };
+diff --git a/src/script/api/script_industrytype.hpp b/src/script/api/script_industrytype.hpp
+index e68546cced..ff32a63c2e 100644
+--- a/src/script/api/script_industrytype.hpp
++++ b/src/script/api/script_industrytype.hpp
+@@ -184,7 +184,7 @@ public:
+ 
+ 	/**
+ 	 * Get a specific industry-type from a grf.
+-	 * @param grf_id The ID of the NewGRF.
++	 * @param grfid The ID of the NewGRF.
+ 	 * @param grf_local_id The ID of the industry, local to the NewGRF.
+ 	 * @pre 0x00 <= grf_local_id < NUM_INDUSTRYTYPES_PER_GRF.
+ 	 * @return the industry-type ID, local to the current game (this diverges from the grf_local_id).
+diff --git a/src/script/api/script_league.hpp b/src/script/api/script_league.hpp
+index d6fc2bbfea..4c16e288b8 100644
+--- a/src/script/api/script_league.hpp
++++ b/src/script/api/script_league.hpp
+@@ -68,6 +68,8 @@ public:
+ 	/**
+ 	 * Create a new league table.
+ 	 * @param title League table title (can be either a raw string, or ScriptText object).
++	 * @param header The optional header text for the table (null is allowed).
++	 * @param footer The optional footer text for the table (null is allowed).
+ 	 * @return The new LeagueTableID, or LEAGUE_TABLE_INVALID if it failed.
+ 	 * @pre No ScriptCompanyMode may be in scope.
+ 	 * @pre title != nullptr && len(title) != 0.
+diff --git a/src/script/api/script_objecttype.hpp b/src/script/api/script_objecttype.hpp
+index 94da70c467..7ceebce440 100644
+--- a/src/script/api/script_objecttype.hpp
++++ b/src/script/api/script_objecttype.hpp
+@@ -55,7 +55,7 @@ public:
+ 
+ 	/**
+ 	 * Get a specific object-type from a grf.
+-	 * @param grf_id The ID of the NewGRF.
++	 * @param grfid The ID of the NewGRF.
+ 	 * @param grf_local_id The ID of the object, local to the NewGRF.
+ 	 * @pre 0x00 <= grf_local_id < NUM_OBJECTS_PER_GRF.
+ 	 * @return the object-type ID, local to the current game (this diverges from the grf_local_id).
+diff --git a/src/script/api/script_priorityqueue.hpp b/src/script/api/script_priorityqueue.hpp
+index 517f6ab0bd..07e4448b88 100644
+--- a/src/script/api/script_priorityqueue.hpp
++++ b/src/script/api/script_priorityqueue.hpp
+@@ -61,6 +61,7 @@ public:
+ 
+ 	/**
+ 	 * Check if an items is already included in the queue.
++	 * @param item The item to check whether it's already in this queue.
+ 	 * @return true if the items is already in the queue.
+ 	 * @note Performance is O(n), use only when absolutely required.
+ 	 */
+diff --git a/src/script/api/script_road.hpp b/src/script/api/script_road.hpp
+index 769c4a7728..9631309ebc 100644
+--- a/src/script/api/script_road.hpp
++++ b/src/script/api/script_road.hpp
+@@ -160,7 +160,7 @@ public:
+ 	/**
+ 	 * Check if a road vehicle built for a road type can run on another road type.
+ 	 * @param engine_road_type The road type the road vehicle is built for.
+-	 * @param track_road_type The road type you want to check.
++	 * @param road_road_type The road type you want to check.
+ 	 * @pre ScriptRoad::IsRoadTypeAvailable(engine_road_type).
+ 	 * @pre ScriptRoad::IsRoadTypeAvailable(road_road_type).
+ 	 * @return Whether a road vehicle built for 'engine_road_type' can run on 'road_road_type'.
+@@ -386,7 +386,6 @@ public:
+ 	 *  one-way in the other direction, it's made a 'no'-way road (it's
+ 	 *  forbidden to enter the tile from any direction).
+ 	 * @param start The start tile of the road.
+-	 * @param start The start tile of the road.
+ 	 * @param end The end tile of the road.
+ 	 * @pre 'start' is not equal to 'end'.
+ 	 * @pre ScriptMap::IsValidTile(start).
+diff --git a/src/script/api/script_story_page.hpp b/src/script/api/script_story_page.hpp
+index c87ef7cb37..f0f235c130 100644
+--- a/src/script/api/script_story_page.hpp
++++ b/src/script/api/script_story_page.hpp
+@@ -315,6 +315,7 @@ public:
+ 	/**
+ 	 * Create a reference value for SPET_BUTTON_PUSH element parameters.
+ 	 * @param colour The colour for the face of the button.
++	 * @param flags The formatting and layout flags for the button.
+ 	 * @return A reference value usable with the #NewElement and #UpdateElement functions.
+ 	 */
+ 	static StoryPageButtonFormatting MakePushButtonReference(StoryPageButtonColour colour, StoryPageButtonFlags flags);
+@@ -322,6 +323,7 @@ public:
+ 	/**
+ 	 * Create a reference value for SPET_BUTTON_TILE element parameters.
+ 	 * @param colour The colour for the face of the button.
++	 * @param flags The formatting and layout flags for the button.
+ 	 * @param cursor The mouse cursor to use when the player clicks the button and the game is ready for the player to select a tile.
+ 	 * @return A reference value usable with the #NewElement and #UpdateElement functions.
+ 	 */
+@@ -330,6 +332,7 @@ public:
+ 	/**
+ 	 * Create a reference value for SPET_BUTTON_VEHICLE element parameters.
+ 	 * @param colour  The colour for the face of the button.
++	 * @param flags The formatting and layout flags for the button.
+ 	 * @param cursor  The mouse cursor to use when the player clicks the button and the game is ready for the player to select a vehicle.
+ 	 * @param vehtype The type of vehicle that will be selectable, or \c VT_INVALID to allow all types.
+ 	 * @return A reference value usable with the #NewElement and #UpdateElement functions.
+diff --git a/src/script/api/script_viewport.hpp b/src/script/api/script_viewport.hpp
+index 81612031dc..8f3248fb4e 100644
+--- a/src/script/api/script_viewport.hpp
++++ b/src/script/api/script_viewport.hpp
+@@ -35,6 +35,7 @@ public:
+ 	 * @param tile The tile to put in the center of the screen.
+ 	 * @pre ScriptObject::GetCompany() == OWNER_DEITY
+ 	 * @pre ScriptMap::IsValidTile(tile)
++	 * @return True iff the command was executed successfully.
+ 	 */
+ 	static bool ScrollEveryoneTo(TileIndex tile);
+ 
+@@ -46,6 +47,7 @@ public:
+ 	 * @pre ScriptObject::GetCompany() == OWNER_DEITY
+ 	 * @pre ScriptMap::IsValidTile(tile)
+ 	 * @pre ResolveCompanyID(company) != COMPANY_INVALID
++	 * @return True iff the command was executed successfully.
+ 	 */
+ 	static bool ScrollCompanyClientsTo(ScriptCompany::CompanyID company, TileIndex tile);
+ 
+@@ -58,6 +60,7 @@ public:
+ 	 * @pre ScriptObject::GetCompany() == OWNER_DEITY
+ 	 * @pre ScriptMap::IsValidTile(tile)
+ 	 * @pre ResolveClientID(client) != CLIENT_INVALID
++	 * @return True iff the command was executed successfully.
+ 	 */
+ 	static bool ScrollClientTo(ScriptClient::ClientID client, TileIndex tile);
+ };
+-- 
+2.55.0
+

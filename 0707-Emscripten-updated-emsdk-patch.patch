@@ -1,0 +1,45 @@
+From dd37c3d8da33f1f756617b7a15f574d67ae5328e Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 16 May 2021 00:37:00 +0300
+Subject: [PATCH 0707/1053] Emscripten: updated emsdk patch
+
+---
+ os/emscripten/emsdk-liblzma.patch | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/os/emscripten/emsdk-liblzma.patch b/os/emscripten/emsdk-liblzma.patch
+index 815b870b70..798b60fc9f 100644
+--- a/os/emscripten/emsdk-liblzma.patch
++++ b/os/emscripten/emsdk-liblzma.patch
+@@ -14,7 +14,7 @@ diff --git a/embuilder.py b/embuilder.py
+ index 818262190ed..ab7d5adb7b2 100755
+ --- a/embuilder.py
+ +++ b/embuilder.py
+-@@ -66,6 +66,7 @@
++@@ -69,6 +69,7 @@
+      'harfbuzz',
+      'icu',
+      'libjpeg',
+@@ -22,14 +22,14 @@ index 818262190ed..ab7d5adb7b2 100755
+      'libpng',
+      'ogg',
+      'regal',
+-@@ -196,6 +197,8 @@
+-       build_port('giflib', 'libgif.a')
++@@ -203,6 +204,8 @@
++       build_port('giflib')
+      elif what == 'libjpeg':
+-       build_port('libjpeg', 'libjpeg.a')
++       build_port('libjpeg')
+ +    elif what == 'liblzma':
+-+      build_port('liblzma', 'liblzma.a')
+++      build_port('liblzma')
+      elif what == 'libpng':
+-       build_port('libpng', 'libpng.a')
++       build_port('libpng')
+      elif what == 'sdl2':
+ diff --git a/src/settings.js b/src/settings.js
+ index 61cd98939ba..be6fcb678c6 100644
+-- 
+2.55.0
+

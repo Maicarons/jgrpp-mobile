@@ -1,0 +1,30 @@
+From 9b363c59f0e7290f599c8e489640b25fd1ffa45d Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 1 Feb 2017 19:15:57 +0200
+Subject: [PATCH 0312/1053] Tutorial: fix for win32
+
+---
+ src/tutorial_gui.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/tutorial_gui.cpp b/src/tutorial_gui.cpp
+index 6166831592..3cf107abce 100644
+--- a/src/tutorial_gui.cpp
++++ b/src/tutorial_gui.cpp
+@@ -92,7 +92,12 @@ void OpenExternTutorialVideo(VideoLink_t *tutorial)
+ #ifdef __ANDROID__
+ 	SDL_ANDROID_OpenExternalWebBrowser(link);
+ #else
+-	char cmd[PATH_MAX] = "xdg-open ";
++	char cmd[PATH_MAX] =
++#ifdef WIN32
++		"start ";
++#else
++		"xdg-open ";
++#endif
+ 	strcat(cmd, link);
+ 	system(cmd);
+ #endif
+-- 
+2.55.0
+

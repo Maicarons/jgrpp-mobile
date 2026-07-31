@@ -1,0 +1,44 @@
+From 84c3ac6852d84173b9e2119bf53c0fd4488e8404 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Wed, 10 Dec 2025 08:17:24 +0000
+Subject: [PATCH 0936/1053] Fix #14891, a8650c6b06: Minimum sprite zoomlevel
+ could break in some cases. (#14894)
+
+Caused by sprite control flags not being reset when scanning available sprites.
+---
+ src/spritecache.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/spritecache.cpp b/src/spritecache.cpp
+index 8b034fb3ab..4fef4a26f7 100644
+--- a/src/spritecache.cpp
++++ b/src/spritecache.cpp
+@@ -534,7 +534,7 @@ static void *ReadSprite(const SpriteCache *sc, SpriteID id, SpriteType sprite_ty
+ }
+ 
+ struct GrfSpriteOffset {
+-	size_t file_pos;
++	size_t file_pos = 0;
+ 	SpriteCacheCtrlFlags control_flags{};
+ };
+ 
+@@ -565,7 +565,7 @@ void ReadGRFSpriteOffsets(SpriteFile &file)
+ 		size_t old_pos = file.GetPos();
+ 		file.SeekTo(data_offset, SEEK_CUR);
+ 
+-		GrfSpriteOffset offset{0};
++		GrfSpriteOffset offset{};
+ 
+ 		/* Loop over all sprite section entries and store the file
+ 		 * offset for each newly encountered ID. */
+@@ -574,6 +574,7 @@ void ReadGRFSpriteOffsets(SpriteFile &file)
+ 			if (id != prev_id) {
+ 				_grf_sprite_offsets[prev_id] = offset;
+ 				offset.file_pos = file.GetPos() - 4;
++				offset.control_flags.Reset();
+ 			}
+ 			prev_id = id;
+ 			uint length = file.ReadDword();
+-- 
+2.55.0
+

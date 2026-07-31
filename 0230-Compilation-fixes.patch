@@ -1,0 +1,318 @@
+From 74c1382675f123bdc348373ade4c01dd33f86f6e Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 27 Mar 2016 23:14:56 +0300
+Subject: [PATCH 0230/1053] Compilation fixes
+
+---
+ src/newgrf_debug_gui.cpp |  2 +-
+ src/settings_gui.cpp     | 21 +++----------------
+ src/terraform_gui.cpp    | 44 ++++++++++++----------------------------
+ src/vehicle_gui.cpp      | 33 +++++++++++-------------------
+ src/vehicle_gui.h        |  2 +-
+ 5 files changed, 30 insertions(+), 72 deletions(-)
+
+diff --git a/src/newgrf_debug_gui.cpp b/src/newgrf_debug_gui.cpp
+index b454655e07..295ad9ff52 100644
+--- a/src/newgrf_debug_gui.cpp
++++ b/src/newgrf_debug_gui.cpp
+@@ -438,7 +438,7 @@ struct NewGRFInspectWindow : Window {
+ 				GrfSpecFeature f = GetFeatureNum(this->window_number);
+ 				int h = GetVehicleImageCellSize((VehicleType)(VEH_TRAIN + (f - GSF_TRAINS)), EIT_IN_DEPOT).height;
+ 				int y = Center(r.top, r.bottom - r.top, h);
+-				DrawVehicleImage(v->First(), r.left + WD_BEVEL_LEFT, r.right - WD_BEVEL_RIGHT, y + 1, h, INVALID_VEHICLE, EIT_IN_DETAILS, skip);
++				DrawVehicleImage(v->First(), r.left + WD_BEVEL_LEFT, r.right - WD_BEVEL_RIGHT, y + 1, INVALID_VEHICLE, EIT_IN_DETAILS, skip);
+ 
+ 				/* Highlight the articulated part (this is different to the whole-vehicle highlighting of DrawVehicleImage */
+ 				if (_current_text_dir == TD_RTL) {
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 32f75b165e..b9e7a94396 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -554,21 +554,6 @@ struct GameOptionsWindow : Window {
+ 				}
+ 				break;
+ 
+-			case WID_GO_GUI_ZOOM_DROPDOWN:
+-				GfxClearSpriteCache();
+-				_gui_zoom = (ZoomLevel)(ZOOM_LVL_OUT_4X - index);
+-				switch (_gui_zoom) {
+-					case ZOOM_LVL_OUT_4X - ZOOM_LVL_NORMAL: ChangeResInGame(854, 480); break;
+-					case ZOOM_LVL_OUT_4X - ZOOM_LVL_OUT_2X: ChangeResInGame(1280, 720); break;
+-					case ZOOM_LVL_OUT_4X - ZOOM_LVL_OUT_4X: ChangeResInGame(1920, 1080); break;
+-					default: break;
+-				}
+-				UpdateCursorSize();
+-				LoadStringWidthTable();
+-				ReconstructUserInterface();
+-				this->SetDirty();
+-				break;
+-
+ 			case WID_GO_BUTTON_SIZE_DROPDOWN: // Setup screenshot format dropdown
+ 				_settings_client.gui.min_button = index;
+ 				_settings_client.gui.min_step = index;
+@@ -586,9 +571,9 @@ struct GameOptionsWindow : Window {
+ 				GfxClearSpriteCache();
+ 				_gui_zoom = (ZoomLevel)(ZOOM_LVL_OUT_4X - index);
+ 				switch (_gui_zoom) {
+-					case ZOOM_LVL_NORMAL: ChangeResInGame(854, 480); break;
+-					case ZOOM_LVL_OUT_2X: ChangeResInGame(1280, 720); break;
+-					case ZOOM_LVL_OUT_4X: ChangeResInGame(1920, 1080); break;
++					case ZOOM_LVL_OUT_4X - ZOOM_LVL_NORMAL: ChangeResInGame(854, 480); break;
++					case ZOOM_LVL_OUT_4X - ZOOM_LVL_OUT_2X: ChangeResInGame(1280, 720); break;
++					case ZOOM_LVL_OUT_4X - ZOOM_LVL_OUT_4X: ChangeResInGame(1920, 1080); break;
+ 					default: break;
+ 				}
+ 				UpdateCursorSize();
+diff --git a/src/terraform_gui.cpp b/src/terraform_gui.cpp
+index 9a0d34deb9..7a319d66fc 100644
+--- a/src/terraform_gui.cpp
++++ b/src/terraform_gui.cpp
+@@ -161,7 +161,6 @@ struct TerraformToolbarWindow : Window {
+ 
+ 	~TerraformToolbarWindow()
+ 	{
+-		if (_thd.GetCallbackWnd() == this) this->OnPlaceObjectAbort();
+ 	}
+ 
+ 	virtual void OnInit()
+@@ -238,6 +237,9 @@ struct TerraformToolbarWindow : Window {
+ 				break;
+ 
+ 			case WID_TT_BUY_LAND: // Buy land button
++				DoCommandP(tile, OBJECT_OWNED_LAND, 0, CMD_BUILD_OBJECT | CMD_MSG(STR_ERROR_CAN_T_PURCHASE_THIS_LAND), CcPlaySound1E);
++				break;
++
+ 			case WID_TT_PLACE_SIGN: // Place sign button
+ 				PlaceProc_Sign(tile);
+ 				break;
+@@ -251,6 +253,13 @@ struct TerraformToolbarWindow : Window {
+ 		VpSelectTilesWithMethod(pt.x, pt.y, select_method);
+ 	}
+ 
++	virtual Point OnInitialPosition(int16 sm_width, int16 sm_height, int window_number)
++	{
++		Point pt = GetToolbarAlignedWindowPosition(sm_width);
++		pt.y += sm_height;
++		return pt;
++	}
++
+ 	virtual void OnPlaceMouseUp(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt, TileIndex start_tile, TileIndex end_tile)
+ 	{
+ 		if (pt.x != -1) {
+@@ -262,21 +271,6 @@ struct TerraformToolbarWindow : Window {
+ 				case DDSP_LEVEL_AREA:
+ 					GUIPlaceProcDragXY(select_proc, start_tile, end_tile);
+ 					break;
+-
+-				case DDSP_SINGLE_TILE:
+-					assert(start_tile == end_tile);
+-					switch (this->last_user_action) {
+-						case WID_TT_BUY_LAND:
+-							DoCommandP(end_tile, OBJECT_OWNED_LAND, 0, CMD_BUILD_OBJECT | CMD_MSG(STR_ERROR_CAN_T_PURCHASE_THIS_LAND), CcPlaySound1E);
+-							break;
+-						case WID_TT_PLACE_SIGN:
+-							PlaceProc_Sign(end_tile);
+-							break;
+-						case WID_TT_PLACE_OBJECT:
+-							PlaceProc_Object(end_tile);
+-							break;
+-						default: NOT_REACHED();
+-					}
+ 			}
+ 		}
+ 	}
+@@ -284,17 +278,6 @@ struct TerraformToolbarWindow : Window {
+ 	virtual void OnPlaceObjectAbort()
+ 	{
+ 		this->RaiseButtons();
+-		ResetObjectToPlace();
+-	}
+-
+-	virtual void SelectLastTool()
+-	{
+-		// User misplaced something - activate last selected tool again
+-		if (this->last_user_action == WIDGET_LIST_END)
+-			return;
+-		Point dummy = {0, 0};
+-		this->RaiseWidget(this->last_user_action);
+-		this->OnClick(dummy, this->last_user_action, 0);
+ 	}
+ 
+ 	static HotkeyList hotkeys;
+@@ -358,7 +341,7 @@ static const NWidgetPart _nested_terraform_widgets[] = {
+ };
+ 
+ static WindowDesc _terraform_desc(
+-	WDP_ALIGN_TOOLBAR, "toolbar_landscape", 0, 0,
++	WDP_MANUAL, "toolbar_landscape", 0, 0,
+ 	WC_SCEN_LAND_GEN, WC_NONE,
+ 	WDF_CONSTRUCTION,
+ 	_nested_terraform_widgets, lengthof(_nested_terraform_widgets),
+@@ -376,7 +359,6 @@ Window *ShowTerraformToolbar(Window *link)
+ 
+ 	Window *w;
+ 	if (link == NULL) {
+-		DeleteToolbarLinkedWindows();
+ 		w = AllocateWindowDescFront<TerraformToolbarWindow>(&_terraform_desc, 0);
+ 		return w;
+ 	}
+@@ -385,6 +367,7 @@ Window *ShowTerraformToolbar(Window *link)
+ 	DeleteWindowById(WC_SCEN_LAND_GEN, 0, true);
+ 	w = AllocateWindowDescFront<TerraformToolbarWindow>(&_terraform_desc, 0);
+ 	/* Align the terraform toolbar under the main toolbar. */
++	w->top -= w->height;
+ 	w->SetDirty();
+ 	/* Put the linked toolbar to the left / right of it. */
+ 	link->left = w->left + (_current_text_dir == TD_RTL ? w->width : -link->width);
+@@ -753,7 +736,7 @@ static Hotkey terraform_editor_hotkeys[] = {
+ HotkeyList ScenarioEditorLandscapeGenerationWindow::hotkeys("terraform_editor", terraform_editor_hotkeys, TerraformToolbarEditorGlobalHotkeys);
+ 
+ static WindowDesc _scen_edit_land_gen_desc(
+-	WDP_ALIGN_TOOLBAR, "toolbar_landscape_scen", 0, 0,
++	WDP_AUTO, "toolbar_landscape_scen", 0, 0,
+ 	WC_SCEN_LAND_GEN, WC_NONE,
+ 	WDF_CONSTRUCTION,
+ 	_nested_scen_edit_land_gen_widgets, lengthof(_nested_scen_edit_land_gen_widgets),
+@@ -766,6 +749,5 @@ static WindowDesc _scen_edit_land_gen_desc(
+  */
+ Window *ShowEditorTerraformToolbar()
+ {
+-	DeleteToolbarLinkedWindows();
+ 	return AllocateWindowDescFront<ScenarioEditorLandscapeGenerationWindow>(&_scen_edit_land_gen_desc, 0);
+ }
+diff --git a/src/vehicle_gui.cpp b/src/vehicle_gui.cpp
+index c13682ae0b..a36afaa6d2 100644
+--- a/src/vehicle_gui.cpp
++++ b/src/vehicle_gui.cpp
+@@ -665,7 +665,7 @@ struct RefitWindow : public Window {
+ 				break;
+ 
+ 			case WID_VR_VEHICLE_PANEL_DISPLAY:
+-				size->height = max(GetMinSizing(NWST_STEP), ScaleGUITrad(GetVehicleHeight(Vehicle::Get(this->window_number)->type)));
++				size->height = max((int)GetMinSizing(NWST_STEP), ScaleGUITrad(GetVehicleHeight(Vehicle::Get(this->window_number)->type)));
+ 				break;
+ 
+ 			case WID_VR_INFO:
+@@ -733,12 +733,11 @@ struct RefitWindow : public Window {
+ 			case WID_VR_VEHICLE_PANEL_DISPLAY: {
+ 				Vehicle *v = Vehicle::Get(this->window_number);
+ 				DrawVehicleImage(v, this->sprite_left + WD_FRAMERECT_LEFT, this->sprite_right - WD_FRAMERECT_RIGHT,
+-					r.top, r.bottom - r.top + 1, INVALID_VEHICLE, EIT_IN_DETAILS, this->hscroll != NULL ? this->hscroll->GetPosition() : 0);
++					r.top, INVALID_VEHICLE, EIT_IN_DETAILS, this->hscroll != NULL ? this->hscroll->GetPosition() : 0);
+ 
+ 				/* Highlight selected vehicles. */
+ 				if (this->order != INVALID_VEH_ORDER_ID) break;
+ 				int x = 0;
+-				int y_offset_frame = Center(0, r.bottom - r.top + 1, 14);
+ 				switch (v->type) {
+ 					case VEH_TRAIN: {
+ 						VehicleSet vehicles_to_refit;
+@@ -798,8 +797,7 @@ struct RefitWindow : public Window {
+ 					StringID string = this->GetCapacityString(this->cargo);
+ 					if (string != INVALID_STRING_ID) {
+ 						DrawStringMultiLine(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT,
+-								r.top + WD_FRAMERECT_TOP, r.bottom - WD_FRAMERECT_BOTTOM, string,
+-								TC_FROMSTRING, SA_VERT_CENTER | SA_LEFT);
++								r.top + WD_FRAMERECT_TOP, r.bottom - WD_FRAMERECT_BOTTOM, string);
+ 					}
+ 				}
+ 				break;
+@@ -1333,9 +1331,8 @@ static void DrawSmallOrderList(const Vehicle *v, int left, int right, int y, Veh
+  * @param selection Selected vehicle to draw a frame around
+  * @param skip      Number of pixels to skip at the front (for scrolling)
+  */
+-void DrawVehicleImage(const Vehicle *v, int left, int right, int y, int height, VehicleID selection, EngineImageType image_type, int skip)
++void DrawVehicleImage(const Vehicle *v, int left, int right, int y, VehicleID selection, EngineImageType image_type, int skip)
+ {
+-	y = Center(y, height, GetVehicleHeight(v->type));
+ 	switch (v->type) {
+ 		case VEH_TRAIN:    DrawTrainImage(Train::From(v), left, right, y, selection, image_type, skip); break;
+ 		case VEH_ROAD:     DrawRoadVehImage(v, left, right, y, selection, image_type, skip);  break;
+@@ -1354,11 +1351,7 @@ void DrawVehicleImage(const Vehicle *v, int left, int right, int y, int height,
+ uint GetVehicleListHeight(VehicleType type, uint divisor)
+ {
+ 	/* Name + vehicle + profit */
+-<<<<<<< HEAD
+-	uint base = GetMinSizing(NWST_STEP, GetVehicleHeight(type) + 2 * FONT_HEIGHT_SMALL);
+-=======
+ 	uint base = ScaleGUITrad(GetVehicleHeight(type)) + 2 * FONT_HEIGHT_SMALL;
+->>>>>>> a8b575671894ffe1329ef37dca4989c0e60d70f5
+ 	/* Drawing of the 4 small orders + profit*/
+ 	if (type >= VEH_SHIP) base = max(base, 5U * FONT_HEIGHT_SMALL);
+ 
+@@ -1404,7 +1397,7 @@ void BaseVehicleListWindow::DrawVehicleListItems(VehicleID selected_vehicle, int
+ 		SetDParam(0, v->GetDisplayProfitThisYear());
+ 		SetDParam(1, v->GetDisplayProfitLastYear());
+ 
+-		DrawVehicleImage(v, image_left, image_right, y, line_height, selected_vehicle, EIT_IN_LIST, 0);
++		DrawVehicleImage(v, image_left, image_right, y + FONT_HEIGHT_SMALL - 1, selected_vehicle, EIT_IN_LIST, 0);
+ 		DrawString(text_left, text_right, y + line_height - FONT_HEIGHT_SMALL - WD_FRAMERECT_BOTTOM - 1, STR_VEHICLE_LIST_PROFIT_THIS_YEAR_LAST_YEAR);
+ 
+ 		if (v->name != NULL) {
+@@ -1506,7 +1499,7 @@ public:
+ 						break;
+ 					case VEH_SHIP:
+ 					case VEH_AIRCRAFT:
+-						size->height = 3 * resize->height;
++						size->height = 4 * resize->height;
+ 						break;
+ 					default: NOT_REACHED();
+ 				}
+@@ -1698,7 +1691,6 @@ public:
+ 	virtual void OnResize()
+ 	{
+ 		this->vscroll->SetCapacityFromWidget(this, WID_VL_LIST);
+-		this->GetWidget<NWidgetCore>(WID_VL_LIST)->widget_data = (this->vscroll->GetCapacity() << MAT_ROW_START) + (1 << MAT_COL_START);
+ 	}
+ 
+ 	/**
+@@ -2118,12 +2110,12 @@ struct VehicleDetailsWindow : Window {
+ 
+ 				/* Articulated road vehicles use a complete line. */
+ 				if (v->type == VEH_ROAD && v->HasArticulatedPart()) {
+-					DrawVehicleImage(v, r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, r.top, r.bottom - r.top, INVALID_VEHICLE, EIT_IN_DETAILS, 0);
++					DrawVehicleImage(v, r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, r.top + WD_FRAMERECT_TOP, INVALID_VEHICLE, EIT_IN_DETAILS, 0);
+ 				} else {
+ 					uint sprite_left  = rtl ? text_right : r.left;
+ 					uint sprite_right = rtl ? r.right : text_left;
+ 
+-					DrawVehicleImage(v, sprite_left + WD_FRAMERECT_LEFT, sprite_right - WD_FRAMERECT_RIGHT, r.top, r.bottom - r.top, INVALID_VEHICLE, EIT_IN_DETAILS, 0);
++					DrawVehicleImage(v, sprite_left + WD_FRAMERECT_LEFT, sprite_right - WD_FRAMERECT_RIGHT, r.top + WD_FRAMERECT_TOP, INVALID_VEHICLE, EIT_IN_DETAILS, 0);
+ 				}
+ 				DrawVehicleDetails(v, text_left + WD_FRAMERECT_LEFT, text_right - WD_FRAMERECT_RIGHT, r.top + WD_FRAMERECT_TOP, 0, 0, this->tab);
+ 				break;
+@@ -2658,15 +2650,14 @@ public:
+ 
+ 		/* Draw the flag plus orders. */
+ 		bool rtl = (_current_text_dir == TD_RTL);
+-		int image = ((v->vehstatus & VS_STOPPED) != 0) ? SPR_FLAG_VEH_STOPPED : SPR_FLAG_VEH_RUNNING;
+-		Dimension d = GetSpriteSize(image);
+-		uint text_offset = d.width + WD_IMGBTN_LEFT + WD_IMGBTN_RIGHT;
++		uint text_offset = max(GetSpriteSize(SPR_FLAG_VEH_STOPPED).width, GetSpriteSize(SPR_FLAG_VEH_RUNNING).width) + WD_IMGBTN_LEFT + WD_IMGBTN_RIGHT;
+ 		int text_left = r.left + (rtl ? (uint)WD_FRAMERECT_LEFT : text_offset);
+ 		int text_right = r.right - (rtl ? text_offset : (uint)WD_FRAMERECT_RIGHT);
+ 		int image_left = (rtl ? text_right + 1 : r.left) + WD_IMGBTN_LEFT;
++		int image = ((v->vehstatus & VS_STOPPED) != 0) ? SPR_FLAG_VEH_STOPPED : SPR_FLAG_VEH_RUNNING;
+ 		int lowered = this->IsWidgetLowered(WID_VV_START_STOP) ? 1 : 0;
+-		DrawSprite(image, PAL_NONE, image_left + lowered, Center(r.top + WD_IMGBTN_TOP + lowered, r.bottom - r.top, d.height));
+-		DrawString(text_left + lowered, text_right + lowered, Center(r.top + lowered, r.bottom - r.top), str, TC_FROMSTRING, SA_HOR_CENTER);
++		DrawSprite(image, PAL_NONE, image_left + lowered, r.top + WD_IMGBTN_TOP + lowered);
++		DrawString(text_left + lowered, text_right + lowered, r.top + WD_FRAMERECT_TOP + lowered, str, TC_FROMSTRING, SA_HOR_CENTER);
+ 	}
+ 
+ 	virtual void OnClick(Point pt, int widget, int click_count)
+diff --git a/src/vehicle_gui.h b/src/vehicle_gui.h
+index 935e6efe8d..83e098dcd9 100644
+--- a/src/vehicle_gui.h
++++ b/src/vehicle_gui.h
+@@ -99,6 +99,6 @@ void StartStopVehicle(const Vehicle *v, bool texteffect);
+ 
+ Vehicle *CheckClickOnVehicle(const struct ViewPort *vp, int x, int y);
+ 
+-void DrawVehicleImage(const Vehicle *v, int left, int right, int y, int height, VehicleID selection, EngineImageType image_type, int skip);
++void DrawVehicleImage(const Vehicle *v, int left, int right, int y, VehicleID selection, EngineImageType image_type, int skip);
+ 
+ #endif /* VEHICLE_GUI_H */
+-- 
+2.55.0
+

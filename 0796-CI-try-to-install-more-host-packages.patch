@@ -1,0 +1,25 @@
+From 2fec0a4c908f6f7d7aa2de8fb0afa0ab26c70030 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Feb 2022 00:43:27 +0200
+Subject: [PATCH 0796/1053] CI: try to install more host packages
+
+---
+ .github/workflows/ci-build.yml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index 179e6ef16b..b82ce498f1 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -34,6 +34,8 @@ jobs:
+           autoconf \
+           automake \
+           libtool \
++          libharfbuzz-dev \
++          libicu-dev \
+           # EOF
+         echo "::endgroup::"
+ 
+-- 
+2.55.0
+

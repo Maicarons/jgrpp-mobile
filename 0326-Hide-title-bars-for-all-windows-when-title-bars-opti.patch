@@ -1,0 +1,132 @@
+From 0f91382c7b9b369a68863cb060f6a7ac2b4ff2b4 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Wed, 22 Mar 2017 22:55:10 +0200
+Subject: [PATCH 0326/1053] Hide title bars for all windows when 'title bars'
+ option is de-selected
+
+---
+ src/company_gui.cpp |  4 ++--
+ src/widget.cpp      | 41 ++++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 38 insertions(+), 7 deletions(-)
+
+diff --git a/src/company_gui.cpp b/src/company_gui.cpp
+index 8439cd6d13..accf32273d 100644
+--- a/src/company_gui.cpp
++++ b/src/company_gui.cpp
+@@ -219,7 +219,7 @@ static const NWidgetPart _nested_company_finances_widgets[] = {
+ 	NWidget(NWID_HORIZONTAL),
+ 		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
+ 		NWidget(WWT_CAPTION, COLOUR_GREY, WID_CF_CAPTION), SetDataTip(STR_FINANCES_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
+-		NWidget(WWT_IMGBTN, COLOUR_GREY, WID_CF_TOGGLE_SIZE), SetDataTip(SPR_LARGE_SMALL_WINDOW, STR_TOOLTIP_TOGGLE_LARGE_SMALL_WINDOW),
++		//NWidget(WWT_IMGBTN, COLOUR_GREY, WID_CF_TOGGLE_SIZE), SetDataTip(SPR_LARGE_SMALL_WINDOW, STR_TOOLTIP_TOGGLE_LARGE_SMALL_WINDOW),
+ 		NWidget(WWT_SHADEBOX, COLOUR_GREY),
+ 		NWidget(WWT_STICKYBOX, COLOUR_GREY),
+ 	EndContainer(),
+@@ -908,7 +908,7 @@ static const NWidgetPart _nested_select_company_manager_face_widgets[] = {
+ 	NWidget(NWID_HORIZONTAL),
+ 		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
+ 		NWidget(WWT_CAPTION, COLOUR_GREY, WID_SCMF_CAPTION), SetDataTip(STR_FACE_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
+-		NWidget(WWT_IMGBTN, COLOUR_GREY, WID_SCMF_TOGGLE_LARGE_SMALL), SetDataTip(SPR_LARGE_SMALL_WINDOW, STR_FACE_ADVANCED_TOOLTIP),
++		//NWidget(WWT_IMGBTN, COLOUR_GREY, WID_SCMF_TOGGLE_LARGE_SMALL), SetDataTip(SPR_LARGE_SMALL_WINDOW, STR_FACE_ADVANCED_TOOLTIP),
+ 	EndContainer(),
+ 	NWidget(WWT_PANEL, COLOUR_GREY, WID_SCMF_SELECT_FACE),
+ 		NWidget(NWID_SPACER), SetMinimalSize(0, 2),
+diff --git a/src/widget.cpp b/src/widget.cpp
+index a15c7e5b1d..782cd55c22 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -2112,6 +2112,17 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 
+ 	if (this->sizing_type == NWST_NONE) {
+ 		switch (tp) {
++			case WWT_CAPTION:
++			case WWT_STICKYBOX:
++			case WWT_SHADEBOX:
++			case WWT_DEFSIZEBOX:
++			case WWT_CLOSEBOX:
++				if (!_settings_client.gui.windows_titlebars) {
++					this->sizing_type = NWST_OVERRIDE;
++					this->SetMinimalSize(0, 0);
++					this->SetFill(0, 0);
++					return;
++				}
+ 			case WWT_PUSHBTN:
+ 			case WWT_IMGBTN:
+ 			case WWT_PUSHIMGBTN:
+@@ -2121,13 +2132,8 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 			case WWT_TEXTBTN_2:
+ 			case WWT_PUSHARROWBTN:
+ 			case WWT_EDITBOX:
+-			case WWT_CAPTION:
+-			case WWT_STICKYBOX:
+-			case WWT_SHADEBOX:
+ 			case WWT_DEBUGBOX:
+-			case WWT_DEFSIZEBOX:
+ 			case WWT_RESIZEBOX:
+-			case WWT_CLOSEBOX:
+ 				this->sizing_type = NWST_BUTTON;
+ 				this->SetMinimalSize(8, 8);
+ 				break;
+@@ -2245,6 +2251,11 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 			break;
+ 		}
+ 		case WWT_SHADEBOX: {
++			if (!_settings_client.gui.windows_titlebars) {
++				static const Dimension extra = {0, 0};
++				padding = &extra;
++				break;
++			}
+ 			static const Dimension extra = {WD_SHADEBOX_LEFT + WD_SHADEBOX_RIGHT, WD_SHADEBOX_TOP + WD_SHADEBOX_BOTTOM};
+ 			padding = &extra;
+ 			if (NWidgetLeaf::shadebox_dimension.width == 0) {
+@@ -2274,6 +2285,11 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 			break;
+ 
+ 		case WWT_STICKYBOX: {
++			if (!_settings_client.gui.windows_titlebars) {
++				static const Dimension extra = {0, 0};
++				padding = &extra;
++				break;
++			}
+ 			static const Dimension extra = {WD_STICKYBOX_LEFT + WD_STICKYBOX_RIGHT, WD_STICKYBOX_TOP + WD_STICKYBOX_BOTTOM};
+ 			padding = &extra;
+ 			if (NWidgetLeaf::stickybox_dimension.width == 0) {
+@@ -2286,6 +2302,11 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 		}
+ 
+ 		case WWT_DEFSIZEBOX: {
++			if (!_settings_client.gui.windows_titlebars) {
++				static const Dimension extra = {0, 0};
++				padding = &extra;
++				break;
++			}
+ 			static const Dimension extra = {WD_DEFSIZEBOX_LEFT + WD_DEFSIZEBOX_RIGHT, WD_DEFSIZEBOX_TOP + WD_DEFSIZEBOX_BOTTOM};
+ 			padding = &extra;
+ 			if (NWidgetLeaf::defsizebox_dimension.width == 0) {
+@@ -2344,6 +2365,11 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 		}
+ 
+ 		case WWT_CLOSEBOX: {
++			if (!_settings_client.gui.windows_titlebars) {
++				static const Dimension extra = {0, 0};
++				padding = &extra;
++				break;
++			}
+ 			static const Dimension extra = {WD_CLOSEBOX_LEFT + WD_CLOSEBOX_RIGHT, WD_CLOSEBOX_TOP + WD_CLOSEBOX_BOTTOM};
+ 			padding = &extra;
+ 			if (NWidgetLeaf::closebox_dimension.width == 0) {
+@@ -2375,6 +2401,11 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 			break;
+ 		}
+ 		case WWT_CAPTION: {
++			if (!_settings_client.gui.windows_titlebars) {
++				static const Dimension extra = {0, 0};
++				padding = &extra;
++				break;
++			}
+ 			static const Dimension extra = {WD_CAPTIONTEXT_LEFT + WD_CAPTIONTEXT_RIGHT, WD_CAPTIONTEXT_TOP + WD_CAPTIONTEXT_BOTTOM};
+ 			padding = &extra;
+ 			if (this->index >= 0) w->SetStringParameters(this->index);
+-- 
+2.55.0
+

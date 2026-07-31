@@ -1,0 +1,242 @@
+From df5b5700cf6f967ce5b481e90e03deaeb4a5ba4e Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sat, 10 May 2025 22:02:44 +0100
+Subject: [PATCH 0978/1053] Revert "Change: Remove support for SDL1.2.
+ (#13298)"
+
+This reverts commit c0edbe0d37fb0981e48004d888aa2d35cc2741d9.
+
+Android port is yet to be ported to SDL2
+---
+ .github/workflows/ci-nightly.yml | 21 ++++++++++
+ CMakeLists.txt                   |  7 +++-
+ Doxyfile.in                      |  2 +-
+ src/music/allegro_m.h            |  2 +-
+ src/sound/CMakeLists.txt         |  6 +++
+ src/sound/sdl_s.cpp              | 66 ++++++++++++++++++++++++++++++++
+ src/survey.cpp                   | 11 ++++--
+ src/video/CMakeLists.txt         |  6 +++
+ 8 files changed, 113 insertions(+), 8 deletions(-)
+ create mode 100644 src/sound/sdl_s.cpp
+
+diff --git a/.github/workflows/ci-nightly.yml b/.github/workflows/ci-nightly.yml
+index a4cf09eb48..41d695de7c 100644
+--- a/.github/workflows/ci-nightly.yml
++++ b/.github/workflows/ci-nightly.yml
+@@ -9,6 +9,27 @@ env:
+   CTEST_OUTPUT_ON_FAILURE: 1
+ 
+ jobs:
++  linux:
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++        - name: GCC - SDL1.2
++          compiler: gcc
++          cxxcompiler: g++
++          libraries: libsdl1.2-dev
++
++    name: Linux (${{ matrix.name }})
++
++    uses: ./.github/workflows/ci-linux.yml
++    secrets: inherit
++
++    with:
++      compiler: ${{ matrix.compiler }}
++      cxxcompiler: ${{ matrix.cxxcompiler }}
++      libraries: ${{ matrix.libraries }}
++      extra-cmake-parameters:
++
+   macos:
+     strategy:
+       fail-fast: false
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b0f57b4387..b37716723e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -148,6 +148,9 @@ if(NOT OPTION_DEDICATED)
+         if(NOT APPLE)
+             find_package(Freetype)
+             find_package(SDL2)
++            if(NOT SDL2_FOUND)
++                find_package(SDL)
++            endif()
+             find_package(Fluidsynth)
+             find_package(Timidity)
+             if(Freetype_FOUND)
+@@ -188,8 +191,8 @@ check_ipo_supported(RESULT IPO_FOUND)
+ show_options()
+ 
+ if(UNIX AND NOT APPLE AND NOT OPTION_DEDICATED)
+-    if(NOT SDL2_FOUND AND NOT ALLEGRO_FOUND)
+-        message(FATAL_ERROR "SDL2 or Allegro is required for this platform")
++    if(NOT SDL_FOUND AND NOT SDL2_FOUND AND NOT ALLEGRO_FOUND)
++        message(FATAL_ERROR "SDL, SDL2 or Allegro is required for this platform")
+     endif()
+     if(HARFBUZZ_FOUND AND NOT ICU_i18n_FOUND)
+         message(WARNING "HarfBuzz depends on ICU i18n to function; HarfBuzz will be disabled")
+diff --git a/Doxyfile.in b/Doxyfile.in
+index e126b5ae82..0e8eee4b2e 100644
+--- a/Doxyfile.in
++++ b/Doxyfile.in
+@@ -310,7 +310,7 @@ INCLUDE_FILE_PATTERNS  =
+ PREDEFINED             = WITH_ZLIB \
+                          WITH_LZO \
+                          WITH_LIBLZMA \
+-                         WITH_SDL2 \
++                         WITH_SDL \
+                          WITH_PNG \
+                          WITH_FONTCONFIG \
+                          WITH_FREETYPE \
+diff --git a/src/music/allegro_m.h b/src/music/allegro_m.h
+index eee250897b..f2ec3a4bdc 100644
+--- a/src/music/allegro_m.h
++++ b/src/music/allegro_m.h
+@@ -32,7 +32,7 @@ public:
+ /** Factory for allegro's music player. */
+ class FMusicDriver_Allegro : public DriverFactoryBase {
+ public:
+-#if !defined(WITH_SDL2) && defined(WITH_ALLEGRO)
++#if !defined(WITH_SDL) && defined(WITH_ALLEGRO)
+ 	/* If SDL is not compiled in but Allegro is, chances are quite big
+ 	 * that Allegro is going to be used. Then favour this sound driver
+ 	 * over extmidi because with extmidi we get crashes. */
+diff --git a/src/sound/CMakeLists.txt b/src/sound/CMakeLists.txt
+index 0abd7c014b..bff33deda3 100644
+--- a/src/sound/CMakeLists.txt
++++ b/src/sound/CMakeLists.txt
+@@ -5,6 +5,12 @@ if(NOT OPTION_DEDICATED)
+         CONDITION Allegro_FOUND
+     )
+ 
++    add_files(
++        sdl_s.cpp
++        sdl_s.h
++        CONDITION SDL_FOUND
++    )
++
+     add_files(
+         sdl2_s.cpp
+         sdl_s.h
+diff --git a/src/sound/sdl_s.cpp b/src/sound/sdl_s.cpp
+new file mode 100644
+index 0000000000..7b1f93e240
+--- /dev/null
++++ b/src/sound/sdl_s.cpp
+@@ -0,0 +1,66 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++/** @file sdl_s.cpp Playing sound via SDL. */
++
++#ifdef WITH_SDL
++
++#include "../stdafx.h"
++
++#include "../mixer.h"
++#include "sdl_s.h"
++#include <SDL.h>
++
++#include "../safeguards.h"
++
++/** Factory for the SDL sound driver. */
++static FSoundDriver_SDL iFSoundDriver_SDL;
++
++/**
++ * Callback that fills the sound buffer.
++ * @param stream   The stream to put data into.
++ * @param len      The length of the stream in bytes.
++ */
++static void CDECL fill_sound_buffer(void *, Uint8 *stream, int len)
++{
++	MxMixSamples(stream, len / 4);
++}
++
++std::optional<std::string_view> SoundDriver_SDL::Start(const StringList &parm)
++{
++	SDL_AudioSpec spec;
++
++	/* Only initialise SDL if the video driver hasn't done it already */
++	int ret_code = 0;
++	if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0) {
++		ret_code = SDL_Init(SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
++	} else if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
++		ret_code = SDL_InitSubSystem(SDL_INIT_AUDIO);
++	}
++	if (ret_code == -1) return SDL_GetError();
++
++	spec.freq = GetDriverParamInt(parm, "hz", 44100);
++	spec.format = AUDIO_S16SYS;
++	spec.channels = 2;
++	spec.samples = GetDriverParamInt(parm, "samples", 1024);
++	spec.callback = fill_sound_buffer;
++	MxInitialize(spec.freq);
++	SDL_OpenAudio(&spec, &spec);
++	SDL_PauseAudio(0);
++	return std::nullopt;
++}
++
++void SoundDriver_SDL::Stop()
++{
++	SDL_CloseAudio();
++	SDL_QuitSubSystem(SDL_INIT_AUDIO);
++	if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0) {
++		SDL_Quit(); // If there's nothing left, quit SDL
++	}
++}
++
++#endif /* WITH_SDL */
+diff --git a/src/survey.cpp b/src/survey.cpp
+index 838a702fb1..03fc5fe894 100644
+--- a/src/survey.cpp
++++ b/src/survey.cpp
+@@ -66,9 +66,9 @@
+ #ifdef WITH_LZO
+ #include <lzo/lzo1x.h>
+ #endif
+-#ifdef WITH_SDL2
+-#include <SDL.h>
+-#endif /* WITH_SDL2 */
++#if defined(WITH_SDL) || defined(WITH_SDL2)
++#	include <SDL.h>
++#endif /* WITH_SDL || WITH_SDL2 */
+ #ifdef WITH_ZLIB
+ # include <zlib.h>
+ #endif
+@@ -439,7 +439,10 @@ void SurveyLibraries(nlohmann::json &survey)
+ 	survey["png"] = png_get_libpng_ver(nullptr);
+ #endif /* WITH_PNG */
+ 
+-#ifdef WITH_SDL2
++#ifdef WITH_SDL
++	const SDL_version *sdl_v = SDL_Linked_Version();
++	survey["sdl"] = fmt::format("{}.{}.{}", sdl_v->major, sdl_v->minor, sdl_v->patch);
++#elif defined(WITH_SDL2)
+ 	SDL_version sdl2_v;
+ 	SDL_GetVersion(&sdl2_v);
+ 	survey["sdl2"] = fmt::format("{}.{}.{}", sdl2_v.major, sdl2_v.minor, sdl2_v.patch);
+diff --git a/src/video/CMakeLists.txt b/src/video/CMakeLists.txt
+index e09c202f47..3b74e10460 100644
+--- a/src/video/CMakeLists.txt
++++ b/src/video/CMakeLists.txt
+@@ -13,6 +13,12 @@ if(NOT OPTION_DEDICATED)
+         CONDITION OPENGL_FOUND
+     )
+ 
++    add_files(
++        sdl_v.cpp
++        sdl_v.h
++        CONDITION SDL_FOUND
++    )
++
+     add_files(
+         sdl2_v.cpp
+         sdl2_v.h
+-- 
+2.55.0
+

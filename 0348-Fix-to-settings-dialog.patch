@@ -1,0 +1,26 @@
+From 80a7abb5cb7d5cdf2a2ca855446bc519bad87a15 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 27 Mar 2017 00:31:28 +0300
+Subject: [PATCH 0348/1053] Fix to settings dialog
+
+---
+ src/settings_gui.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index df5612bf7f..8a674b4741 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -2813,5 +2813,8 @@ void ReconstructUserInterface()
+ 	}
+ 
+ 	ReInitAllWindows();
+-	ShowGameOptions();
++	if (_settings_client.gui.windows_titlebars) {
++		// Hack to prevent second click on the same button via button-up event
++		ShowGameOptions();
++	}
+ }
+-- 
+2.55.0
+

@@ -1,0 +1,23 @@
+From 86b063e4221f99d56f0e8f6617d9379290a944a8 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 21 Dec 2021 02:00:07 +0200
+Subject: [PATCH 0765/1053] Updated todo
+
+---
+ todo.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index c0af4b726b..703842d36e 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -29,6 +29,4 @@
+ 
+ - Fix tutorial.
+ 
+-- Implement cloud saves by downloading the savegame from the web browser.
+-
+ - Find some developer with a MacBook and $100 to publish the 'OpenTTD Webapp Launcher' to the Apple Store.
+-- 
+2.55.0
+

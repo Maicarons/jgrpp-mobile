@@ -1,0 +1,27 @@
+From b8dbca465ad4c61f31b580a14ab16a5795f18aed Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Mon, 6 Dec 2021 18:30:46 +0000
+Subject: [PATCH 0780/1053] Fix #9735: Fix OrderBackup::Reset in non-GUI case
+
+---
+ src/order_backup.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/order_backup.cpp b/src/order_backup.cpp
+index 37579a3198..4c653a7607 100644
+--- a/src/order_backup.cpp
++++ b/src/order_backup.cpp
+@@ -189,8 +189,8 @@ CommandCost CmdClearOrderBackup(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 	uint32 user = _networking && !_network_server ? _network_own_client_id : CLIENT_ID_SERVER;
+ 
+ 	for (OrderBackup *ob : OrderBackup::Iterate()) {
+-		/* If it's not a backup of us, ignore it. */
+-		if (ob->user != user) continue;
++		/* If this is a GUI action, and it's not a backup of us, ignore it. */
++		if (from_gui && ob->user != user) continue;
+ 		/* If it's not for our chosen tile either, ignore it. */
+ 		if (t != INVALID_TILE && t != ob->tile) continue;
+ 
+-- 
+2.55.0
+

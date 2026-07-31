@@ -1,0 +1,627 @@
+From 0516d3518f92f49ce865790c24677cb30a4f3953 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 3 Apr 2016 14:55:57 +0300
+Subject: [PATCH 0247/1053] Updated Android translations
+
+---
+ src/lang/afrikaans.txt            |  2 ++
+ src/lang/arabic_egypt.txt         |  2 ++
+ src/lang/basque.txt               |  2 ++
+ src/lang/belarusian.txt           |  2 ++
+ src/lang/brazilian_portuguese.txt |  2 ++
+ src/lang/bulgarian.txt            |  2 ++
+ src/lang/catalan.txt              |  2 ++
+ src/lang/croatian.txt             | 24 ++++++++++++++++++++++++
+ src/lang/czech.txt                |  2 ++
+ src/lang/danish.txt               |  2 ++
+ src/lang/dutch.txt                |  2 ++
+ src/lang/english_AU.txt           |  2 ++
+ src/lang/english_US.txt           |  2 ++
+ src/lang/esperanto.txt            |  2 ++
+ src/lang/estonian.txt             |  2 ++
+ src/lang/faroese.txt              |  2 ++
+ src/lang/finnish.txt              |  2 ++
+ src/lang/french.txt               |  2 ++
+ src/lang/gaelic.txt               |  2 ++
+ src/lang/galician.txt             |  2 ++
+ src/lang/german.txt               |  2 ++
+ src/lang/greek.txt                |  2 ++
+ src/lang/hebrew.txt               |  2 ++
+ src/lang/hungarian.txt            |  2 ++
+ src/lang/icelandic.txt            |  2 ++
+ src/lang/indonesian.txt           |  2 ++
+ src/lang/irish.txt                |  2 ++
+ src/lang/italian.txt              |  2 ++
+ src/lang/japanese.txt             |  2 ++
+ src/lang/korean.txt               |  2 ++
+ src/lang/latin.txt                |  2 ++
+ src/lang/latvian.txt              |  2 ++
+ src/lang/lithuanian.txt           |  2 ++
+ src/lang/luxembourgish.txt        |  2 ++
+ src/lang/malay.txt                |  2 ++
+ src/lang/norwegian_bokmal.txt     |  2 ++
+ src/lang/norwegian_nynorsk.txt    |  2 ++
+ src/lang/polish.txt               |  2 ++
+ src/lang/portuguese.txt           |  2 ++
+ src/lang/romanian.txt             |  2 ++
+ src/lang/russian.txt              |  2 ++
+ src/lang/serbian.txt              |  2 ++
+ src/lang/simplified_chinese.txt   |  2 ++
+ src/lang/slovak.txt               |  2 ++
+ src/lang/slovenian.txt            |  2 ++
+ src/lang/spanish.txt              |  2 ++
+ src/lang/swedish.txt              |  2 ++
+ src/lang/tamil.txt                |  2 ++
+ src/lang/thai.txt                 |  2 ++
+ src/lang/traditional_chinese.txt  |  2 ++
+ src/lang/turkish.txt              |  2 ++
+ src/lang/ukrainian.txt            |  2 ++
+ src/lang/vietnamese.txt           |  2 ++
+ src/lang/welsh.txt                |  2 ++
+ 54 files changed, 130 insertions(+)
+
+diff --git a/src/lang/afrikaans.txt b/src/lang/afrikaans.txt
+index 077092bbc3..95aa2ada47 100644
+--- a/src/lang/afrikaans.txt
++++ b/src/lang/afrikaans.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/arabic_egypt.txt b/src/lang/arabic_egypt.txt
+index ba3045cae3..4533f6a0a5 100644
+--- a/src/lang/arabic_egypt.txt
++++ b/src/lang/arabic_egypt.txt
+@@ -4421,3 +4421,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/basque.txt b/src/lang/basque.txt
+index ede8426c24..891495cbcb 100644
+--- a/src/lang/basque.txt
++++ b/src/lang/basque.txt
+@@ -4815,3 +4815,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/belarusian.txt b/src/lang/belarusian.txt
+index 6c190747dd..d939e533e5 100644
+--- a/src/lang/belarusian.txt
++++ b/src/lang/belarusian.txt
+@@ -5441,3 +5441,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/brazilian_portuguese.txt b/src/lang/brazilian_portuguese.txt
+index ab606412a1..40be45da28 100644
+--- a/src/lang/brazilian_portuguese.txt
++++ b/src/lang/brazilian_portuguese.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/bulgarian.txt b/src/lang/bulgarian.txt
+index b7a8a0b2b8..b0d81f94b2 100644
+--- a/src/lang/bulgarian.txt
++++ b/src/lang/bulgarian.txt
+@@ -4882,3 +4882,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/catalan.txt b/src/lang/catalan.txt
+index 495cb70188..be93f94e6c 100644
+--- a/src/lang/catalan.txt
++++ b/src/lang/catalan.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index cae2273bc0..d5f917f415 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -5101,3 +5101,27 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
++STR_ABOUT_MENU_TUTORIAL                                         :{BLACK}Udžbenik
++STR_SMALLMAP_TOOLTIP_SHOW_LEGEND                                :{BLACK}Prikaži legendu mape / opis simbola na mapi
++STR_CONFIG_SETTING_VERTICAL_TOOLBAR                             :{BLACK}Okomita alatna traka
++STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT                    :{BLACK}Glavna alatna traka je podijeljena na dvije okomite alatne trake na rubovima ekrana
++STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Veličina tipki
++STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Veličina svih elemenata korisničkog sučelja
++STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Veličina fonta
++STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Veličina svih fontova u igri
++STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Zatvori sve otvorene prozore (osim zakačenih)
++STR_TABLET_SHIFT_TOOLTIP                                        :{BLACK}Pritisnuti za procjenu troškova izvođenja neke akcije
++STR_TABLET_CTRL_TOOLTIP                                         :{BLACK}Koristiti za sve akcije za koje se koristi tipka "CTRL"
++STR_TUTORIAL_WINDOW_TITLE                                       :{BLACK}Videi za učenje
++STR_TUTORIAL_WINDOW_TOOLTIP                                     :{BLACK}Otvori prikazivač videa za gledanje videa za učenje
++STR_TUTORIAL_ROADS_AND_STATIONS                                 :{BLACK}Građenje cesta i stanica, kupnja vozila
++STR_TUTORIAL_RAILWAYS                                           :{BLACK}Pruge i vlakovi
++STR_TUTORIAL_ROAD_VEHICLES                                      :{BLACK}Cestovna vozila
++STR_TUTORIAL_SHIPS                                              :{BLACK}Brodovi i dokovi
++STR_TUTORIAL_CARGO                                              :{BLACK}Vrste tereta
++STR_SAVELOAD_LOAD_NETWORK_BUTTON                                :{BLACK}Učitaj sa mreže
++STR_SAVELOAD_LOAD_NETWORK_TOOLTIP                               :{BLACK}Učitaj igru sa mrežne pohrane podataka
++STR_SAVELOAD_SAVE_NETWORK_BUTTON                                :{BLACK}Spremi na mrežu
++STR_SAVELOAD_SAVE_NETWORK_TOOLTIP                               :{BLACK}Spremi igru na mrežnu pohranu podataka
+diff --git a/src/lang/czech.txt b/src/lang/czech.txt
+index 2266b47f27..0612dae8ba 100644
+--- a/src/lang/czech.txt
++++ b/src/lang/czech.txt
+@@ -5188,3 +5188,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/danish.txt b/src/lang/danish.txt
+index 175092f8d2..8b36cd0094 100644
+--- a/src/lang/danish.txt
++++ b/src/lang/danish.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/dutch.txt b/src/lang/dutch.txt
+index 50470a2e5f..bbfe3c3b8d 100644
+--- a/src/lang/dutch.txt
++++ b/src/lang/dutch.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/english_AU.txt b/src/lang/english_AU.txt
+index 8e59e1ec05..bb63d69dd3 100644
+--- a/src/lang/english_AU.txt
++++ b/src/lang/english_AU.txt
+@@ -4916,3 +4916,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index 2e3e257268..dd659559d0 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/esperanto.txt b/src/lang/esperanto.txt
+index e0653164d9..6b66a9ac4b 100644
+--- a/src/lang/esperanto.txt
++++ b/src/lang/esperanto.txt
+@@ -4320,3 +4320,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/estonian.txt b/src/lang/estonian.txt
+index fa7251c13b..9dfc3a8ffb 100644
+--- a/src/lang/estonian.txt
++++ b/src/lang/estonian.txt
+@@ -5026,3 +5026,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/faroese.txt b/src/lang/faroese.txt
+index a1eddbc5fa..d8a178a68c 100644
+--- a/src/lang/faroese.txt
++++ b/src/lang/faroese.txt
+@@ -4470,3 +4470,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/finnish.txt b/src/lang/finnish.txt
+index f10062151b..57d989e905 100644
+--- a/src/lang/finnish.txt
++++ b/src/lang/finnish.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/french.txt b/src/lang/french.txt
+index 23f05d8043..63eb8be51c 100644
+--- a/src/lang/french.txt
++++ b/src/lang/french.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/gaelic.txt b/src/lang/gaelic.txt
+index ca6bc88697..c325f906c1 100644
+--- a/src/lang/gaelic.txt
++++ b/src/lang/gaelic.txt
+@@ -5354,3 +5354,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/galician.txt b/src/lang/galician.txt
+index 86ccc56f23..99efac620e 100644
+--- a/src/lang/galician.txt
++++ b/src/lang/galician.txt
+@@ -4906,3 +4906,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/german.txt b/src/lang/german.txt
+index 684360860b..54cd405fa2 100644
+--- a/src/lang/german.txt
++++ b/src/lang/german.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/greek.txt b/src/lang/greek.txt
+index 73303c3396..2b22b632b6 100644
+--- a/src/lang/greek.txt
++++ b/src/lang/greek.txt
+@@ -5087,3 +5087,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/hebrew.txt b/src/lang/hebrew.txt
+index acee83e236..a8fbcb8b2b 100644
+--- a/src/lang/hebrew.txt
++++ b/src/lang/hebrew.txt
+@@ -4864,3 +4864,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/hungarian.txt b/src/lang/hungarian.txt
+index 37dcb2f66f..7d07fa711f 100644
+--- a/src/lang/hungarian.txt
++++ b/src/lang/hungarian.txt
+@@ -5073,3 +5073,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/icelandic.txt b/src/lang/icelandic.txt
+index ee2f7b0a88..5358765f1d 100644
+--- a/src/lang/icelandic.txt
++++ b/src/lang/icelandic.txt
+@@ -4725,3 +4725,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/indonesian.txt b/src/lang/indonesian.txt
+index 7e77758607..b48c1b9647 100644
+--- a/src/lang/indonesian.txt
++++ b/src/lang/indonesian.txt
+@@ -4964,3 +4964,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/irish.txt b/src/lang/irish.txt
+index cdc13599d9..e037d59ec6 100644
+--- a/src/lang/irish.txt
++++ b/src/lang/irish.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/italian.txt b/src/lang/italian.txt
+index 8f8d6cd1c6..4b3b3246b5 100644
+--- a/src/lang/italian.txt
++++ b/src/lang/italian.txt
+@@ -4998,3 +4998,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/japanese.txt b/src/lang/japanese.txt
+index 2e7064051b..e41f14ed8b 100644
+--- a/src/lang/japanese.txt
++++ b/src/lang/japanese.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index a3e4447144..1a105f9d0c 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{G=f}{BLACK}{PL
+ STR_SHIP                                                        :{G=f}{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/latin.txt b/src/lang/latin.txt
+index f1874e8de9..5a7668cf9c 100644
+--- a/src/lang/latin.txt
++++ b/src/lang/latin.txt
+@@ -5287,3 +5287,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/latvian.txt b/src/lang/latvian.txt
+index 49a5b8b7c0..4c057ba03b 100644
+--- a/src/lang/latvian.txt
++++ b/src/lang/latvian.txt
+@@ -4869,3 +4869,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/lithuanian.txt b/src/lang/lithuanian.txt
+index f97f3d6bf0..27a1d2a6ca 100644
+--- a/src/lang/lithuanian.txt
++++ b/src/lang/lithuanian.txt
+@@ -5508,3 +5508,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/luxembourgish.txt b/src/lang/luxembourgish.txt
+index b6d1b43704..03540834aa 100644
+--- a/src/lang/luxembourgish.txt
++++ b/src/lang/luxembourgish.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/malay.txt b/src/lang/malay.txt
+index 2c3ecea536..fbe177cd28 100644
+--- a/src/lang/malay.txt
++++ b/src/lang/malay.txt
+@@ -4568,3 +4568,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/norwegian_bokmal.txt b/src/lang/norwegian_bokmal.txt
+index a6dabc5aef..f8426a4181 100644
+--- a/src/lang/norwegian_bokmal.txt
++++ b/src/lang/norwegian_bokmal.txt
+@@ -4973,3 +4973,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/norwegian_nynorsk.txt b/src/lang/norwegian_nynorsk.txt
+index 79cea5e58e..87e022cf9e 100644
+--- a/src/lang/norwegian_nynorsk.txt
++++ b/src/lang/norwegian_nynorsk.txt
+@@ -4882,3 +4882,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/polish.txt b/src/lang/polish.txt
+index 1a3a6527bc..19d4588cc1 100644
+--- a/src/lang/polish.txt
++++ b/src/lang/polish.txt
+@@ -5391,3 +5391,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/portuguese.txt b/src/lang/portuguese.txt
+index ec2a83c556..05c68139ae 100644
+--- a/src/lang/portuguese.txt
++++ b/src/lang/portuguese.txt
+@@ -4945,3 +4945,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/romanian.txt b/src/lang/romanian.txt
+index 6876ee288c..78113998ca 100644
+--- a/src/lang/romanian.txt
++++ b/src/lang/romanian.txt
+@@ -4892,3 +4892,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/russian.txt b/src/lang/russian.txt
+index d3558f844c..0fb891d602 100644
+--- a/src/lang/russian.txt
++++ b/src/lang/russian.txt
+@@ -5195,3 +5195,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/serbian.txt b/src/lang/serbian.txt
+index f27c669459..2fea1a9e3e 100644
+--- a/src/lang/serbian.txt
++++ b/src/lang/serbian.txt
+@@ -5179,3 +5179,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/simplified_chinese.txt b/src/lang/simplified_chinese.txt
+index 222e10941e..c16ce8d84c 100644
+--- a/src/lang/simplified_chinese.txt
++++ b/src/lang/simplified_chinese.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/slovak.txt b/src/lang/slovak.txt
+index 48d075be5f..98e47a1557 100644
+--- a/src/lang/slovak.txt
++++ b/src/lang/slovak.txt
+@@ -5037,3 +5037,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/slovenian.txt b/src/lang/slovenian.txt
+index 950494fdd9..37b778b8ba 100644
+--- a/src/lang/slovenian.txt
++++ b/src/lang/slovenian.txt
+@@ -5095,3 +5095,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/spanish.txt b/src/lang/spanish.txt
+index c3c8073283..0ec11e12f8 100644
+--- a/src/lang/spanish.txt
++++ b/src/lang/spanish.txt
+@@ -4969,3 +4969,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/swedish.txt b/src/lang/swedish.txt
+index e53665dd51..d8c5e842e3 100644
+--- a/src/lang/swedish.txt
++++ b/src/lang/swedish.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/tamil.txt b/src/lang/tamil.txt
+index fd20c0f021..cffd24b64f 100644
+--- a/src/lang/tamil.txt
++++ b/src/lang/tamil.txt
+@@ -4503,3 +4503,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/thai.txt b/src/lang/thai.txt
+index 89f8e69113..7ee88215bf 100644
+--- a/src/lang/thai.txt
++++ b/src/lang/thai.txt
+@@ -4867,3 +4867,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/traditional_chinese.txt b/src/lang/traditional_chinese.txt
+index 9713a26a08..eb10bd601f 100644
+--- a/src/lang/traditional_chinese.txt
++++ b/src/lang/traditional_chinese.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/turkish.txt b/src/lang/turkish.txt
+index 7ba5ab8146..0783cf0ce2 100644
+--- a/src/lang/turkish.txt
++++ b/src/lang/turkish.txt
+@@ -4979,3 +4979,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/ukrainian.txt b/src/lang/ukrainian.txt
+index a07138e60f..6dd064d73f 100644
+--- a/src/lang/ukrainian.txt
++++ b/src/lang/ukrainian.txt
+@@ -5136,3 +5136,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/vietnamese.txt b/src/lang/vietnamese.txt
+index 803cd125a0..80a65ccaf1 100644
+--- a/src/lang/vietnamese.txt
++++ b/src/lang/vietnamese.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+diff --git a/src/lang/welsh.txt b/src/lang/welsh.txt
+index 1cf9a63c31..666e29651b 100644
+--- a/src/lang/welsh.txt
++++ b/src/lang/welsh.txt
+@@ -4968,3 +4968,5 @@ STR_PLANE                                                       :{BLACK}{PLANE}
+ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
++
++# Android strings
+-- 
+2.55.0
+

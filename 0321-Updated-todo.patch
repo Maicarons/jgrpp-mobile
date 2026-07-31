@@ -1,0 +1,24 @@
+From bfc55171fde7c545020de2a84f94bed70fd0d449 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 20 Mar 2017 22:52:38 +0200
+Subject: [PATCH 0321/1053] Updated todo
+
+---
+ todo.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index ae13d8305b..ffd80e7a09 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -18,3 +18,7 @@
+ - Default button size set to 48, update vertical toolbar buttons.
+ 
+ - Tooltip window steals touches.
++
++- Move chat window outside of the vertical toolbar.
++
++- Add dedicated 'Chat all' button to the 'Companies' menu.
+-- 
+2.55.0
+

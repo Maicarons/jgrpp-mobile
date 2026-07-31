@@ -1,0 +1,24 @@
+From c61311978a970b06c5749c0e8cd46ef2e2eb3407 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 5 May 2021 00:20:45 +0300
+Subject: [PATCH 0668/1053] Emscripten: Fixed relative paths
+
+---
+ os/emscripten/openttd.webapp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/os/emscripten/openttd.webapp b/os/emscripten/openttd.webapp
+index 7a5318912b..71b2829df0 100644
+--- a/os/emscripten/openttd.webapp
++++ b/os/emscripten/openttd.webapp
+@@ -11,6 +11,6 @@
+             "type":     "image/png"
+         }
+     ],
+-    "start_url":        "/openttd.html",
++    "start_url":        "openttd.html",
+     "background_color": "green"
+ }
+-- 
+2.55.0
+

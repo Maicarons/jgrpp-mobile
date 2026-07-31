@@ -1,0 +1,55 @@
+From 400b6daad01586ae16332b70033a6fdd65e96fef Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 14 Nov 2014 20:27:58 +0200
+Subject: [PATCH 0169/1053] Auto-select last used tool for railroad
+
+---
+ src/rail_gui.cpp    | 10 ++++++++++
+ src/video/sdl_v.cpp |  3 ++-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index 04cb8005c0..e848790c59 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -757,6 +757,16 @@ struct BuildRailToolbarWindow : Window {
+ 		DeleteWindowByClass(WC_BUILD_BRIDGE);
+ 	}
+ 
++	virtual void SelectLastTool()
++	{
++		// User misplaced something - activate last selected tool again
++		if (this->last_user_action == WIDGET_LIST_END)
++			return;
++		Point dummy = {0, 0};
++		this->RaiseWidget(this->last_user_action);
++		this->OnClick(dummy, this->last_user_action, 0);
++	}
++
+ 	virtual void OnPlacePresize(Point pt, TileIndex tile_from)
+ 	{
+ 		TileIndex tile_to = tile_from;
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 669c3114c2..613b664476 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -25,6 +25,7 @@
+ #include "../fileio_func.h"
+ #include "../settings_type.h"
+ #include "../tilehighlight_func.h"
++#include "../viewport_func.h"
+ #include "sdl_v.h"
+ #include <SDL.h>
+ #ifdef __ANDROID__
+@@ -623,7 +624,7 @@ int VideoDriver_SDL::PollEvent()
+ 					// Two-finger click - hacky way to determine if the right mouse button is already pressed without processing the left button event
+ 					// Cancel whatewer action we were doing, to allow two finger scrolling
+ 					ResetObjectToPlace();
+-					SelectLastTool();
++					ToolbarSelectLastTool();
+ 				}
+ #endif
+ 			} else if (ev.button.button == SDL_BUTTON_RIGHT) {
+-- 
+2.55.0
+

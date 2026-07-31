@@ -1,0 +1,50 @@
+From 6bd2b9c34f7ea630c2a035efa860ba50e636aa38 Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Tue, 17 Jan 2023 18:16:41 +0100
+Subject: [PATCH 0875/1053] Change: explicitly allow initial loan of 0, however
+ show warning in UI
+
+---
+ src/lang/english.txt                       | 3 +++
+ src/table/settings/difficulty_settings.ini | 4 ++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 42bfb95d9f..131e342e75 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1206,6 +1206,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Right
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximum initial loan: {STRING2}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximum amount a company can loan (without taking inflation into account)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :No loan {RED}Requires Game Script to provide initial funds
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Interest rate: {STRING2}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Loan interest rate; also controls inflation, if enabled
+diff --git a/src/table/settings/difficulty_settings.ini b/src/table/settings/difficulty_settings.ini
+index c453162a18..ee68c6d30e 100644
+--- a/src/table/settings/difficulty_settings.ini
++++ b/src/table/settings/difficulty_settings.ini
+@@ -96,7 +96,7 @@ cat      = SC_BASIC
+ var      = difficulty.max_loan
+ type     = SLE_UINT32
+ from     = SLV_97
+-flags    = SF_NEWGAME_ONLY | SF_SCENEDIT_TOO | SF_GUI_CURRENCY
++flags    = SF_NEWGAME_ONLY | SF_SCENEDIT_TOO | SF_GUI_CURRENCY | SF_GUI_0_IS_SPECIAL
+ def      = 300000
+ min      = LOAN_INTERVAL
+ max      = 2000000000
+@@ -104,7 +104,7 @@ pre_cb   = [](auto &new_value) { new_value = (new_value + LOAN_INTERVAL / 2) / L
+ interval = LOAN_INTERVAL
+ str      = STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN
+ strhelp  = STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT
+-strval   = STR_JUST_CURRENCY_LONG
++strval   = STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE
+ cat      = SC_BASIC
+ 
+ [SDT_VAR]
+-- 
+2.55.0
+

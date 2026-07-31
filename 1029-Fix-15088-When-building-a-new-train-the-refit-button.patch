@@ -1,0 +1,30 @@
+From 175a0c4d83f2641f642516449daa1bc49aac6cbc Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Sat, 24 Jan 2026 19:12:22 +0000
+Subject: [PATCH 1029/1053] Fix #15088: When building a new train, the refit
+ button state may be incorrect. (#15162)
+
+Invalidate vehicle view window when the vehicle chain is changed.
+
+Co-authored-by: Abigail <abigailthomsonhicks@gmail.com>
+---
+ src/train_cmd.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/train_cmd.cpp b/src/train_cmd.cpp
+index 0ef0f49fec..8f403aa220 100644
+--- a/src/train_cmd.cpp
++++ b/src/train_cmd.cpp
+@@ -244,6 +244,9 @@ void Train::ConsistChanged(ConsistChangeFlags allowed_changes)
+ 		InvalidateWindowData(WC_VEHICLE_REFIT, this->index, VIWD_CONSIST_CHANGED);
+ 		InvalidateWindowData(WC_VEHICLE_ORDERS, this->index, VIWD_CONSIST_CHANGED);
+ 		InvalidateNewGRFInspectWindow(GSF_TRAINS, this->index);
++
++		/* If the consist is changed while in a depot, the vehicle view window must be invalidated to update the availability of refitting. */
++		InvalidateWindowData(WC_VEHICLE_VIEW, this->index, VIWD_CONSIST_CHANGED);
+ 	}
+ }
+ 
+-- 
+2.55.0
+

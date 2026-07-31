@@ -1,0 +1,152 @@
+From c9c2d5a71ed7777fc44ed5a390dd3a975d84e404 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 29 Jan 2018 21:29:31 +0200
+Subject: [PATCH 0450/1053] Updated translations
+
+---
+ src/lang/croatian.txt           |  4 ++--
+ src/lang/czech.txt              |  4 ++--
+ src/lang/gaelic.txt             |  4 ++--
+ src/lang/japanese.txt           |  4 ++--
+ src/lang/korean.txt             |  4 ++--
+ src/lang/simplified_chinese.txt |  4 ++--
+ src/lang/spanish_MX.txt         | 22 +++++++++++-----------
+ 7 files changed, 23 insertions(+), 23 deletions(-)
+
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index 824f2c3112..41fd0fd7db 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -5118,8 +5118,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Veličin
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Veličina svih fontova u igri
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Potvrdi akcije: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :Prikaži dijalog potvrde pri gradnji cesta i stanica
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :Naslovne trake
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :Prikaži naslovne trake za sve prozore ili ih sakrij za uštedu prostora na ekranu
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Naslovne trake
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Prikaži naslovne trake za sve prozore ili ih sakrij za uštedu prostora na ekranu
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Ukrasi prozora: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Ukrasi na rubovima prozora
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bita
+diff --git a/src/lang/czech.txt b/src/lang/czech.txt
+index 6a596fa97c..69ba55c19f 100644
+--- a/src/lang/czech.txt
++++ b/src/lang/czech.txt
+@@ -5200,8 +5200,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Veliksot
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Velikost všech fontů ve hře
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Potvrdit akce: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :Zobrazitr potvrzující okno při stavbě silnic a stanic
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :Titulní pruhy
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :Zobrazit titulní pruhy u všech oken, nebo je schovat pro ušetření místa na displeji
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Titulní pruhy
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Zobrazit titulní pruhy u všech oken, nebo je schovat pro ušetření místa na displeji
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Ozdoby oken: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Ozdoby na hranách oken
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bitů
+diff --git a/src/lang/gaelic.txt b/src/lang/gaelic.txt
+index 465f81124e..1fc8229f25 100644
+--- a/src/lang/gaelic.txt
++++ b/src/lang/gaelic.txt
+@@ -5363,8 +5363,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :Meud a' chrutha
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Am meud air gach cruth-clò a' gheama
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Dearbhaich na gnìomhan: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :Seall còmhradh dearbhaidh le togail rathaidean is stèiseanan
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :Bàraichean-tiotail
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :Seall bàr-tiotail air gach uinneag no falaich iad gus rum a shàbhaladh air an sgrìn
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Bàraichean-tiotail
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Seall bàr-tiotail air gach uinneag no falaich iad gus rum a shàbhaladh air an sgrìn
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Sgeadachadh nan uinneagan: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Sgeadachadh air oirean nan uinneagan
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :8 biod
+diff --git a/src/lang/japanese.txt b/src/lang/japanese.txt
+index 0f7e0ae6c2..46da529e47 100644
+--- a/src/lang/japanese.txt
++++ b/src/lang/japanese.txt
+@@ -4981,8 +4981,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    : {BLACK}フォ
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            : {BLACK}全てのゲームのフォント
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :アクションの確認: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :道路とステーションの建設時に確認のダイアログの表示
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :タイトルバー
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :ウィンドウのタイトルバーを表示するか、隠して画面のスペースを確保するか選べます
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}タイトルバー
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}ウィンドウのタイトルバーを表示するか、隠して画面のスペースを確保するか選べます
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :ウィンドウの装飾: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :ウィンドウの縁を装飾します
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   : {BLACK}8 bit
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index c64c074761..b770be00b6 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -4986,8 +4986,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}폰트 
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}모든 게임 폰트의 크기
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :명령 확인: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :도로와 정류장을 건설시 확인 팝업을 보임
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :이름 창
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :모든 창에 대해 이름을 보여주거나, 화면 공간 절약을 위해 이름을 가리기
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}이름 창
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}모든 창에 대해 이름을 보여주거나, 화면 공간 절약을 위해 이름을 가리기
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :창 꾸미기: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :창 모서리에 꾸밈 효과
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   : {BLACK}8비트
+diff --git a/src/lang/simplified_chinese.txt b/src/lang/simplified_chinese.txt
+index 8d04945397..5061661199 100644
+--- a/src/lang/simplified_chinese.txt
++++ b/src/lang/simplified_chinese.txt
+@@ -4977,8 +4977,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :字体大小
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :游戏字体大小
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :确认操作: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :建立道路和车站时显示确认对话框
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :标题栏
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :显示所有窗口的标题栏，或者隐藏它们以节省屏幕空间
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}标题栏
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}显示所有窗口的标题栏，或者隐藏它们以节省屏幕空间
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :窗口装饰: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :窗口边缘装饰
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :8 bit
+diff --git a/src/lang/spanish_MX.txt b/src/lang/spanish_MX.txt
+index 3fcaeda739..badcbcf987 100644
+--- a/src/lang/spanish_MX.txt
++++ b/src/lang/spanish_MX.txt
+@@ -4969,28 +4969,28 @@ STR_SHIP                                                        :{BLACK}{SHIP}
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
+ 
+ # Android strings
+-STR_ABOUT_MENU_TUTORIAL                                         :Guía de cómo jugar
++STR_ABOUT_MENU_TUTORIAL                                         :{BLACK}Guía de cómo jugar
+ STR_SMALLMAP_TOOLTIP_SHOW_LEGEND                                :{BLACK}Mostrar leyenda o descripción de símbolos del mapa
+ STR_CONFIG_SETTING_VERTICAL_TOOLBAR                             :Barra de herramientas vertical: {STRING}
+ STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT                    :La barra de herramientas principal se divide en dos barras verticales laterales
+ STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR                     :Compactar barra vertical: {STRING}
+ STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR_HELPTEXT            :Más submenúes en la barra vertical en lugar de botón de "Cambiar barras"
+-STR_CONFIG_SETTING_BUTTON_SIZE                                  :Tamaño de botones
+-STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :Tamaño de elementos de la interfaz
+-STR_CONFIG_SETTING_FONT_SIZE                                    :Tamaño de letra
++STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Tamaño de botones
++STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Tamaño de elementos de la interfaz
++STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Tamaño de letra
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Tamaño de letra general
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Confirmar acciones: {STRING}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :Mostrar diálogo de confirmación al construir carreteras y estaciones
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :Barras de título
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :Mostrar títulos en todas las ventas u ocultarlos para reducir espacio
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Barras de título
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Mostrar títulos en todas las ventas u ocultarlos para reducir espacio
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Decoraciones de ventana: {STRING}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Adornos en bordes de ventana
+-STR_CONFIG_SETTING_VIDEO_8BPP                                   :8 bits
+-STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT                          :Establecer profundidad de color de video a 8 bits por pixel. Este modo de video soporta animación de agua
+-STR_CONFIG_SETTING_VIDEO_16BPP                                  :16 bits
++STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bits
++STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT                          :{BLACK}Establecer profundidad de color de video a 8 bits por pixel. Este modo de video soporta animación de agua
++STR_CONFIG_SETTING_VIDEO_16BPP                                  :{BLACK}16 bits
+ STR_CONFIG_SETTING_VIDEO_16BPP_HELPTEXT                         :{BLACK}Establecer profundidad de color de video a 16 bits por pixel. Requiere reiniciar. Este modo de video no soporta animación de agua
+-STR_CONFIG_SETTING_VIDEO_24BPP                                  :24 bits
+-STR_CONFIG_SETTING_VIDEO_24BPP_HELPTEXT                         :Establecer profundidad de color de video a 24 bits por pixel. Este modo de video soporta animación de agua
++STR_CONFIG_SETTING_VIDEO_24BPP                                  :{BLACK}24 bits
++STR_CONFIG_SETTING_VIDEO_24BPP_HELPTEXT                         :{BLACK}Establecer profundidad de color de video a 24 bits por pixel. Este modo de video soporta animación de agua
+ STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Cerrar todas las ventanas abiertas, salvo las que estén fijas
+ STR_TABLET_SHIFT_TOOLTIP                                        :{BLACK}Pulsar para ver una estimación del precio al realizar una acción
+ STR_TABLET_CTRL_TOOLTIP                                         :{BLACK}Emplearlo para acciones que utilizan la tecla "Ctrl"
+-- 
+2.55.0
+

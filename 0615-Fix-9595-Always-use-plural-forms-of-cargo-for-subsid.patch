@@ -1,0 +1,56 @@
+From 0ebfae6a8dc2d52e7fb974eca51777bd0c31edb9 Mon Sep 17 00:00:00 2001
+From: Charles Pigott <charlespigott@googlemail.com>
+Date: Mon, 18 Oct 2021 09:43:14 +0100
+Subject: [PATCH 0615/1053] Fix #9595: Always use plural forms of cargo for
+ subsidy strings (#9619)
+
+---
+ src/lang/english.txt | 10 +++++-----
+ src/subsidy.cpp      |  8 ++------
+ 2 files changed, 7 insertions(+), 11 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 83ff026980..49497a00c4 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -898,12 +898,12 @@ STR_NEWS_STATION_NOW_ACCEPTS_CARGO_AND_CARGO                    :{WHITE}{STATION
+ 
+ STR_NEWS_OFFER_OF_SUBSIDY_EXPIRED                               :{BIG_FONT}{BLACK}Offer of subsidy expired:{}{}{STRING} from {STRING2} to {STRING2} will now not attract a subsidy
+ STR_NEWS_SUBSIDY_WITHDRAWN_SERVICE                              :{BIG_FONT}{BLACK}Subsidy withdrawn:{}{}{STRING} service from {STRING2} to {STRING2} is no longer subsidised
+-STR_NEWS_SERVICE_SUBSIDY_OFFERED                                :{BIG_FONT}{BLACK}Service subsidy offered:{}{}First {STRING} service from {STRING2} to {STRING2} will attract a {NUM} year subsidy from the local authority!
++STR_NEWS_SERVICE_SUBSIDY_OFFERED                                :{BIG_FONT}{BLACK}Service subsidy offered:{}{}First {STRING} from {STRING2} to {STRING2} will attract a {NUM} year subsidy from the local authority!
+ ###length 4
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} service from {STRING2} to {STRING2} will pay 50% extra for the next {NUM} year{P "" s}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_DOUBLE                         :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} service from {STRING2} to {STRING2} will pay double rates for the next {NUM} year{P "" s}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_TRIPLE                         :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} service from {STRING2} to {STRING2} will pay triple rates for the next {NUM} year{P "" s}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_QUADRUPLE                      :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} service from {STRING2} to {STRING2} will pay quadruple rates for the next {NUM} year{P "" s}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay 50% extra for the next {NUM} year{P "" s}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_DOUBLE                         :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay double rates for the next {NUM} year{P "" s}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_TRIPLE                         :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay triple rates for the next {NUM} year{P "" s}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_QUADRUPLE                      :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay quadruple rates for the next {NUM} year{P "" s}!
+ 
+ STR_NEWS_ROAD_REBUILDING                                        :{BIG_FONT}{BLACK}Traffic chaos in {TOWN}!{}{}Road rebuilding programme funded by {RAW_STRING} brings 6 months of misery to motorists!
+ STR_NEWS_EXCLUSIVE_RIGHTS_TITLE                                 :{BIG_FONT}{BLACK}Transport monopoly!
+diff --git a/src/subsidy.cpp b/src/subsidy.cpp
+index 0b1c1a721f..e8fc951c4e 100644
+--- a/src/subsidy.cpp
++++ b/src/subsidy.cpp
+@@ -74,13 +74,9 @@ std::pair<NewsReferenceType, NewsReferenceType> SetupSubsidyDecodeParam(const Su
+ 	NewsReferenceType reftype1 = NR_NONE;
+ 	NewsReferenceType reftype2 = NR_NONE;
+ 
+-	/* Choose whether to use the singular or plural form of the cargo name based on how we're printing the subsidy */
++	/* Always use the plural form of the cargo name - trying to decide between plural or singular causes issues for translations */
+ 	const CargoSpec *cs = CargoSpec::Get(s->cargo_type);
+-	if (mode == SubsidyDecodeParamType::Gui || mode == SubsidyDecodeParamType::NewsWithdrawn) {
+-		SetDParam(parameter_offset, cs->name);
+-	} else {
+-		SetDParam(parameter_offset, cs->name_single);
+-	}
++	SetDParam(parameter_offset, cs->name);
+ 
+ 	switch (s->src_type) {
+ 		case ST_INDUSTRY:
+-- 
+2.55.0
+

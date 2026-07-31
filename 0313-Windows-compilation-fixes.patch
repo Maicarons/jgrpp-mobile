@@ -1,0 +1,46 @@
+From cd865fc77a53c8159df6613dc70633475ed88c95 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 2 Feb 2017 19:58:17 +0200
+Subject: [PATCH 0313/1053] Windows compilation fixes
+
+---
+ src/main_gui.cpp | 2 ++
+ src/openttd.cpp  | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/src/main_gui.cpp b/src/main_gui.cpp
+index 3afe20a254..80d460c0f6 100644
+--- a/src/main_gui.cpp
++++ b/src/main_gui.cpp
+@@ -570,7 +570,9 @@ void SetupColoursAndInitialWindow()
+ 				static int counter = 5; // This part of code is called several times during startup, which closes all windows, so we need to put random hacks here
+ 				counter--;
+ 				ShowGameOptions();
++#ifndef WIN32
+ 				if (counter == 0) unsetenv("SDL_RESTART_PARAMS");
++#endif
+ 			}
+ 			break;
+ 
+diff --git a/src/openttd.cpp b/src/openttd.cpp
+index f106f09d92..da6a95f1d3 100644
+--- a/src/openttd.cpp
++++ b/src/openttd.cpp
+@@ -737,12 +737,14 @@ int openttd_main(int argc, char *argv[])
+ 	_cursor.in_window = true;
+ 
+ 	{
++#ifndef WIN32
+ 		// Configure local font path on Android
+ 		//char curdir[PATH_MAX];
+ 		//getcwd(curdir, sizeof(curdir));
+ 		//setenv("FONTCONFIG_FONTS", (std::string(curdir) + "/fonts").c_str(), 1);
+ 		setenv("FONTCONFIG_FONTS", "fonts", 1);
+ 		DEBUG(misc, 1, "Set FONTCONFIG_FONTS to %s", getenv("FONTCONFIG_FONTS"));
++#endif
+ 	}
+ 	/* enumerate language files */
+ 	InitializeLanguagePacks();
+-- 
+2.55.0
+

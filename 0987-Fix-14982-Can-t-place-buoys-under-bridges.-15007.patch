@@ -1,0 +1,61 @@
+From 2b8b882fc3438491c6e5d0da9dce1c7a3e5a5666 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Thu, 1 Jan 2026 16:31:08 +0000
+Subject: [PATCH 0987/1053] Fix #14982: Can't place buoys under bridges.
+ (#15007)
+
+Bridges can be built over buoys but not the other way around.
+---
+ src/station_cmd.cpp  | 14 ++++++++++++++
+ src/waypoint_cmd.cpp |  3 ++-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/src/station_cmd.cpp b/src/station_cmd.cpp
+index 4f88734a9a..351f10dfbe 100644
+--- a/src/station_cmd.cpp
++++ b/src/station_cmd.cpp
+@@ -960,6 +960,20 @@ static CommandCost IsDockBridgeAboveOk(TileIndex tile, StationGfx layout)
+ 	return IsStationBridgeAboveOk(tile, bridgeable_info, StationType::Dock, layout, GetBridgeHeight(rampsouth), STR_ERROR_MUST_DEMOLISH_BRIDGE_FIRST);
+ }
+ 
++/**
++ * Test if a buoy can be built below a bridge.
++ * @param tile Tile to test.
++ * @return Command result.
++ */
++CommandCost IsBuoyBridgeAboveOk(TileIndex tile)
++{
++	if (!IsBridgeAbove(tile)) return CommandCost();
++
++	TileIndex rampsouth = GetSouthernBridgeEnd(tile);
++	auto bridgeable_info = GetStationBridgeableTileInfo(StationType::Buoy);
++	return IsStationBridgeAboveOk(tile, bridgeable_info, StationType::Buoy, 0, GetBridgeHeight(rampsouth), STR_ERROR_MUST_DEMOLISH_BRIDGE_FIRST);
++}
++
+ /**
+  * Checks if a rail station can be built at the given tile.
+  * @param tile_cur Tile to check.
+diff --git a/src/waypoint_cmd.cpp b/src/waypoint_cmd.cpp
+index 531ceb9419..3478370f2c 100644
+--- a/src/waypoint_cmd.cpp
++++ b/src/waypoint_cmd.cpp
+@@ -187,6 +187,7 @@ extern CommandCost FindJoiningWaypoint(StationID existing_station, StationID sta
+ extern CommandCost CanExpandRailStation(const BaseStation *st, TileArea &new_ta);
+ extern CommandCost CalculateRoadStopCost(TileArea tile_area, DoCommandFlags flags, bool is_drive_through, StationType station_type, const RoadStopSpec *roadstopspec, Axis axis, DiagDirection ddir, StationID *est, RoadType rt, Money unit_cost);
+ extern CommandCost IsRailStationBridgeAboveOk(TileIndex tile, const StationSpec *spec, StationType type, StationGfx layout);
++extern CommandCost IsBuoyBridgeAboveOk(TileIndex tile);
+ 
+ extern CommandCost RemoveRoadWaypointStop(TileIndex tile, DoCommandFlags flags, int replacement_spec_index);
+ 
+@@ -474,7 +475,7 @@ CommandCost CmdBuildRoadWaypoint(DoCommandFlags flags, TileIndex start_tile, Axi
+ CommandCost CmdBuildBuoy(DoCommandFlags flags, TileIndex tile)
+ {
+ 	if (tile == 0 || !HasTileWaterGround(tile)) return CommandCost(STR_ERROR_SITE_UNSUITABLE);
+-	if (IsBridgeAbove(tile)) return CommandCost(STR_ERROR_MUST_DEMOLISH_BRIDGE_FIRST);
++	if (CommandCost ret = IsBuoyBridgeAboveOk(tile); ret.Failed()) return ret;
+ 
+ 	if (!IsTileFlat(tile)) return CommandCost(STR_ERROR_SITE_UNSUITABLE);
+ 
+-- 
+2.55.0
+

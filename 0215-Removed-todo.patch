@@ -1,0 +1,29 @@
+From 279baee43a05d7447128d8c146a6ce0fe49fafdf Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 29 Apr 2015 19:47:23 +0300
+Subject: [PATCH 0215/1053] Removed todo
+
+---
+ todo.txt | 10 ----------
+ 1 file changed, 10 deletions(-)
+ delete mode 100644 todo.txt
+
+diff --git a/todo.txt b/todo.txt
+deleted file mode 100644
+index 88b5fa450e..0000000000
+--- a/todo.txt
++++ /dev/null
+@@ -1,10 +0,0 @@
+-Minor bugs, which I'm too lazy to fix - serious bugs go to https://github.com/pelya/commandergenius/blob/sdl_android/todo.txt
+-=============================================================================================================================
+-
+-- OpenTTD: All menus in the scenario editor are out of the screen.
+-
+-- OpenTTD: 16bpp blitter with palette animation support.
+-
+-- OpenTTD: screen navigation buttons bug on Moto G - not reproduced on Nexus 7.
+-
+-- OpenTTD: Cheats menu closes itself randomly.
+-- 
+2.55.0
+

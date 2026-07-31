@@ -1,0 +1,62 @@
+From f132b16b58d12f96b4571433b3650a12149b5ca8 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sun, 7 Apr 2024 13:40:38 +0100
+Subject: [PATCH 0899/1053] fix: add _t suffix to (u)int types
+
+see https://github.com/OpenTTD/OpenTTD/commit/eaae0bb5e71b237cc1fe1388ab74e6bd3aa0c69e
+---
+ src/music/libtimidity.cpp | 10 +++++-----
+ src/music/libtimidity.h   |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/src/music/libtimidity.cpp b/src/music/libtimidity.cpp
+index c23ea08815..25a49ac7ac 100644
+--- a/src/music/libtimidity.cpp
++++ b/src/music/libtimidity.cpp
+@@ -34,17 +34,17 @@ static struct {
+ 	MidSong *song;
+ 
+ 	MidiState status;
+-	uint32 song_length;
+-	uint32 song_position;
++	uint32_t song_length;
++	uint32_t song_position;
+ 	std::mutex synth_mutex;        ///< Guard mutex for synth access
+ } _midi; ///< Metadata about the midi we're playing.
+ 
+-static void MidiMixMusic(int16 *stream, size_t len)
++static void MidiMixMusic(int16_t *stream, size_t len)
+ {
+ 	std::unique_lock<std::mutex> lock{ _midi.synth_mutex, std::try_to_lock };
+ 
+ 	if (_midi.status == MIDI_PLAYING) {
+-		mid_song_read_wave(_midi.song, (sint8 *)stream, len * 4);
++		mid_song_read_wave(_midi.song, (int8_t *)stream, len * 4);
+ 	}
+ }
+ 
+@@ -59,7 +59,7 @@ const char *MusicDriver_LibTimidity::Start(const StringList &param)
+ 	_midi.status = MIDI_STOPPED;
+ 	_midi.song = NULL;
+ 	volume = TIMIDITY_MAX_VOLUME; // Avoid clipping
+-	uint32 samplerate = MxSetMusicSource(MidiMixMusic);
++	uint32_t samplerate = MxSetMusicSource(MidiMixMusic);
+ 
+ 	if (mid_init(NULL) < 0) {
+ 		/* If init fails, it can be because no configuration was found.
+diff --git a/src/music/libtimidity.h b/src/music/libtimidity.h
+index c2cc04052c..6b68363b8c 100644
+--- a/src/music/libtimidity.h
++++ b/src/music/libtimidity.h
+@@ -35,7 +35,7 @@ public:
+ class FMusicDriver_LibTimidity : public DriverFactoryBase {
+ public:
+ 	FMusicDriver_LibTimidity() : DriverFactoryBase(Driver::DT_MUSIC, 5, "libtimidity", "LibTimidity MIDI Driver") {}
+-	/* virtual */ Driver *CreateInstance() const { return new MusicDriver_LibTimidity(); }
++	Driver *CreateInstance() const override { return new MusicDriver_LibTimidity(); }
+ };
+ 
+ #endif /* MUSIC_LIBTIMIDITY_H */
+-- 
+2.55.0
+

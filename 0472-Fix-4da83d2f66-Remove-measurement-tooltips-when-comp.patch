@@ -1,0 +1,34 @@
+From 79d2acff243d8cbdc53bde8f6640e3722b0b8aa8 Mon Sep 17 00:00:00 2001
+From: peter1138 <peter1138@openttd.org>
+Date: Thu, 21 Mar 2019 18:03:39 +0000
+Subject: [PATCH 0472/1053] Fix 4da83d2f66: Remove measurement tooltips when
+ completed.
+
+---
+ src/viewport.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/viewport.cpp b/src/viewport.cpp
+index d4eb9900da..07cecb556e 100644
+--- a/src/viewport.cpp
++++ b/src/viewport.cpp
+@@ -2331,7 +2331,7 @@ static inline void ShowMeasurementTooltips(StringID str, uint paramcount, const
+ 	GuiShowTooltips(_thd.GetCallbackWnd(), str, paramcount, params, close_cond);
+ }
+ 
+-void HideMeasurementTooltips()
++static void HideMeasurementTooltips()
+ {
+ 	DeleteWindowById(WC_TOOLTIPS, 0);
+ }
+@@ -3009,6 +3009,7 @@ EventState VpHandlePlaceSizingDrag()
+ 	}
+ 	SetTileSelectSize(1, 1);
+ 
++	HideMeasurementTooltips();
+ 	w->OnPlaceMouseUp(_thd.select_method, _thd.select_proc, _thd.selend, TileVirtXY(_thd.selstart.x, _thd.selstart.y), TileVirtXY(_thd.selend.x, _thd.selend.y));
+ 
+ 	return ES_HANDLED;
+-- 
+2.55.0
+

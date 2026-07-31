@@ -1,0 +1,36 @@
+From 7e61264e3c1635df064913ff66ac5db56eba6804 Mon Sep 17 00:00:00 2001
+From: PeterN <peter1138@openttd.org>
+Date: Tue, 24 Jan 2023 00:05:42 +0000
+Subject: [PATCH 0851/1053] Fix #10220: Don't select unselectable engine as
+ default. (#10404)
+
+---
+ src/build_vehicle_gui.cpp | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/src/build_vehicle_gui.cpp b/src/build_vehicle_gui.cpp
+index dbbb5dbde2..77e5b20ac9 100644
+--- a/src/build_vehicle_gui.cpp
++++ b/src/build_vehicle_gui.cpp
+@@ -1187,12 +1187,12 @@ struct BuildVehicleWindow : Window {
+ 
+ 		this->eng_list.ForceRebuild();
+ 		this->GenerateBuildList(); // generate the list, since we need it in the next line
+-		/* Select the first engine in the list as default when opening the window */
+-		if (this->eng_list.size() > 0) {
+-			this->SelectEngine(this->eng_list[0].engine_id);
+-		} else {
+-			this->SelectEngine(INVALID_ENGINE);
+-		}
++
++		/* Select the first unshaded engine in the list as default when opening the window */
++		EngineID engine = INVALID_ENGINE;
++		auto it = std::find_if(this->eng_list.begin(), this->eng_list.end(), [&](GUIEngineListItem &item){ return (item.flags & EngineDisplayFlags::Shaded) == EngineDisplayFlags::None; });
++		if (it != this->eng_list.end()) engine = it->engine_id;
++		this->SelectEngine(engine);
+ 	}
+ 
+ 	/** Set the filter type according to the depot type */
+-- 
+2.55.0
+

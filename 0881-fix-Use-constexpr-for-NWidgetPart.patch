@@ -1,0 +1,57 @@
+From 72c1457a7b3bad2b5b7fde027b63143fbffc0f4f Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Wed, 3 Apr 2024 20:26:20 +0100
+Subject: [PATCH 0881/1053] fix: Use constexpr for NWidgetPart
+
+---
+ src/widget_type.h | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/src/widget_type.h b/src/widget_type.h
+index ebdf7269bf..0e679790f4 100644
+--- a/src/widget_type.h
++++ b/src/widget_type.h
+@@ -1070,6 +1070,7 @@ struct NWidgetPart {
+ 		NWidgetPartAlignment align;      ///< Part with internal alignment.
+ 		NWidgetFunctionType *func_ptr;   ///< Part with a function call.
+ 		NWidContainerFlags cont_flags;   ///< Part with container flags.
++		NWidSizingType sizing_type;      ///< Part with sizing type.
+ 
+ 		/* Constructors for each NWidgetPartUnion data type. */
+ 		constexpr NWidgetPartUnion() : xy() {}
+@@ -1083,6 +1084,7 @@ struct NWidgetPart {
+ 		constexpr NWidgetPartUnion(NWidgetPartAlignment align) : align(align) {}
+ 		constexpr NWidgetPartUnion(NWidgetFunctionType *func_ptr) : func_ptr(func_ptr) {}
+ 		constexpr NWidgetPartUnion(NWidContainerFlags cont_flags) : cont_flags(cont_flags) {}
++		constexpr NWidgetPartUnion(NWidSizingType sizing) : sizing_type(sizing) {}
+ 	} u;
+ 
+ 	/* Constructors for each NWidgetPart data type. */
+@@ -1097,6 +1099,7 @@ struct NWidgetPart {
+ 	constexpr NWidgetPart(WidgetType type, NWidgetPartAlignment align) : type(type), u(align) {}
+ 	constexpr NWidgetPart(WidgetType type, NWidgetFunctionType *func_ptr) : type(type), u(func_ptr) {}
+ 	constexpr NWidgetPart(WidgetType type, NWidContainerFlags cont_flags) : type(type), u(cont_flags) {}
++	constexpr NWidgetPart(WidgetType type, NWidSizingType sizing) : type(type), u(sizing) {}
+ };
+ 
+ /**
+@@ -1115,14 +1118,9 @@ constexpr NWidgetPart SetResize(int16_t dx, int16_t dy)
+  * @param type How to decide the minimal size of the widget.
+  * @ingroup NestedWidgetParts
+  */
+-static inline NWidgetPart SetSizingType(NWidSizingType type)
++constexpr NWidgetPart SetSizingType(NWidSizingType type)
+ {
+-	NWidgetPart part;
+-
+-	part.type = WPT_SIZINGTYPE;
+-	part.u.sizing_type = type;
+-
+-	return part;
++	return NWidgetPart{WPT_SIZINGTYPE, type};
+ }
+ 
+ /**
+-- 
+2.55.0
+

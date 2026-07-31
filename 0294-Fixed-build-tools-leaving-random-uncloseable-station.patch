@@ -1,0 +1,73 @@
+From 7a0d500529b6a76ecaa536ee7ff16e4850d0094c Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 1 Jul 2016 22:49:23 +0300
+Subject: [PATCH 0294/1053] Fixed build tools leaving random uncloseable
+ station dialogs
+
+---
+ src/dock_gui.cpp | 2 +-
+ src/rail_gui.cpp | 3 +--
+ src/road_gui.cpp | 2 +-
+ todo.txt         | 2 --
+ 4 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index 9ef22f425a..3bf4dce151 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -288,7 +288,7 @@ struct BuildDocksToolbarWindow : Window {
+ 		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 
+-		if (ConfirmationWindowShown()) return;
++		if (ConfirmationWindowShown() && _ctrl_pressed) return;
+ 		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_WATER);
+ 		DeleteWindowById(WC_BUILD_DEPOT, TRANSPORT_WATER);
+ 		DeleteWindowById(WC_SELECT_STATION, 0);
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index 40231fa33d..11e095a0a3 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -771,7 +771,7 @@ struct BuildRailToolbarWindow : Window {
+ 		this->DisableWidget(WID_RAT_REMOVE);
+ 		this->SetWidgetDirty(WID_RAT_REMOVE);
+ 
+-		if (ConfirmationWindowShown()) return;
++		if (ConfirmationWindowShown() && (this->last_user_action == WID_RAT_BUILD_BRIDGE || _ctrl_pressed)) return;
+ 		DeleteWindowById(WC_BUILD_SIGNAL, TRANSPORT_RAIL);
+ 		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_RAIL);
+ 		DeleteWindowById(WC_BUILD_DEPOT, TRANSPORT_RAIL);
+@@ -935,7 +935,6 @@ static void HandleStationPlacement(TileIndex start, TileIndex end)
+ 	uint32 p2 = _railstation.station_class | _railstation.station_type << 8 | INVALID_STATION << 16;
+ 
+ 	CommandContainer cmdcont = { ta.tile, p1, p2, CMD_BUILD_RAIL_STATION | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_STATION), CcStation, "" };
+-	printf("Rail station ctrl pressed %d\n", _ctrl_pressed);
+ 	ShowSelectStationIfNeeded(cmdcont, ta);
+ }
+ 
+diff --git a/src/road_gui.cpp b/src/road_gui.cpp
+index 8812b34368..49393fee91 100644
+--- a/src/road_gui.cpp
++++ b/src/road_gui.cpp
+@@ -547,7 +547,7 @@ struct BuildRoadToolbarWindow : Window {
+ 		this->SetWidgetDirty(WID_ROT_REMOVE);
+ 		this->SetWidgetDirty(WID_ROT_ONE_WAY);
+ 
+-		if (ConfirmationWindowShown()) return;
++		if (ConfirmationWindowShown() && (this->last_started_action == WID_ROT_BUILD_BRIDGE || _ctrl_pressed)) return;
+ 		DeleteWindowById(WC_BUS_STATION, TRANSPORT_ROAD);
+ 		DeleteWindowById(WC_TRUCK_STATION, TRANSPORT_ROAD);
+ 		DeleteWindowById(WC_BUILD_DEPOT, TRANSPORT_ROAD);
+diff --git a/todo.txt b/todo.txt
+index 06f89cd47b..07aff99b86 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -2,5 +2,3 @@
+ - 'Place Sign' does not work. Landscaping - Place Sign works.
+ 
+ - Smallmap UI won't fit all FIRS industries.
+-
+-- Build tools keep zombie dialogs open after right-click.
+-- 
+2.55.0
+

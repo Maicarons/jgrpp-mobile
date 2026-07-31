@@ -1,0 +1,47 @@
+From f30d497cc15fa750949fabfccc94d5b14fcf1a5a Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 2 Apr 2014 22:57:38 +0300
+Subject: [PATCH 0109/1053] Modified 'release' bit in sources, and added a
+ patch for future references
+
+---
+ release.patch  | 13 +++++++++++++
+ src/rev.cpp.in |  2 +-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+ create mode 100644 release.patch
+
+diff --git a/release.patch b/release.patch
+new file mode 100644
+index 0000000000..aaecde1e88
+--- /dev/null
++++ b/release.patch
+@@ -0,0 +1,13 @@
++diff --git a/src/rev.cpp.in b/src/rev.cpp.in
++index 506e641..3300664 100644
++--- a/src/rev.cpp.in
+++++ b/src/rev.cpp.in
++@@ -70,7 +70,7 @@ const byte _openttd_revision_modified = !!MODIFIED!!;
++  * final release will always have a lower version number than the released
++  * version, thus making comparisons on specific revisions easy.
++  */
++-const uint32 _openttd_newgrf_version = 1 << 28 | 5 << 24 | 0 << 20 | 0 << 19 | (!!REVISION!! & ((1 << 19) - 1));
+++const uint32 _openttd_newgrf_version = 1 << 28 | 5 << 24 | 0 << 20 | 1 << 19 | (!!REVISION!! & ((1 << 19) - 1));
++ 
++ #ifdef __MORPHOS__
++ /**
+diff --git a/src/rev.cpp.in b/src/rev.cpp.in
+index 506e641d73..330066464a 100644
+--- a/src/rev.cpp.in
++++ b/src/rev.cpp.in
+@@ -70,7 +70,7 @@ const byte _openttd_revision_modified = !!MODIFIED!!;
+  * final release will always have a lower version number than the released
+  * version, thus making comparisons on specific revisions easy.
+  */
+-const uint32 _openttd_newgrf_version = 1 << 28 | 5 << 24 | 0 << 20 | 0 << 19 | (!!REVISION!! & ((1 << 19) - 1));
++const uint32 _openttd_newgrf_version = 1 << 28 | 5 << 24 | 0 << 20 | 1 << 19 | (!!REVISION!! & ((1 << 19) - 1));
+ 
+ #ifdef __MORPHOS__
+ /**
+-- 
+2.55.0
+

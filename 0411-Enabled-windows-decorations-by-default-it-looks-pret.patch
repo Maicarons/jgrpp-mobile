@@ -1,0 +1,26 @@
+From 17fce52ad995cc0e9890304d1996ced23d795e05 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 23 Jun 2017 19:31:43 +0300
+Subject: [PATCH 0411/1053] Enabled windows decorations by default, it looks
+ pretty and no one complained
+
+---
+ src/table/settings.ini | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index 7e585b919f..1cc7248601 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2577,7 +2577,7 @@ cat      = SC_BASIC
+ [SDTC_BOOL]
+ var      = gui.windows_decorations
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+-def      = false
++def      = true
+ str      = STR_CONFIG_SETTING_WINDOWS_DECORATIONS
+ strhelp  = STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT
+ cat      = SC_BASIC
+-- 
+2.55.0
+

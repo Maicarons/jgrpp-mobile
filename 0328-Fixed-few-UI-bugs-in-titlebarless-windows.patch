@@ -1,0 +1,84 @@
+From 5c0ecf1359e3be65f9d31b0c5d61698602f688f1 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Wed, 22 Mar 2017 23:33:03 +0200
+Subject: [PATCH 0328/1053] Fixed few UI bugs in titlebarless windows
+
+---
+ src/signs_gui.cpp |  2 ++
+ src/widget.cpp    | 22 ++++++++++------------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/src/signs_gui.cpp b/src/signs_gui.cpp
+index 1c4ad1dcc2..f992cf1579 100644
+--- a/src/signs_gui.cpp
++++ b/src/signs_gui.cpp
+@@ -24,6 +24,7 @@
+ #include "sortlist_type.h"
+ #include "stringfilter_type.h"
+ #include "string_func.h"
++#include "settings_type.h"
+ #include "core/geometry_func.hpp"
+ #include "hotkeys.h"
+ #include "transparency.h"
+@@ -274,6 +275,7 @@ struct SignListWindow : Window, SignList {
+ 			}
+ 
+ 			case WID_SIL_CAPTION:
++				if (!_settings_client.gui.windows_titlebars) break;
+ 				SetDParamMaxValue(0, Sign::GetPoolSize(), 3);
+ 				*size = GetStringBoundingBox(STR_SIGN_LIST_CAPTION);
+ 				size->height += padding.height;
+diff --git a/src/widget.cpp b/src/widget.cpp
+index ecd4b6629d..7039fa313c 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -2112,17 +2112,6 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 
+ 	if (this->sizing_type == NWST_NONE) {
+ 		switch (tp) {
+-			case WWT_CAPTION:
+-			case WWT_STICKYBOX:
+-			case WWT_SHADEBOX:
+-			case WWT_DEFSIZEBOX:
+-			case WWT_CLOSEBOX:
+-				if (!_settings_client.gui.windows_titlebars) {
+-					this->sizing_type = NWST_OVERRIDE;
+-					this->SetMinimalSize(0, 0);
+-					this->SetFill(0, 0);
+-					return;
+-				}
+ 			case WWT_PUSHBTN:
+ 			case WWT_IMGBTN:
+ 			case WWT_PUSHIMGBTN:
+@@ -2132,8 +2121,13 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 			case WWT_TEXTBTN_2:
+ 			case WWT_PUSHARROWBTN:
+ 			case WWT_EDITBOX:
++			case WWT_CAPTION:
++			case WWT_STICKYBOX:
++			case WWT_SHADEBOX:
+ 			case WWT_DEBUGBOX:
++			case WWT_DEFSIZEBOX:
+ 			case WWT_RESIZEBOX:
++			case WWT_CLOSEBOX:
+ 				this->sizing_type = NWST_BUTTON;
+ 				this->SetMinimalSize(8, 8);
+ 				break;
+@@ -2241,9 +2235,13 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 	const Dimension *padding = NULL;
+ 	if (!_settings_client.gui.windows_titlebars && w->window_class != WC_NEWS_WINDOW &&
+ 		(this->type == WWT_CAPTION || this->type == WWT_STICKYBOX || this->type == WWT_SHADEBOX ||
+-		this->type == WWT_DEFSIZEBOX || this->type == WWT_CLOSEBOX)) {
++		this->type == WWT_DEFSIZEBOX || this->type == WWT_CLOSEBOX || this->type == WWT_DEBUGBOX)) {
+ 		static const Dimension extra = {0, 0};
+ 		padding = &extra;
++		this->sizing_type = NWST_OVERRIDE;
++		size = extra;
++		fill = extra;
++		resize = extra;
+ 	} else switch (this->type) {
+ 		case WWT_EMPTY: {
+ 			static const Dimension extra = {0, 0};
+-- 
+2.55.0
+

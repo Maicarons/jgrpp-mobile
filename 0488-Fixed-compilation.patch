@@ -1,0 +1,29 @@
+From 917c597de1c8953bf5811fa5a5a59b3ec13e1829 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 1 Jun 2018 21:40:09 +0300
+Subject: [PATCH 0488/1053] Fixed compilation
+
+---
+ src/group_gui.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/group_gui.cpp b/src/group_gui.cpp
+index e2cb44c989..30995dc126 100644
+--- a/src/group_gui.cpp
++++ b/src/group_gui.cpp
+@@ -367,6 +367,12 @@ public:
+ 				/* Minimum height is the height of the list widget minus all and default vehicles... */
+ 				size->height = (this->vli.vtype >= VEH_SHIP ? 3.5 : 7) * GetVehicleListHeight(this->vli.vtype, this->tiny_step_height) - 2 * this->tiny_step_height;
+ 
++				/* ... minus the buttons at the bottom ... */
++				uint max_icon_height = GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_CREATE_GROUP)->widget_data).height;
++				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_RENAME_GROUP)->widget_data).height);
++				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_DELETE_GROUP)->widget_data).height);
++				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_REPLACE_PROTECTION)->widget_data).height);
++
+ 				/* ... minus the height of the group info ... */
+ 				max_icon_height += (FONT_HEIGHT_NORMAL * 3) + WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM;
+ 
+-- 
+2.55.0
+

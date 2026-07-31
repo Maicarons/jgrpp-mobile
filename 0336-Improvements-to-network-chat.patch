@@ -1,0 +1,85 @@
+From 796c6b7b7277662aa31822f1acf6d4f4b3913aeb Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 25 Mar 2017 23:48:11 +0200
+Subject: [PATCH 0336/1053] Improvements to network chat
+
+---
+ src/network/network_chat_gui.cpp | 4 ++--
+ src/toolbar_gui.cpp              | 6 ++++++
+ todo.txt                         | 4 +---
+ 3 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/src/network/network_chat_gui.cpp b/src/network/network_chat_gui.cpp
+index 083e04d57f..9d74681287 100644
+--- a/src/network/network_chat_gui.cpp
++++ b/src/network/network_chat_gui.cpp
+@@ -109,7 +109,7 @@ void CDECL NetworkAddChatMessage(TextColour colour, uint duration, const char *m
+ /** Initialize all font-dependent chat box sizes. */
+ void NetworkReInitChatBoxSize()
+ {
+-	_chatmsg_box.y       = 3 * FONT_HEIGHT_NORMAL;
++	_chatmsg_box.y       = GetMinSizing(NWST_STEP, 10) + 5;
+ 	_chatmsg_box.height  = MAX_CHAT_MESSAGES * (FONT_HEIGHT_NORMAL + NETWORK_CHAT_LINE_SPACING) + 2;
+ 	_chatmessage_backup  = ReallocT(_chatmessage_backup, _chatmsg_box.width * _chatmsg_box.height * BlitterFactory::GetCurrentBlitter()->GetBytesPerPixel());
+ }
+@@ -120,7 +120,7 @@ void NetworkInitChatMessage()
+ 	MAX_CHAT_MESSAGES    = _settings_client.gui.network_chat_box_height;
+ 
+ 	_chatmsg_list        = ReallocT(_chatmsg_list, _settings_client.gui.network_chat_box_height);
+-	_chatmsg_box.x       = 10;
++	_chatmsg_box.x       = GetMinSizing(NWST_STEP, 10) + 5;
+ 	_chatmsg_box.width   = _settings_client.gui.network_chat_box_width_pct * _screen.width / 100;
+ 	NetworkReInitChatBoxSize();
+ 	_chatmessage_visible = false;
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index b22bb537db..d08ce77a24 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -216,6 +216,7 @@ static const int CTMN_CLIENT_LIST = -1; ///< Show the client list
+ static const int CTMN_NEW_COMPANY = -2; ///< Create a new company
+ static const int CTMN_SPECTATE    = -3; ///< Become spectator
+ static const int CTMN_SPECTATOR   = -4; ///< Show a company window as spectator
++static const int CTMN_SPEAK_ALL   = -5; ///< Send message to public chat
+ 
+ /**
+  * Pop up a generic company list menu.
+@@ -237,6 +238,7 @@ static void PopupMainCompanyToolbMenu(Window *w, int widget, int grey = 0, bool
+ 
+ 		if (include_spectator) {
+ 			if (widget == WID_TN_COMPANIES) {
++				*list->Append() = new DropDownListStringItem(STR_NETWORK_CLIENTLIST_SPEAK_TO_ALL, CTMN_SPEAK_ALL, false);
+ 				if (_local_company == COMPANY_SPECTATOR) {
+ 					*list->Append() = new DropDownListStringItem(STR_NETWORK_COMPANY_LIST_NEW_COMPANY, CTMN_NEW_COMPANY, NetworkMaxCompaniesReached());
+ 				} else {
+@@ -636,6 +638,10 @@ static CallBackFunction MenuClickCompany(int index)
+ 					NetworkClientRequestMove(COMPANY_SPECTATOR);
+ 				}
+ 				return CBF_NONE;
++
++			case CTMN_SPEAK_ALL:
++				ShowNetworkChatQueryWindow(DESTTYPE_BROADCAST, 0);
++				return CBF_NONE;
+ 		}
+ 	}
+ #endif /* ENABLE_NETWORK */
+diff --git a/todo.txt b/todo.txt
+index eceda2bf2c..fbd72c904d 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,12 +3,10 @@
+ 
+ - Smallmap UI won't fit all FIRS industries.
+ 
+-- Add dedicated 'Chat all' button to the 'Companies' menu.
++- 'New game' dialog is broken again.
+ 
+ - Put mouse cursor in the middle between touch points when zooming in and out.
+ 
+-- Move chat window outside of the vertical toolbar.
+-
+ - Misclicking station from orders dialog should hide the dialog for 3 times.
+ 
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), and fix double-backspace bug in SDL.
+-- 
+2.55.0
+

@@ -1,0 +1,103 @@
+From 292ec1ced7f98f722cf04ef1043daf26fa8da373 Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Sun, 15 Jan 2023 07:55:54 +0100
+Subject: [PATCH 0874/1053] Change #10077: make maximum loan a positive
+ multiple of the loan interval
+
+And set the minimum maximum loan to the value of loan interval, so there is
+always an amount of money to lend. Compared to being allowed to set max loan
+to 0 and never be allowed to lend any money.
+---
+ src/company_cmd.cpp                        | 3 ++-
+ src/economy.cpp                            | 4 ++--
+ src/table/settings/company_settings.ini    | 8 ++++----
+ src/table/settings/difficulty_settings.ini | 5 +++--
+ 4 files changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/src/company_cmd.cpp b/src/company_cmd.cpp
+index a4e5fc9c3b..0d7f765754 100644
+--- a/src/company_cmd.cpp
++++ b/src/company_cmd.cpp
+@@ -560,7 +560,8 @@ Company *DoStartupNewCompany(bool is_ai, CompanyID company = INVALID_COMPANY)
+ 	ResetCompanyLivery(c);
+ 	_company_colours[c->index] = (Colours)c->colour;
+ 
+-	c->money = c->current_loan = (std::min<int64>(INITIAL_LOAN, _economy.max_loan) * _economy.inflation_prices >> 16) / 50000 * 50000;
++	/* Scale the initial loan based on the inflation rounded down to the loan interval. The maximum loan has already been inflation adjusted. */
++	c->money = c->current_loan = std::min<int64>((INITIAL_LOAN * _economy.inflation_prices >> 16) / LOAN_INTERVAL * LOAN_INTERVAL, _economy.max_loan);
+ 
+ 	std::fill(c->share_owners.begin(), c->share_owners.end(), INVALID_OWNER);
+ 
+diff --git a/src/economy.cpp b/src/economy.cpp
+index 27ab5120f2..5953a7641e 100644
+--- a/src/economy.cpp
++++ b/src/economy.cpp
+@@ -757,8 +757,8 @@ bool AddInflation(bool check_year)
+  */
+ void RecomputePrices()
+ {
+-	/* Setup maximum loan */
+-	_economy.max_loan = ((uint64)_settings_game.difficulty.max_loan * _economy.inflation_prices >> 16) / 50000 * 50000;
++	/* Setup maximum loan as a rounded down multiple of LOAN_INTERVAL. */
++	_economy.max_loan = ((uint64)_settings_game.difficulty.max_loan * _economy.inflation_prices >> 16) / LOAN_INTERVAL * LOAN_INTERVAL;
+ 
+ 	/* Setup price bases */
+ 	for (Price i = PR_BEGIN; i < PR_END; i++) {
+diff --git a/src/table/settings/company_settings.ini b/src/table/settings/company_settings.ini
+index 52920e6e6d..ef299e1e22 100644
+--- a/src/table/settings/company_settings.ini
++++ b/src/table/settings/company_settings.ini
+@@ -89,7 +89,7 @@ max      = 800
+ str      = STR_CONFIG_SETTING_SERVINT_TRAINS
+ strhelp  = STR_CONFIG_SETTING_SERVINT_TRAINS_HELPTEXT
+ strval   = STR_CONFIG_SETTING_SERVINT_VALUE
+-pre_cb   = [](auto new_value) { return CanUpdateServiceInterval(VEH_TRAIN, new_value); }
++pre_cb   = [](auto &new_value) { return CanUpdateServiceInterval(VEH_TRAIN, new_value); }
+ post_cb  = [](auto new_value) { UpdateServiceInterval(VEH_TRAIN, new_value); }
+ 
+ [SDT_VAR]
+@@ -102,7 +102,7 @@ max      = 800
+ str      = STR_CONFIG_SETTING_SERVINT_ROAD_VEHICLES
+ strhelp  = STR_CONFIG_SETTING_SERVINT_ROAD_VEHICLES_HELPTEXT
+ strval   = STR_CONFIG_SETTING_SERVINT_VALUE
+-pre_cb   = [](auto new_value) { return CanUpdateServiceInterval(VEH_ROAD, new_value); }
++pre_cb   = [](auto &new_value) { return CanUpdateServiceInterval(VEH_ROAD, new_value); }
+ post_cb  = [](auto new_value) { UpdateServiceInterval(VEH_ROAD, new_value); }
+ 
+ [SDT_VAR]
+@@ -115,7 +115,7 @@ max      = 800
+ str      = STR_CONFIG_SETTING_SERVINT_SHIPS
+ strhelp  = STR_CONFIG_SETTING_SERVINT_SHIPS_HELPTEXT
+ strval   = STR_CONFIG_SETTING_SERVINT_VALUE
+-pre_cb   = [](auto new_value) { return CanUpdateServiceInterval(VEH_SHIP, new_value); }
++pre_cb   = [](auto &new_value) { return CanUpdateServiceInterval(VEH_SHIP, new_value); }
+ post_cb  = [](auto new_value) { UpdateServiceInterval(VEH_SHIP, new_value); }
+ 
+ [SDT_VAR]
+@@ -128,5 +128,5 @@ max      = 800
+ str      = STR_CONFIG_SETTING_SERVINT_AIRCRAFT
+ strhelp  = STR_CONFIG_SETTING_SERVINT_AIRCRAFT_HELPTEXT
+ strval   = STR_CONFIG_SETTING_SERVINT_VALUE
+-pre_cb   = [](auto new_value) { return CanUpdateServiceInterval(VEH_AIRCRAFT, new_value); }
++pre_cb   = [](auto &new_value) { return CanUpdateServiceInterval(VEH_AIRCRAFT, new_value); }
+ post_cb  = [](auto new_value) { UpdateServiceInterval(VEH_AIRCRAFT, new_value); }
+diff --git a/src/table/settings/difficulty_settings.ini b/src/table/settings/difficulty_settings.ini
+index d47da817d6..c453162a18 100644
+--- a/src/table/settings/difficulty_settings.ini
++++ b/src/table/settings/difficulty_settings.ini
+@@ -98,9 +98,10 @@ type     = SLE_UINT32
+ from     = SLV_97
+ flags    = SF_NEWGAME_ONLY | SF_SCENEDIT_TOO | SF_GUI_CURRENCY
+ def      = 300000
+-min      = 0
++min      = LOAN_INTERVAL
+ max      = 2000000000
+-interval = 50000
++pre_cb   = [](auto &new_value) { new_value = (new_value + LOAN_INTERVAL / 2) / LOAN_INTERVAL * LOAN_INTERVAL; return true; }
++interval = LOAN_INTERVAL
+ str      = STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN
+ strhelp  = STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT
+ strval   = STR_JUST_CURRENCY_LONG
+-- 
+2.55.0
+

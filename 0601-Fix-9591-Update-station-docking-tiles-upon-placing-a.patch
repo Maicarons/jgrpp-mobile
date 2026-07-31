@@ -1,0 +1,64 @@
+From 1bb94a51e180e0f903069164043d4e90fd18977d Mon Sep 17 00:00:00 2001
+From: SamuXarick <43006711+SamuXarick@users.noreply.github.com>
+Date: Sun, 3 Oct 2021 11:54:19 +0100
+Subject: [PATCH 0601/1053] Fix #9591: Update station docking tiles upon
+ placing a water object on a docking tile (#9594)
+
+---
+ src/object_cmd.cpp         | 3 +++
+ src/saveload/afterload.cpp | 4 ++--
+ src/saveload/saveload.h    | 1 +
+ 3 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/object_cmd.cpp b/src/object_cmd.cpp
+index 14645f93de..cd080ca538 100644
+--- a/src/object_cmd.cpp
++++ b/src/object_cmd.cpp
+@@ -32,6 +32,7 @@
+ #include "date_func.h"
+ #include "newgrf_debug.h"
+ #include "vehicle_func.h"
++#include "station_func.h"
+ 
+ #include "table/strings.h"
+ #include "table/object_land.h"
+@@ -121,7 +122,9 @@ void BuildObject(ObjectType type, TileIndex tile, CompanyID owner, Town *town, u
+ 			Company::Get(owner)->infrastructure.water++;
+ 			DirtyCompanyInfrastructureWindows(owner);
+ 		}
++		bool remove = IsDockingTile(t);
+ 		MakeObject(t, owner, o->index, wc, Random());
++		if (remove) RemoveDockingTile(t);
+ 		MarkTileDirtyByTile(t);
+ 	}
+ 
+diff --git a/src/saveload/afterload.cpp b/src/saveload/afterload.cpp
+index 02a221bb60..6a42ea81c6 100644
+--- a/src/saveload/afterload.cpp
++++ b/src/saveload/afterload.cpp
+@@ -3106,8 +3106,8 @@ bool AfterLoadGame()
+ 		}
+ 	}
+ 
+-	if (IsSavegameVersionBefore(SLV_DOCK_DOCKINGTILES)) {
+-		/* All tiles around docks may be docking tiles. */
++	if (IsSavegameVersionBefore(SLV_REPAIR_OBJECT_DOCKING_TILES)) {
++		/* Placing objects on docking tiles was not updating adjacent station's docking tiles. */
+ 		for (Station *st : Station::Iterate()) {
+ 			if (st->ship_station.tile != INVALID_TILE) UpdateStationDockingTiles(st);
+ 		}
+diff --git a/src/saveload/saveload.h b/src/saveload/saveload.h
+index e16c3096ff..7cf8c91bbf 100644
+--- a/src/saveload/saveload.h
++++ b/src/saveload/saveload.h
+@@ -339,6 +339,7 @@ enum SaveLoadVersion : uint16 {
+ 	SLV_SCRIPT_INT64,                       ///< 296  PR#9415 SQInteger is 64bit but was saved as 32bit.
+ 	SLV_LINKGRAPH_TRAVEL_TIME,              ///< 297  PR#9457 Store travel time in the linkgraph.
+ 	SLV_DOCK_DOCKINGTILES,                  ///< 298  PR#9578 All tiles around docks may be docking tiles.
++	SLV_REPAIR_OBJECT_DOCKING_TILES,        ///< 299  PR#9594 Fixing issue with docking tiles overlapping objects.
+ 
+ 	SL_MAX_VERSION,                         ///< Highest possible saveload version
+ };
+-- 
+2.55.0
+

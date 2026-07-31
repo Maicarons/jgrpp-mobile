@@ -1,0 +1,82 @@
+From 7412338eb4f68cf7972d836f6b4329570bc6400c Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 8 Apr 2016 19:19:19 +0300
+Subject: [PATCH 0258/1053] Fixed subsidies window list height
+
+---
+ src/subsidy_gui.cpp | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/src/subsidy_gui.cpp b/src/subsidy_gui.cpp
+index 04e5ae262b..0e7c35d0e5 100644
+--- a/src/subsidy_gui.cpp
++++ b/src/subsidy_gui.cpp
+@@ -133,6 +133,7 @@ struct SubsidyListWindow : Window {
+ 	{
+ 		if (widget != WID_SUL_PANEL) return;
+ 		Dimension d = maxdim(GetStringBoundingBox(STR_SUBSIDIES_OFFERED_TITLE), GetStringBoundingBox(STR_SUBSIDIES_SUBSIDISED_TITLE));
++		d.height = GetMinSizing(NWST_STEP, d.height);
+ 
+ 		resize->height = d.height;
+ 
+@@ -152,12 +153,13 @@ struct SubsidyListWindow : Window {
+ 		int right = r.right - WD_FRAMERECT_RIGHT;
+ 		int y = r.top + WD_FRAMERECT_TOP;
+ 		int x = r.left + WD_FRAMERECT_LEFT;
++		y = Center(y, GetMinSizing(NWST_STEP));
+ 
+ 		int pos = -this->vscroll->GetPosition();
+ 		const int cap = this->vscroll->GetCapacity();
+ 
+ 		/* Section for drawing the offered subsidies */
+-		if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * FONT_HEIGHT_NORMAL, STR_SUBSIDIES_OFFERED_TITLE);
++		if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * GetMinSizing(NWST_STEP), STR_SUBSIDIES_OFFERED_TITLE);
+ 		pos++;
+ 
+ 		uint num = 0;
+@@ -168,7 +170,7 @@ struct SubsidyListWindow : Window {
+ 					/* Displays the two offered towns */
+ 					SetupSubsidyDecodeParam(s, true);
+ 					SetDParam(7, _date - ymd.day + s->remaining * 32);
+-					DrawString(x, right, y + pos * FONT_HEIGHT_NORMAL, STR_SUBSIDIES_OFFERED_FROM_TO);
++					DrawString(x, right, y + pos * GetMinSizing(NWST_STEP), STR_SUBSIDIES_OFFERED_FROM_TO);
+ 				}
+ 				pos++;
+ 				num++;
+@@ -176,13 +178,13 @@ struct SubsidyListWindow : Window {
+ 		}
+ 
+ 		if (num == 0) {
+-			if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * FONT_HEIGHT_NORMAL, STR_SUBSIDIES_NONE);
++			if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * GetMinSizing(NWST_STEP), STR_SUBSIDIES_NONE);
+ 			pos++;
+ 		}
+ 
+ 		/* Section for drawing the already granted subsidies */
+ 		pos++;
+-		if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * FONT_HEIGHT_NORMAL, STR_SUBSIDIES_SUBSIDISED_TITLE);
++		if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * GetMinSizing(NWST_STEP), STR_SUBSIDIES_SUBSIDISED_TITLE);
+ 		pos++;
+ 		num = 0;
+ 
+@@ -194,7 +196,7 @@ struct SubsidyListWindow : Window {
+ 					SetDParam(8, _date - ymd.day + s->remaining * 32);
+ 
+ 					/* Displays the two connected stations */
+-					DrawString(x, right, y + pos * FONT_HEIGHT_NORMAL, STR_SUBSIDIES_SUBSIDISED_FROM_TO);
++					DrawString(x, right, y + pos * GetMinSizing(NWST_STEP), STR_SUBSIDIES_SUBSIDISED_FROM_TO);
+ 				}
+ 				pos++;
+ 				num++;
+@@ -202,7 +204,7 @@ struct SubsidyListWindow : Window {
+ 		}
+ 
+ 		if (num == 0) {
+-			if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * FONT_HEIGHT_NORMAL, STR_SUBSIDIES_NONE);
++			if (IsInsideMM(pos, 0, cap)) DrawString(x, right, y + pos * GetMinSizing(NWST_STEP), STR_SUBSIDIES_NONE);
+ 			pos++;
+ 		}
+ 	}
+-- 
+2.55.0
+

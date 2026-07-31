@@ -1,0 +1,56 @@
+From 5705c47f49574a26122a61043159195ab6d5bf05 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 23 Jun 2017 19:20:35 +0300
+Subject: [PATCH 0410/1053] Oops, fixed zoom-in gesture again
+
+---
+ src/video/sdl_v.cpp | 12 +++++++-----
+ todo.txt            |  2 --
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 4e8f515265..e6fbe64d03 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -666,6 +666,13 @@ int VideoDriver_SDL::PollEvent()
+ 			}
+ #endif
+ 			break;
++#ifdef __ANDROID__
++		case SDL_JOYBALLMOTION:
++			if (ev.jball.which == 0 && ev.jball.ball == 1) {
++				_multitouch_second_point.x = ev.jball.xrel;
++				_multitouch_second_point.y = ev.jball.yrel;
++			}
++#endif /* not __ANDROID__ */
+ #ifndef __ANDROID__
+ 		case SDL_VIDEORESIZE: {
+ 			int w = max(ev.resize.w, 64);
+@@ -673,11 +680,6 @@ int VideoDriver_SDL::PollEvent()
+ 			CreateMainSurface(w, h);
+ 			break;
+ 		}
+-		case SDL_JOYBALLMOTION:
+-			if (evt.jball.which == 0 && evt.jball.ball == 1) {
+-				_multitouch_second_point.x = evt.jball.xrel;
+-				_multitouch_second_point.y = evt.jball.yrel;
+-			}
+ #endif /* not __ANDROID__ */
+ 		case SDL_VIDEOEXPOSE: {
+ 			/* Force a redraw of the entire screen. Note
+diff --git a/todo.txt b/todo.txt
+index f9c9f19795..a1ac20fdc1 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,8 +3,6 @@
+ 
+ - Smallmap UI won't fit all FIRS industries.
+ 
+-- Put mouse cursor in the middle between touch points when zooming in and out.
+-
+ - Add 'Goal' menu item somewhere to compact toolbar.
+ 
+ - Misclicking station from orders dialog should hide the dialog for 3 times.
+-- 
+2.55.0
+

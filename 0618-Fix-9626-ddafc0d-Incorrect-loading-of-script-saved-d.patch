@@ -1,0 +1,26 @@
+From a652ea23c8d84524f3e483f081b9bc3517cf29ee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Wed, 20 Oct 2021 12:23:16 +0200
+Subject: [PATCH 0618/1053] Fix #9626, ddafc0d: Incorrect loading of script
+ saved data (#9629)
+
+---
+ src/script/script_instance.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/script/script_instance.cpp b/src/script/script_instance.cpp
+index 3f611e66c6..4342289afc 100644
+--- a/src/script/script_instance.cpp
++++ b/src/script/script_instance.cpp
+@@ -565,7 +565,7 @@ bool ScriptInstance::IsPaused()
+ 	switch (_script_sl_byte) {
+ 		case SQSL_INT: {
+ 			int64 value;
+-			SlCopy(&value, 1, IsSavegameVersionBefore(SLV_SCRIPT_INT64) ? SLE_INT32 : SLE_INT64);
++			SlCopy(&value, 1, IsSavegameVersionBefore(SLV_SCRIPT_INT64) ? SLE_FILE_I32 | SLE_VAR_I64 : SLE_INT64);
+ 			if (vm != nullptr) sq_pushinteger(vm, (SQInteger)value);
+ 			return true;
+ 		}
+-- 
+2.55.0
+

@@ -1,0 +1,91 @@
+From b2bfcf6816879df05a98cee2b0a302028f4c4ba4 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 3 Jun 2014 18:44:16 +0300
+Subject: [PATCH 0133/1053] Revert "Erase queued commands when another command
+ is about to be queued."
+
+This reverts commit 604205045f393f1b80114da5f7d29ed79d7acc3f.
+---
+ src/airport_gui.cpp   | 1 -
+ src/dock_gui.cpp      | 1 -
+ src/rail_gui.cpp      | 1 -
+ src/road_gui.cpp      | 1 -
+ src/terraform_gui.cpp | 1 -
+ src/tree_gui.cpp      | 1 -
+ 6 files changed, 6 deletions(-)
+
+diff --git a/src/airport_gui.cpp b/src/airport_gui.cpp
+index 9eeeae950f..8b49b998ce 100644
+--- a/src/airport_gui.cpp
++++ b/src/airport_gui.cpp
+@@ -103,7 +103,6 @@ struct BuildAirToolbarWindow : Window {
+ 
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+-		EraseQueuedTouchCommand();
+ 		switch (this->last_user_action) {
+ 			case WID_AT_AIRPORT: {
+ 				VpStartPlaceSizing(tile, VPM_SINGLE_TILE, DDSP_BUILD_STATION);
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index 6a669d7f8a..4e6ed21402 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -168,7 +168,6 @@ struct BuildDocksToolbarWindow : Window {
+ 
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+-		EraseQueuedTouchCommand();
+ 		switch (this->last_clicked_widget) {
+ 			case WID_DT_CANAL: // Build canal button
+ 				VpStartPlaceSizing(tile, (_game_mode == GM_EDITOR) ? VPM_X_AND_Y : VPM_X_OR_Y, DDSP_CREATE_WATER);
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index b02be76df0..05b8bc4e7e 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -583,7 +583,6 @@ struct BuildRailToolbarWindow : Window {
+ 
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+-		EraseQueuedTouchCommand();
+ 		switch (this->last_user_action) {
+ 			case WID_RAT_BUILD_NS:
+ 				VpStartPlaceSizing(tile, VPM_FIX_VERTICAL | VPM_RAILDIRS, DDSP_PLACE_RAIL);
+diff --git a/src/road_gui.cpp b/src/road_gui.cpp
+index 904089d3ae..341d15cbfc 100644
+--- a/src/road_gui.cpp
++++ b/src/road_gui.cpp
+@@ -467,7 +467,6 @@ struct BuildRoadToolbarWindow : Window {
+ 
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+-		EraseQueuedTouchCommand();
+ 		_remove_button_clicked = this->IsWidgetLowered(WID_ROT_REMOVE);
+ 		_one_way_button_clicked = this->IsWidgetLowered(WID_ROT_ONE_WAY);
+ 		switch (this->last_started_action) {
+diff --git a/src/terraform_gui.cpp b/src/terraform_gui.cpp
+index e328a4ad19..51fb0d773c 100644
+--- a/src/terraform_gui.cpp
++++ b/src/terraform_gui.cpp
+@@ -656,7 +656,6 @@ struct ScenarioEditorLandscapeGenerationWindow : Window {
+ 
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+-		EraseQueuedTouchCommand();
+ 		switch (this->last_user_action) {
+ 			case WID_ETT_DEMOLISH: // Demolish aka dynamite button
+ 				PlaceProc_DemolishArea(tile);
+diff --git a/src/tree_gui.cpp b/src/tree_gui.cpp
+index 1e1883ece1..e12ec7606b 100644
+--- a/src/tree_gui.cpp
++++ b/src/tree_gui.cpp
+@@ -144,7 +144,6 @@ public:
+ 
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+-		EraseQueuedTouchCommand();
+ 		VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_PLANT_TREES);
+ 	}
+ 
+-- 
+2.55.0
+

@@ -1,0 +1,256 @@
+From 52319891ceeed084f9e6f7780b6f8ea65302cd11 Mon Sep 17 00:00:00 2001
+From: SamuXarick <43006711+SamuXarick@users.noreply.github.com>
+Date: Sun, 22 Jan 2023 13:14:02 +0000
+Subject: [PATCH 0848/1053] Fix 3c047b1: AIGroup.GetProfitLastYear could get
+ values different than those displayed in GUI (#10227)
+
+* Change: Store "all time" and "since minimum age" last year profits on groups
+
+* Fix: Update last year profit for groups when copying vehicle statistics on autoreplace
+
+* Codechange: Refactor profit last year
+
+* Change: Rename some group related items for clarity
+
+* Change: Reorder the fields in GroupStatistics
+
+That way less memory gets wasted.
+---
+ src/autoreplace_cmd.cpp |  1 +
+ src/group.h             | 20 ++++++++-------
+ src/group_cmd.cpp       | 56 +++++++++++++++++++++++++++--------------
+ src/group_gui.cpp       | 10 ++++----
+ src/vehicle.cpp         |  2 +-
+ 5 files changed, 55 insertions(+), 34 deletions(-)
+
+diff --git a/src/autoreplace_cmd.cpp b/src/autoreplace_cmd.cpp
+index 4068e743e0..274a8cbcd2 100644
+--- a/src/autoreplace_cmd.cpp
++++ b/src/autoreplace_cmd.cpp
+@@ -422,6 +422,7 @@ static CommandCost CopyHeadSpecificThings(Vehicle *old_head, Vehicle *new_head,
+ 	if (cost.Succeeded() && old_head != new_head && (flags & DC_EXEC) != 0) {
+ 		/* Copy other things which cannot be copied by a command and which shall not stay resetted from the build vehicle command */
+ 		new_head->CopyVehicleConfigAndStatistics(old_head);
++		GroupStatistics::AddProfitLastYear(new_head);
+ 
+ 		/* Switch vehicle windows/news to the new vehicle, so they are not closed/deleted when the old vehicle is sold */
+ 		ChangeVehicleViewports(old_head->index, new_head->index);
+diff --git a/src/group.h b/src/group.h
+index 6d55c93853..7cba5ac538 100644
+--- a/src/group.h
++++ b/src/group.h
+@@ -23,15 +23,14 @@ extern GroupPool _group_pool; ///< Pool of groups.
+ 
+ /** Statistics and caches on the vehicles in a group. */
+ struct GroupStatistics {
+-	uint16 num_vehicle;                     ///< Number of vehicles.
++	Money profit_last_year;                 ///< Sum of profits for all vehicles.
++	Money profit_last_year_min_age;         ///< Sum of profits for vehicles considered for profit statistics.
+ 	uint16 *num_engines;                    ///< Caches the number of engines of each type the company owns.
+-
++	uint16 num_vehicle;                     ///< Number of vehicles.
++	uint16 num_vehicle_min_age;             ///< Number of vehicles considered for profit statistics;
+ 	bool autoreplace_defined;               ///< Are any autoreplace rules set?
+ 	bool autoreplace_finished;              ///< Have all autoreplacement finished?
+ 
+-	uint16 num_profit_vehicle;              ///< Number of vehicles considered for profit statistics;
+-	Money profit_last_year;                 ///< Sum of profits for all vehicles.
+-
+ 	GroupStatistics();
+ 	~GroupStatistics();
+ 
+@@ -39,8 +38,10 @@ struct GroupStatistics {
+ 
+ 	void ClearProfits()
+ 	{
+-		this->num_profit_vehicle = 0;
+ 		this->profit_last_year = 0;
++
++		this->num_vehicle_min_age = 0;
++		this->profit_last_year_min_age = 0;
+ 	}
+ 
+ 	void ClearAutoreplace()
+@@ -55,7 +56,8 @@ struct GroupStatistics {
+ 
+ 	static void CountVehicle(const Vehicle *v, int delta);
+ 	static void CountEngine(const Vehicle *v, int delta);
+-	static void VehicleReachedProfitAge(const Vehicle *v);
++	static void AddProfitLastYear(const Vehicle *v);
++	static void VehicleReachedMinAge(const Vehicle *v);
+ 
+ 	static void UpdateProfits();
+ 	static void UpdateAfterLoad();
+@@ -104,8 +106,8 @@ static inline bool IsAllGroupID(GroupID id_g)
+ 
+ uint GetGroupNumEngines(CompanyID company, GroupID id_g, EngineID id_e);
+ uint GetGroupNumVehicle(CompanyID company, GroupID id_g, VehicleType type);
+-uint GetGroupNumProfitVehicle(CompanyID company, GroupID id_g, VehicleType type);
+-Money GetGroupProfitLastYear(CompanyID company, GroupID id_g, VehicleType type);
++uint GetGroupNumVehicleMinAge(CompanyID company, GroupID id_g, VehicleType type);
++Money GetGroupProfitLastYearMinAge(CompanyID company, GroupID id_g, VehicleType type);
+ 
+ void SetTrainGroupID(Train *v, GroupID grp);
+ void UpdateTrainGroupID(Train *v);
+diff --git a/src/group_cmd.cpp b/src/group_cmd.cpp
+index b6d1927097..dd8033d4e0 100644
+--- a/src/group_cmd.cpp
++++ b/src/group_cmd.cpp
+@@ -43,8 +43,9 @@ GroupStatistics::~GroupStatistics()
+ void GroupStatistics::Clear()
+ {
+ 	this->num_vehicle = 0;
+-	this->num_profit_vehicle = 0;
+ 	this->profit_last_year = 0;
++	this->num_vehicle_min_age = 0;
++	this->profit_last_year_min_age = 0;
+ 
+ 	/* This is also called when NewGRF change. So the number of engines might have changed. Reallocate. */
+ 	free(this->num_engines);
+@@ -136,13 +137,15 @@ void GroupStatistics::Clear()
+ 	GroupStatistics &stats = GroupStatistics::Get(v);
+ 
+ 	stats_all.num_vehicle += delta;
++	stats_all.profit_last_year += v->GetDisplayProfitLastYear() * delta;
+ 	stats.num_vehicle += delta;
++	stats.profit_last_year += v->GetDisplayProfitLastYear() * delta;
+ 
+ 	if (v->age > VEHICLE_PROFIT_MIN_AGE) {
+-		stats_all.num_profit_vehicle += delta;
+-		stats_all.profit_last_year += v->GetDisplayProfitLastYear() * delta;
+-		stats.num_profit_vehicle += delta;
+-		stats.profit_last_year += v->GetDisplayProfitLastYear() * delta;
++		stats_all.num_vehicle_min_age += delta;
++		stats_all.profit_last_year_min_age += v->GetDisplayProfitLastYear() * delta;
++		stats.num_vehicle_min_age += delta;
++		stats.profit_last_year_min_age += v->GetDisplayProfitLastYear() * delta;
+ 	}
+ }
+ 
+@@ -159,19 +162,31 @@ void GroupStatistics::Clear()
+ }
+ 
+ /**
+- * Add a vehicle to the profit sum of its group.
++ * Add a vehicle's last year profit to the profit sum of its group.
+  */
+-/* static */ void GroupStatistics::VehicleReachedProfitAge(const Vehicle *v)
++/* static */ void GroupStatistics::AddProfitLastYear(const Vehicle *v)
+ {
+ 	GroupStatistics &stats_all = GroupStatistics::GetAllGroup(v);
+ 	GroupStatistics &stats = GroupStatistics::Get(v);
+ 
+-	stats_all.num_profit_vehicle++;
+ 	stats_all.profit_last_year += v->GetDisplayProfitLastYear();
+-	stats.num_profit_vehicle++;
+ 	stats.profit_last_year += v->GetDisplayProfitLastYear();
+ }
+ 
++/**
++ * Add a vehicle to the profit sum of its group.
++ */
++/* static */ void GroupStatistics::VehicleReachedMinAge(const Vehicle *v)
++{
++	GroupStatistics &stats_all = GroupStatistics::GetAllGroup(v);
++	GroupStatistics &stats = GroupStatistics::Get(v);
++
++	stats_all.num_vehicle_min_age++;
++	stats_all.profit_last_year_min_age += v->GetDisplayProfitLastYear();
++	stats.num_vehicle_min_age++;
++	stats.profit_last_year_min_age += v->GetDisplayProfitLastYear();
++}
++
+ /**
+  * Recompute the profits for all groups.
+  */
+@@ -191,7 +206,10 @@ void GroupStatistics::Clear()
+ 	}
+ 
+ 	for (const Vehicle *v : Vehicle::Iterate()) {
+-		if (v->IsPrimaryVehicle() && v->age > VEHICLE_PROFIT_MIN_AGE) GroupStatistics::VehicleReachedProfitAge(v);
++		if (v->IsPrimaryVehicle()) {
++			GroupStatistics::AddProfitLastYear(v);
++			if (v->age > VEHICLE_PROFIT_MIN_AGE) GroupStatistics::VehicleReachedMinAge(v);
++		}
+ 	}
+ }
+ 
+@@ -789,30 +807,30 @@ uint GetGroupNumVehicle(CompanyID company, GroupID id_g, VehicleType type)
+  * @param type The vehicle type of the group
+  * @return The number of vehicles above profit minimum age in the group
+  */
+-uint GetGroupNumProfitVehicle(CompanyID company, GroupID id_g, VehicleType type)
++uint GetGroupNumVehicleMinAge(CompanyID company, GroupID id_g, VehicleType type)
+ {
+ 	uint count = 0;
+ 	for (const Group *g : Group::Iterate()) {
+-		if (g->parent == id_g) count += GetGroupNumProfitVehicle(company, g->index, type);
++		if (g->parent == id_g) count += GetGroupNumVehicleMinAge(company, g->index, type);
+ 	}
+-	return count + GroupStatistics::Get(company, id_g, type).num_profit_vehicle;
++	return count + GroupStatistics::Get(company, id_g, type).num_vehicle_min_age;
+ }
+ 
+ /**
+- * Get last year's profit for the group with GroupID
+- * id_g and its sub-groups.
++ * Get last year's profit of vehicles above minimum age
++ * for the group with GroupID id_g and its sub-groups.
+  * @param company The company the group belongs to
+  * @param id_g The GroupID of the group used
+  * @param type The vehicle type of the group
+- * @return Last year's profit for the group
++ * @return Last year's profit of vehicles above minimum age for the group
+  */
+-Money GetGroupProfitLastYear(CompanyID company, GroupID id_g, VehicleType type)
++Money GetGroupProfitLastYearMinAge(CompanyID company, GroupID id_g, VehicleType type)
+ {
+ 	Money sum = 0;
+ 	for (const Group *g : Group::Iterate()) {
+-		if (g->parent == id_g) sum += GetGroupProfitLastYear(company, g->index, type);
++		if (g->parent == id_g) sum += GetGroupProfitLastYearMinAge(company, g->index, type);
+ 	}
+-	return sum + GroupStatistics::Get(company, id_g, type).profit_last_year;
++	return sum + GroupStatistics::Get(company, id_g, type).profit_last_year_min_age;
+ }
+ 
+ void RemoveAllGroupsForCompany(const CompanyID company)
+diff --git a/src/group_gui.cpp b/src/group_gui.cpp
+index 6b50133880..db000aba8e 100644
+--- a/src/group_gui.cpp
++++ b/src/group_gui.cpp
+@@ -302,13 +302,13 @@ private:
+ 		/* draw the profit icon */
+ 		x = rtl ? x - WidgetDimensions::scaled.hsep_normal - this->column_size[VGC_PROFIT].width : x + WidgetDimensions::scaled.hsep_normal + this->column_size[VGC_AUTOREPLACE].width;
+ 		SpriteID spr;
+-		uint num_profit_vehicle = GetGroupNumProfitVehicle(this->vli.company, g_id, this->vli.vtype);
+-		Money profit_last_year = GetGroupProfitLastYear(this->vli.company, g_id, this->vli.vtype);
+-		if (num_profit_vehicle == 0) {
++		uint num_vehicle_min_age = GetGroupNumVehicleMinAge(this->vli.company, g_id, this->vli.vtype);
++		Money profit_last_year_min_age = GetGroupProfitLastYearMinAge(this->vli.company, g_id, this->vli.vtype);
++		if (num_vehicle_min_age == 0) {
+ 			spr = SPR_PROFIT_NA;
+-		} else if (profit_last_year < 0) {
++		} else if (profit_last_year_min_age < 0) {
+ 			spr = SPR_PROFIT_NEGATIVE;
+-		} else if (profit_last_year < VEHICLE_PROFIT_THRESHOLD * num_profit_vehicle) {
++		} else if (profit_last_year_min_age < VEHICLE_PROFIT_THRESHOLD * num_vehicle_min_age) {
+ 			spr = SPR_PROFIT_SOME;
+ 		} else {
+ 			spr = SPR_PROFIT_LOT;
+diff --git a/src/vehicle.cpp b/src/vehicle.cpp
+index eab9c1ccaa..bbd8b515b5 100644
+--- a/src/vehicle.cpp
++++ b/src/vehicle.cpp
+@@ -1379,7 +1379,7 @@ void AgeVehicle(Vehicle *v)
+ {
+ 	if (v->age < MAX_DAY) {
+ 		v->age++;
+-		if (v->IsPrimaryVehicle() && v->age == VEHICLE_PROFIT_MIN_AGE + 1) GroupStatistics::VehicleReachedProfitAge(v);
++		if (v->IsPrimaryVehicle() && v->age == VEHICLE_PROFIT_MIN_AGE + 1) GroupStatistics::VehicleReachedMinAge(v);
+ 	}
+ 
+ 	if (!v->IsPrimaryVehicle() && (v->type != VEH_TRAIN || !Train::From(v)->IsEngine())) return;
+-- 
+2.55.0
+

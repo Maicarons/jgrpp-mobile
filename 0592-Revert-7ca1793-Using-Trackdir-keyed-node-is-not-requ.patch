@@ -1,0 +1,52 @@
+From bd6b0db3c57dbe77f83c80786e8d8f96bfdebdd6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Sun, 26 Sep 2021 18:41:41 +0200
+Subject: [PATCH 0592/1053] Revert 7ca1793: Using Trackdir keyed node is not
+ required, Exitdir keyed node still have the correct trackdir (#9576)
+
+---
+ src/pathfinder/yapf/yapf_ship.cpp | 14 ++------------
+ 1 file changed, 2 insertions(+), 12 deletions(-)
+
+diff --git a/src/pathfinder/yapf/yapf_ship.cpp b/src/pathfinder/yapf/yapf_ship.cpp
+index d47afe5dfd..3a54ddb3eb 100644
+--- a/src/pathfinder/yapf/yapf_ship.cpp
++++ b/src/pathfinder/yapf/yapf_ship.cpp
+@@ -337,16 +337,6 @@ struct CYapfShip1 : CYapfT<CYapfShip_TypesT<CYapfShip1, CFollowTrackWater    , C
+ /* YAPF type 2 - uses TileIndex/DiagDirection as Node key */
+ struct CYapfShip2 : CYapfT<CYapfShip_TypesT<CYapfShip2, CFollowTrackWater    , CShipNodeListExitDir > > {};
+ 
+-static inline bool RequireTrackdirKey()
+-{
+-	/* If the two curve penalties are not equal, then it is not possible to use the
+-	 * ExitDir keyed node list, as it there will be key overlap. Using Trackdir keyed
+-	 * nodes means potentially more paths are tested, which would be wasteful if it's
+-	 * not necessary.
+-	 */
+-	return _settings_game.pf.yapf.ship_curve45_penalty != _settings_game.pf.yapf.ship_curve90_penalty;
+-}
+-
+ /** Ship controller helper - path finder invoker */
+ Track YapfShipChooseTrack(const Ship *v, TileIndex tile, DiagDirection enterdir, TrackBits tracks, bool &path_found, ShipPathCache &path_cache)
+ {
+@@ -355,7 +345,7 @@ Track YapfShipChooseTrack(const Ship *v, TileIndex tile, DiagDirection enterdir,
+ 	PfnChooseShipTrack pfnChooseShipTrack = CYapfShip2::ChooseShipTrack; // default: ExitDir
+ 
+ 	/* check if non-default YAPF type needed */
+-	if (_settings_game.pf.yapf.disable_node_optimization || RequireTrackdirKey()) {
++	if (_settings_game.pf.yapf.disable_node_optimization) {
+ 		pfnChooseShipTrack = &CYapfShip1::ChooseShipTrack; // Trackdir
+ 	}
+ 
+@@ -373,7 +363,7 @@ bool YapfShipCheckReverse(const Ship *v)
+ 	PfnCheckReverseShip pfnCheckReverseShip = CYapfShip2::CheckShipReverse; // default: ExitDir
+ 
+ 	/* check if non-default YAPF type needed */
+-	if (_settings_game.pf.yapf.disable_node_optimization || RequireTrackdirKey()) {
++	if (_settings_game.pf.yapf.disable_node_optimization) {
+ 		pfnCheckReverseShip = &CYapfShip1::CheckShipReverse; // Trackdir
+ 	}
+ 
+-- 
+2.55.0
+

@@ -1,0 +1,26 @@
+From ec0232ce113c5356277d8b5ff11762ba068b370f Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Mon, 5 Jan 2026 20:23:05 +0000
+Subject: [PATCH 1003/1053] Fix: disable_elrails handling with engines that use
+ both RAIL and ELRL (#15045)
+
+---
+ src/elrail.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/elrail.cpp b/src/elrail.cpp
+index a776d36eeb..a593a932b7 100644
+--- a/src/elrail.cpp
++++ b/src/elrail.cpp
+@@ -586,7 +586,7 @@ void UpdateDisableElrailSettingState(bool disable, bool update_vehicles)
+ 		/* update railtype of engines intended to use elrail */
+ 		if (rv_info->intended_railtypes.Test(RAILTYPE_ELECTRIC)) {
+ 			rv_info->railtypes.Set(RAILTYPE_ELECTRIC, !disable);
+-			rv_info->railtypes.Set(RAILTYPE_RAIL, disable);
++			rv_info->railtypes.Set(RAILTYPE_RAIL, disable || rv_info->intended_railtypes.Test(RAILTYPE_RAIL));
+ 		}
+ 	}
+ 
+-- 
+2.55.0
+

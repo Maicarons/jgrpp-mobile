@@ -1,0 +1,25 @@
+From 627ecfceb1ff9b8812c7940369cfadc8cb1edbec Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Thu, 11 Apr 2024 21:45:01 +0100
+Subject: [PATCH 0910/1053] fix: Add missing header
+
+---
+ src/help_gui.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/help_gui.cpp b/src/help_gui.cpp
+index 05dca21520..ff44274255 100644
+--- a/src/help_gui.cpp
++++ b/src/help_gui.cpp
+@@ -22,6 +22,8 @@
+ #include "widgets/help_widget.h"
+ #include "widgets/misc_widget.h"
+ 
++#include <unordered_map>
++
+ #include "safeguards.h"
+ 
+ static const std::string README_FILENAME = "README.md";
+-- 
+2.55.0
+

@@ -1,0 +1,27 @@
+From ecd782be6b57e714e8a02571b29804efe6c47595 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 11 May 2021 00:05:58 +0300
+Subject: [PATCH 0699/1053] Updated todo
+
+---
+ todo.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index cb027a1801..897024b0f7 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -13,6 +13,10 @@
+ 
+ - De-press 'Go To' button in vehicle orders after clicking on a station.
+ 
++- Resize button does not work when the mouse is outsize of the window borders.
++
++- Option to disable mouse cursor.
++
+ ===== Emscripten TODO =====
+ 
+ - Fix window resizing to keep videomode height at 480 pixels.
+-- 
+2.55.0
+

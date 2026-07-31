@@ -1,0 +1,25 @@
+From 3fcefa066700505633e912799343c105ba841111 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Tue, 7 Mar 2023 22:20:24 +0000
+Subject: [PATCH 0885/1053] fix: crash in network_content_gui
+
+---
+ src/network/network_content_gui.cpp | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/src/network/network_content_gui.cpp b/src/network/network_content_gui.cpp
+index 9b0229e116..292b660b5d 100644
+--- a/src/network/network_content_gui.cpp
++++ b/src/network/network_content_gui.cpp
+@@ -1002,8 +1002,6 @@ public:
+ 		for (TextfileType tft = TFT_CONTENT_BEGIN; tft < TFT_CONTENT_END; tft++) {
+ 			this->SetWidgetDisabledState(WID_NCL_TEXTFILE + tft, this->selected == nullptr || this->selected->state != ContentInfo::ALREADY_HERE || !this->selected->GetTextfile(tft).has_value());
+ 		}
+-
+-		this->GetWidget<NWidgetCore>(WID_NCL_CANCEL)->widget_data = this->filesize_sum == 0 ? STR_AI_SETTINGS_CLOSE : STR_AI_LIST_CANCEL;
+ 	}
+ };
+ 
+-- 
+2.55.0
+

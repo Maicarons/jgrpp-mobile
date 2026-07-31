@@ -1,0 +1,25 @@
+From ce7a1fddda7bc3e648363b42d10a680ce1198a73 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 2 May 2021 02:03:24 +0300
+Subject: [PATCH 0648/1053] Emscripten: fullscreen by default
+
+---
+ src/table/misc_settings.ini | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/table/misc_settings.ini b/src/table/misc_settings.ini
+index 935993c7c2..d4edd41d37 100644
+--- a/src/table/misc_settings.ini
++++ b/src/table/misc_settings.ini
+@@ -60,7 +60,7 @@ full     = ""SHOW_TOWN_NAMES|SHOW_STATION_NAMES|SHOW_SIGNS|FULL_ANIMATION||FULL_
+ [SDTG_BOOL]
+ name     = ""fullscreen""
+ var      = _fullscreen
+-def      = false
++def      = true
+ cat      = SC_BASIC
+ 
+ [SDTG_BOOL]
+-- 
+2.55.0
+

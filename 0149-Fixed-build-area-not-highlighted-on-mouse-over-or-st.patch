@@ -1,0 +1,33 @@
+From 5236d0f75fdb32b252a099901dee83ea8ae9325e Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 19 Jul 2014 23:29:30 +0300
+Subject: [PATCH 0149/1053] Fixed build area not highlighted on mouse-over or
+ stylus hover
+
+---
+ src/window.cpp | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index 24774a931d..f766710111 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2858,13 +2858,8 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 	/* Don't allow any action in a viewport if either in menu or when having a modal progress window */
+ 	if (vp != NULL && (_game_mode == GM_MENU || HasModalProgress())) return;
+ 
+-	/* On confirm mode do not update tile selection unless we are clicking on a viewport. */
+-	if (vp != NULL && _left_button_down && !_move_pressed) {
+-		HandlePlacePresize();
+-		UpdateTileSelection();
+-	} else {
+-		//if presize, show tooltip if needed
+-	}
++	HandlePlacePresize();
++	UpdateTileSelection();
+ 
+ 	if (VpHandlePlaceSizingDrag()  == ES_HANDLED) return;
+ 	if (HandleMouseDragDrop()      == ES_HANDLED) return;
+-- 
+2.55.0
+

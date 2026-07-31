@@ -1,0 +1,28 @@
+From 92ef1697ecb2f8b33258c079c02cfb0a5d9abda8 Mon Sep 17 00:00:00 2001
+From: glx22 <glx@openttd.org>
+Date: Sun, 21 Dec 2025 01:30:40 +0100
+Subject: [PATCH 0958/1053] Fix #14949, 0717746: Add the new callbacks to the
+ callback table
+
+---
+ src/network/network_command.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/network/network_command.cpp b/src/network/network_command.cpp
+index f610aab4b0..76003f0d5d 100644
+--- a/src/network/network_command.cpp
++++ b/src/network/network_command.cpp
+@@ -81,7 +81,9 @@ static constexpr auto _callback_tuple = std::make_tuple(
+ 	&CcRoadStop,
+ 	&CcStartStopVehicle,
+ 	&CcGame,
+-	&CcAddVehicleNewGroup
++	&CcAddVehicleNewGroup,
++	&CcMoveStationName,
++	&CcMoveWaypointName
+ );
+ 
+ #ifdef SILENCE_GCC_FUNCTION_POINTER_CAST
+-- 
+2.55.0
+

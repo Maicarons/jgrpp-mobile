@@ -1,0 +1,36 @@
+From a41863520de5571c8c58718f72ef3afbdd6135db Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 27 Mar 2017 23:47:14 +0300
+Subject: [PATCH 0350/1053] Updated toolbar buttons arrangement - Station List
+ button is now on the permanent part of the toolbar
+
+---
+ src/toolbar_gui.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index b0c37cc14a..576ac057a2 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -1896,7 +1896,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SETTINGS,
+ 			WID_TN_SAVE,
+ 			WID_TN_SMALL_MAP,
+-			WID_TN_TOWNS,
++			WID_TN_STATIONS,
+ 		};
+ 		static const byte arrange_right_compact[] = {
+ 			WID_TN_SWITCH_BAR,
+@@ -1905,8 +1905,8 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_WATER,
+ 			WID_TN_AIR,
+ 			WID_TN_LANDSCAPE,
++			WID_TN_TOWNS,
+ 			WID_TN_SUBSIDIES,
+-			WID_TN_STATIONS,
+ 			WID_TN_FINANCES,
+ 			WID_TN_COMPANIES,
+ 
+-- 
+2.55.0
+

@@ -1,0 +1,25 @@
+From 64c62268a88c7e8696fb4ca2a6ee3e5445908af0 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 15 Jan 2018 21:01:00 +0200
+Subject: [PATCH 0447/1053] Updated todo
+
+---
+ todo.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index 6d53214c0c..9cf0aca62c 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -7,6 +7,6 @@
+ 
+ - Misclicking station from orders dialog should hide the dialog for 3 times.
+ 
+-- Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), TODO: it's broken in SDL.
+-
+ - Draggable combo boxes.
++
++- New game crashes with AdmiralAI enabled.
+-- 
+2.55.0
+

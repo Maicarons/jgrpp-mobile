@@ -1,0 +1,49 @@
+From 568a1358481df9360636e762e4090309aac65ca1 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 2 Apr 2016 22:41:29 +0300
+Subject: [PATCH 0237/1053] Removed a separate empty panel on the Extra
+ Viewport window
+
+---
+ src/viewport_gui.cpp | 3 ---
+ todo.txt             | 6 ------
+ 2 files changed, 9 deletions(-)
+
+diff --git a/src/viewport_gui.cpp b/src/viewport_gui.cpp
+index df2f21b364..1ba385875c 100644
+--- a/src/viewport_gui.cpp
++++ b/src/viewport_gui.cpp
+@@ -45,9 +45,6 @@ static const NWidgetPart _nested_extra_view_port_widgets[] = {
+ 			NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_EV_VIEW_TO_MAIN), SetFill(1, 1), SetResize(1, 0),
+ 										SetDataTip(STR_EXTRA_VIEW_MOVE_VIEW_TO_MAIN, STR_EXTRA_VIEW_MOVE_VIEW_TO_MAIN_TT),
+ 		EndContainer(),
+-	EndContainer(),
+-	NWidget(NWID_HORIZONTAL),
+-		NWidget(WWT_PANEL, COLOUR_GREY), SetFill(1, 1), SetResize(1, 0), EndContainer(),
+ 		NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+ 	EndContainer(),
+ };
+diff --git a/todo.txt b/todo.txt
+index e06821f5b1..e013bd1f10 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -5,10 +5,6 @@
+ 
+ - Text input fields too small.
+ 
+-- Extra viewport window resize button is on a separate empty panel.
+-
+-- Help - Tutorial opens console
+-
+ - Subsidies list text too small.
+ 
+ - Sign list window is broken.
+@@ -16,5 +12,3 @@
+ - Map of the world cannot be scrolled with one finger.
+ 
+ - Hide all windows when building something, add Confirm/Cancel dialog.
+-
+-- Make tutorial window into a text list, add more videos.
+-- 
+2.55.0
+

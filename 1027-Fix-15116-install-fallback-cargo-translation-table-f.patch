@@ -1,0 +1,108 @@
+From 3f7934604c943ac55d35dddc91dc46085a86ca3e Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Sat, 24 Jan 2026 14:42:58 +0000
+Subject: [PATCH 1027/1053] Fix #15116: install fallback cargo translation
+ table for old cargo sets (#15150)
+
+Old combined cargo/industry sets may set up cargo types with labels and expect them to be usable without a translation table.
+
+Install a fallback table if the NewGRF does not install one to give them a better chance of working.
+---
+ src/newgrf.h                         |  1 +
+ src/newgrf/newgrf_act0_cargo.cpp     | 24 ++++++++++++++++++++++++
+ src/newgrf/newgrf_act0_globalvar.cpp |  4 ++++
+ src/newgrf_cargo.cpp                 |  2 +-
+ 4 files changed, 30 insertions(+), 1 deletion(-)
+
+diff --git a/src/newgrf.h b/src/newgrf.h
+index 29384bfd4f..f56bcb4d05 100644
+--- a/src/newgrf.h
++++ b/src/newgrf.h
+@@ -153,6 +153,7 @@ struct GRFFile {
+ 
+ 	int traininfo_vehicle_pitch = 0; ///< Vertical offset for drawing train images in depot GUI and vehicle details
+ 	uint traininfo_vehicle_width = 0; ///< Width (in pixels) of a 8/8 train vehicle in depot GUI and vehicle details
++	bool cargo_list_is_fallback = false; ///< Set if cargo types have been created but a cargo list has not been installed
+ 
+ 	GrfSpecFeatures grf_features{}; ///< Bitset of GrfSpecFeature the grf uses
+ 	PriceMultipliers price_base_multipliers{}; ///< Price base multipliers as set by the grf.
+diff --git a/src/newgrf/newgrf_act0_cargo.cpp b/src/newgrf/newgrf_act0_cargo.cpp
+index 398ee3c4e3..00d07efb35 100644
+--- a/src/newgrf/newgrf_act0_cargo.cpp
++++ b/src/newgrf/newgrf_act0_cargo.cpp
+@@ -16,6 +16,29 @@
+ 
+ #include "../safeguards.h"
+ 
++/**
++ * Install cargo label in a fallback cargo list, if a NewGRF-defined cargo list is not present.
++ * This allows this NewGRF to use its self-defined cargo types without needing an explicit translation table.
++ * @param id ID of the cargo.
++ * @param last ID of the last cargo being set up.
++ * @param label Label to install.
++ */
++static void MaybeInstallFallbackCargoLabel(uint id, uint last, CargoLabel label)
++{
++	if (_cur_gps.grffile->cargo_list.empty()) {
++		/* Cargo translation table isn't configured yet, assume it won't be and configure the cargo list as a fallback list. */
++		auto default_cargo_list = GetCargoTranslationTable(*_cur_gps.grffile);
++		_cur_gps.grffile->cargo_list.assign(default_cargo_list.begin(), default_cargo_list.end());
++		_cur_gps.grffile->cargo_list_is_fallback = true;
++	}
++
++	if (_cur_gps.grffile->cargo_list_is_fallback) {
++		/* Automatically fill fallback cargo list with the defined label, resizing as needed. */
++		if (_cur_gps.grffile->cargo_list.size() < last) _cur_gps.grffile->cargo_list.resize(last, CT_INVALID);
++		_cur_gps.grffile->cargo_list[id] = label;
++	}
++}
++
+ /**
+  * Define properties for cargoes
+  * @param first ID of the first cargo.
+@@ -115,6 +138,7 @@ static ChangeInfoResult CargoReserveInfo(uint first, uint last, int prop, ByteRe
+ 			case 0x17: // Cargo label
+ 				cs->label = CargoLabel{std::byteswap(buf.ReadDWord())};
+ 				BuildCargoLabelMap();
++				MaybeInstallFallbackCargoLabel(id, last, cs->label);
+ 				break;
+ 
+ 			case 0x18: { // Town growth substitute type
+diff --git a/src/newgrf/newgrf_act0_globalvar.cpp b/src/newgrf/newgrf_act0_globalvar.cpp
+index 7d07bc9b31..89bb2fad44 100644
+--- a/src/newgrf/newgrf_act0_globalvar.cpp
++++ b/src/newgrf/newgrf_act0_globalvar.cpp
+@@ -110,6 +110,8 @@ static ChangeInfoResult GlobalVarChangeInfo(uint first, uint last, int prop, Byt
+ 	/* Properties which are handled as a whole */
+ 	switch (prop) {
+ 		case 0x09: // Cargo Translation Table; loading during both reservation and activation stage (in case it is selected depending on defined cargos)
++			/* Explicitly defined cargo translation table means it's no longer a fallback list. LoadTranslationTable erases any existing list. */
++			_cur_gps.grffile->cargo_list_is_fallback = false;
+ 			return LoadTranslationTable<CargoLabel>(first, last, buf, [](GRFFile &grf) -> std::vector<CargoLabel> & { return grf.cargo_list; }, "Cargo");
+ 
+ 		case 0x12: // Rail type translation table; loading during both reservation and activation stage (in case it is selected depending on defined railtypes)
+@@ -336,6 +338,8 @@ static ChangeInfoResult GlobalVarReserveInfo(uint first, uint last, int prop, By
+ 	/* Properties which are handled as a whole */
+ 	switch (prop) {
+ 		case 0x09: // Cargo Translation Table; loading during both reservation and activation stage (in case it is selected depending on defined cargos)
++			/* Explicitly defined cargo translation table means it's no longer a fallback list. LoadTranslationTable erases any existing list. */
++			_cur_gps.grffile->cargo_list_is_fallback = false;
+ 			return LoadTranslationTable<CargoLabel>(first, last, buf, [](GRFFile &grf) -> std::vector<CargoLabel> & { return grf.cargo_list; }, "Cargo");
+ 
+ 		case 0x12: // Rail type translation table; loading during both reservation and activation stage (in case it is selected depending on defined railtypes)
+diff --git a/src/newgrf_cargo.cpp b/src/newgrf_cargo.cpp
+index e8b5fd9fde..ead5907b31 100644
+--- a/src/newgrf_cargo.cpp
++++ b/src/newgrf_cargo.cpp
+@@ -82,7 +82,7 @@ CargoType GetCargoTranslation(uint8_t cargo, const GRFFile *grffile, bool usebit
+ 	/* We can't use GetCargoTranslationTable here as the usebit flag changes behaviour. */
+ 	/* Pre-version 7 uses the bitnum lookup from (standard in v8) instead of climate dependent in some places.. */
+ 	std::span<const CargoLabel> cargo_list;
+-	if (grffile->grf_version < 7 && !usebit) {
++	if (grffile->grf_version < 7 && !usebit && !grffile->cargo_list_is_fallback) {
+ 		cargo_list = GetClimateDependentCargoTranslationTable();
+ 	} else if (!grffile->cargo_list.empty()) {
+ 		cargo_list = grffile->cargo_list;
+-- 
+2.55.0
+

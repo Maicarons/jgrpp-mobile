@@ -1,0 +1,41 @@
+From ecd7e7f4b1c3fe4c656ae0c582d62a9e971708fe Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 2 Apr 2016 23:52:33 +0300
+Subject: [PATCH 0241/1053] Fixed 'Sort by' widget
+
+---
+ src/widget.cpp | 4 ++--
+ todo.txt       | 2 --
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 4c4246de91..033415f050 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -608,8 +608,8 @@ void Window::DrawSortButtonState(int widget, SortButtonState state) const
+ 
+ 	/* Sort button uses the same sprites as vertical scrollbar */
+ 	int offset = this->IsWidgetLowered(widget) ? 1 : 0;
+-	int x = offset + nwid->pos_x + (_current_text_dir == TD_LTR ? nwid->current_x - SETTING_BUTTON_HEIGHT / 4 : SETTING_BUTTON_HEIGHT / 4);
+-	int y = offset + nwid->pos_y + nwid->current_y - SETTING_BUTTON_HEIGHT / 2;
++	int x = offset + nwid->pos_x + (_current_text_dir == TD_LTR ? nwid->current_x - SETTING_BUTTON_HEIGHT / 2 : SETTING_BUTTON_HEIGHT / 2);
++	int y = offset + Center(nwid->pos_y, nwid->current_y, FONT_HEIGHT_NORMAL / 4);
+ 
+ 	DrawSpriteCentered(state == SBS_DOWN ? SPR_ARROW_DOWN : SPR_ARROW_UP, PAL_NONE, x, y);
+ }
+diff --git a/todo.txt b/todo.txt
+index e013bd1f10..908538836a 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,8 +3,6 @@
+ 
+ - Companies - Sort By arrow and text misaligned.
+ 
+-- Text input fields too small.
+-
+ - Subsidies list text too small.
+ 
+ - Sign list window is broken.
+-- 
+2.55.0
+

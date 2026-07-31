@@ -1,0 +1,27 @@
+From 2df71a1752fe56202bac6d314d8794c3913810c4 Mon Sep 17 00:00:00 2001
+From: benda <benda1@gmail.com>
+Date: Wed, 22 Dec 2021 12:32:48 -0600
+Subject: [PATCH 0782/1053] Doc: use only double quotes for cmake command line
+ example in  COMPILING.md (#9758)
+
+While powershell happily accepts single quotes, it's not the case for cmd.
+---
+ COMPILING.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/COMPILING.md b/COMPILING.md
+index 06f54262e4..ba910ed6df 100644
+--- a/COMPILING.md
++++ b/COMPILING.md
+@@ -69,7 +69,7 @@ that comes with vcpkg. After that, you can run something similar to this:
+ ```powershell
+ mkdir build
+ cd build
+-cmake.exe .. -G'Visual Studio 16 2019' -DCMAKE_TOOLCHAIN_FILE="<location of vcpkg>\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET="x64-windows-static"
++cmake.exe .. -G"Visual Studio 16 2019" -DCMAKE_TOOLCHAIN_FILE="<location of vcpkg>\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET="x64-windows-static"
+ ```
+ 
+ Change `<location of vcpkg>` to where you have installed vcpkg. After this
+-- 
+2.55.0
+

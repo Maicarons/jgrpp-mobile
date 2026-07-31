@@ -1,0 +1,187 @@
+From c323eb1c8afd1466d3979280b60d8a33afe1123e Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 3 Jun 2014 21:42:33 +0300
+Subject: [PATCH 0138/1053] Fixed dropdown lists in main toolbar
+
+---
+ src/toolbar_gui.cpp      |  6 +++---
+ src/widgets/dropdown.cpp | 12 +++++++-----
+ src/window.cpp           | 31 +++++++++++++++++++++++++------
+ 3 files changed, 35 insertions(+), 14 deletions(-)
+
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 96aafb7b79..bc314eb67f 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -176,10 +176,10 @@ static void PopupMainToolbMenu(Window *w, int widget, DropDownList *list, int de
+ 	} else {
+ 		Rect wi_rect;
+ 		NWidgetCore *nwi = w->GetWidget<NWidgetCore>(widget);
+-		wi_rect.left   = ((int)nwi->pos_x < _screen.width / 2) ? nwi->pos_x + nwi->current_x - 1 : nwi->pos_x - nwi->current_x;
+-		wi_rect.right  = ((int)nwi->pos_x < _screen.width / 2) ? nwi->pos_x + nwi->current_x * 2 : nwi->pos_x - 1;
++		wi_rect.left   = nwi->pos_x;
++		wi_rect.right  = nwi->pos_x + nwi->current_x;
+ 		wi_rect.top    = nwi->pos_y;
+-		wi_rect.bottom = nwi->pos_y + nwi->current_y - 1;
++		wi_rect.bottom = nwi->pos_y + nwi->current_y;
+ 		ShowDropDownListAt(w, list, def, widget, wi_rect, nwi->colour, true, true);
+ 	}
+ 	if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 6603dd588a..a5b7be1ea1 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -365,12 +365,14 @@ void ShowDropDownListAt(Window *w, const DropDownList *list, int selected, int b
+ 	int screen_bottom = GetMainViewBottom();
+ 	bool scroll = false;
+ 
++	enum { DISPLAY_BORDER = 20 };
++
+ 	/* Check if the dropdown will fully fit below the widget. */
+-	if (top + height + 4 >= screen_bottom) {
++	if (top + height + DISPLAY_BORDER >= screen_bottom) {
+ 		/* If not, check if it will fit above the widget. */
+ 		int screen_top = GetMainViewTop();
+ 		if (w->top + wi_rect.top > screen_top + height) {
+-			top = w->top + wi_rect.top - height - 4;
++			top = w->top + wi_rect.top - height;
+ 		} else {
+ 			/* If it doesn't fit above the widget, we need to enable a scrollbar... */
+ 			int avg_height = list_height / (int)list->Length();
+@@ -378,10 +380,10 @@ void ShowDropDownListAt(Window *w, const DropDownList *list, int selected, int b
+ 
+ 			/* ... and choose whether to put the list above or below the widget. */
+ 			bool put_above = false;
+-			int available_height = screen_bottom - w->top - wi_rect.bottom;
++			int available_height = screen_bottom - w->top - wi_rect.bottom - DISPLAY_BORDER;
+ 			if (w->top + wi_rect.top - screen_top > available_height) {
+ 				// Put it above.
+-				available_height = w->top + wi_rect.top - screen_top;
++				available_height = w->top + wi_rect.top - screen_top - DISPLAY_BORDER;
+ 				put_above = true;
+ 			}
+ 
+@@ -397,7 +399,7 @@ void ShowDropDownListAt(Window *w, const DropDownList *list, int selected, int b
+ 
+ 			/* ... and set the top position if needed. */
+ 			if (put_above) {
+-				top = w->top + wi_rect.top - height - 4;
++				top = w->top + wi_rect.top - height;
+ 			}
+ 		}
+ 	}
+diff --git a/src/window.cpp b/src/window.cpp
+index 88f8165325..9558e92572 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1476,9 +1476,8 @@ void Window::FindWindowPlacementAndResize(int def_width, int def_height)
+ 
+ 		int enlarge_x = max(min(def_width  - this->width,  _screen.width - this->width),  0);
+ 		int enlarge_y = max(min(def_height - this->height, free_height   - this->height), 0);
+-		if (wt && _settings_client.gui.vertical_toolbar &&
+-			enlarge_x > _screen.width - wt->width * 2) {
+-			//enlarge_x = _screen.width - wt->width * 2;
++		if (wt && _settings_client.gui.vertical_toolbar && enlarge_x > _screen.width - wt->width * 2) {
++			enlarge_x = _screen.width - wt->width * 2;
+ 		}
+ 
+ 		/* X and Y has to go by step.. calculate it.
+@@ -1500,8 +1499,13 @@ void Window::FindWindowPlacementAndResize(int def_width, int def_height)
+ 	if (nx + this->width > _screen.width) nx -= (nx + this->width - _screen.width);
+ 
+ 	const Window *wt = FindWindowById(WC_MAIN_TOOLBAR, 0);
+-	ny = max(ny, (wt == NULL || this == wt || this->top == 0) ? 0 : wt->height);
+-	nx = max(nx, 0);
++	if (!_settings_client.gui.vertical_toolbar) {
++		ny = max(ny, (wt == NULL || this == wt || this->top == 0) ? 0 : wt->height);
++		nx = max(nx, 0);
++	} else {
++		nx = max(nx, (wt == NULL || this == wt || this == FindWindowById(WC_MAIN_TOOLBAR_RIGHT, 0) || this->left == 0) ? 0 : wt->width);
++		ny = max(ny, 0);
++	}
+ 
+ 	if (this->viewport != NULL) {
+ 		this->viewport->left += nx - this->left;
+@@ -1510,6 +1514,8 @@ void Window::FindWindowPlacementAndResize(int def_width, int def_height)
+ 	this->left = nx;
+ 	this->top = ny;
+ 
++	DEBUG(misc, 0, "%s: %d:%d+%d+%d", __func__, this->left, this->top, this->width, this->height);
++
+ 	this->SetDirty();
+ }
+ 
+@@ -1528,6 +1534,7 @@ static bool IsGoodAutoPlace1(int left, int top, int width, int height, Point &po
+ {
+ 	int right  = width + left;
+ 	int bottom = height + top;
++	DEBUG(misc, 0, "%s: %d:%d+%d+%d", __func__, left, top, width, height);
+ 
+ 	const Window *main_toolbar = FindWindowByClass(WC_MAIN_TOOLBAR);
+ 	if (!_settings_client.gui.vertical_toolbar || !main_toolbar) {
+@@ -1551,6 +1558,7 @@ static bool IsGoodAutoPlace1(int left, int top, int width, int height, Point &po
+ 
+ 	pos.x = left;
+ 	pos.y = top;
++	DEBUG(misc, 0, "%s: pos %d:%d", __func__, pos.x, pos.y);
+ 	return true;
+ }
+ 
+@@ -1567,6 +1575,8 @@ static bool IsGoodAutoPlace1(int left, int top, int width, int height, Point &po
+  */
+ static bool IsGoodAutoPlace2(int left, int top, int width, int height, Point &pos)
+ {
++	DEBUG(misc, 0, "%s: %d:%d+%d+%d", __func__, left, top, width, height);
++
+ 	/* Left part of the rectangle may be at most 1/4 off-screen,
+ 	 * right part of the rectangle may be at most 1/2 off-screen
+ 	 */
+@@ -1589,6 +1599,7 @@ static bool IsGoodAutoPlace2(int left, int top, int width, int height, Point &po
+ 
+ 	pos.x = left;
+ 	pos.y = top;
++	DEBUG(misc, 0, "%s: pos %d:%d", __func__, pos.x, pos.y);
+ 	return true;
+ }
+ 
+@@ -1601,6 +1612,7 @@ static bool IsGoodAutoPlace2(int left, int top, int width, int height, Point &po
+ static Point GetAutoPlacePosition(int width, int height)
+ {
+ 	Point pt;
++	DEBUG(misc, 0, "%s: +%d+%d", __func__, width, height);
+ 
+ 	/* First attempt, try top-left of the screen */
+ 	const Window *main_toolbar = FindWindowByClass(WC_MAIN_TOOLBAR);
+@@ -1661,6 +1673,7 @@ restart:
+ 
+ 	pt.x = left;
+ 	pt.y = top;
++	DEBUG(misc, 0, "%s: pos %d:%d", __func__, pt.x, pt.y);
+ 	return pt;
+ }
+ 
+@@ -1719,6 +1732,10 @@ static Point LocalGetWindowPlacement(const WindowDesc *desc, int16 sm_width, int
+ 		if (pt.x > _screen.width + 10 - default_width) {
+ 			pt.x = (_screen.width + 10 - default_width) - 20;
+ 		}
++		const Window *w = FindWindowById(WC_MAIN_TOOLBAR_RIGHT, 0);
++		if (w && pt.x + default_width > _screen.width - w->width ) {
++			pt.x = _screen.width - w->width - default_width;
++		}
+ 
+ 		pt.y = w->top + ((desc->parent_cls == WC_BUILD_TOOLBAR || desc->parent_cls == WC_SCEN_LAND_GEN) ? w->height : 10);
+ 		return pt;
+@@ -1752,7 +1769,9 @@ static Point LocalGetWindowPlacement(const WindowDesc *desc, int16 sm_width, int
+ 
+ /* virtual */ Point Window::OnInitialPosition(int16 sm_width, int16 sm_height, int window_number)
+ {
+-	return LocalGetWindowPlacement(this->window_desc, sm_width, sm_height, window_number);
++	Point pt = LocalGetWindowPlacement(this->window_desc, sm_width, sm_height, window_number);
++	DEBUG(misc, 0, "%s: %d:%d+%d+%d", __func__, pt.x, pt.y, sm_width, sm_height);
++	return pt;
+ }
+ 
+ /**
+-- 
+2.55.0
+

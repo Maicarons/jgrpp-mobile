@@ -1,0 +1,32 @@
+From 80aeaf1156d65bd65e90c5f0c8c417d14f73c52e Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Jun 2021 00:48:13 +0300
+Subject: [PATCH 0716/1053] Updated todo
+
+---
+ todo.txt | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index de10627333..0e2fc38f28 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -23,8 +23,6 @@
+ 
+ - Download all data files into IDBFS on first run, to free up some RAM.
+ 
+-- Build libicuuc libicuio libicuio libiculx and libicu-le-hb for Hebrew and Arabic support.
+-
+ - Fix multiplayer using WebSocket Proxy Server, this depends on pthreads support,
+   so I'll probably need to hack together some custom proxy that does not use pthreads.
+ 
+@@ -38,6 +36,4 @@
+ 
+ - Find some developer with a MacBook and $100 to publish the 'OpenTTD Webapp Launcher' to the Apple Store.
+ 
+-- Fast forward button requires separate rendering thread, implement frameskip instead.
+-
+ - Ctrl screen button is getting stuck in the pressed state.
+-- 
+2.55.0
+

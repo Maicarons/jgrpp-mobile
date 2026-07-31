@@ -1,0 +1,288 @@
+From 38c999d742ff3194ac484951fb71fc0d3fa9822f Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Wed, 22 Mar 2017 22:26:20 +0200
+Subject: [PATCH 0325/1053] Setting to disable windows titlebars
+
+---
+ src/lang/english.txt          |  2 +
+ src/settings_gui.cpp          | 32 +++++++--------
+ src/settings_type.h           |  1 +
+ src/table/settings.ini        |  8 ++++
+ src/toolbar_gui.cpp           | 77 +++++++++++++++++++----------------
+ src/widgets/settings_widget.h |  1 +
+ 6 files changed, 71 insertions(+), 50 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 399c11cbf4..bce4b05292 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1220,6 +1220,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Font siz
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Size of all game fonts
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :{BLACK}Confirm actions
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :{BLACK}Show confirmation dialog when building roads and stations
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Title bars
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Show title bars for all windows, or hide them to save screen space
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bit
+ STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT                          :{BLACK}Set video color depth to 8 bits per pixel, this video mode supports water animation
+ STR_CONFIG_SETTING_VIDEO_16BPP                                  :{BLACK}16 bit
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 2b68f3093a..df5612bf7f 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -475,19 +475,21 @@ struct GameOptionsWindow : Window {
+ 				this->SetDirty();
+ 				break;
+ 
+-			case WID_GO_VERTICAL_TOOLBAR:
+-				_settings_client.gui.vertical_toolbar = !_settings_client.gui.vertical_toolbar;
+-				this->SetWidgetLoweredState(WID_GO_VERTICAL_TOOLBAR, _settings_client.gui.vertical_toolbar);
++			case WID_GO_WINDOWS_TITLEBARS:
++				_settings_client.gui.windows_titlebars = !_settings_client.gui.windows_titlebars;
++				this->SetWidgetLoweredState(WID_GO_WINDOWS_TITLEBARS, _settings_client.gui.windows_titlebars);
+ 				this->SetDirty();
++				if (_settings_client.gui.min_button == 48 && _settings_client.gui.windows_titlebars) {
++					_settings_client.gui.min_button = 40;
++					_settings_client.gui.min_step = 40;
++				}
++				if (_settings_client.gui.min_button == 40 && !_settings_client.gui.windows_titlebars) {
++					_settings_client.gui.min_button = 48;
++					_settings_client.gui.min_step = 48;
++				}
+ 				ReconstructUserInterface();
+ 				break;
+ 
+-			case WID_GO_BUILD_CONFIRMATION:
+-				_settings_client.gui.build_confirmation = !_settings_client.gui.build_confirmation;
+-				this->SetWidgetLoweredState(WID_GO_BUILD_CONFIRMATION, _settings_client.gui.build_confirmation);
+-				this->SetDirty();
+-				break;
+-
+ 			case WID_GO_8BPP_BUTTON:
+ 				if (this->IsWidgetLowered(WID_GO_8BPP_BUTTON)) break;
+ 				free(_ini_blitter);
+@@ -649,9 +651,7 @@ struct GameOptionsWindow : Window {
+ 	virtual void OnInvalidateData(int data = 0, bool gui_scope = true)
+ 	{
+ 		if (!gui_scope) return;
+-		//this->SetWidgetLoweredState(WID_GO_FULLSCREEN_BUTTON, _fullscreen);
+-		//this->SetWidgetLoweredState(WID_GO_VERTICAL_TOOLBAR, _settings_client.gui.vertical_toolbar);
+-		this->SetWidgetLoweredState(WID_GO_BUILD_CONFIRMATION, _settings_client.gui.build_confirmation);
++		this->SetWidgetLoweredState(WID_GO_WINDOWS_TITLEBARS, _settings_client.gui.windows_titlebars);
+ 		this->SetWidgetLoweredState(WID_GO_8BPP_BUTTON, _ini_blitter != NULL && strcmp(_ini_blitter, "8bpp-optimized") == 0);
+ 		this->SetWidgetLoweredState(WID_GO_16BPP_BUTTON, _ini_blitter == NULL || strcmp(_ini_blitter, "16bpp-simple") == 0);
+ 		this->SetWidgetLoweredState(WID_GO_32BPP_BUTTON, _ini_blitter != NULL && strcmp(_ini_blitter, "32bpp-anim") == 0);
+@@ -697,10 +697,8 @@ static const NWidgetPart _nested_game_options_widgets[] = {
+ 				EndContainer(),
+ 				NWidget(WWT_FRAME, COLOUR_GREY),
+ 					NWidget(NWID_HORIZONTAL),
+-						//NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_VERTICAL_TOOLBAR, STR_NULL),
+-						//NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_VERTICAL_TOOLBAR), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT),
+-						NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_BUILD_CONFIRMATION, STR_NULL),
+-						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_BUILD_CONFIRMATION), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT),
++						NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_WINDOWS_TITLEBARS, STR_NULL),
++						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_WINDOWS_TITLEBARS), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT),
+ 					EndContainer(),
+ 				EndContainer(),
+ 			EndContainer(),
+@@ -1651,6 +1649,8 @@ static SettingsContainer &GetSettingsTree()
+ 
+ 			interface->Add(new SettingEntry("gui.autosave"));
+ 			interface->Add(new SettingEntry("gui.vertical_toolbar"));
++			interface->Add(new SettingEntry("gui.build_confirmation"));
++			interface->Add(new SettingEntry("gui.windows_titlebars"));
+ 			interface->Add(new SettingEntry("gui.toolbar_pos"));
+ 			interface->Add(new SettingEntry("gui.statusbar_pos"));
+ 			interface->Add(new SettingEntry("gui.prefer_teamchat"));
+diff --git a/src/settings_type.h b/src/settings_type.h
+index be4adf58bb..a16a7f6cf3 100644
+--- a/src/settings_type.h
++++ b/src/settings_type.h
+@@ -79,6 +79,7 @@ struct GUISettings {
+ 	bool   vehicle_income_warn;              ///< if a vehicle isn't generating income, show a warning
+ 	bool   vertical_toolbar;                 ///< main toolbar is split into two vertical toolbars
+ 	bool   build_confirmation;               ///< show confirmation dialog when building roads and stations
++	bool   windows_titlebars;                ///< show or hide titlebars for all windows to increase scrren space
+ 	uint   min_button;                       ///< min size of most button widgets
+ 	uint   min_step;                         ///< min size of scrollbar/dropdown elements
+ 	bool   show_finances;                    ///< show finances at end of year
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index cc4c8053a9..454af88d70 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2566,6 +2566,14 @@ str      = STR_CONFIG_SETTING_BUILD_CONFIRMATION
+ strhelp  = STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT
+ cat      = SC_BASIC
+ 
++[SDTC_BOOL]
++var      = gui.windows_titlebars
++flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
++def      = true
++str      = STR_CONFIG_SETTING_WINDOWS_TITLEBARS
++strhelp  = STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT
++cat      = SC_BASIC
++
+ [SDTC_BOOL]
+ var      = gui.show_finances
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 3b8eb5ef58..b22bb537db 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -1878,11 +1878,11 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 
+ 	/* virtual */ const byte *GetButtonArrangement(uint &width, uint &arrangable_count, uint &button_count, uint &spacer_count) const
+ 	{
+-		// Some rather artistic button arrangement, I'm proud of myself
+-		static const byte arrange_left_classic[] = {
++		// Ultra-compact arrangement, ultra-huge buttons.
++		// No WID_TN_SHIFT, WID_TN_STORY, WID_TN_GOAL, and WID_TN_LEAGUE buttons.
++		static const byte arrange_left_compact[] = {
+ 			WID_TN_DELETE,
+ 			WID_TN_CTRL,
+-			WID_TN_SHIFT,
+ 			WID_TN_ZOOM_IN,
+ 			WID_TN_ZOOM_OUT,
+ 			WID_TN_PAUSE,
+@@ -1891,41 +1891,36 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SAVE,
+ 			WID_TN_SMALL_MAP,
+ 			WID_TN_TOWNS,
+-			WID_TN_SUBSIDIES,
+ 		};
+-		static const byte arrange_right_classic[] = {
++		static const byte arrange_right_compact[] = {
+ 			WID_TN_SWITCH_BAR,
+ 			WID_TN_RAILS,
+ 			WID_TN_ROADS,
+ 			WID_TN_WATER,
+ 			WID_TN_AIR,
+ 			WID_TN_LANDSCAPE,
+-			WID_TN_STATIONS,
+-			WID_TN_FINANCES,
+-			WID_TN_COMPANIES,
+-			WID_TN_GRAPHS,
+-			WID_TN_INDUSTRIES,
+-			WID_TN_HELP,
+-
+-			WID_TN_SWITCH_BAR,
+ 			WID_TN_TRAINS,
+ 			WID_TN_ROADVEHS,
+ 			WID_TN_SHIPS,
+ 			WID_TN_AIRCRAFTS,
+-			WID_TN_LEAGUE,
++
++			WID_TN_SWITCH_BAR,
++			WID_TN_SUBSIDIES,
+ 			WID_TN_STATIONS,
+-			WID_TN_STORY,
+-			WID_TN_GOAL,
++			WID_TN_FINANCES,
++			WID_TN_COMPANIES,
++			WID_TN_GRAPHS,
++			WID_TN_INDUSTRIES,
+ 			WID_TN_MUSIC_SOUND,
+ 			WID_TN_MESSAGES,
+ 			WID_TN_HELP,
+ 		};
+ 
+-		// Ultra-compact arrangement, ultra-huge buttons.
+-		// No WID_TN_SHIFT, WID_TN_STORY, WID_TN_GOAL, and WID_TN_LEAGUE buttons.
+-		static const byte arrange_left_compact[] = {
++		// Some rather artistic button arrangement, I'm proud of myself
++		static const byte arrange_left_classic[] = {
+ 			WID_TN_DELETE,
+ 			WID_TN_CTRL,
++			WID_TN_SHIFT,
+ 			WID_TN_ZOOM_IN,
+ 			WID_TN_ZOOM_OUT,
+ 			WID_TN_PAUSE,
+@@ -1934,26 +1929,31 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SAVE,
+ 			WID_TN_SMALL_MAP,
+ 			WID_TN_TOWNS,
++			WID_TN_SUBSIDIES,
+ 		};
+-		static const byte arrange_right_compact[] = {
++		static const byte arrange_right_classic[] = {
+ 			WID_TN_SWITCH_BAR,
+ 			WID_TN_RAILS,
+ 			WID_TN_ROADS,
+ 			WID_TN_WATER,
+ 			WID_TN_AIR,
+ 			WID_TN_LANDSCAPE,
+-			WID_TN_TRAINS,
+-			WID_TN_ROADVEHS,
+-			WID_TN_SHIPS,
+-			WID_TN_AIRCRAFTS,
+-
+-			WID_TN_SWITCH_BAR,
+-			WID_TN_SUBSIDIES,
+ 			WID_TN_STATIONS,
+ 			WID_TN_FINANCES,
+ 			WID_TN_COMPANIES,
+ 			WID_TN_GRAPHS,
+ 			WID_TN_INDUSTRIES,
++			WID_TN_HELP,
++
++			WID_TN_SWITCH_BAR,
++			WID_TN_TRAINS,
++			WID_TN_ROADVEHS,
++			WID_TN_SHIPS,
++			WID_TN_AIRCRAFTS,
++			WID_TN_LEAGUE,
++			WID_TN_STATIONS,
++			WID_TN_STORY,
++			WID_TN_GOAL,
+ 			WID_TN_MUSIC_SOUND,
+ 			WID_TN_MESSAGES,
+ 			WID_TN_HELP,
+@@ -2037,18 +2037,27 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 		if (_screen.height / this->smallest_y >= lengthof(arrange_left_all))
+ 		{
+ 			button_count = arrangable_count = lengthof(arrange_left_all);
+-			if (side == 0) {
+-				return arrange_left_all;
+-			}
++			if (side == 0) return arrange_left_all;
+ 			return arrange_right_all;
+ 		}
+ 
+-		if (side == 0) {
++		if (_screen.height / this->smallest_y >= lengthof(arrange_left_almost_all))
++		{
++			button_count = arrangable_count = lengthof(arrange_left_almost_all);
++			if (side == 0) return arrange_left_almost_all;
++			return arrange_right_almost_all;
++		}
++
++		if (_screen.height / this->smallest_y >= lengthof(arrange_left_classic))
++		{
+ 			button_count = arrangable_count = lengthof(arrange_left_classic);
+-			return arrange_left_classic;
++			if (side == 0) return arrange_left_classic;
++			return &arrange_right_classic[((_toolbar_mode == TB_LOWER) ? button_count : 0)];
+ 		}
+-		button_count = arrangable_count = lengthof(arrange_right_classic) / 2;
+-		return &arrange_right_classic[((_toolbar_mode == TB_LOWER) ? button_count : 0)];
++
++		button_count = arrangable_count = lengthof(arrange_left_compact);
++		if (side == 0) return arrange_left_compact;
++		return &arrange_right_compact[((_toolbar_mode == TB_LOWER) ? button_count : 0)];
+ 	}
+ };
+ 
+diff --git a/src/widgets/settings_widget.h b/src/widgets/settings_widget.h
+index 292c50bafd..c526bf6215 100644
+--- a/src/widgets/settings_widget.h
++++ b/src/widgets/settings_widget.h
+@@ -30,6 +30,7 @@ enum GameOptionsWidgets {
+ 	WID_GO_TEXT_SIZE_DROPDOWN,     ///< Size of medium font, sizes of other fonts are derived from it.
+ 	WID_GO_VERTICAL_TOOLBAR,       ///< Enable vertical toolbar.
+ 	WID_GO_BUILD_CONFIRMATION,     ///< Enable build confirmation dialog.
++	WID_GO_WINDOWS_TITLEBARS,      ///< Titlebars for all windows.
+ 	WID_GO_GUI_ZOOM_DROPDOWN,      ///< Dropdown for the GUI zoom level.
+ 	WID_GO_BASE_GRF_DROPDOWN,      ///< Use to select a base GRF.
+ 	WID_GO_BASE_GRF_STATUS,        ///< Info about missing files etc.
+-- 
+2.55.0
+

@@ -1,0 +1,613 @@
+From 8909ce3d8c5b0373985e7c2a9177d9361c4b5bf6 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 13 Dec 2021 22:57:59 +0200
+Subject: [PATCH 0750/1053] Fixed emscripten compilation
+
+---
+ CMakeLists.txt                        |   5 +-
+ cmake/FindICU.cmake                   |  23 +--
+ os/emscripten/README.md               |  24 +--
+ os/emscripten/cmake/FindLibLZMA.cmake |  20 ---
+ os/emscripten/cmake/harfbuzz.pc       |   4 +
+ os/emscripten/emscripten-build.sh     | 115 +++++++++------
+ os/emscripten/emsdk-liblzma.patch     | 204 --------------------------
+ src/network/core/em_proxy.cpp         |   4 +-
+ 8 files changed, 88 insertions(+), 311 deletions(-)
+ delete mode 100644 os/emscripten/cmake/FindLibLZMA.cmake
+ create mode 100644 os/emscripten/cmake/harfbuzz.pc
+ delete mode 100644 os/emscripten/emsdk-liblzma.patch
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bcb659c4c3..a4fdcff3a8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -326,6 +326,9 @@ endif()
+ 
+ if(EMSCRIPTEN)
+     add_library(WASM::WASM INTERFACE IMPORTED)
++    if(DEFINED WASM_LINKER_FLAGS)
++        target_link_libraries(WASM::WASM INTERFACE "${WASM_LINKER_FLAGS}")
++    endif()
+ 
+     # Allow heap-growth, and start with a bigger memory size.
+     target_link_libraries(WASM::WASM INTERFACE "-s ALLOW_MEMORY_GROWTH=1")
+@@ -334,7 +337,7 @@ if(EMSCRIPTEN)
+     add_definitions(-s DISABLE_EXCEPTION_CATCHING=0)
+ 
+     # Export functions to Javascript.
+-    target_link_libraries(WASM::WASM INTERFACE "-s EXPORTED_FUNCTIONS='[\"_main\", \"_em_openttd_add_server\"]' -s EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
++    target_link_libraries(WASM::WASM INTERFACE "-s EXPORTED_FUNCTIONS='[\"_main\",\"_em_openttd_add_server\"]' -s EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
+ 
+     # Preload all the files we generate during build.
+     # As we do not compile with FreeType / FontConfig, we also have no way to
+diff --git a/cmake/FindICU.cmake b/cmake/FindICU.cmake
+index 1c265bf2d0..07f8bac113 100644
+--- a/cmake/FindICU.cmake
++++ b/cmake/FindICU.cmake
+@@ -42,22 +42,13 @@ foreach(MOD_NAME IN LISTS ICU_FIND_COMPONENTS)
+     # Check the libraries returned by pkg-config really exist.
+     unset(PC_LIBRARIES)
+     foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
+-        unset(PC_LIBRARY CACHE)
+-        if(ANDROID)
+-            if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+-                find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
+-            endif()
+-            if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+-                unset(PC_ICU_${MOD_NAME}_FOUND)
+-            endif()
+-            list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
+-        else(ANDROID)
+-            find_library(PC_LIBRARY NAMES ${LIBRARY})
+-            if(NOT PC_LIBRARY)
+-                unset(PC_ICU_${MOD_NAME}_FOUND)
+-            endif()
+-            list(APPEND PC_LIBRARIES ${PC_LIBRARY})
+-        endif(ANDROID)
++        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
++            find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
++        endif()
++        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
++            unset(PC_ICU_${MOD_NAME}_FOUND)
++        endif()
++        list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
+     endforeach()
+     unset(PC_LIBRARY CACHE)
+ 
+diff --git a/os/emscripten/README.md b/os/emscripten/README.md
+index 59f17c6269..2af4ab3dbc 100644
+--- a/os/emscripten/README.md
++++ b/os/emscripten/README.md
+@@ -2,30 +2,8 @@
+ 
+ Building with Emscripten works with emsdk 2.0.31 and above.
+ 
+-Currently there is no LibLZMA support upstream; for this we suggest to apply
+-the provided patch in this folder to your emsdk installation.
+-
+-For convenience, a Dockerfile is supplied that does this patches for you
+-against upstream emsdk docker. Best way to use it:
+-
+-Build the docker image:
+-```
+-  docker build -t emsdk-lzma .
+-```
+-
+-Build the host tools first:
+-```
+-  mkdir build-host
+-  docker run -it --rm -v $(pwd):$(pwd) -u $(id -u):$(id -g) --workdir $(pwd)/build-host emsdk-lzma cmake .. -DOPTION_TOOLS_ONLY=ON
+-  docker run -it --rm -v $(pwd):$(pwd) -u $(id -u):$(id -g) --workdir $(pwd)/build-host emsdk-lzma make -j5 tools
+-```
+-
+-Next, build the game with emscripten:
+-
+ ```
+-  mkdir build
+-  docker run -it --rm -v $(pwd):$(pwd) -u $(id -u):$(id -g) --workdir $(pwd)/build emsdk-lzma emcmake cmake .. -DHOST_BINARY_DIR=$(pwd)/build-host -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPTION_USE_ASSERTS=OFF
+-  docker run -it --rm -v $(pwd):$(pwd) -u $(id -u):$(id -g) --workdir $(pwd)/build emsdk-lzma emmake make -j5
++  ./emscripten-build.sh
+ ```
+ 
+ And now you have in your build folder files like "openttd.html".
+diff --git a/os/emscripten/cmake/FindLibLZMA.cmake b/os/emscripten/cmake/FindLibLZMA.cmake
+deleted file mode 100644
+index e8a024c4ee..0000000000
+--- a/os/emscripten/cmake/FindLibLZMA.cmake
++++ /dev/null
+@@ -1,20 +0,0 @@
+-# LibLZMA is a recent addition to the emscripten SDK, so it is possible
+-# someone hasn't updated their SDK yet. Test out if the SDK supports LibLZMA.
+-include(CheckCXXSourceCompiles)
+-set(CMAKE_REQUIRED_FLAGS "-sUSE_LIBLZMA=1")
+-
+-check_cxx_source_compiles("
+-    #include <lzma.h>
+-    int main() { return 0; }"
+-    LIBLZMA_FOUND
+-)
+-
+-if (LIBLZMA_FOUND)
+-        add_library(LibLZMA::LibLZMA INTERFACE IMPORTED)
+-        set_target_properties(LibLZMA::LibLZMA PROPERTIES
+-                INTERFACE_COMPILE_OPTIONS "-sUSE_LIBLZMA=1"
+-                INTERFACE_LINK_LIBRARIES "-sUSE_LIBLZMA=1"
+-        )
+-else()
+-        message(WARNING "You are using an emscripten SDK without LibLZMA support. Many savegames won't be able to load in OpenTTD. Please apply 'emsdk-liblzma.patch' to your local emsdk installation.")
+-endif()
+diff --git a/os/emscripten/cmake/harfbuzz.pc b/os/emscripten/cmake/harfbuzz.pc
+new file mode 100644
+index 0000000000..aacb669852
+--- /dev/null
++++ b/os/emscripten/cmake/harfbuzz.pc
+@@ -0,0 +1,4 @@
++Name: harfbuzz
++Description: HarfBuzz text shaping library
++Version: 2.8.1
++Libs: -lharfbuzz
+diff --git a/os/emscripten/emscripten-build.sh b/os/emscripten/emscripten-build.sh
+index d0fb7d696f..83a83d50f5 100755
+--- a/os/emscripten/emscripten-build.sh
++++ b/os/emscripten/emscripten-build.sh
+@@ -25,8 +25,8 @@ cd build-wasm-$BUILD_TYPE
+ 
+ # ===== Build dependency libraries =====
+ 
+-embuilder build liblzma ogg vorbis zlib sdl2 freetype icu harfbuzz
+-embuilder build --lto liblzma ogg vorbis zlib sdl2 freetype icu harfbuzz
++embuilder build ogg vorbis zlib sdl2 freetype icu harfbuzz
++embuilder build --lto ogg vorbis zlib sdl2 freetype icu harfbuzz
+ 
+ autoreconf -V || exit 1 # No autotools installed
+ 
+@@ -37,15 +37,15 @@ autoreconf -V || exit 1 # No autotools installed
+ 	autoreconf -fi
+ 	emconfigure ./configure --prefix=`pwd`/build-wasm \
+ 		--disable-shared --enable-static \
+-		HARFBUZZ_CFLAGS="-I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/harfbuzz" \
+-		HARFBUZZ_LIBS="-lharfbuzz" \
++		HARFBUZZ_CFLAGS="-I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/harfbuzz -sUSE_HARFBUZZ=1" \
++		HARFBUZZ_LIBS="-lharfbuzz -sUSE_HARFBUZZ=1" \
+ 		ICU_CFLAGS="-I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include -DU_DEFINE_FALSE_AND_TRUE=1" \
+ 		ICU_LIBS="-licuuc" \
+ 		CFLAGS="$OPT" \
+ 		LDFLAGS="$OPT" \
+ 		|| exit 1
+-	make -j8 V=1 || exit 1
+-	make install || exit 1
++	emmake make -j8 V=1 || exit 1
++	emmake make install || exit 1
+ 	cd ..
+ }
+ 
+@@ -86,11 +86,11 @@ autoreconf -V || exit 1 # No autotools installed
+ 		LDFLAGS="$OPT" \
+ 		|| exit 1
+ 
+-	make -j8 || exit 1
++	emmake make -j8 || exit 1
+ 
+ 	sed -i "s@^datadir *= *.*@datadir = `pwd`/../build-wasm/share@" icudefs.mk || exit 1
+ 
+-	make install || exit 1
++	emmake make install || exit 1
+ 	cd ../..
+ }
+ 
+@@ -105,8 +105,8 @@ autoreconf -V || exit 1 # No autotools installed
+ 		CFLAGS="$OPT" \
+ 		LDFLAGS="$OPT" \
+ 		--with-timidity-cfg="/timidity/timidity.cfg" || exit 1
+-	make -j8 || exit 1
+-	make install || exit 1
++	emmake make -j8 || exit 1
++	emmake make install || exit 1
+ 	cd ..
+ }
+ 
+@@ -121,8 +121,8 @@ autoreconf -V || exit 1 # No autotools installed
+ 		CFLAGS="$OPT" \
+ 		LDFLAGS="$OPT" \
+ 		|| exit 1
+-	make -j8 || exit 1
+-	make install || exit 1
++	emmake make -j8 || exit 1
++	emmake make install || exit 1
+ 	cd ..
+ }
+ 
+@@ -136,8 +136,8 @@ autoreconf -V || exit 1 # No autotools installed
+ 		CFLAGS="$OPT" \
+ 		LDFLAGS="$OPT" \
+ 		|| exit 1
+-	make -j8 || exit 1
+-	make install || exit 1
++	emmake make -j8 || exit 1
++	emmake make install || exit 1
+ 	cd ..
+ }
+ 
+@@ -156,8 +156,9 @@ autoreconf -V || exit 1 # No autotools installed
+ 		--disable-docs cross_compiling=yes \
+ 		ac_cv_func_fstatfs=no ac_cv_func_fstatvfs=no \
+ 		FREETYPE_CFLAGS="-I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/freetype2 \
+-			-I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/freetype2/freetype" \
+-		FREETYPE_LIBS="-lfreetype" \
++			-I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/freetype2/freetype \
++			-sUSE_FREETYPE=1" \
++		FREETYPE_LIBS="-lfreetype -sUSE_FREETYPE=1" \
+ 		EXPAT_CFLAGS="-I`pwd`/../expat-2.3.0/build-wasm/include" \
+ 		EXPAT_LIBS="-L`pwd`/../expat-2.3.0/build-wasm/lib -lexpat" \
+ 		UUID_CFLAGS="-I`pwd`/../libuuid-1.0.3/build-wasm/include" \
+@@ -165,12 +166,11 @@ autoreconf -V || exit 1 # No autotools installed
+ 		CFLAGS="$OPT" \
+ 		LDFLAGS="$OPT" \
+ 		|| exit 1
+-	make -j8 V=1 || exit 1
+-	make install || exit 1
++	emmake make -j8 V=1 || exit 1
++	emmake make install || exit 1
+ 	cd ..
+ }
+ 
+-# -s EXPORTED_FUNCTIONS=['_main','_memchr']
+ [ -e lzo-2.10/build-wasm/lib/liblzo2.a ] || {
+ 	wget -nc https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz || exit 1
+ 	tar xvf lzo-2.10.tar.gz || exit 1
+@@ -180,10 +180,26 @@ autoreconf -V || exit 1 # No autotools installed
+ 		--disable-shared --enable-static \
+ 		--disable-asm \
+ 		CFLAGS="$OPT" \
+-		LDFLAGS="$OPT -s EXPORTED_FUNCTIONS=['_main','_memchr']" \
++		LDFLAGS="$OPT -s EXPORTED_FUNCTIONS=['_main','_memchr','_calloc']" \
+ 		|| exit 1
+-	make -j8 || exit 1
+-	make install || exit 1
++	emmake make -j8 || exit 1
++	emmake make install || exit 1
++	cd ..
++}
++
++[ -e xz-5.2.5/build-wasm/lib/liblzma.a ] || {
++	wget -nc https://tukaani.org/xz/xz-5.2.5.tar.gz || exit 1
++	tar xvf xz-5.2.5.tar.gz || exit 1
++	cd xz-5.2.5
++	autoreconf -fi
++	emconfigure ./configure --prefix=`pwd`/build-wasm \
++		--disable-shared --enable-static \
++		--disable-asm \
++		CFLAGS="$OPT" \
++		LDFLAGS="$OPT" \
++		|| exit 1
++	emmake make -j8 || exit 1
++	emmake make install || exit 1
+ 	cd ..
+ }
+ 
+@@ -191,28 +207,28 @@ autoreconf -V || exit 1 # No autotools installed
+ 
+ mkdir -p baseset
+ 
+-[ -e baseset/opengfx-0.6.1.tar ] || {
+-	wget -nc https://cdn.openttd.org/opengfx-releases/0.6.1/opengfx-0.6.1-all.zip || exit 1
+-	unzip opengfx-0.6.1-all.zip || exit 1
+-	rm opengfx-0.6.1-all.zip
+-	mv opengfx-0.6.1.tar baseset/ || exit 1
++[ -e baseset/opengfx-7.1.tar ] || {
++	wget -nc https://cdn.openttd.org/opengfx-releases/7.1/opengfx-7.1-all.zip || exit 1
++	unzip opengfx-7.1-all.zip || exit 1
++	rm opengfx-7.1-all.zip
++	mv opengfx-7.1.tar baseset/ || exit 1
+ }
+ 
+-[ -e baseset/opensfx-1.0.1.tar ] || {
+-	wget -nc https://cdn.openttd.org/opensfx-releases/1.0.1/opensfx-1.0.1-all.zip || exit 1
+-	unzip opensfx-1.0.1-all.zip || exit 1
+-	rm opensfx-1.0.1-all.zip
+-	mv opensfx-1.0.1.tar baseset/ || exit 1
++[ -e baseset/opensfx-1.0.3.tar ] || {
++	wget -nc https://cdn.openttd.org/opensfx-releases/1.0.3/opensfx-1.0.3-all.zip || exit 1
++	unzip opensfx-1.0.3-all.zip || exit 1
++	rm opensfx-1.0.3-all.zip
++	mv opensfx-1.0.3.tar baseset/ || exit 1
+ }
+ 
+-[ -e baseset/openmsx-0.4.0 ] || {
+-	wget -nc https://cdn.openttd.org/openmsx-releases/0.4.0/openmsx-0.4.0-all.zip || exit 1
+-	unzip openmsx-0.4.0-all.zip || exit 1
+-	rm openmsx-0.4.0-all.zip
++[ -e baseset/openmsx-0.4.2 ] || {
++	wget -nc https://cdn.openttd.org/openmsx-releases/0.4.2/openmsx-0.4.2-all.zip || exit 1
++	unzip openmsx-0.4.2-all.zip || exit 1
++	rm openmsx-0.4.2-all.zip
+ 	cd baseset || exit 1
+-	tar xvf ../openmsx-0.4.0.tar || exit 1
++	tar xvf ../openmsx-0.4.2.tar || exit 1
+ 	cd ..
+-	rm openmsx-0.4.0.tar
++	rm openmsx-0.4.2.tar
+ }
+ 
+ [ -e icudt68l.dat ] || {
+@@ -248,29 +264,38 @@ mkdir -p baseset
+ 
+ # ===== Build OpenTTD itself =====
+ 
++export PKG_CONFIG_PATH=`pwd`/icu/build-wasm/lib/pkgconfig
++export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:`pwd`/icu-le-hb-1.0.3/build-wasm/lib/pkgconfig
++export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:`pwd`/../os/emscripten/cmake
++
+ [ -e Makefile ] || emcmake cmake .. \
+ 	-DHOST_BINARY_DIR=$(pwd)/build-host -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DOPTION_USE_ASSERTS=OFF \
+ 	-DFREETYPE_INCLUDE_DIRS=`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/freetype2 \
+ 	-DFREETYPE_LIBRARY=-lfreetype \
+ 	-DFontconfig_INCLUDE_DIR=`pwd`/fontconfig-2.13.1/build-wasm/include \
+ 	-DFontconfig_LIBRARY=`pwd`/fontconfig-2.13.1/build-wasm/lib/libfontconfig.a \
+-	-DLZO_INCLUDE_DIR=`pwd`/lzo-2.10/build-wasm/include \
+-	-DLZO_LIBRARY=`pwd`/lzo-2.10/build-wasm/lib/liblzo2.a \
+ 	-DPC_ICU_i18n_FOUND=YES \
+ 	-DPC_ICU_i18n_INCLUDE_DIRS=`pwd`/icu/build-wasm/include \
+-	-DICU_i18n_LIBRARY=`pwd`/icu/build-wasm/lib/libicui18n.a \
++	-DPC_ICU_i18n_LIBRARY=`pwd`/icu/build-wasm/lib/libicui18n.a \
+ 	-DPC_ICU_lx_FOUND=YES \
+ 	-DPC_ICU_lx_INCLUDE_DIRS=`pwd`/icu-le-hb-1.0.3/build-wasm/include/icu-le-hb \
+-	-DICU_lx_LIBRARY=`pwd`/icu/build-wasm/lib/libiculx.a \
++	-DPC_ICU_lx_LIBRARY=`pwd`/icu/build-wasm/lib/libiculx.a \
++	-DLZO_INCLUDE_DIR=`pwd`/lzo-2.10/build-wasm/include \
+ 	-DLZO_LIBRARY=`pwd`/lzo-2.10/build-wasm/lib/liblzo2.a \
+-	-DCMAKE_CXX_FLAGS="-sUSE_FREETYPE=1" \
+-	-DCMAKE_EXE_LINKER_FLAGS="-sUSE_FREETYPE=1 \
++	-DLIBLZMA_INCLUDE_DIR=`pwd`/xz-5.2.5/build-wasm/include \
++	-DLIBLZMA_LIBRARY=`pwd`/xz-5.2.5/build-wasm/lib/liblzma.a \
++	-DCMAKE_CXX_FLAGS="-sUSE_FREETYPE=1 -sUSE_HARFBUZZ=1" \
++	-DWASM_LINKER_FLAGS="-sUSE_FREETYPE=1 -sUSE_HARFBUZZ=1 \
+ 		-L`pwd`/icu-le-hb-1.0.3/build-wasm/lib -licu-le-hb -lharfbuzz \
+ 		-L`pwd`/icu/build-wasm/lib -licudata -licuuc \
+ 		-L`pwd`/expat-2.3.0/build-wasm/lib -lexpat \
+-		-L`pwd`/libuuid-1.0.3/build-wasm/lib -luuid" \
++		`pwd`/libuuid-1.0.3/build-wasm/lib/libuuid.a \
++		" \
+ 	|| exit 1
+ 
++#		-L`pwd`/libuuid-1.0.3/build-wasm/lib -luuid" \
++
++
+ #  -I`em-config EMSCRIPTEN_ROOT`/cache/sysroot/include/freetype2/freetype
+ #	-DTimidity_LIBRARY=`pwd`/libtimidity-0.2.7/build-wasm/lib/libtimidity.a \
+ #	-DTimidity_INCLUDE_DIR=`pwd`/libtimidity-0.2.7/build-wasm/include \
+diff --git a/os/emscripten/emsdk-liblzma.patch b/os/emscripten/emsdk-liblzma.patch
+deleted file mode 100644
+index aa75fa5a49..0000000000
+--- a/os/emscripten/emsdk-liblzma.patch
++++ /dev/null
+@@ -1,204 +0,0 @@
+-From 90dd4d4c6b1cedec338ff5b375fffca93700f7bc Mon Sep 17 00:00:00 2001
+-From: milek7 <me@milek7.pl>
+-Date: Tue, 8 Dec 2020 01:03:31 +0100
+-Subject: [PATCH] Add liblzma port
+-
+----
+-Source: https://github.com/emscripten-core/emscripten/pull/12990
+-
+-Modifed by OpenTTD to have the bare minimum needed to work. Otherwise there
+-are constantly conflicts when trying to apply this patch to different versions
+-of emsdk.
+-
+-diff --git a/tools/settings.py b/tools/settings.py
+---- a/tools/settings.py
+-+++ b/tools/settings.py
+-@@ -38,6 +38,7 @@
+-     'USE_SDL_NET',
+-     'USE_SDL_GFX',
+-     'USE_LIBJPEG',
+-+    'USE_LIBLZMA',
+-     'USE_OGG',
+-     'USE_REGAL',
+-     'USE_BOOST_HEADERS',
+-diff --git a/src/settings.js b/src/settings.js
+---- a/src/settings.js
+-+++ b/src/settings.js
+-@@ -1382,8 +1382,12 @@ var USE_BZIP2 = 0;
+- // 1 = use libjpeg from emscripten-ports
+- // [link]
+- var USE_LIBJPEG = 0;
+-
+-+// 1 = use liblzma from emscripten-ports
+-+// [link]
+-+var USE_LIBLZMA = 0;
+-+
+- // 1 = use libpng from emscripten-ports
+- // [link]
+- var USE_LIBPNG = 0;
+-
+-diff --git a/tools/ports/liblzma.py b/tools/ports/liblzma.py
+-new file mode 100644
+---- /dev/null
+-+++ b/tools/ports/liblzma.py
+-@@ -0,0 +1,160 @@
+-+# Copyright 2020 The Emscripten Authors.  All rights reserved.
+-+# Emscripten is available under two separate licenses, the MIT license and the
+-+# University of Illinois/NCSA Open Source License.  Both these licenses can be
+-+# found in the LICENSE file.
+-+
+-+import os
+-+import shutil
+-+import logging
+-+from pathlib import Path
+-+
+-+VERSION = '5.2.5'
+-+HASH = '7443674247deda2935220fbc4dfc7665e5bb5a260be8ad858c8bd7d7b9f0f868f04ea45e62eb17c0a5e6a2de7c7500ad2d201e2d668c48ca29bd9eea5a73a3ce'
+-+
+-+
+-+def needed(settings):
+-+  return settings.USE_LIBLZMA
+-+
+-+
+-+def get(ports, settings, shared):
+-+  ports.fetch_project('liblzma', 'https://tukaani.org/xz/xz-' + VERSION + '.tar.gz', 'xz-' + VERSION, sha512hash=HASH)
+-+
+-+  def create(final):
+-+    logging.info('building port: liblzma')
+-+
+-+    ports.clear_project_build('liblzma')
+-+
+-+    source_path = os.path.join(ports.get_dir(), 'liblzma', 'xz-' + VERSION)
+-+    dest_path = os.path.join(ports.get_build_dir(), 'liblzma')
+-+
+-+    shared.try_delete(dest_path)
+-+    os.makedirs(dest_path)
+-+    shutil.rmtree(dest_path, ignore_errors=True)
+-+    shutil.copytree(source_path, dest_path)
+-+
+-+    build_flags = ['-DHAVE_CONFIG_H', '-DTUKLIB_SYMBOL_PREFIX=lzma_', '-fvisibility=hidden']
+-+    exclude_dirs = ['xzdec', 'xz', 'lzmainfo']
+-+    exclude_files = ['crc32_small.c', 'crc64_small.c', 'crc32_tablegen.c', 'crc64_tablegen.c', 'price_tablegen.c', 'fastpos_tablegen.c'
+-+                     'tuklib_exit.c', 'tuklib_mbstr_fw.c', 'tuklib_mbstr_width.c', 'tuklib_open_stdxxx.c', 'tuklib_progname.c']
+-+    include_dirs_rel = ['../common', 'api', 'common', 'check', 'lz', 'rangecoder', 'lzma', 'delta', 'simple']
+-+
+-+    Path(dest_path, os.path.join('src', 'config.h')).write_text(config_h)
+-+
+-+    include_dirs = [os.path.join(dest_path, 'src', 'liblzma', p) for p in include_dirs_rel]
+-+    ports.build_port(os.path.join(dest_path, 'src'), final, flags=build_flags, exclude_dirs=exclude_dirs, exclude_files=exclude_files, includes=include_dirs)
+-+
+-+    ports.install_headers(os.path.join(dest_path, 'src', 'liblzma', 'api'), 'lzma.h')
+-+    ports.install_headers(os.path.join(dest_path, 'src', 'liblzma', 'api', 'lzma'), '*.h', 'lzma')
+-+
+-+  return [shared.Cache.get_lib('liblzma.a', create, what='port')]
+-+
+-+
+-+def clear(ports, settings, shared):
+-+  shared.Cache.erase_lib('liblzma.a')
+-+
+-+
+-+def process_args(ports):
+-+  return []
+-+
+-+
+-+def show():
+-+  return 'liblzma (USE_LIBLZMA=1; public domain)'
+-+
+-+
+-+config_h = r'''
+-+#define ASSUME_RAM 128
+-+#define ENABLE_NLS 1
+-+#define HAVE_CHECK_CRC32 1
+-+#define HAVE_CHECK_CRC64 1
+-+#define HAVE_CHECK_SHA256 1
+-+#define HAVE_CLOCK_GETTIME 1
+-+#define HAVE_DCGETTEXT 1
+-+#define HAVE_DECL_CLOCK_MONOTONIC 1
+-+#define HAVE_DECL_PROGRAM_INVOCATION_NAME 1
+-+#define HAVE_DECODERS 1
+-+#define HAVE_DECODER_ARM 1
+-+#define HAVE_DECODER_ARMTHUMB 1
+-+#define HAVE_DECODER_DELTA 1
+-+#define HAVE_DECODER_IA64 1
+-+#define HAVE_DECODER_LZMA1 1
+-+#define HAVE_DECODER_LZMA2 1
+-+#define HAVE_DECODER_POWERPC 1
+-+#define HAVE_DECODER_SPARC 1
+-+#define HAVE_DECODER_X86 1
+-+#define HAVE_DLFCN_H 1
+-+#define HAVE_ENCODERS 1
+-+#define HAVE_ENCODER_ARM 1
+-+#define HAVE_ENCODER_ARMTHUMB 1
+-+#define HAVE_ENCODER_DELTA 1
+-+#define HAVE_ENCODER_IA64 1
+-+#define HAVE_ENCODER_LZMA1 1
+-+#define HAVE_ENCODER_LZMA2 1
+-+#define HAVE_ENCODER_POWERPC 1
+-+#define HAVE_ENCODER_SPARC 1
+-+#define HAVE_ENCODER_X86 1
+-+#define HAVE_FCNTL_H 1
+-+#define HAVE_FUTIMENS 1
+-+#define HAVE_GETOPT_H 1
+-+#define HAVE_GETOPT_LONG 1
+-+#define HAVE_GETTEXT 1
+-+#define HAVE_IMMINTRIN_H 1
+-+#define HAVE_INTTYPES_H 1
+-+#define HAVE_LIMITS_H 1
+-+#define HAVE_MBRTOWC 1
+-+#define HAVE_MEMORY_H 1
+-+#define HAVE_MF_BT2 1
+-+#define HAVE_MF_BT3 1
+-+#define HAVE_MF_BT4 1
+-+#define HAVE_MF_HC3 1
+-+#define HAVE_MF_HC4 1
+-+#define HAVE_OPTRESET 1
+-+#define HAVE_POSIX_FADVISE 1
+-+#define HAVE_PTHREAD_CONDATTR_SETCLOCK 1
+-+#define HAVE_PTHREAD_PRIO_INHERIT 1
+-+#define HAVE_STDBOOL_H 1
+-+#define HAVE_STDINT_H 1
+-+#define HAVE_STDLIB_H 1
+-+#define HAVE_STRINGS_H 1
+-+#define HAVE_STRING_H 1
+-+#define HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC 1
+-+#define HAVE_SYS_PARAM_H 1
+-+#define HAVE_SYS_STAT_H 1
+-+#define HAVE_SYS_TIME_H 1
+-+#define HAVE_SYS_TYPES_H 1
+-+#define HAVE_UINTPTR_T 1
+-+#define HAVE_UNISTD_H 1
+-+#define HAVE_VISIBILITY 1
+-+#define HAVE_WCWIDTH 1
+-+#define HAVE__BOOL 1
+-+#define HAVE___BUILTIN_ASSUME_ALIGNED 1
+-+#define HAVE___BUILTIN_BSWAPXX 1
+-+#define MYTHREAD_POSIX 1
+-+#define NDEBUG 1
+-+#define PACKAGE "xz"
+-+#define PACKAGE_BUGREPORT "lasse.collin@tukaani.org"
+-+#define PACKAGE_NAME "XZ Utils"
+-+#define PACKAGE_STRING "XZ Utils 5.2.5"
+-+#define PACKAGE_TARNAME "xz"
+-+#define PACKAGE_VERSION "5.2.5"
+-+#define SIZEOF_SIZE_T 4
+-+#define STDC_HEADERS 1
+-+#define TUKLIB_CPUCORES_SYSCONF 1
+-+#define TUKLIB_FAST_UNALIGNED_ACCESS 1
+-+#define TUKLIB_PHYSMEM_SYSCONF 1
+-+#ifndef _ALL_SOURCE
+-+# define _ALL_SOURCE 1
+-+#endif
+-+#ifndef _GNU_SOURCE
+-+# define _GNU_SOURCE 1
+-+#endif
+-+#ifndef _POSIX_PTHREAD_SEMANTICS
+-+# define _POSIX_PTHREAD_SEMANTICS 1
+-+#endif
+-+#ifndef _TANDEM_SOURCE
+-+# define _TANDEM_SOURCE 1
+-+#endif
+-+#ifndef __EXTENSIONS__
+-+# define __EXTENSIONS__ 1
+-+#endif
+-+#define VERSION "5.2.5"
+-+'''
+diff --git a/src/network/core/em_proxy.cpp b/src/network/core/em_proxy.cpp
+index c676c6c8ed..f34ec2991b 100644
+--- a/src/network/core/em_proxy.cpp
++++ b/src/network/core/em_proxy.cpp
+@@ -258,7 +258,7 @@ int em_proxy_initialize_network(void)
+ {
+   const char * proxy = "ws://localhost:3999";
+   int bridge = emscripten_init_websocket_to_posix_socket_bridge(proxy);
+-  DEBUG(net, 0, "[em_proxy] Opened proxy socket to %s: socket %d", proxy, bridge);
++  Debug(net, 0, "[em_proxy] Opened proxy socket to {}: socket {}", proxy, bridge);
+   return (bridge > 0);
+ }
+ 
+@@ -295,7 +295,7 @@ int em_proxy_socket(int domain, int type, int protocol)
+     if (bridgeSocket > 0) {
+       emscripten_websocket_get_ready_state(bridgeSocket, &bridgeState);
+     }
+-    DEBUG(net, 0, "[em_proxy] Proxy socket state %d: %s", bridgeState, bridgeState == BRIDGE_OPEN ? "connected" : "proxy disabled");
++    Debug(net, 0, "[em_proxy] Proxy socket state {}: {}", bridgeState, bridgeState == BRIDGE_OPEN ? "connected" : "proxy disabled");
+     if (bridgeState == BRIDGE_CONNECTING) {
+       bridgeState = BRIDGE_CLOSED;
+     }
+-- 
+2.55.0
+

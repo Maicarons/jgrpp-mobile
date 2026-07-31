@@ -1,0 +1,108 @@
+From 88c5122b39e771847f48929747218cb2ccb86053 Mon Sep 17 00:00:00 2001
+From: Patric Stout <truebrain@openttd.org>
+Date: Sun, 3 Mar 2019 20:33:55 +0100
+Subject: [PATCH 0452/1053] Update: Changelog for 1.9.0-RC1 and prepare for
+ release
+
+---
+ changelog.txt                    | 14 ++++++++++++++
+ known-bugs.txt                   |  4 ++--
+ os/debian/changelog              |  6 ++++++
+ os/rpm/openttd.spec              |  4 ++--
+ os/windows/installer/install.nsi |  4 ++--
+ 5 files changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/changelog.txt b/changelog.txt
+index 1d9f8947ea..6777ca9ce8 100644
+--- a/changelog.txt
++++ b/changelog.txt
+@@ -1,3 +1,15 @@
++1.9.0-RC1 (2019-03-03)
++------------------------------------------------------------------------
++- Add: Various AI/GS functions for vehicle groups (#7225)
++- Change: Synchronise introduction date and reliability randomness across vehicles with the same base introduction date (#7147)
++- Change: Allow towns to build bridges over rails and one-way roads (#7291)
++- Fix: Detection of coast tiles with trees on them (#7309)
++- Fix: Emergency netsave saved the title game instead of the broken game in question (#7298)
++- Fix: Company livery window showed incorrect groups when opened in multiplayer (#7288)
++- Fix: Unable to select last group in open livery window (#7283)
++- Fix: Goto hangar orders were not invalidated when rebuilding airports (#7100)
++
++
+ 1.9.0-beta3 (2019-02-24)
+ ------------------------------------------------------------------------
+ - Feature: Option to adjust font size separately from GUI size (#7003)
+@@ -24,10 +36,12 @@
+ - Fix #7197: Invalidate depot buttons when necessary (#7212)
+ - Doc: [AI] UnshareOrders empties the orders list of the vehicle
+ 
++
+ 1.9.0-beta2 (2019-02-09)
+ ------------------------------------------------------------------------
+ - Fix: Non-Windows builds did not get correct git hash
+ 
++
+ 1.9.0-beta1 (2019-02-09)
+ ------------------------------------------------------------------------
+ Note: OpenTTD was migrated to GitHub for 1.9, so SVN revision and FlySpray numbers have been replaced with Pull Requests and Issue numbers
+diff --git a/known-bugs.txt b/known-bugs.txt
+index c02897e501..8ad1ade007 100644
+--- a/known-bugs.txt
++++ b/known-bugs.txt
+@@ -1,6 +1,6 @@
+ OpenTTD's known bugs
+-Last updated:    2019-02-24
+-Release version: 1.9.0-beta3
++Last updated:    2019-03-03
++Release version: 1.9.0-RC1
+ ------------------------------------------------------------------------
+ 
+ 
+diff --git a/os/debian/changelog b/os/debian/changelog
+index 858c15371b..2cb748ebe2 100644
+--- a/os/debian/changelog
++++ b/os/debian/changelog
+@@ -1,3 +1,9 @@
++openttd (1.9.0~RC1-0) unstable; urgency=low
++
++  * New upstream release 1.9.0-RC1
++
++ -- OpenTTD <info@openttd.org>  Sun, 3 Mar 2019 23:00:00 +0000
++
+ openttd (1.9.0~beta3-0) unstable; urgency=low
+ 
+   * New upstream release 1.9.0-beta3
+diff --git a/os/rpm/openttd.spec b/os/rpm/openttd.spec
+index 7f17b7ea9b..c44b2ada8d 100644
+--- a/os/rpm/openttd.spec
++++ b/os/rpm/openttd.spec
+@@ -17,9 +17,9 @@
+ #
+ 
+ Name:           openttd
+-Version:        1.9.beta3
++Version:        1.9.RC1
+ Release:        0
+-%define srcver  1.9.0-beta3
++%define srcver  1.9.0-RC1
+ Summary:        An open source reimplementation of Chris Sawyer's Transport Tycoon Deluxe
+ License:        GPL-2.0
+ Group:          Amusements/Games/Strategy/Other
+diff --git a/os/windows/installer/install.nsi b/os/windows/installer/install.nsi
+index 604e252c40..8db7ae0a76 100644
+--- a/os/windows/installer/install.nsi
++++ b/os/windows/installer/install.nsi
+@@ -2,8 +2,8 @@
+ !define APPV_MAJOR 1
+ !define APPV_MINOR 9
+ !define APPV_MAINT 0
+-!define APPV_BUILD 2
+-!define APPV_EXTRA "-beta3"
++!define APPV_BUILD 3
++!define APPV_EXTRA "-RC1"
+ 
+ !define APPNAME "OpenTTD"   ; Define application name
+ !define APPVERSION "${APPV_MAJOR}.${APPV_MINOR}.${APPV_MAINT}${APPV_EXTRA}"  ; Define application version
+-- 
+2.55.0
+

@@ -1,0 +1,25 @@
+From 733d5cb5cedc84dc718832a06f8ecf2e13bd21a3 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 9 Dec 2021 01:16:48 +0200
+Subject: [PATCH 0741/1053] Updated todo
+
+---
+ todo.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/todo.txt b/todo.txt
+index f85efffdc5..b7efaba5b9 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -17,7 +17,7 @@
+ 
+ - Fix manager face dialog and company color scheme dialog.
+ 
+-- Fix multiplayer dialog
++- Button to copy server invite code to clipboard
+ 
+ 
+ ===== Emscripten TODO =====
+-- 
+2.55.0
+

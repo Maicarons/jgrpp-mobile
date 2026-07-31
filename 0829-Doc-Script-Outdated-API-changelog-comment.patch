@@ -1,0 +1,39 @@
+From 2414cf0e8f3978d159985212c3cc6c60c6bcb851 Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Sun, 1 Jan 2023 22:55:30 +0100
+Subject: [PATCH 0829/1053] Doc: [Script] Outdated API changelog comment.
+
+---
+ src/script/api/ai_changelog.hpp   | 2 --
+ src/script/api/game_changelog.hpp | 2 --
+ 2 files changed, 4 deletions(-)
+
+diff --git a/src/script/api/ai_changelog.hpp b/src/script/api/ai_changelog.hpp
+index 6479393760..d786f62e89 100644
+--- a/src/script/api/ai_changelog.hpp
++++ b/src/script/api/ai_changelog.hpp
+@@ -15,8 +15,6 @@
+  *
+  * \b 13.0
+  *
+- * This version is not yet released. The following changes are not set in stone yet.
+- *
+  * API additions:
+  * \li AICargo::GetWeight
+  * \li AIIndustryType::ResolveNewGRFID
+diff --git a/src/script/api/game_changelog.hpp b/src/script/api/game_changelog.hpp
+index 69773edeeb..e934f45c74 100644
+--- a/src/script/api/game_changelog.hpp
++++ b/src/script/api/game_changelog.hpp
+@@ -15,8 +15,6 @@
+  *
+  * \b 13.0
+  *
+- * This version is not yet released. The following changes are not set in stone yet.
+- *
+  * API additions:
+  * \li GSCargo::GetWeight
+  * \li GSIndustryType::ResolveNewGRFID
+-- 
+2.55.0
+

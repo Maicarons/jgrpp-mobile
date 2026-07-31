@@ -1,0 +1,30 @@
+From 652289972e594417dcd6b1ffe7f8317eb9096c21 Mon Sep 17 00:00:00 2001
+From: Patric Stout <truebrain@openttd.org>
+Date: Sun, 17 Mar 2019 21:50:32 +0100
+Subject: [PATCH 0474/1053] Codechange: fix Intel C++ Compiler linking issues.
+
+GetAircraftFlightLevel<Aircraft> is only used in static functions
+inside aircraft_cmd.cpp. With GCC, Clang and MSVC this is not an
+issue, but on ICC fails linking, because it doesn't find this
+version of this template. Possibly these two pieces of information
+are linked.
+Explicit defining the function fixes the issue.
+---
+ src/aircraft_cmd.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/aircraft_cmd.cpp b/src/aircraft_cmd.cpp
+index 7c35663726..08c634ba20 100644
+--- a/src/aircraft_cmd.cpp
++++ b/src/aircraft_cmd.cpp
+@@ -783,6 +783,7 @@ int GetAircraftFlightLevel(T *v, bool takeoff)
+ }
+ 
+ template int GetAircraftFlightLevel(DisasterVehicle *v, bool takeoff);
++template int GetAircraftFlightLevel(Aircraft *v, bool takeoff);
+ 
+ /**
+  * Find the entry point to an airport depending on direction which
+-- 
+2.55.0
+

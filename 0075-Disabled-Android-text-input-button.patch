@@ -1,0 +1,32 @@
+From 13b855f128c93a2ddc98ba960fff1ba19bf4bcf6 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 16 Mar 2014 22:38:10 +0200
+Subject: [PATCH 0075/1053] Disabled Android text input button
+
+---
+ src/video/sdl_v.cpp | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 23508fceff..d49f80ee50 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -353,15 +353,6 @@ bool VideoDriver_SDL::CreateMainSurface(uint w, uint h)
+ 	 * surface, for example). */
+ 	_requested_hwpalette = want_hwpalette;
+ 
+-#ifdef __ANDROID__
+-	SDL_Rect r;
+-	r.h = SDL_ListModes(NULL, 0)[0]->h / 10;
+-	r.w = r.h;
+-	r.x = SDL_ListModes(NULL, 0)[0]->w - r.w;
+-	r.y = SDL_ListModes(NULL, 0)[0]->h - r.h;
+-	SDL_ANDROID_SetScreenKeyboardButtonPos(SDL_ANDROID_SCREENKEYBOARD_BUTTON_TEXT, &r);
+-#endif
+-
+ 	/* DO NOT CHANGE TO HWSURFACE, IT DOES NOT WORK */
+ 	newscreen = SDL_CALL SDL_SetVideoMode(w, h, bpp, SDL_SWSURFACE | (want_hwpalette ? SDL_HWPALETTE : 0) | (_fullscreen ? SDL_FULLSCREEN : SDL_RESIZABLE));
+ 	if (newscreen == NULL) {
+-- 
+2.55.0
+

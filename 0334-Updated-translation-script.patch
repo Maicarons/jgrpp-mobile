@@ -1,0 +1,25 @@
+From f0daeb381234943bc220e85ea741869a589dba55 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 25 Mar 2017 23:18:16 +0200
+Subject: [PATCH 0334/1053] Updated translation script
+
+---
+ android-extract-strings.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/android-extract-strings.sh b/android-extract-strings.sh
+index f03e4bace8..6f0d4a8edb 100755
+--- a/android-extract-strings.sh
++++ b/android-extract-strings.sh
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ 
+ mkdir -p ../translations/lang
+-git diff 1.6/master -- src/lang/english.txt | tail -n +5 | grep '^[+]' | cut -b 2- | \
++git diff 1.7/master -- src/lang/english.txt | tail -n +5 | grep '^[+]' | cut -b 2- | \
+ grep -v "^STR_TABLET_CLOSE\b" | \
+ grep -v "^STR_TABLET_SHIFT\b" | \
+ grep -v "^STR_TABLET_CTRL\b" | \
+-- 
+2.55.0
+

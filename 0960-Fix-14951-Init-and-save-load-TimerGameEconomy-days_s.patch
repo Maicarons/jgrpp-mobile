@@ -1,0 +1,38 @@
+From 5854536b89c1783c72f2d00e34a6839012729690 Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Wed, 24 Dec 2025 13:00:09 +0000
+Subject: [PATCH 0960/1053] Fix #14951: Init and save/load
+ TimerGameEconomy::days_since_last_month (#14962)
+
+---
+ src/misc.cpp             | 1 +
+ src/saveload/misc_sl.cpp | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/src/misc.cpp b/src/misc.cpp
+index 1d3d462b7a..ea215f354f 100644
+--- a/src/misc.cpp
++++ b/src/misc.cpp
+@@ -100,6 +100,7 @@ void InitializeGame(uint size_x, uint size_y, bool reset_date, bool reset_settin
+ 	_pause_mode = {};
+ 	_game_speed = 100;
+ 	TimerGameTick::counter = 0;
++	TimerGameEconomy::days_since_last_month = 0;
+ 	_cur_tileloop_tile = TileIndex{1};
+ 	_thd.redsq = INVALID_TILE;
+ 	if (reset_settings) MakeNewgameSettingsLive();
+diff --git a/src/saveload/misc_sl.cpp b/src/saveload/misc_sl.cpp
+index b39fd67eaa..abd29aac90 100644
+--- a/src/saveload/misc_sl.cpp
++++ b/src/saveload/misc_sl.cpp
+@@ -87,6 +87,7 @@ static const SaveLoad _date_desc[] = {
+ 	SLEG_CONDVAR("tick_counter",           TimerGameTick::counter,           SLE_UINT64,                  SLV_U64_TICK_COUNTER, SL_MAX_VERSION),
+ 	SLEG_CONDVAR("economy_date",           TimerGameEconomy::date,           SLE_INT32,                   SLV_ECONOMY_DATE, SL_MAX_VERSION),
+ 	SLEG_CONDVAR("economy_date_fract",     TimerGameEconomy::date_fract,     SLE_UINT16,                  SLV_ECONOMY_DATE, SL_MAX_VERSION),
++	SLEG_CONDVAR("days_since_last_month",  TimerGameEconomy::days_since_last_month, SLE_UINT32,           SLV_INDUSTRY_ACCEPTED_HISTORY, SL_MAX_VERSION),
+ 	SLEG_CONDVAR("calendar_sub_date_fract", TimerGameCalendar::sub_date_fract, SLE_UINT16,                SLV_CALENDAR_SUB_DATE_FRACT, SL_MAX_VERSION),
+ 	SLEG_CONDVAR("age_cargo_skip_counter", _age_cargo_skip_counter, SLE_UINT8,                   SL_MIN_VERSION, SLV_162),
+ 	SLEG_CONDVAR("cur_tileloop_tile",      _cur_tileloop_tile,      SLE_FILE_U16 | SLE_VAR_U32,  SL_MIN_VERSION, SLV_6),
+-- 
+2.55.0
+

@@ -1,0 +1,26 @@
+From 1dd5bd7c709aba7ee437bed625c1a207835c5cac Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 27 Jun 2017 22:15:46 +0300
+Subject: [PATCH 0431/1053] Compact toolbar enabled by default for Windows
+ build
+
+---
+ src/table/settings.ini | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index cf17912c1e..420dbbdcc0 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2561,7 +2561,7 @@ cat      = SC_BASIC
+ [SDTC_BOOL]
+ var      = gui.compact_vertical_toolbar
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+-def      = false
++def      = true
+ str      = STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR
+ strhelp  = STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR_HELPTEXT
+ cat      = SC_BASIC
+-- 
+2.55.0
+

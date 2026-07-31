@@ -1,0 +1,29 @@
+From d72e0d2fb59fe0dfb5aa906f0baa6edee6526544 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 28 Mar 2016 21:00:10 +0300
+Subject: [PATCH 0232/1053] Do not translate close button symbol
+
+---
+ android-extract-strings.sh | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/android-extract-strings.sh b/android-extract-strings.sh
+index 6b05234359..d15312e1f3 100755
+--- a/android-extract-strings.sh
++++ b/android-extract-strings.sh
+@@ -1,7 +1,11 @@
+ #!/bin/sh
+ 
+ mkdir -p ../translations/lang
+-git diff 1.6/master -- src/lang/english.txt | tail -n +5 | grep '^+' | cut -b 2- > ../translations/lang/english.txt
++git diff 1.6/master -- src/lang/english.txt | tail -n +5 | grep '^+' | cut -b 2- | \
++grep -v "^STR_TABLET_CLOSE\b" | \
++grep -v "^STR_TABLET_SHIFT\b" | \
++grep -v "^STR_TABLET_CTRL\b" | \
++cat > ../translations/lang/english.txt
+ 
+ for f in src/lang/*.txt; do
+ 	[ "$f" = src/lang/english.txt ] && continue
+-- 
+2.55.0
+

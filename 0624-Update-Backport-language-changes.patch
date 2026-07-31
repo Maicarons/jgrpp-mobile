@@ -1,0 +1,839 @@
+From eb59912c65231b0cdb2cf474dddc01f03ec82cb5 Mon Sep 17 00:00:00 2001
+From: Patric Stout <truebrain@openttd.org>
+Date: Sat, 23 Oct 2021 16:36:10 +0200
+Subject: [PATCH 0624/1053] Update: Backport language changes
+
+---
+ src/lang/brazilian_portuguese.txt |  2 +
+ src/lang/catalan.txt              |  2 +
+ src/lang/english_US.txt           |  2 +
+ src/lang/finnish.txt              |  2 +
+ src/lang/french.txt               |  2 +
+ src/lang/greek.txt                |  2 +
+ src/lang/korean.txt               |  4 +-
+ src/lang/portuguese.txt           |  2 +
+ src/lang/russian.txt              |  4 +-
+ src/lang/spanish.txt              |  1 +
+ src/lang/swedish.txt              |  6 +-
+ src/lang/tamil.txt                | 96 ++++++++++++++++++++++++++++---
+ src/lang/vietnamese.txt           |  2 +
+ 13 files changed, 115 insertions(+), 12 deletions(-)
+
+diff --git a/src/lang/brazilian_portuguese.txt b/src/lang/brazilian_portuguese.txt
+index 9db7f83ce9..6ac50be4bf 100644
+--- a/src/lang/brazilian_portuguese.txt
++++ b/src/lang/brazilian_portuguese.txt
+@@ -2258,6 +2258,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Terreno
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Tamanho do mapa: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Versão do servidor: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}IP do servidor: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Código de convite: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Data de inicio: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Data atual: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Script de jogo: {WHITE}{STRING} (v{NUM})
+@@ -2674,6 +2675,7 @@ STR_STATION_CLASS_WAYP                                          :Pontos de contr
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Seleção de Sinais
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Alternar se mostra os tipos de sinais avançados
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Sinais padrão (semáforos){}Sinais são necessários para impedir trens de colidirem nas malhas ferroviárias com mais de um trem
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Sinal de Entrada (semáforo){}Verde enquanto haja um ou mais sinais de saída verdes na atual seção dos trilhos. Do contrário, mostra vermelho
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Sinal de saída (semáforo){}Funciona como um sinal normal, porém é necessário para o funcionamento correto do sistema de pré-sinais combo ou de entrada
+diff --git a/src/lang/catalan.txt b/src/lang/catalan.txt
+index 4faf47f9ed..bf37d20b37 100644
+--- a/src/lang/catalan.txt
++++ b/src/lang/catalan.txt
+@@ -2258,6 +2258,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Escenar
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Mida del mapa: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Versió del servidor: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Adreça del servidor: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Codi d'invitació: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Data inicial: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Data actual: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Script de partida: {WHITE}{STRING} (v{NUM})
+@@ -2674,6 +2675,7 @@ STR_STATION_CLASS_WAYP                                          :Punt de pas
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Selecció de senyals
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Mostra o amaga els tipus avançats de senyals.
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Senyal de secció (mecànic){}Aquest és el tipus de senyal més senzill. Permet l'entrada a la següent secció de vies només si no hi ha cap altre tren.
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Senyal previ d'entrada (mecànic){}En verd si a la següent secció no hi ha trens i, a més a més, hi ha almenys un senyal previ de sortida en verd. En cas contrari, en vermell.
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Senyal previ de sortida (mecànic){}Es comporta com un senyal de secció i activa correctament els senyals previs d'entrada i combinats.
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index 8266d7c121..60fd6d9d3c 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -2257,6 +2257,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Landsca
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Map size: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Server version: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Server address: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Invite code: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Start date: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Current date: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Game Script: {WHITE}{STRING} (v{NUM})
+@@ -2673,6 +2674,7 @@ STR_STATION_CLASS_WAYP                                          :Waypoints
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Signal Selection
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Toggle showing advanced signal types
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Block Signal (semaphore){}This is the most basic type of signal, allowing only one train to be in the same block at the same time
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Entry Signal (semaphore){}Green as long as there is one or more green exit-signal from the following section of track. Otherwise it shows red
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Exit Signal (semaphore){}Behaves in the same way as a block signal but is necessary to trigger the correct color on entry & combo pre-signals
+diff --git a/src/lang/finnish.txt b/src/lang/finnish.txt
+index 1cc2970d4a..c4fa81dbfc 100644
+--- a/src/lang/finnish.txt
++++ b/src/lang/finnish.txt
+@@ -2257,6 +2257,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Maasto:
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Kartan koko: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Palvelimen versio: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Palvelimen osoite: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Kutsukoodi: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Aloitusvuosi: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Päivämäärä: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Peliskripti: {WHITE}{STRING} (v.{NBSP}{NUM})
+@@ -2673,6 +2674,7 @@ STR_STATION_CLASS_WAYP                                          :Reittipisteet
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Opastimien valinta
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Edistyneiden opastintyyppien näyttäminen
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Suojastusopastin (siipiopastin){}Kaikkein alkeellisin opastin, joka sallii vain yhden junan samalla osuudella kerrallaan
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Tulo-opastin (siipiopastin){}Näyttää vihreää aina, kun yksi tai useampi seuraavista poistumisopastimista näyttää vihreää. Muutoin se näyttää punaista
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Poistumisopastin (siipiopastin){}Käyttäytyy samalla tavalla kuin suojastusopastin, mutta on välttämätön oikean valon näyttämiseen tulo- ja yhdistelmäopastimissa
+diff --git a/src/lang/french.txt b/src/lang/french.txt
+index 7d02f7f2e0..404b35d045 100644
+--- a/src/lang/french.txt
++++ b/src/lang/french.txt
+@@ -2258,6 +2258,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Terrain
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Taille de la carte{NBSP}: {WHITE}{COMMA}{NBSP}×{NBSP}{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Version du serveur{NBSP}: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Adresse du serveur{NBSP}: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Code d'invitation{NBSP}: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Date de début{NBSP}: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Date courante{NBSP}: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Script de jeu{NBSP}: {WHITE}{STRING} (v{NUM})
+@@ -2674,6 +2675,7 @@ STR_STATION_CLASS_WAYP                                          :Points de contr
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Sélection des signaux
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Basculer l'affichage des types de signaux avancés
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Signal de bloc (sémaphore){}Ce sont les signaux les plus basiques, n'autorisant qu'un seul train à la fois dans un même bloc
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Signal d'entrée (sémaphore){}Vert tant qu'au moins un signal de sortie du bloc est vert, rouge dans le cas contraire.
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Signal de sortie (sémaphore){}Fonctionne comme un signal de bloc, mais est nécessaire pour commander les signaux d'entrée et combinés
+diff --git a/src/lang/greek.txt b/src/lang/greek.txt
+index b800390ceb..9b6423e868 100644
+--- a/src/lang/greek.txt
++++ b/src/lang/greek.txt
+@@ -2364,6 +2364,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Τοπ
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Μέγεθος χάρτη: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Έκδοση διακομιστή: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Διεύθυνση διακομιστή: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Κωδικός πρόσκλησης: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Ημερομηνία έναρξης: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Τρέχουσα ημερομηνία: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Script Παιχνιδιού: {WHITE}{STRING} (v{NUM})
+@@ -2780,6 +2781,7 @@ STR_STATION_CLASS_WAYP                                          :Σημείο κ
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Επιλογή Σηματοδότη
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Εναλλαγή εμφάνισης προχωρημένων τύπων σηματοδοτών
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Σηματοδότες Τμήματος (σηματοφόρος){}Αυτός είναι ο πιο βασικός τύπος σηματοδότη, επιτρέποντας μόνο ένα τρένο να βρίσκεται σε κάθε τμήμα κάθε φορά
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Σηματοδότης-Εισόδου (σηματοφόρος){}Πράσινο όσο υπάρχει ένας ή περισσότεροι πράσινοι σηματοδότες-εξόδου στο επόμενο τμήμα γράμμης. Διαφορετικά δείχνει κόκκινο
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Σηματοδότης-Εξόδου (σηματοφόρος){}Συμπεριφέρεται με τον ίδιο τρόπο οπως οι σηματοδότες τμήματος αλλά είναι απαραίτητο να τεθεί το σωστό χρώμα στους προ-σηματοδότες είσοδου και συνδυαστικούς
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index 1594b11673..8fa35b717b 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -828,7 +828,7 @@ STR_NEWS_DISASTER_COAL_MINE_SUBSIDENCE                          :{BIG_FONT}{BLAC
+ STR_NEWS_DISASTER_FLOOD_VEHICLE                                 :{BIG_FONT}{BLACK}홍수 발생!{}최소 {COMMA}명의 실종자가 발생하였으며, 범람 후에 사상자도 발생할 것입니다!
+ 
+ STR_NEWS_COMPANY_IN_TROUBLE_TITLE                               :{BIG_FONT}{BLACK}운송회사에 문제가 생김!
+-STR_NEWS_COMPANY_IN_TROUBLE_DESCRIPTION                         :{BIG_FONT}{BLACK}성취도를 바로 올리지 못하면 {STRING}{G 0 "은" "는"} 팔리거나 파산할 것입니다!
++STR_NEWS_COMPANY_IN_TROUBLE_DESCRIPTION                         :{BIG_FONT}{BLACK}{STRING} - 성취도를 바로 올리지 못하면 회사가 팔리거나 파산할 것입니다!
+ STR_NEWS_COMPANY_MERGER_TITLE                                   :{BIG_FONT}{BLACK}운송 회사 합병!
+ STR_NEWS_COMPANY_MERGER_DESCRIPTION                             :{BIG_FONT}{BLACK}{STRING} 회사가 {STRING} 회사에게 {CURRENCY_LONG}의 가격으로 인수합병되었습니다!
+ STR_NEWS_COMPANY_BANKRUPT_TITLE                                 :{BIG_FONT}{BLACK}파산!
+@@ -2258,6 +2258,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}기후:
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}지도 크기: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}서버 버전: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}서버 주소: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}초대 코드: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}시작 날짜: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}현재 날짜: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}게임 스크립트: {WHITE}{STRING} (v{NUM})
+@@ -2674,6 +2675,7 @@ STR_STATION_CLASS_WAYP                                          :경유지
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}신호기 선택
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}고급 신호기 종류를 보이거나 감춥니다
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}폐색 신호기 (구식){}가장 기본적인 신호기 형식입니다. 단 한 대의 열차만이 이 폐색 구간을 통과할 수 있습니다
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}입구 신호기 (구식){}다음 폐색 구간에 있는 출구 신호기가 하나라도 파란불이면 파란불이 되며, 그렇지 않은 경우에는 빨간불이 됩니다
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}출구 신호기 (구식){}일반 신호기와 기능이 똑같지만, 입구 & 복합 신호기와 올바르게 연계되어야 합니다
+diff --git a/src/lang/portuguese.txt b/src/lang/portuguese.txt
+index b3ce159b57..7f0468a71e 100644
+--- a/src/lang/portuguese.txt
++++ b/src/lang/portuguese.txt
+@@ -2258,6 +2258,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Paisage
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Tamanho do Mapa: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Versão do servidor: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Endereço do servidor: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Código de convite: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Data de início: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Data actual: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Script de Jogo: {WHITE}{STRING} (v{NUM})
+@@ -2674,6 +2675,7 @@ STR_STATION_CLASS_WAYP                                          :Pontos de passa
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Selecção de Sinal
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Alterna a exibição para tipos de sinais avançados
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Sinal de bloco (semáforo){}Este é o tipo mais básico de sinal. Permite apenas a passagem de um comboio dentro de um bloco de linha ao mesmo tempo.
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Sinal de entrada (semáforo){}Apresenta-se verde enquanto existir um ou mais sinais de saída verdes no seguimento da linha. Caso contrário, ficará vermelho.
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Sinal de saída (semáforo){}Funciona da mesma forma que o sinal de bloco, mas é necessário para ativar a cor correta nos pré-sinais de entrada e combinado.
+diff --git a/src/lang/russian.txt b/src/lang/russian.txt
+index ec02604eda..ad8425c24f 100644
+--- a/src/lang/russian.txt
++++ b/src/lang/russian.txt
+@@ -2408,6 +2408,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Лан
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Размер карты: {WHITE}{COMMA}×{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Версия сервера: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Адрес сервера: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Код-приглашение: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Дата начала: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Текущая дата: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Игровой скрипт: {WHITE}{STRING} (v{NUM})
+@@ -2844,6 +2845,7 @@ STR_STATION_CLASS_WAYP                                          :Точки пу
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Выбор сигналов
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Переключить отображение расширенного списка сигналов
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Стандартный семафор{}Не позволяет нескольким поездам одновременно находиться на одном блок-участке.
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Входной семафор{}Открыт, если хотя бы один из выходных сигналов на следующей секции путей открыт. В остальных случаях закрыт.
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Выходной семафор{}Работает как обычный семафор, но его состояние учитывается при работе входных и комбинированных сигналов.
+@@ -2857,7 +2859,7 @@ STR_BUILD_SIGNAL_ELECTRIC_COMBO_TOOLTIP                         :{BLACK}Комб
+ STR_BUILD_SIGNAL_ELECTRIC_PBS_TOOLTIP                           :{BLACK}Маршрутный светофор{}Позволяет нескольким поездам находиться в одном сигнальном блоке, если каждый из них может зарезервировать безопасный путь. Допускает следование поездов в обе стороны.
+ STR_BUILD_SIGNAL_ELECTRIC_PBS_OWAY_TOOLTIP                      :{BLACK}Односторонний маршрутн. светофор{}Позволяет нескольким поездам находиться в одном сигнальном блоке, если каждый из них может зарезервировать безопасный путь. Не допускает следования поездов в обратную сторону.
+ STR_BUILD_SIGNAL_CONVERT_TOOLTIP                                :{BLACK}Изменение типа сигнала{}Когда кнопка нажата, щёлкните для преобразования существующего сигнала в сигнал выбранного типа и варианта, или щёлкните с нажатым Ctrl для перебора существующих вариантов. Shift+щелчок - оценка стоимости преобразования.
+-STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_TOOLTIP                   :{BLACK}Расстояние между сигналами при протягивании.
++STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_TOOLTIP                   :{BLACK}Расстояние между сигналами при протягивании
+ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_DECREASE_TOOLTIP          :{BLACK}Уменьшить расстояние между сигналами при протягивании
+ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Увеличить расстояние между сигналами при протягивании
+ 
+diff --git a/src/lang/spanish.txt b/src/lang/spanish.txt
+index 00bdddfede..65c6bf199f 100644
+--- a/src/lang/spanish.txt
++++ b/src/lang/spanish.txt
+@@ -2258,6 +2258,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Terreno
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Tamaño del Mapa: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Versión del servidor: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Dirección del servidor: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Código de invitación: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Fecha de inicio: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Fecha actual: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Script de juego: {WHITE}{STRING} (v{NUM})
+diff --git a/src/lang/swedish.txt b/src/lang/swedish.txt
+index 95ca573700..9f99390dd1 100644
+--- a/src/lang/swedish.txt
++++ b/src/lang/swedish.txt
+@@ -900,8 +900,8 @@ STR_NEWS_OFFER_OF_SUBSIDY_EXPIRED                               :{BIG_FONT}{BLAC
+ STR_NEWS_SUBSIDY_WITHDRAWN_SERVICE                              :{BIG_FONT}{BLACK}Subventionen gäller inte längre:{}{}{STRING} från {STRING} till {STRING} är inte längre subventionerad
+ STR_NEWS_SERVICE_SUBSIDY_OFFERED                                :{BIG_FONT}{BLACK}Ny subvention:{}{}Första transporten av {STRING} från {STRING} till {STRING} får {NUM} års subvention från kommunen!
+ ###length 4
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}Subvention tilldelad {STRING}!{}{}{STRING} från {STRING} till {STRING} ger 50% extra de{P 4 t ""} {NUM} kommande år{P et en}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_DOUBLE                         :{BIG_FONT}{BLACK}Subvention tilldelad {STRING}!{}{}{STRING} från {STRING} till {STRING} ger dubbelt så mycket nästa  {NUM} år{P "" s}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}Subvention tilldelad {STRING}!{}{}{STRING} från {STRING} till {STRING} ger 50% extra i {NUM} år framåt!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_DOUBLE                         :{BIG_FONT}{BLACK}Subvention tilldelad {STRING}!{}{}{STRING} från {STRING} till {STRING} ger dubbelt så mycket i {NUM} år framåt!
+ STR_NEWS_SERVICE_SUBSIDY_AWARDED_TRIPLE                         :{BIG_FONT}{BLACK}Subvention tilldelad {STRING}!{}{}{STRING} från {STRING} till {STRING} ger tre gånger så mycket de{P 4 t ""} kommande {NUM} år{P et en}!
+ STR_NEWS_SERVICE_SUBSIDY_AWARDED_QUADRUPLE                      :{BIG_FONT}{BLACK}Subvention tilldelad {STRING}!{}{}{STRING} från {STRING} till {STRING} ger fyra gånger så mycket de{P 4 t ""} kommande {NUM} år{P et en}!
+ 
+@@ -2257,6 +2257,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Klimat:
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Kartstorlek: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Serverversion: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Serveradress: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Inbjudningskod: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Startdatum: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Nuvarande datum: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Spelskript: {WHITE}{STRING} (v{NUM})
+@@ -2673,6 +2674,7 @@ STR_STATION_CLASS_WAYP                                          :Riktmärken
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Signalval
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Slå av/på visning av avancerade signaltyper
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Standardsignal (semafor){}Detta är den enklaste typen av signal, som endast tillåter ett tåg per block vid samma tidpunkt
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Infartssignal (semafor){}Grön så länge det finns en eller flera gröna utfartssignaler på efterföljande bit av spår, annars visas rött
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Utfartssignal (semafor){}Fungerar på samma sätt som en vanlig signal, men behövs för att utlösa korrekt färg på in- eller kombinationssignaler
+diff --git a/src/lang/tamil.txt b/src/lang/tamil.txt
+index 15b2811f26..3d6b13dbfb 100644
+--- a/src/lang/tamil.txt
++++ b/src/lang/tamil.txt
+@@ -160,7 +160,7 @@ STR_ABBREV_BATTERIES                                            :{TINY_FONT}BA
+ STR_ABBREV_PLASTIC                                              :{TINY_FONT}PL
+ STR_ABBREV_FIZZY_DRINKS                                         :{TINY_FONT}FZ
+ STR_ABBREV_NONE                                                 :{TINY_FONT}NO
+-STR_ABBREV_ALL                                                  :{TINY_FONT}ALL
++STR_ABBREV_ALL                                                  :{TINY_FONT}அனைத்தும்
+ 
+ # 'Mode' of transport for cargoes
+ STR_PASSENGERS                                                  :{COMMA} பயணி{P "" கள்}
+@@ -194,6 +194,7 @@ STR_COLOUR_RANDOM                                               :ஏதோவொ
+ STR_UNITS_VELOCITY_IMPERIAL                                     :{COMMA}{NBSP}mph
+ STR_UNITS_VELOCITY_METRIC                                       :{COMMA}{NBSP}km/h
+ STR_UNITS_VELOCITY_SI                                           :{COMMA}{NBSP}m/s
++STR_UNITS_VELOCITY_GAMEUNITS                                    :{DECIMAL}{NBSP}வட்டங்கள்/நாளிற்கு
+ 
+ STR_UNITS_POWER_IMPERIAL                                        :{COMMA}{NBSP}hp
+ STR_UNITS_POWER_METRIC                                          :{COMMA}{NBSP}hp
+@@ -310,12 +311,14 @@ STR_SORT_BY_RANGE                                               :வரையற
+ STR_SORT_BY_POPULATION                                          :மக்கள் தொகை
+ STR_SORT_BY_RATING                                              :மதிப்பீடு
+ STR_SORT_BY_NUM_VEHICLES                                        :வாகங்களின் எண்ணிக்கை
++STR_SORT_BY_AVERAGE_PROFIT_THIS_YEAR                            :இந்த ஆண்டின் சராசரி இலாபம்
+ 
+ # Group by options for vehicle list
+ STR_GROUP_BY_NONE                                               :ஒன்றுமில்லை
+ STR_GROUP_BY_SHARED_ORDERS                                      :பகிரப்பட்ட கட்டளைகள்
+ 
+ # Order button in shared orders vehicle list
++STR_GOTO_ORDER_VIEW                                             :{BLACK}கட்டளைகள்
+ 
+ # Tooltips for the main toolbar
+ ###length 31
+@@ -764,9 +767,11 @@ STR_SMALLMAP_TOOLTIP_ENABLE_ALL_CARGOS                          :{BLACK}அன
+ STR_STATUSBAR_TOOLTIP_SHOW_LAST_NEWS                            :{BLACK}கடைசி தகவல் அல்லது செய்தி அறிக்கையினை காட்டு
+ STR_STATUSBAR_COMPANY_NAME                                      :{SILVER}- -  {COMPANY}  - -
+ STR_STATUSBAR_PAUSED                                            :{YELLOW}*  *  நிறுத்தப்பட்டுள்ளது  *  *
++STR_STATUSBAR_PAUSED_LINK_GRAPH                                 :{ORANGE}* *  இடைநிறுத்தப்பட்டது (இணைப்பு வரைபடம் புதுப்பிப்புக்காக காத்திருக்கிறது) * *
+ STR_STATUSBAR_AUTOSAVE                                          :{RED}பதிவுசெய்தல்
+ STR_STATUSBAR_SAVING_GAME                                       :{RED}*  *  ஆட்டம் பதிவாகிறது  *  *
+ 
++STR_STATUSBAR_SPECTATOR                                         :{WHITE}(பார்வையாளர்)
+ 
+ # News message history
+ STR_MESSAGE_HISTORY                                             :{WHITE}செய்தி வரலாறு
+@@ -863,7 +868,10 @@ STR_NEWS_STATION_NOW_ACCEPTS_CARGO                              :{WHITE}{STATION
+ STR_NEWS_STATION_NOW_ACCEPTS_CARGO_AND_CARGO                    :{WHITE}{STATION} இப்போது {STRING} {STRING} ஆகியவற்றை ஏற்றுக்கொள்கிறது
+ 
+ STR_NEWS_OFFER_OF_SUBSIDY_EXPIRED                               :{BIG_FONT}{BLACK}மானியம் இனிமேல் தரப்படாது:{}{}{STRING} இருந்து {STRING} {STRING} வரை போக்குவரத்திற்கு மானியம் வழங்கப்படாது
++STR_NEWS_SUBSIDY_WITHDRAWN_SERVICE                              :{BIG_FONT}{BLACK}மானியம் திரும்பப் பெறப்பட்டது :{}{} {STRING} இருந்து {STRING} வரை செல்லும் {STRING} சேவையிற்கு இனி மானியம் இல்லை
+ ###length 4
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}சேவையிற்கான மானியம் {0:STRING} இற்கு வழங்கப்படுகிறது!{}{} {2:STRING} முதல் {3:STRING} வரையிலான {1:STRING} சேவை அடுத்த {4:NUM} ஆண்டு{P "" களு}க்கு 50% கூடுதல் கட்டணம் செலுத்தும்!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_QUADRUPLE                      :{BIG_FONT}{BLACK}{0:STRING} இற்கு சேவை மானியம் வழங்கப்படுகிறது!{}{}{2:STRING} முதல் {3:STRING} வரையிலான {1:STRING} சேவை அடுத்த {4:NUM} ஆண்டு{P "" களு}க்கு 4 மடங்கு கட்டணம் செலுத்தும்!
+ 
+ STR_NEWS_ROAD_REBUILDING                                        :{BIG_FONT}{BLACK}{TOWN}இல் சாலை போக்குவரத்து பாதிப்பு!{}{}Road rebuilding programme funded by {STRING} brings 6 months of misery to motorists!
+ STR_NEWS_EXCLUSIVE_RIGHTS_TITLE                                 :{BIG_FONT}{BLACK}போக்குவரத்து தனியுரிமை!
+@@ -926,7 +934,7 @@ STR_GAME_OPTIONS_CURRENCY_MYR                                   :மலேசி
+ STR_GAME_OPTIONS_ROAD_VEHICLES_DROPDOWN_LEFT                    :இடப்பக்கம் ஒட்டு
+ STR_GAME_OPTIONS_ROAD_VEHICLES_DROPDOWN_RIGHT                   :வலப்பக்கம் ஒட்டு
+ 
+-STR_GAME_OPTIONS_TOWN_NAMES_FRAME                               :{BLACK}நகரங்களின் பெயர்கள்
++STR_GAME_OPTIONS_TOWN_NAMES_FRAME                               :{BLACK}நகரங்களின் பெயர்கள்:
+ STR_GAME_OPTIONS_TOWN_NAMES_DROPDOWN_TOOLTIP                    :{BLACK}நகர பெயர்கள் பாணியினைத் தேர்ந்தெடுக்கவும்
+ 
+ ###length 21
+@@ -965,6 +973,7 @@ STR_GAME_OPTIONS_AUTOSAVE_DROPDOWN_EVERY_12_MONTHS              :ஒவ்வொ
+ 
+ STR_GAME_OPTIONS_LANGUAGE                                       :{BLACK}மொழி
+ STR_GAME_OPTIONS_LANGUAGE_TOOLTIP                               :{BLACK}பயன்படுத்தப்போகும் மொழியினை தேர்ந்தெடு
++STR_GAME_OPTIONS_LANGUAGE_PERCENTAGE                            :{STRING} ({NUM}% நிறைவுற்றது)
+ 
+ STR_GAME_OPTIONS_FULLSCREEN                                     :{BLACK}முழு படம்
+ STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :{BLACK}OpenTTD-ஐ முழுத்திரையில் விளையாட இந்த கட்டத்தினை சொடுக்கவும்
+@@ -975,9 +984,12 @@ STR_GAME_OPTIONS_RESOLUTION_OTHER                               :மற்றவ
+ STR_GAME_OPTIONS_RESOLUTION_ITEM                                :{NUM}x{NUM}
+ 
+ 
++STR_GAME_OPTIONS_VIDEO_VSYNC                                    :{BLACK}VSync
+ 
+ STR_GAME_OPTIONS_GUI_ZOOM_FRAME                                 :{BLACK}இடைமுக அளவு
++STR_GAME_OPTIONS_GUI_ZOOM_DROPDOWN_TOOLTIP                      :{BLACK}பயன்படுத்த இடைமுக உறுப்பு அளவை தேர்ந்தெடுக்கவும்
+ 
++STR_GAME_OPTIONS_GUI_ZOOM_DROPDOWN_AUTO                         :(தானாக கண்டறி)
+ STR_GAME_OPTIONS_GUI_ZOOM_DROPDOWN_NORMAL                       :சராசரி
+ STR_GAME_OPTIONS_GUI_ZOOM_DROPDOWN_2X_ZOOM                      :இரண்டு மடங்கு
+ STR_GAME_OPTIONS_GUI_ZOOM_DROPDOWN_4X_ZOOM                      :நான்கு மடங்கு
+@@ -1089,6 +1101,7 @@ STR_TERRAIN_TYPE_FLAT                                           :சமமான
+ STR_TERRAIN_TYPE_HILLY                                          :உயர்ந்து
+ STR_TERRAIN_TYPE_MOUNTAINOUS                                    :மலைகளாக
+ STR_TERRAIN_TYPE_ALPINIST                                       :அல்பைனிசிட்டு
++STR_TERRAIN_TYPE_CUSTOM                                         :தனிப்பயன் உயரம்
+ 
+ ###length 3
+ STR_CITY_APPROVAL_PERMISSIVE                                    :அனுமதிதரும்
+@@ -1102,6 +1115,7 @@ STR_CONFIG_SETTING_TREE_CAPTION                                 :{WHITE}அம
+ STR_CONFIG_SETTING_FILTER_TITLE                                 :{BLACK}வடிகட்டி:
+ STR_CONFIG_SETTING_EXPAND_ALL                                   :{BLACK}அனைத்தையும் விரிவாக்கு
+ STR_CONFIG_SETTING_COLLAPSE_ALL                                 :{BLACK}அனைத்தையும் மூடு
++STR_CONFIG_SETTING_RESET_ALL                                    :{BLACK}முன்னிருந்தமாதிரி அனைத்தையும் மாற்று
+ STR_CONFIG_SETTING_NO_EXPLANATION_AVAILABLE_HELPTEXT            :(எந்த விவரமும் இல்லை)
+ STR_CONFIG_SETTING_DEFAULT_VALUE                                :{LTBLUE}இயல்பான மதிப்பு: {ORANGE}{STRING}
+ STR_CONFIG_SETTING_TYPE                                         :{LTBLUE}அமைப்பு வகை: {ORANGE}{STRING}
+@@ -1110,6 +1124,7 @@ STR_CONFIG_SETTING_TYPE_GAME_MENU                               :ஆட்டத
+ STR_CONFIG_SETTING_TYPE_GAME_INGAME                             :ஆட்டத்தின் அமைப்புகள் (பதிவு செய்யப்பட்டது; தற்போதைய ஆட்டத்தினை மட்டுமே மாற்றும்)
+ STR_CONFIG_SETTING_TYPE_COMPANY_MENU                            :நிறுவன அமைப்புகள் (பதிவு செய்யப்பட்டது; புதிய ஆட்டங்களை மட்டுமே மாற்றும்)
+ STR_CONFIG_SETTING_TYPE_COMPANY_INGAME                          :நிறுவன அமைப்புகள் (பதிவு செய்யப்பட்டது; தற்போதைய நிறுவனத்தை மட்டுமே மாற்றும்)
++STR_CONFIG_SETTING_RESET_ALL_CONFIRMATION_DIALOG_TEXT           :{WHITE}இந்த செயல் அனைத்து விளையாட்டு அமைப்புகளையும் அவற்றின் இயல்புநிலை மதிப்புகளுக்கு மீட்டமைக்கும்.{}நீங்கள் நிச்சயமாக தொடர விரும்புகிறீர்களா??
+ 
+ STR_CONFIG_SETTING_RESTRICT_CATEGORY                            :{BLACK}பகுப்பு:
+ STR_CONFIG_SETTING_RESTRICT_TYPE                                :{BLACK}வகை:
+@@ -1167,7 +1182,9 @@ STR_CONFIG_SETTING_VEHICLE_BREAKDOWNS_HELPTEXT                  :அடிக்
+ STR_CONFIG_SETTING_SUBSIDY_MULTIPLIER                           :மானியம் பெருக்கு: {STRING}
+ STR_CONFIG_SETTING_SUBSIDY_MULTIPLIER_HELPTEXT                  :மானியம் வழங்கப்பட்ட பணிகளுக்கு எவ்வுளவு தர வேண்டும் என்பதினை அமை
+ 
++STR_CONFIG_SETTING_SUBSIDY_DURATION_HELPTEXT                    :மானியம் வழங்கப்படும் ஆண்டுகளின் எண்ணிக்கையை அமை
+ 
++STR_CONFIG_SETTING_SUBSIDY_DURATION_VALUE                       :{NUM} ஆண்டு{P "" கள்}
+ ###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_CONSTRUCTION_COSTS                           :கட்டுமானச் செலவுகள்: {STRING}
+@@ -1231,6 +1248,7 @@ STR_CONFIG_SETTING_RAW_INDUSTRY_CONSTRUCTION_METHOD_NORMAL      :மற்ற 
+ STR_CONFIG_SETTING_RAW_INDUSTRY_CONSTRUCTION_METHOD_PROSPECTING :எங்கேயாவது
+ 
+ STR_CONFIG_SETTING_INDUSTRY_PLATFORM                            :தொழிற்சாலைகள் அருகே உள்ள சம நிலங்கள்: {STRING}
++STR_CONFIG_SETTING_INDUSTRY_PLATFORM_HELPTEXT                   :ஒரு தொழிலைச் சுற்றியுள்ள தட்டையான இடத்தின் அளவு. தடங்கள் மற்றும் பலவற்றைக் கட்டுவதற்கு ஒரு தொழிற்துறையைச் சுற்றி வெற்று இடம் இருப்பதை இது உறுதி செய்கிறது
+ 
+ STR_CONFIG_SETTING_MULTIPINDTOWN                                :ஒரே மாதிரியான தொழிற்சாலைகளை அதே நகரத்தில் நிறுவ அனுமதி: {STRING}
+ 
+@@ -1259,6 +1277,7 @@ STR_CONFIG_SETTING_AUTOSCROLL_MAIN_VIEWPORT                     :முக்க
+ STR_CONFIG_SETTING_AUTOSCROLL_EVERY_VIEWPORT                    :ஒவ்வொரு திரைபார்வையும்
+ 
+ STR_CONFIG_SETTING_BRIBE                                        :நகராட்சிக்கு கையூட்டுத் தர அனுமதி: {STRING}
++STR_CONFIG_SETTING_BRIBE_HELPTEXT                               :உள்ளூர் நகர அதிகாரத்திற்கு லஞ்சம் கொடுக்க நிறுவனங்களை அனுமதிக்கவும். லஞ்சம் ஒரு ஆய்வாளரால் கவனிக்கப்பட்டால், நிறுவனம் ஆறு மாதங்களுக்கு நகரத்தில் செயல்பட முடியாது
+ 
+ STR_CONFIG_SETTING_ALLOW_EXCLUSIVE                              :போக்குவரத்து உரிமைகளை விற்க அனுமதிக்கவும்: {STRING}
+ 
+@@ -1339,12 +1358,14 @@ STR_CONFIG_SETTING_LAND_GENERATOR_TERRA_GENESIS                 :புவித
+ STR_CONFIG_SETTING_TERRAIN_TYPE                                 :நிலவகை: {STRING}
+ 
+ STR_CONFIG_SETTING_INDUSTRY_DENSITY                             :தொழிற்சாலை அடர்த்தி: {STRING}
++STR_CONFIG_SETTING_INDUSTRY_DENSITY_HELPTEXT                    :விளையாட்டின் போது எத்தனை தொழில்கள் உருவாக்கப்பட வேண்டும் மற்றும் எந்த நிலை பராமரிக்கப்பட வேண்டும் என்பதை அமைக்கவும்
+ 
+ STR_CONFIG_SETTING_OIL_REF_EDGE_DISTANCE                        :வரைபட எல்லையிலிருந்து எண்ணெய் தொழிற்சாலைகள் இருக்கக்கூடிய தூரம்: {STRING}
+ STR_CONFIG_SETTING_OIL_REF_EDGE_DISTANCE_HELPTEXT               :எண்ணெய் சுத்திகரிப்பு நிலையங்கள் வரைபடத்தின் எல்லைகளில் மட்டுமே கட்ட இயலும், அதாவது தீவு வரைபடங்களில் கடற்கரைகளில் கட்ட இயலும்
+ 
+ STR_CONFIG_SETTING_SNOWLINE_HEIGHT                              :பனி-கோடின் உயரம்: {STRING}
+ 
++STR_CONFIG_SETTING_SNOW_COVERAGE                                :பனி முழுத் தழுவு அளவு: {STRING}
+ 
+ 
+ STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN                         :நிலப்பகுதியின் சமனில்லாத நிலை (புவிதுவக்கம் மட்டும்) : {STRING}
+@@ -1421,6 +1442,7 @@ STR_CONFIG_SETTING_OSK_ACTIVATION_SINGLE_CLICK_FOCUS            :ஒரு அ
+ STR_CONFIG_SETTING_OSK_ACTIVATION_SINGLE_CLICK                  :ஒரு அழுத்தம் (உடனடியாக)
+ 
+ ###length 3
++STR_CONFIG_SETTING_USE_RELAY_SERVICE_ASK                        :கேள்
+ 
+ ###length 3
+ STR_CONFIG_SETTING_RIGHT_MOUSE_BTN_EMU_COMMAND                  :Command+Click
+@@ -1450,11 +1472,13 @@ STR_CONFIG_SETTING_COMMAND_PAUSE_LEVEL_ALL_ACTIONS              :அனைத்
+ 
+ STR_CONFIG_SETTING_ADVANCED_VEHICLE_LISTS                       :வாகனப் பட்டியலினைப் பயன்படுத்தவும்: {STRING}
+ 
++STR_CONFIG_SETTING_LOADING_INDICATORS                           :ஏற்றுதல் குறிகாட்டிகளைப் பயன்படுத்தவும்: {STRING}
+ STR_CONFIG_SETTING_LOADING_INDICATORS_HELPTEXT                  :வாகனங்களை ஏற்றுவதற்கு அல்லது இறக்குவதற்கு மேலே ஏற்றுதல் குறிகாட்டிகள் காட்டப்படுகிறதா என்பதைத் தேர்ந்தெடுக்கவும்
+ 
+ STR_CONFIG_SETTING_TIMETABLE_IN_TICKS                           :கால அட்டவணையை நாட்களில் அல்லாமல் சொடுக்குகளில் காட்டு: {STRING}
+ 
+ STR_CONFIG_SETTING_TIMETABLE_SHOW_ARRIVAL_DEPARTURE             :கால அட்டவணைகளில் காலங்களைக் காட்டவும்: {STRING}
++STR_CONFIG_SETTING_TIMETABLE_SHOW_ARRIVAL_DEPARTURE_HELPTEXT    :எதிர்பார்த்த வருகை மற்றும் புறப்படும் நேரங்களை கால அட்டவணையில் காட்டவும்
+ 
+ STR_CONFIG_SETTING_QUICKGOTO                                    :வாகன கட்டளைகளை விரிவாக உருவாக்கவும்: {STRING}
+ 
+@@ -1542,10 +1566,12 @@ STR_CONFIG_SETTING_SERVINT_VALUE                                :{COMMA}{NBSP}
+ STR_CONFIG_SETTING_SERVINT_DISABLED                             :செயலிழக்க செய்யப்பட்டது
+ 
+ STR_CONFIG_SETTING_NOSERVICE                                    :பழுதுகள் இல்லையெனில் பழுதுபார்த்தலினை செயலிழக்கவும்: {STRING}
++STR_CONFIG_SETTING_NOSERVICE_HELPTEXT                           :இயக்கப்படும் போது, வாகனங்கள் உடைக்க முடியாவிட்டால் சேவை செய்யப்படாது
+ 
+ STR_CONFIG_SETTING_WAGONSPEEDLIMITS                             :பெட்டி வேக கட்டுப்பாட்டினை செயல்படுத்தவும்: {STRING}
+ 
+ STR_CONFIG_SETTING_DISABLE_ELRAILS                              :மின்சார இரயில்களை அனுமதிக்காதே: {STRING}
++STR_CONFIG_SETTING_DISABLE_ELRAILS_HELPTEXT                     :இந்த அமைப்பை இயக்குவதால், மின்சார இயந்திரங்கள் இயங்குவதற்கான தடங்களை மின்மயமாக்குவதற்கான தேவையை முடக்குகிறது
+ 
+ STR_CONFIG_SETTING_NEWS_ARRIVAL_FIRST_VEHICLE_OWN               :விளையாடுபவரின் நிலையத்திற்கு முதல் வாகனம் வருகை புரிந்தது: {STRING}
+ STR_CONFIG_SETTING_NEWS_ARRIVAL_FIRST_VEHICLE_OWN_HELPTEXT      :முதல் வாகனம் புதிய வீரர் நிலையத்திற்கு வரும்போது செய்தித்தாளைக் காண்பி
+@@ -1616,8 +1642,10 @@ STR_CONFIG_SETTING_SEMAPHORE_BUILD_BEFORE_DATE                  :தானாக
+ STR_CONFIG_SETTING_CYCLE_SIGNAL_TYPES                           :வெவேறு சிக்னல் வகைகளுள் மாற்றவும்: {STRING}
+ ###length 2
+ STR_CONFIG_SETTING_CYCLE_SIGNAL_PBS                             :பாதை சிக்னல்கள் மட்டும்
+-STR_CONFIG_SETTING_CYCLE_SIGNAL_ALL                             :அனைத்தும்
++STR_CONFIG_SETTING_CYCLE_SIGNAL_ALL                             :தெரிகிர அனைத்தும்
+ 
++STR_CONFIG_SETTING_SIGNAL_GUI_MODE                              :சிக்னல் வகைகளை காட்டு: {STRING}
++STR_CONFIG_SETTING_SIGNAL_GUI_MODE_HELPTEXT                     :சிக்னல் கருவிப்பட்டியில் எந்த சிக்னல் வகைகள் காட்டப்படுகின்றன என்பதை தேர்வு செய்யவும்
+ ###length 2
+ 
+ STR_CONFIG_SETTING_TOWN_LAYOUT                                  :புதிய நகரங்களுக்கான சாலை கட்டங்கள்: {STRING}
+@@ -1693,6 +1721,7 @@ STR_CONFIG_SETTING_CITY_SIZE_MULTIPLIER_HELPTEXT                :ஆட்டத
+ 
+ STR_CONFIG_SETTING_DISTRIBUTION_PAX                             :பயணிகள் பரிமாற்றம் வகை: {STRING}
+ STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :அஞ்சல் பரிமாற்றம் வகை: {STRING}
++STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :மற்ற சரக்கு வகுப்புகளுக்கான விநியோக முறை: {STRING}
+ ###length 3
+ STR_CONFIG_SETTING_DISTRIBUTION_MANUAL                          :கைமுறை
+ STR_CONFIG_SETTING_DISTRIBUTION_ASYMMETRIC                      :சமச்சீர்மையிலா
+@@ -1708,6 +1737,7 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY                  :வேக அ
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_IMPERIAL         :இம்பீரியல் (mph)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_METRIC           :மெட்ரிக் (கி.மீ/மணிநேரம்)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_SI               :SI (மீ/நொடி)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_GAMEUNITS        :விளையாட்டு அலகுகள் (ஓடுகள்/நாளிற்கு)
+ 
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER                     :வாகன திறன் பிரிவுகள்: {STRING}
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_HELPTEXT            :ஒரு வாகனத்தின் சக்தி பயனர் இடைமுகத்தில் காட்டப்படும் போதெல்லாம், தேர்ந்தெடுக்கப்பட்ட அலகுகளில் அதைக் காட்டு
+@@ -1717,6 +1747,7 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_METRIC              :மெட்ர
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_SI                  :SI (கி.வாட்)
+ 
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT                    :எடை பிரிவுகள்: {STRING}
++STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_HELPTEXT           :பயனர் இடைமுகத்தில் ஒரு எடை காட்டப்படும் போதெல்லாம், தேர்ந்தெடுக்கப்பட்ட அலகுகளில் அதைக் காட்டுங்கள்
+ ###length 3
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_IMPERIAL           :இம்பீரியல் (சுருக்கம் ட/டன்)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_METRIC             :மெட்ரிக் (ட/டன்)
+@@ -1761,6 +1792,7 @@ STR_CONFIG_SETTING_ENVIRONMENT_INDUSTRIES                       :{ORANGE}தொ
+ STR_CONFIG_SETTING_ENVIRONMENT_CARGODIST                        :{ORANGE}சரக்கு பரிமாற்றம்
+ STR_CONFIG_SETTING_AI                                           :{ORANGE}போட்டியாளர்கள்
+ STR_CONFIG_SETTING_AI_NPC                                       :{ORANGE}கணினி வீரர்கள்
++STR_CONFIG_SETTING_NETWORK                                      :{ORANGE}இணையம்
+ 
+ STR_CONFIG_SETTING_PATHFINDER_FOR_TRAINS                        :இரயில்களுக்கான வழிகண்டுபிடிப்பான்: {STRING}
+ STR_CONFIG_SETTING_PATHFINDER_FOR_TRAINS_HELPTEXT               :இரயில்கள் பயன்படுத்தப்போகும் வழிகண்டுபிடிப்பான்
+@@ -1769,6 +1801,7 @@ STR_CONFIG_SETTING_PATHFINDER_FOR_ROAD_VEHICLES_HELPTEXT        :சாலை 
+ STR_CONFIG_SETTING_PATHFINDER_FOR_SHIPS                         :கப்பல்களுக்கான வழிகண்டுபிடிப்பான்: {STRING}
+ STR_CONFIG_SETTING_PATHFINDER_FOR_SHIPS_HELPTEXT                :கப்பல்கள் பயன்படுத்தப்போகும் வழிகண்டுபிடிப்பான்
+ STR_CONFIG_SETTING_REVERSE_AT_SIGNALS                           :சிக்னல்களில் தானியங்கி மீட்சி: {STRING}
++STR_CONFIG_SETTING_REVERSE_AT_SIGNALS_HELPTEXT                  :இரயில்கள் நீண்ட நேரம் காத்திருந்தால், சிக்னலில் திரும்புவதற்கு அனுமதிக்கவும்
+ ###length 2
+ STR_CONFIG_SETTING_PATHFINDER_NPF                               :NPF
+ STR_CONFIG_SETTING_PATHFINDER_YAPF_RECOMMENDED                  :YAPF {BLUE}(பரிந்துரைக்கப்பட்டது)
+@@ -1791,6 +1824,7 @@ STR_CONFIG_ERROR_INVALID_BASE_MUSIC_NOT_FOUND                   :{WHITE}... அ
+ STR_CONFIG_ERROR_OUT_OF_MEMORY                                  :{WHITE}நினைவாற்றல் நிறைந்துவிட்டது
+ 
+ # Video initalization errors
++STR_VIDEO_DRIVER_ERROR                                          :{WHITE}வீடியோ அமைப்புகளில் பிழை...
+ 
+ # Intro window
+ STR_INTRO_CAPTION                                               :{WHITE}OpenTTD {REV}
+@@ -1831,6 +1865,7 @@ STR_INTRO_TRANSLATION                                           :{BLACK}இந
+ 
+ # Quit window
+ STR_QUIT_CAPTION                                                :{WHITE}வெளியேறு
++STR_QUIT_ARE_YOU_SURE_YOU_WANT_TO_EXIT_OPENTTD                  :{YELLOW}நீங்கள் நிச்சயமாக OpenTTD இலிருந்து வெளியேற விரும்புகிறீர்களா?
+ STR_QUIT_YES                                                    :{BLACK}ஆமாம்
+ STR_QUIT_NO                                                     :{BLACK}இல்லை
+ 
+@@ -1986,6 +2021,7 @@ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}இன
+ STR_NETWORK_SERVER_LIST_PASSWORD                                :{SILVER}கடவுச்சொலினால் தடுக்கப்பட்டுள்ளது!
+ STR_NETWORK_SERVER_LIST_SERVER_OFFLINE                          :{SILVER}சர்வர் இணைப்பில் இல்லை
+ STR_NETWORK_SERVER_LIST_SERVER_FULL                             :{SILVER}சர்வர் நிரம்பி விட்டது
++STR_NETWORK_SERVER_LIST_SERVER_BANNED                           :{SILVER}இந்த சர்வரில் இருந்து நீங்கள் தடை செய்யப்பட்டுள்ளீர்கள்
+ STR_NETWORK_SERVER_LIST_VERSION_MISMATCH                        :{SILVER}பதிப்பு ஒத்துவரவில்லை
+ STR_NETWORK_SERVER_LIST_GRF_MISMATCH                            :{SILVER}NEWGRF ஒத்துவரவில்லை
+ 
+@@ -1993,6 +2029,7 @@ STR_NETWORK_SERVER_LIST_JOIN_GAME                               :{BLACK}ஆட
+ STR_NETWORK_SERVER_LIST_REFRESH                                 :{BLACK}சர்வரினை புதுப்பிக்கவும்
+ STR_NETWORK_SERVER_LIST_REFRESH_TOOLTIP                         :{BLACK}சர்வரின் விவரத்தினை புதுப்பிக்கவும்
+ 
++STR_NETWORK_SERVER_LIST_SEARCH_SERVER_INTERNET                  :{BLACK}இணையத்தில் தேடு
+ STR_NETWORK_SERVER_LIST_SEARCH_SERVER_LAN                       :{BLACK}உள்ளூர் பகுதி இணையத்தில் தேடு
+ STR_NETWORK_SERVER_LIST_ADD_SERVER                              :{BLACK}சர்வரினை இணை
+ STR_NETWORK_SERVER_LIST_START_SERVER                            :{BLACK}சர்வரினை ஆரம்பி
+@@ -2038,15 +2075,26 @@ STR_NETWORK_NEED_GAME_PASSWORD_CAPTION                          :{WHITE}சர
+ STR_NETWORK_NEED_COMPANY_PASSWORD_CAPTION                       :{WHITE}நிற்வனம் காக்கப்பட்டுள்ளது. கடவுச்சொல்லினை இடவும்
+ 
+ # Network company list added strings
+-STR_NETWORK_COMPANY_LIST_CLIENT_LIST                            :விளையாடுவோர் பட்டியல்
++STR_NETWORK_COMPANY_LIST_CLIENT_LIST                            :இணைய வீரர்கள்
+ 
+ # Network client list
++STR_NETWORK_CLIENT_LIST_SERVER_NAME_EDIT_TOOLTIP                :{BLACK}உங்கள் சேவையகத்தின் பெயரைத் திருத்தவும்
++STR_NETWORK_CLIENT_LIST_SERVER_CONNECTION_TYPE_TOOLTIP          :{BLACK}உங்கள் சேவையகத்தை மற்றவர்கள் எப்படி அணுகலாம்
++STR_NETWORK_CLIENT_LIST_PLAYER_NAME_TOOLTIP                     :{BLACK}உங்கள் வீரரின் பெயர்
++STR_NETWORK_CLIENT_LIST_ADMIN_COMPANY_TOOLTIP                   :{BLACK}இந்த நிறுவனத்திற்கான நிர்வாக நடவடிக்கைகள்
++STR_NETWORK_CLIENT_LIST_NEW_COMPANY                             :(புதிய நிறுவனம்)
++STR_NETWORK_CLIENT_LIST_CLIENT_COMPANY_COUNT                    :{BLACK}{NUM} வாடிக்கையாளர்{P "" கள்} / {NUM} நிறுவன{P ம் ங்கள்}
+ 
+ # Matches ConnectionType
+ ###length 5
++STR_NETWORK_CLIENT_LIST_SERVER_CONNECTION_TYPE_ISOLATED         :{RED}தொலைக்கோடியான வீரர்களால் இணைய முடியவில்லை
++STR_NETWORK_CLIENT_LIST_SERVER_CONNECTION_TYPE_STUN             :{BLACK}NAT-யிற்கு பின்னால்
+ 
++STR_NETWORK_CLIENT_LIST_ADMIN_COMPANY_UNLOCK                    :கடவுச்சொல் திறத்தல்
+ 
+ 
++STR_NETWORK_ASK_RELAY_NO                                        :{BLACK}இல்லை
++STR_NETWORK_ASK_RELAY_YES_ONCE                                  :{BLACK}ஆம், இந்த முறை மட்டும்
+ 
+ STR_NETWORK_SPECTATORS                                          :கவனிப்பவர்கள்
+ 
+@@ -2074,10 +2122,12 @@ STR_NETWORK_CHAT_TO_COMPANY                                     :[Team] பெ
+ STR_NETWORK_CHAT_CLIENT                                         :[Private] {STRING}: {WHITE}{STRING}
+ STR_NETWORK_CHAT_TO_CLIENT                                      :[Private] பெறுநர் {STRING}: {WHITE}{STRING}
+ STR_NETWORK_CHAT_ALL                                            :[All] {STRING}: {WHITE}{STRING}
++STR_NETWORK_CHAT_EXTERNAL                                       :[{3:STRING}] {0:STRING}: {WHITE}{1:STRING}
+ STR_NETWORK_CHAT_OSKTITLE                                       :{BLACK}இணைய அரட்டையிற்கு வார்தைகளை இடவும்
+ 
+ # Network messages
+-STR_NETWORK_ERROR_NOCONNECTION                                  :{WHITE}அழைப்பிற்கு சர்வர் பதிலளிக்கவில்லை
++STR_NETWORK_ERROR_NOTAVAILABLE                                  :{WHITE}எந்த இணைய சாதனமும் கண்டறியப்படவில்லை
++STR_NETWORK_ERROR_NOCONNECTION                                  :{WHITE}அழைப்பிற்கு சர்வர் பதிலளிக்கவில்லை அல்லது நேரம் கடந்துவிட்டது
+ STR_NETWORK_ERROR_NEWGRF_MISMATCH                               :{WHITE}NewGRF கோப்பு பிழையினால் ணைக்க இயலவில்லை
+ STR_NETWORK_ERROR_DESYNC                                        :{WHITE}இணயம்-ஆட்டம் சமமாதல் தோல்வியடைந்தது
+ STR_NETWORK_ERROR_LOSTCONNECTION                                :{WHITE}இணைய ஆட்டத்தின் தொடர்பு துண்டிக்கப்பட்டது
+@@ -2088,6 +2138,7 @@ STR_NETWORK_ERROR_WRONG_PASSWORD                                :{WHITE}தவ
+ STR_NETWORK_ERROR_SERVER_FULL                                   :{WHITE}சர்வர் முழு பயன்பாட்டில் உள்ளது
+ STR_NETWORK_ERROR_SERVER_BANNED                                 :{WHITE}இந்த சர்வரில் இருந்து நீங்கள் தடை செய்யப்பட்டுள்ளீர்கள்
+ STR_NETWORK_ERROR_KICKED                                        :{WHITE}இந்த விளையாட்டிலிருந்து நீங்கள் வெளியேற்றப்பட்டீர்கள்
++STR_NETWORK_ERROR_KICK_MESSAGE                                  :{WHITE}காரணம்: {STRING}
+ STR_NETWORK_ERROR_CHEATER                                       :{WHITE}இந்த சர்வரில் ஏமாற்ற இயலாது
+ STR_NETWORK_ERROR_TOO_MANY_COMMANDS                             :{WHITE}சர்வரிற்கு அளவிற்கு அதிகமான கட்டளைகளினை அனுப்பிக்கொண்டிருந்தீர்கள்
+ STR_NETWORK_ERROR_TIMEOUT_PASSWORD                              :{WHITE}கடவுச்சொல்லினை இட அதிக நேரம் எடுத்துக்கொண்டீர்கள்
+@@ -2119,6 +2170,7 @@ STR_NETWORK_ERROR_CLIENT_TIMEOUT_PASSWORD                       :சரியா
+ STR_NETWORK_ERROR_CLIENT_TIMEOUT_COMPUTER                       :பொதுவான காலப்பிழை
+ STR_NETWORK_ERROR_CLIENT_TIMEOUT_MAP                            :வரைபடம் பதிவிறக்கமாக அதிக நேரம் ஆகியது
+ STR_NETWORK_ERROR_CLIENT_TIMEOUT_JOIN                           :படத்தினைத் திறக்க அதிக நேரம் ஆகியது
++STR_NETWORK_ERROR_CLIENT_INVALID_CLIENT_NAME                    :தவறான வாடிக்கையாளர் பெயர்
+ 
+ # Network related errors
+ STR_NETWORK_SERVER_MESSAGE                                      :*** {1:STRING}
+@@ -2143,12 +2195,13 @@ STR_NETWORK_MESSAGE_CLIENT_COMPANY_JOIN                         :*** {STRING} 
+ STR_NETWORK_MESSAGE_CLIENT_COMPANY_SPECTATE                     :*** {STRING} பார்வையாளராக சேர்ந்துள்ளார்
+ STR_NETWORK_MESSAGE_CLIENT_COMPANY_NEW                          :*** {STRING} புதிய நிறுவனம் (#{2:NUM})வை துவக்கி உள்ளார்
+ STR_NETWORK_MESSAGE_CLIENT_LEFT                                 :*** {STRING} ஆட்டத்தை விட்டு வெளியேரினார் ({2:STRING})
+-STR_NETWORK_MESSAGE_NAME_CHANGE                                 :*** {STRING} அவரது/அவளது பெயரினை {STRING} என்று மாற்றினார்
++STR_NETWORK_MESSAGE_NAME_CHANGE                                 :*** {STRING} அவரது பெயரினை {STRING} என்று மாற்றினார்
+ STR_NETWORK_MESSAGE_GIVE_MONEY                                  :*** {STRING} தங்கள் நிறுவனத்திற்கு {1:STRING} {2:CURRENCY_LONG} கொடுத்தார்
+ STR_NETWORK_MESSAGE_SERVER_SHUTDOWN                             :{WHITE}சர்வர் ஆட்டத்தினை முடித்தது
+ STR_NETWORK_MESSAGE_SERVER_REBOOT                               :{WHITE}சர்வர் மீண்டும் தொடங்குகிறது...{}சற்று பொறுக்கவும்...
+ STR_NETWORK_MESSAGE_KICKED                                      :*** {STRING} வெளியேற்றப்பட்டார். காரணம்: ({STRING})
+ 
++STR_NETWORK_ERROR_COORDINATOR_REGISTRATION_FAILED               :{WHITE}சர்வர் பதிவு தோல்வி
+ 
+ # Content downloading window
+ STR_CONTENT_TITLE                                               :{WHITE}கோப்புகள் பதிவிறக்கம் செய்யப்படுகின்றன
+@@ -2220,6 +2273,7 @@ STR_MISSING_GRAPHICS_SET_MESSAGE                                :{BLACK}OpenTTD
+ STR_MISSING_GRAPHICS_YES_DOWNLOAD                               :{BLACK}ஆம், அசையூட்டங்களை பதிவிறக்கம் செய்
+ STR_MISSING_GRAPHICS_NO_QUIT                                    :{BLACK}இல்லை, OpenTTD-ஐ விட்டு வெளியேறு
+ 
++STR_MISSING_GRAPHICS_ERROR_QUIT                                 :{BLACK}OpenTTD-ஐ விட்டு வெளியேறு
+ 
+ # Transparency settings window
+ STR_TRANSPARENCY_CAPTION                                        :{WHITE}ஒளி அமைப்புகள்
+@@ -2301,6 +2355,7 @@ STR_STATION_CLASS_WAYP                                          :பாதைப
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}சிக்னல் தேர்ந்தெடுத்தல்
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}மேம்பட்ட சிக்னல் வகைகளைக் காட்டவும்/மறைக்கவும்
+ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_TOOLTIP                   :{BLACK}சிக்னல்களை இழுக்கும் தொளைவு
+ 
+ # Bridge selection window
+@@ -2365,7 +2420,7 @@ STR_WATERWAYS_TOOLBAR_BUILD_LOCKS_TOOLTIP                       :{BLACK}நீ
+ STR_WATERWAYS_TOOLBAR_BUILD_DEPOT_TOOLTIP                       :{BLACK}கப்பல் பணிமனையினைக் கட்டவும்(கப்பல்களை வாங்க மற்றும் பழுதுபார்க்க). Shift அழுத்தினால் கட்டுமான/செலவு மதிப்பீடு காட்டப்படும்
+ STR_WATERWAYS_TOOLBAR_BUILD_DOCK_TOOLTIP                        :{BLACK}கப்பல் துறைமுகத்தினைக் கட்டவும். Ctrl அழுத்தினால் துறைமுகங்களினை இணைக்கலாம். Shift அழுத்தினால் கட்டுமான/செலவு மதிப்பீடு காட்டப்படும்
+ STR_WATERWAYS_TOOLBAR_BUILD_AQUEDUCT_TOOLTIP                    :{BLACK}நீர்வாழ்வை உருவாக்குங்கள். Shift கட்டிடம் கட்டுதல் / செலவு மதிப்பீட்டைக் காட்டும்
+-STR_WATERWAYS_TOOLBAR_CREATE_RIVER_TOOLTIP                      :{BLACK}ஆறுகளை அமைக்கவும்
++STR_WATERWAYS_TOOLBAR_CREATE_RIVER_TOOLTIP                      :{BLACK}ஆறுகளை அமைக்கவும். Ctrl அழுத்தினால் குறுக்கான பகுதியைத் தேர்ந்தெடுக்கலாம்
+ 
+ # Ship depot construction window
+ STR_DEPOT_BUILD_SHIP_CAPTION                                    :{WHITE}கப்பல் பணிமனை திசையமைப்பு
+@@ -2478,6 +2533,7 @@ STR_FUND_INDUSTRY_BUILD_NEW_INDUSTRY                            :{BLACK}கட
+ STR_FUND_INDUSTRY_FUND_NEW_INDUSTRY                             :{BLACK}நிறுவு
+ STR_FUND_INDUSTRY_REMOVE_ALL_INDUSTRIES                         :{BLACK}அனைத்து தொழிற்சாலைகளையும் அகற்றவும்
+ STR_FUND_INDUSTRY_REMOVE_ALL_INDUSTRIES_CAPTION                 :{WHITE}அனைத்து தொழிற்சாலைகளையும் அகற்றவும்
++STR_FUND_INDUSTRY_REMOVE_ALL_INDUSTRIES_QUERY                   :{YELLOW}நீங்கள் நிச்சயமாக அனைத்து தொழிற்சாலைகளையும் அகற்ற விரும்புகிறீர்களா?
+ 
+ # Industry cargoes window
+ STR_INDUSTRY_CARGOES_INDUSTRY_CAPTION                           :{WHITE}{STRING} தொழிற்சாலையிற்கான தொழிற்சாலைத் தொடர்
+@@ -2622,6 +2678,7 @@ STR_ABOUT_COPYRIGHT_OPENTTD                                     :{BLACK}OpenTTD
+ 
+ # Framerate display window
+ STR_FRAMERATE_CAPTION                                           :{WHITE}பிரேம் வீதம்
++STR_FRAMERATE_CAPTION_SMALL                                     :{STRING}{WHITE} ({DECIMAL}x)
+ STR_FRAMERATE_RATE_GAMELOOP                                     :{BLACK}உருவகப்படுத்துதலின் வேகம்: {STRING}
+ STR_FRAMERATE_SPEED_FACTOR                                      :{BLACK}தற்போதைய ஆட்டத்தின் வேக அமைப்பு: {DECIMAL} மடங்கு
+ STR_FRAMERATE_AVERAGE                                           :{WHITE}சராசரி
+@@ -2679,6 +2736,7 @@ STR_SAVELOAD_DETAIL_NOT_AVAILABLE                               :{BLACK}எந
+ STR_SAVELOAD_DETAIL_COMPANY_INDEX                               :{SILVER}{COMMA}: {WHITE}{STRING}
+ STR_SAVELOAD_DETAIL_GRFSTATUS                                   :{SILVER}NewGRF: {WHITE}{STRING}
+ STR_SAVELOAD_OVERWRITE_WARNING                                  :{YELLOW}ஏற்கனவே உள்ள கோப்பை மேலெழுத விரும்புகிறீர்களா?
++STR_SAVELOAD_DIRECTORY                                          :{STRING} (கோப்பகம்)
+ 
+ STR_SAVELOAD_OSKTITLE                                           :{BLACK}பதிவு-ஆட்டத்திற்கு பெயர் ஒன்றினை இடு
+ 
+@@ -2690,6 +2748,8 @@ STR_MAPGEN_NUMBER_OF_TOWNS                                      :{BLACK}நக
+ STR_MAPGEN_DATE                                                 :{BLACK}தேதி:
+ STR_MAPGEN_NUMBER_OF_INDUSTRIES                                 :{BLACK}தொழிற்சாலைகளின் எண்ணிக்கை:
+ STR_MAPGEN_SNOW_COVERAGE                                        :{BLACK}பனி முழுத் தழுவு அளவு:
++STR_MAPGEN_DESERT_COVERAGE_UP                                   :{BLACK}பாலைவன முழுத் தழுவு அளவினை பத்து சதவிகிதம் அதிகப்படுத்து
++STR_MAPGEN_DESERT_COVERAGE_TEXT                                 :{BLACK}{NUM}%
+ STR_MAPGEN_LAND_GENERATOR                                       :{BLACK}பூமி உருவாக்குனர்:
+ STR_MAPGEN_TERRAIN_TYPE                                         :{BLACK}நிலவகை:
+ STR_MAPGEN_QUANTITY_OF_SEA_LAKES                                :{BLACK}கடல் மட்டம்:
+@@ -2715,6 +2775,7 @@ STR_MAPGEN_HEIGHTMAP_NAME                                       :{BLACK}உய
+ STR_MAPGEN_HEIGHTMAP_SIZE_LABEL                                 :{BLACK}அளவு:
+ STR_MAPGEN_HEIGHTMAP_SIZE                                       :{ORANGE}{NUM} x {NUM}
+ 
++STR_MAPGEN_DESERT_COVERAGE_QUERY_CAPT                           :{WHITE}பாலைவன முழுத் தழுவு அளவு (%)
+ STR_MAPGEN_START_DATE_QUERY_CAPT                                :{WHITE}தொடங்கும் வருடத்தினை மாற்று
+ 
+ # SE Map generation
+@@ -2766,6 +2827,7 @@ STR_NEWGRF_SETTINGS_MOVEUP                                      :{BLACK}மே
+ STR_NEWGRF_SETTINGS_MOVEUP_TOOLTIP                              :{BLACK}தேர்ந்தெடுக்கப்பட்ட NewGRF கோப்பினை பட்டியலில் மேல் நகர்த்து
+ STR_NEWGRF_SETTINGS_MOVEDOWN                                    :{BLACK}கீழ் இறக்கு
+ STR_NEWGRF_SETTINGS_MOVEDOWN_TOOLTIP                            :{BLACK}தேர்ந்தெடுக்கப்பட்ட NewGRF கோப்பினை பட்டியலில் கீழ் இறக்கு
++STR_NEWGRF_SETTINGS_UPGRADE                                     :{BLACK}தரவேற்று
+ STR_NEWGRF_SETTINGS_FILE_TOOLTIP                                :{BLACK}நிறுவியுள்ள NewGRF கோப்புகளின் ஓர் பட்டியல்.
+ 
+ STR_NEWGRF_SETTINGS_SET_PARAMETERS                              :{BLACK}குணாதிசயங்களை அமை
+@@ -2936,6 +2998,7 @@ STR_TOWN_VIEW_RENAME_TOWN_BUTTON                                :நகரத்
+ # Town local authority window
+ STR_LOCAL_AUTHORITY_CAPTION                                     :{WHITE}{TOWN} நகராட்சி
+ STR_LOCAL_AUTHORITY_ZONE                                        :{BLACK}மண்டலம்
++STR_LOCAL_AUTHORITY_ZONE_TOOLTIP                                :{BLACK}உள்ளூர் அதிகார எல்லைக்குள் மண்டலத்தைக் காட்டு
+ STR_LOCAL_AUTHORITY_COMPANY_RATINGS                             :{BLACK}போக்குவரத்து நிறுவன தரங்கள்:
+ STR_LOCAL_AUTHORITY_COMPANY_RATING                              :{YELLOW}{COMPANY} {COMPANY_NUM}: {ORANGE}{STRING}
+ STR_LOCAL_AUTHORITY_ACTIONS_TITLE                               :{BLACK}செயற்பாடுகள்:
+@@ -2958,7 +3021,7 @@ STR_LOCAL_AUTHORITY_ACTION_TOOLTIP_SMALL_ADVERTISING            :{YELLOW}சி
+ STR_LOCAL_AUTHORITY_ACTION_TOOLTIP_MEDIUM_ADVERTISING           :{YELLOW}சராசரி விளம்பர பிரசாரத்தினைத் தொடங்கு, இதனால் பயணிகள் மற்றும் சரக்குகள் உங்களது போக்குவரத்து நிறுவனத்தினைப் பயன்படுத்துவர்.{}செலவு: {CURRENCY_LONG}
+ STR_LOCAL_AUTHORITY_ACTION_TOOLTIP_LARGE_ADVERTISING            :{YELLOW}பெரிய விளம்பர பிரசாரத்தினைத் தொடங்கு, இதனால் பயணிகள் மற்றும் சரக்குகள் உங்களது போக்குவரத்து நிறுவனத்தினைப் பயன்படுத்துவர்.{}செலவு: {CURRENCY_LONG}
+ STR_LOCAL_AUTHORITY_ACTION_TOOLTIP_ROAD_RECONSTRUCTION          :{YELLOW}நகர்ப்புற சாலை நெட்வொர்க்கின் புனரமைப்புக்கு நிதியளிக்கவும். 6 மாதங்கள் வரை சாலை போக்குவரத்துக்கு கணிசமான இடையூறு ஏற்படுகிறது.{}செலவு: {CURRENCY_LONG}
+-STR_LOCAL_AUTHORITY_ACTION_TOOLTIP_STATUE_OF_COMPANY            :{YELLOW}தங்கள் நிறுவனத்தின் பெருமைக்காக ஓர் சிலையினைக் கட்டவும்.{}செலவு: {CURRENCY_LONG}
++STR_LOCAL_AUTHORITY_ACTION_TOOLTIP_STATUE_OF_COMPANY            :{YELLOW}தங்கள் நிறுவனத்தின் பெருமைக்காக ஓர் சிலையினைக் கட்டவும்.{}நிலையத்திற்கு நிரந்தர ஊக்கத்தை அளிக்கிறது.{}செலவு: {CURRENCY_LONG}
+ 
+ # Goal window
+ STR_GOALS_CAPTION                                               :{WHITE}{COMPANY} குறிக்கோள்கள்
+@@ -3008,6 +3071,7 @@ STR_SUBSIDIES_SUBSIDISED_FROM_TO                                :{ORANGE}{STRING
+ # Story book window
+ STR_STORY_BOOK_CAPTION                                          :{WHITE}{COMPANY} கதைப் புத்தகம்
+ STR_STORY_BOOK_SPECTATOR_CAPTION                                :{WHITE}உலக கதைப் புத்தகம்
++STR_STORY_BOOK_SPECTATOR                                        :உலகளாவிய கதை புத்தகம்
+ STR_STORY_BOOK_TITLE                                            :{YELLOW}{STRING}
+ STR_STORY_BOOK_GENERIC_PAGE_ITEM                                :பக்கம் {NUM}
+ STR_STORY_BOOK_SEL_PAGE_TOOLTIP                                 :{BLACK}இந்த கீழ்தோன்றும் பட்டியலில் ஒரு குறிப்பிட்ட பக்கத்தைத் தேர்ந்தெடுப்பதன் மூலம் செல்லவும்.
+@@ -3062,6 +3126,7 @@ STR_STATION_VIEW_NONSTOP                                        :{YELLOW}{CARGO_
+ 
+ STR_STATION_VIEW_GROUP_S_V_D                                    :மூலம்-வழியாக-சேருமிடம்
+ STR_STATION_VIEW_GROUP_S_D_V                                    :மூல-சேருமிடம்-வழியாக
++STR_STATION_VIEW_GROUP_V_S_D                                    :வழியாக-மூலம்-சேருமிடம்
+ STR_STATION_VIEW_GROUP_D_S_V                                    :சேருமிடம்-மூலம்-வழியாக
+ STR_STATION_VIEW_GROUP_D_V_S                                    :மூல-வழியாக-இலக்கு
+ 
+@@ -3158,6 +3223,7 @@ STR_COMPANY_VIEW_RELOCATE_HQ                                    :{BLACK}HQ வ
+ STR_COMPANY_VIEW_INFRASTRUCTURE_BUTTON                          :{BLACK}விவரங்கள்
+ STR_COMPANY_VIEW_INFRASTRUCTURE_TOOLTIP                         :{BLACK}விவரமான கட்டட எண்ணிக்கைகளை காட்டு
+ STR_COMPANY_VIEW_GIVE_MONEY_BUTTON                              :{BLACK}பணத்தை வழங்கு
++STR_COMPANY_VIEW_GIVE_MONEY_TOOLTIP                             :{BLACK}இந்த நிறுவனத்திற்கு பணம் கொடு
+ 
+ STR_COMPANY_VIEW_NEW_FACE_BUTTON                                :{BLACK}புதிய முகம்
+ STR_COMPANY_VIEW_NEW_FACE_TOOLTIP                               :{BLACK}மேலாளருக்கு புதிய முகத்தினைத் தேர்ந்தெடு
+@@ -3174,6 +3240,7 @@ STR_COMPANY_VIEW_SELL_SHARE_TOOLTIP                             :{BLACK}இந
+ 
+ STR_COMPANY_VIEW_COMPANY_NAME_QUERY_CAPTION                     :நிறுவனத்தின் பெயர்
+ STR_COMPANY_VIEW_PRESIDENT_S_NAME_QUERY_CAPTION                 :மேலாளரின் பெயர்
++STR_COMPANY_VIEW_GIVE_MONEY_QUERY_CAPTION                       :நீங்கள் கொடுக்க விரும்பும் பணத்தை உள்ளிடவும்
+ 
+ STR_BUY_COMPANY_MESSAGE                                         :{WHITE}எங்கள் நிறுவனத்தை கையகப்படுத்த ஒரு போக்குவரத்து நிறுவனத்தை நாங்கள் தேடுகிறோம்.{}{}நீங்கள் {COMPANY}யை {CURRENCY_LONG} வாங்க விரும்புகிறீர்களா?
+ 
+@@ -3192,8 +3259,10 @@ STR_COMPANY_INFRASTRUCTURE_VIEW_TOTAL                           :{WHITE}{CURRENC
+ # Industry directory
+ STR_INDUSTRY_DIRECTORY_CAPTION                                  :{WHITE}தொழிற்சாலைகள்
+ STR_INDUSTRY_DIRECTORY_NONE                                     :{ORANGE}- ஒன்றுமில்லை -
++STR_INDUSTRY_DIRECTORY_ITEM_INFO                                :{BLACK}{CARGO_LONG}{STRING}{YELLOW} ({COMMA}% கொண்டு செல்லப்பட்டது){BLACK}
+ STR_INDUSTRY_DIRECTORY_ITEM_NOPROD                              :{ORANGE}{INDUSTRY}
+ STR_INDUSTRY_DIRECTORY_ITEM_PROD1                               :{ORANGE}{INDUSTRY} {STRING}
++STR_INDUSTRY_DIRECTORY_ITEM_PROD2                               :{ORANGE}{INDUSTRY} {STRING}, {STRING}
+ STR_INDUSTRY_DIRECTORY_ACCEPTED_CARGO_FILTER                    :{BLACK}ஏற்றுக்கொள்ளப்படும் சரக்குகள்: {SILVER}{STRING}
+ STR_INDUSTRY_DIRECTORY_PRODUCED_CARGO_FILTER                    :{BLACK}உற்பத்தி செய்யப்பட்ட சரக்குகள்: {SILVER}{STRING}
+ STR_INDUSTRY_DIRECTORY_FILTER_ALL_TYPES                         :அனைத்து சரக்கு வகைகள்
+@@ -3267,6 +3336,7 @@ STR_GROUP_DELETE_TOOLTIP                                        :{BLACK}தே
+ STR_GROUP_RENAME_TOOLTIP                                        :{BLACK}தேர்ந்தெடுக்கப்பட்ட குழுவின் பெயரினை மாற்றவும்
+ STR_GROUP_LIVERY_TOOLTIP                                        :{BLACK}தேர்ந்தெடுக்கப்பட்ட குழுவின் நிறத்தினை மாற்றவும்
+ 
++STR_QUERY_GROUP_DELETE_CAPTION                                  :{WHITE}இந்தக் குழுவினை நீக்கு
+ STR_GROUP_DELETE_QUERY_TEXT                                     :{WHITE}இந்த குழுவையும் சந்ததியினரையும் நீக்க விரும்புகிறீர்களா?
+ 
+ STR_GROUP_ADD_SHARED_VEHICLE                                    :பகிர்ந்த வாகனங்களை சேர்க்கவும்
+@@ -3309,6 +3379,7 @@ STR_PURCHASE_INFO_RELIABILITY                                   :{BLACK}அத
+ STR_PURCHASE_INFO_COST                                          :{BLACK}விலை: {GOLD}{CURRENCY_LONG}
+ STR_PURCHASE_INFO_WEIGHT_CWEIGHT                                :{BLACK}எடை: {GOLD}{WEIGHT_SHORT} ({WEIGHT_SHORT})
+ STR_PURCHASE_INFO_COST_SPEED                                    :{BLACK}செலவு: {GOLD}{CURRENCY_LONG}{BLACK} வேகம்: {GOLD}{VELOCITY}
++STR_PURCHASE_INFO_COST_REFIT_SPEED                              :{BLACK}செலவு: {GOLD}{CURRENCY_LONG}{BLACK} (மறுசீரமைப்பு செலவு: {GOLD}{CURRENCY_LONG}{BLACK}) வேகம்: {GOLD}{VELOCITY}
+ STR_PURCHASE_INFO_AIRCRAFT_CAPACITY                             :{BLACK}கொள்ளளவு: {GOLD}{CARGO_LONG}, {CARGO_LONG}
+ STR_PURCHASE_INFO_PWAGPOWER_PWAGWEIGHT                          :{BLACK}பொறி பெட்டிகள்: {GOLD}+{POWER}{BLACK} எடை: {GOLD}+{WEIGHT_SHORT}
+ STR_PURCHASE_INFO_REFITTABLE_TO                                 :{BLACK}இவற்றிற்கு மாற்றியமைக்கலாம்: {GOLD}{STRING}
+@@ -3358,6 +3429,7 @@ STR_BUY_VEHICLE_AIRCRAFT_RENAME_TOOLTIP                         :{BLACK}வி
+ ###length VEHICLE_TYPES
+ STR_BUY_VEHICLE_TRAIN_HIDE_TOGGLE_BUTTON                        :{BLACK}மறை
+ STR_BUY_VEHICLE_ROAD_VEHICLE_HIDE_TOGGLE_BUTTON                 :{BLACK}மறை
++STR_BUY_VEHICLE_SHIP_HIDE_TOGGLE_BUTTON                         :{BLACK}மறை
+ STR_BUY_VEHICLE_AIRCRAFT_HIDE_TOGGLE_BUTTON                     :{BLACK}மறை
+ 
+ ###length VEHICLE_TYPES
+@@ -3472,6 +3544,7 @@ STR_ENGINE_PREVIEW_COST_MAX_SPEED_CAP_RUNCOST                   :{BLACK}செ
+ STR_ENGINE_PREVIEW_COST_MAX_SPEED_TYPE_CAP_CAP_RUNCOST          :{BLACK}செலவு: {CURRENCY_LONG} அதி. வேகம்: {VELOCITY}{}விமான வகை: {STRING}{}கொள்ளளவு: {CARGO_LONG}, {CARGO_LONG}{}ஓட்டும் செலவு: {CURRENCY_LONG}/ஆண்டிற்கு
+ STR_ENGINE_PREVIEW_COST_MAX_SPEED_TYPE_CAP_RUNCOST              :{BLACK}செலவு: {CURRENCY_LONG} அதி. வேகம்: {VELOCITY}{}விமான வகை: {STRING}{}கொள்ளளவு: {CARGO_LONG}{}ஓட்டும் செலவு: {CURRENCY_LONG}/ஆண்டிற்கு
+ STR_ENGINE_PREVIEW_COST_MAX_SPEED_TYPE_RANGE_CAP_CAP_RUNCOST    :{BLACK}செலவு: {CURRENCY_LONG} அதி. வேகம்: {VELOCITY}{}விமான வகை: {STRING} வீச்சு எல்லை: {COMMA} கட்டங்கள்{}கொள்ளளவு: {CARGO_LONG}, {CARGO_LONG}{}ஓட்டும் செலவு: {CURRENCY_LONG}/ஆண்டிற்கு
++STR_ENGINE_PREVIEW_COST_MAX_SPEED_TYPE_RANGE_CAP_RUNCOST        :{BLACK}செலவு: {CURRENCY_LONG} அதி. வேகம்: {VELOCITY}{}விமான வகை: {STRING} வீச்சு எல்லை: {COMMA} கட்டங்கள்{}கொள்ளளவு: {CARGO_LONG}{}ஓட்டும் செலவு: {CURRENCY_LONG}/ஆண்டிற்கு
+ 
+ # Autoreplace window
+ STR_REPLACE_VEHICLES_WHITE                                      :{WHITE}மாற்று {STRING} - {STRING}
+@@ -3511,6 +3584,8 @@ STR_REPLACE_MAGLEV_VEHICLES                                     :மேக்ல
+ STR_REPLACE_ROAD_VEHICLES                                       :சாலை வாகனங்கள்
+ STR_REPLACE_TRAM_VEHICLES                                       :அமிழ் தண்டூர்தி வாகனங்கள்
+ 
++STR_REPLACE_REMOVE_WAGON                                        :{BLACK}பெட்டி நீக்கம் ({STRING}): {ORANGE}{STRING}
++STR_REPLACE_REMOVE_WAGON_GROUP_HELP                             :{STRING}. துணை குழுக்களுக்கும் விண்ணப்பிக்க Ctrl+கிளிக் செய்யவும்
+ 
+ # Vehicle view
+ STR_VEHICLE_VIEW_CAPTION                                        :{WHITE}{VEHICLE}
+@@ -3571,6 +3646,8 @@ STR_VEHICLE_STATUS_HEADING_FOR_WAYPOINT_VEL                     :{LTBLUE} {WAYPO
+ STR_VEHICLE_STATUS_HEADING_FOR_DEPOT_VEL                        :{ORANGE} {DEPOT}-இற்கு செல்கிறது, {VELOCITY}
+ STR_VEHICLE_STATUS_HEADING_FOR_DEPOT_SERVICE_VEL                :{LTBLUE} {DEPOT}-இல் சர்வீஸ் செய்ய செல்கிறது, {VELOCITY}
+ 
++STR_VEHICLE_STATUS_CANNOT_REACH_STATION_VEL                     :{LTBLUE}{STATION} நிலையத்தினை அடைய முடியவில்லை, {VELOCITY}
++STR_VEHICLE_STATUS_CANNOT_REACH_WAYPOINT_VEL                    :{LTBLUE}{WAYPOINT}-இனை அடைய முடியவில்லை, {VELOCITY}
+ 
+ # Vehicle stopped/started animations
+ ###length 2
+@@ -3953,6 +4030,7 @@ STR_AI_LIST_ACCEPT_TOOLTIP                                      :{BLACK}கு
+ STR_AI_LIST_CANCEL                                              :{BLACK}இரத்து செய்
+ STR_AI_LIST_CANCEL_TOOLTIP                                      :{BLACK}வரிவடிவத்தினை மாற்றாதே
+ 
++STR_SCREENSHOT_CAPTION                                          :{WHITE}ஒரு திரைப்பிடிப்பினை எடுக்கவும்
+ STR_SCREENSHOT_SCREENSHOT                                       :{BLACK}சாதாரண திரைப்பிடிப்பு
+ STR_SCREENSHOT_DEFAULTZOOM_SCREENSHOT                           :{BLACK}திரைபிடிப்பு - இயல்பிருப்பு பெரிதாக்குதல்
+ STR_SCREENSHOT_HEIGHTMAP_SCREENSHOT                             :{BLACK}உயர்படத்தின் திரைப்பிடிப்பு
+@@ -3968,6 +4046,7 @@ STR_AI_SETTINGS_START_DELAY                                     :இந்த AI
+ 
+ 
+ # Textfile window
++STR_TEXTFILE_WRAP_TEXT                                          :{WHITE}உரையை மடக்கு
+ STR_TEXTFILE_VIEW_README                                        :{BLACK}படிக்க வேண்டியதை பார்வையிடு
+ STR_TEXTFILE_VIEW_CHANGELOG                                     :{BLACK}மாற்றங்கள் பதிவேடு
+ STR_TEXTFILE_VIEW_LICENCE                                       :{BLACK}அனுமதி
+@@ -4424,6 +4503,7 @@ STR_BASESOUNDS_WIN_DESCRIPTION                                  :அசல் 
+ STR_BASESOUNDS_NONE_DESCRIPTION                                 :ஒலிகள் இல்லாத ஒலி தொகுப்பு.
+ STR_BASEMUSIC_WIN_DESCRIPTION                                   :அசல் டிரான்ஸ்ஃபோர்ட் டைகூன் டீலக்ஸ் விண்டோஸ் பதிப்பு இசை.
+ STR_BASEMUSIC_DOS_DESCRIPTION                                   :அசல் டிரான்ஸ்ஃபோர்ட் டைகூன் டீலக்ஸ் DOS பதிப்பு இசை.
++STR_BASEMUSIC_TTO_DESCRIPTION                                   :அசல் டிரான்ஸ்ஃபோர்ட் டைக்கூன் (அசல்/உலக ஆசிரியர்) DOS பதிப்பு இசை.
+ STR_BASEMUSIC_NONE_DESCRIPTION                                  :இசை இல்லாத இசைத்தொகுப்பு.
+ 
+ ##id 0x2000
+diff --git a/src/lang/vietnamese.txt b/src/lang/vietnamese.txt
+index dd79e5490c..44f15e6b79 100644
+--- a/src/lang/vietnamese.txt
++++ b/src/lang/vietnamese.txt
+@@ -2257,6 +2257,7 @@ STR_NETWORK_SERVER_LIST_LANDSCAPE                               :{SILVER}Địa
+ STR_NETWORK_SERVER_LIST_MAP_SIZE                                :{SILVER}Cỡ bản đồ: {WHITE}{COMMA}x{COMMA}
+ STR_NETWORK_SERVER_LIST_SERVER_VERSION                          :{SILVER}Phiên bản server: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_SERVER_ADDRESS                          :{SILVER}Địa chỉ server: {WHITE}{STRING}
++STR_NETWORK_SERVER_LIST_INVITE_CODE                             :{SILVER}Mã tham gia: {WHITE}{STRING}
+ STR_NETWORK_SERVER_LIST_START_DATE                              :{SILVER}Ngày bắt đầu: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_CURRENT_DATE                            :{SILVER}Ngày hiện tại: {WHITE}{DATE_SHORT}
+ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}Game Script: {WHITE}{STRING} (v{NUM})
+@@ -2673,6 +2674,7 @@ STR_STATION_CLASS_WAYP                                          :Điểm mốc
+ 
+ # Signal window
+ STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}Chọn Đèn Tín Hiệu
++STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}Bật/tắt hiển thị các loại đèn báo nâng cao
+ STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}Đèn (cờ) tín hiệu khoá{}Đây là loại tín hiệu cơ bản, chỉ cho phép một đoàn tàu đi vào chỗ khoá cùng một thời điểm.
+ STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}Đèn (cờ) tín hiệu cửa nhập{}Sẽ xanh nếu một hoặc nhiều đèn tín hiệu cửa thoát ở phía sau màu xanh. Không thì sẽ đỏ.
+ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Đèn (cờ) tín hiệu cửa thoát{}Tương tự đèn tín hiệu khoá, nhưng cần có để đổi trạng thái của đèn tín hiệu loại cửa nhập & kết hợp nằm trước nó.
+-- 
+2.55.0
+

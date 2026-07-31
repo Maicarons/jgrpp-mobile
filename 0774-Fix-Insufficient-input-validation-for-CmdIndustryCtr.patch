@@ -1,0 +1,26 @@
+From 94dfd1df2126ea10afd2a316c62622bcf2949b03 Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Sat, 20 Nov 2021 23:27:45 +0100
+Subject: [PATCH 0774/1053] Fix: Insufficient input validation for
+ CmdIndustryCtrl. (#9711)
+
+---
+ src/industry_cmd.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/industry_cmd.cpp b/src/industry_cmd.cpp
+index 8be44488db..b03a722b78 100644
+--- a/src/industry_cmd.cpp
++++ b/src/industry_cmd.cpp
+@@ -2118,7 +2118,7 @@ CommandCost CmdIndustryCtrl(TileIndex tile, DoCommandFlag flags, uint32 p1, uint
+ 		}
+ 
+ 		default:
+-			NOT_REACHED();
++			return CMD_ERROR;
+ 	}
+ 
+ 	return CommandCost();
+-- 
+2.55.0
+

@@ -1,0 +1,64 @@
+From 08503470cb3be93dbee566e226713562853bd354 Mon Sep 17 00:00:00 2001
+From: Cyprian Klimaszewski <kapitan.cypek@gmail.com>
+Date: Tue, 13 Jan 2026 21:25:31 +0100
+Subject: [PATCH 1011/1053] Codefix: Remove unnecessary client side checks for
+ setting an unbunch order (#15107)
+
+---
+ src/order_cmd.cpp |  6 +++---
+ src/order_gui.cpp | 22 ----------------------
+ 2 files changed, 3 insertions(+), 25 deletions(-)
+
+diff --git a/src/order_cmd.cpp b/src/order_cmd.cpp
+index 2c6dafca8e..7a7a56ab47 100644
+--- a/src/order_cmd.cpp
++++ b/src/order_cmd.cpp
+@@ -746,9 +746,9 @@ CommandCost CmdInsertOrder(DoCommandFlags flags, VehicleID veh, VehicleOrderID s
+ 
+ 			/* Check if we're allowed to have a new unbunching order. */
+ 			if (new_order.GetDepotActionType().Test(OrderDepotActionFlag::Unbunch)) {
+-				if (v->HasFullLoadOrder()) return CommandCost(STR_ERROR_CAN_T_ADD_ORDER, STR_ERROR_UNBUNCHING_NO_UNBUNCHING_FULL_LOAD);
+-				if (v->HasUnbunchingOrder()) return CommandCost(STR_ERROR_CAN_T_ADD_ORDER, STR_ERROR_UNBUNCHING_ONLY_ONE_ALLOWED);
+-				if (v->HasConditionalOrder()) return CommandCost(STR_ERROR_CAN_T_ADD_ORDER, STR_ERROR_UNBUNCHING_NO_UNBUNCHING_CONDITIONAL);
++				if (v->HasFullLoadOrder()) return CommandCost(STR_ERROR_UNBUNCHING_NO_UNBUNCHING_FULL_LOAD);
++				if (v->HasUnbunchingOrder()) return CommandCost(STR_ERROR_UNBUNCHING_ONLY_ONE_ALLOWED);
++				if (v->HasConditionalOrder()) return CommandCost(STR_ERROR_UNBUNCHING_NO_UNBUNCHING_CONDITIONAL);
+ 			}
+ 			break;
+ 		}
+diff --git a/src/order_gui.cpp b/src/order_gui.cpp
+index f5594a6bf7..1aa2f84ab6 100644
+--- a/src/order_gui.cpp
++++ b/src/order_gui.cpp
+@@ -375,28 +375,6 @@ static Order GetOrderCmdFromTile(const Vehicle *v, TileIndex tile)
+ 				(_settings_client.gui.new_nonstop && v->IsGroundVehicle()) ? OrderNonStopFlag::NoIntermediate : OrderNonStopFlags{});
+ 
+ 		if (_ctrl_pressed) {
+-			/* Check to see if we are allowed to make this an unbunching order. */
+-			bool failed = false;
+-			if (v->HasFullLoadOrder()) {
+-				/* We don't allow unbunching if the vehicle has a full load order. */
+-				ShowErrorMessage(GetEncodedString(STR_ERROR_CAN_T_INSERT_NEW_ORDER), GetEncodedString(STR_ERROR_UNBUNCHING_NO_UNBUNCHING_FULL_LOAD), WL_INFO);
+-				failed = true;
+-			} else if (v->HasUnbunchingOrder()) {
+-				/* Don't allow a new unbunching order if we already have one. */
+-				ShowErrorMessage(GetEncodedString(STR_ERROR_CAN_T_INSERT_NEW_ORDER), GetEncodedString(STR_ERROR_UNBUNCHING_ONLY_ONE_ALLOWED), WL_INFO);
+-				failed = true;
+-			} else if (v->HasConditionalOrder()) {
+-				/* We don't allow unbunching if the vehicle has a conditional order. */
+-				ShowErrorMessage(GetEncodedString(STR_ERROR_CAN_T_INSERT_NEW_ORDER), GetEncodedString(STR_ERROR_UNBUNCHING_NO_UNBUNCHING_CONDITIONAL), WL_INFO);
+-				failed = true;
+-			}
+-
+-			/* Return an empty order to bail out. */
+-			if (failed) {
+-				order.Free();
+-				return order;
+-			}
+-
+ 			/* Now we are allowed to set the action type. */
+ 			order.SetDepotActionType(OrderDepotActionFlag::Unbunch);
+ 		}
+-- 
+2.55.0
+

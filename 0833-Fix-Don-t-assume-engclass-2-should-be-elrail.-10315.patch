@@ -1,0 +1,85 @@
+From 7ccfc4b14377fe8dc7cfb57d5b6c8ec14b90ebaa Mon Sep 17 00:00:00 2001
+From: PeterN <peter1138@openttd.org>
+Date: Fri, 6 Jan 2023 00:44:57 +0000
+Subject: [PATCH 0833/1053] Fix: Don't assume engclass 2 should be elrail.
+ (#10315)
+
+When disabling/enabling elrail, there is an assumption that `engclass` of 2
+means the engine will run on elrail. While this holds for default engines,
+NewGRFs can do other things.
+
+To resolve this we store the intended railtype so that toggling elrail will
+restore to the correct type.
+---
+ src/elrail.cpp      | 8 +++-----
+ src/engine_type.h   | 3 ++-
+ src/newgrf.cpp      | 1 +
+ src/table/engines.h | 2 +-
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/src/elrail.cpp b/src/elrail.cpp
+index 6f238ee515..f284e6fe2f 100644
+--- a/src/elrail.cpp
++++ b/src/elrail.cpp
+@@ -597,16 +597,14 @@ void SettingsDisableElrail(int32 new_value)
+ {
+ 	bool disable = (new_value != 0);
+ 
+-	/* we will now walk through all electric train engines and change their railtypes if it is the wrong one*/
+-	const RailType old_railtype = disable ? RAILTYPE_ELECTRIC : RAILTYPE_RAIL;
++	/* pick appropriate railtype for elrail engines depending on setting */
+ 	const RailType new_railtype = disable ? RAILTYPE_RAIL : RAILTYPE_ELECTRIC;
+ 
+ 	/* walk through all train engines */
+ 	for (Engine *e : Engine::IterateType(VEH_TRAIN)) {
+ 		RailVehicleInfo *rv_info = &e->u.rail;
+-		/* if it is an electric rail engine and its railtype is the wrong one */
+-		if (rv_info->engclass == 2 && rv_info->railtype == old_railtype) {
+-			/* change it to the proper one */
++		/* update railtype of engines intended to use elrail */
++		if (rv_info->intended_railtype == RAILTYPE_ELECTRIC) {
+ 			rv_info->railtype = new_railtype;
+ 		}
+ 	}
+diff --git a/src/engine_type.h b/src/engine_type.h
+index eeccf3e2b8..aac6a38eee 100644
+--- a/src/engine_type.h
++++ b/src/engine_type.h
+@@ -43,7 +43,8 @@ struct RailVehicleInfo {
+ 	byte image_index;
+ 	RailVehicleTypes railveh_type;
+ 	byte cost_factor;               ///< Purchase cost factor;      For multiheaded engines the sum of both engine prices.
+-	RailType railtype;
++	RailType railtype;              ///< Railtype, mangled if elrail is disabled.
++	RailType intended_railtype;     ///< Intended railtype, regardless of elrail being enabled or disabled.
+ 	uint16 max_speed;               ///< Maximum speed (1 unit = 1/1.6 mph = 1 km-ish/h)
+ 	uint16 power;                   ///< Power of engine (hp);      For multiheaded engines the sum of both engine powers.
+ 	uint16 weight;                  ///< Weight of vehicle (tons);  For multiheaded engines the weight of each single engine.
+diff --git a/src/newgrf.cpp b/src/newgrf.cpp
+index 692ef30850..62e72f8e8e 100644
+--- a/src/newgrf.cpp
++++ b/src/newgrf.cpp
+@@ -9804,6 +9804,7 @@ static void AfterLoadGRFs()
+ 			e->info.climates = 0;
+ 		} else {
+ 			e->u.rail.railtype = railtype;
++			e->u.rail.intended_railtype = railtype;
+ 		}
+ 	}
+ 
+diff --git a/src/table/engines.h b/src/table/engines.h
+index e3b1481d7f..830ab93ced 100644
+--- a/src/table/engines.h
++++ b/src/table/engines.h
+@@ -386,7 +386,7 @@ static const EngineInfo _orig_engine_info[] = {
+  * Tractive effort coefficient by default is the same as TTDPatch, 0.30*256=76
+  * Air drag value depends on the top speed of the vehicle.
+  */
+-#define RVI(a, b, c, d, e, f, g, h, i, j, k) { a, b, c, j, d, e, f, g, h, k, i, 0, 0, 0, VE_DEFAULT, 0, 76, 0, 0, 0 }
++#define RVI(a, b, c, d, e, f, g, h, i, j, k) { a, b, c, j, j, d, e, f, g, h, k, i, 0, 0, 0, VE_DEFAULT, 0, 76, 0, 0, 0 }
+ #define M RAILVEH_MULTIHEAD
+ #define W RAILVEH_WAGON
+ #define G RAILVEH_SINGLEHEAD
+-- 
+2.55.0
+

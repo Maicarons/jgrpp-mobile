@@ -1,0 +1,8 @@
+From 37e18759f8c44e780051b2111ab39eb47ca182b0 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Thu, 6 Jun 2024 16:21:59 +0100
+Subject: [PATCH 0923/1053] fix: Tie dropdown items to button size
+
+-- 
+2.55.0
+

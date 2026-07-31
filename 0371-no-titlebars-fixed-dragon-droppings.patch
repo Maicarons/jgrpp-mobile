@@ -1,0 +1,130 @@
+From 25db807f7f20cc8ff11478701e8e930a9fe053ce Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 31 Mar 2017 04:16:47 +0300
+Subject: [PATCH 0371/1053] no-titlebars: fixed dragon droppings
+
+---
+ src/widget.cpp   | 11 +++--------
+ src/window.cpp   | 20 ++++++++++++++++----
+ src/window_gui.h |  2 +-
+ 3 files changed, 20 insertions(+), 13 deletions(-)
+
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 3039260a89..e0f235f7c4 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -86,14 +86,12 @@ static Point HandleScrollbarHittest(const Scrollbar *sb, int top, int bottom, bo
+  * @param ma  Maximum coordinate of the scroll bar.
+  * @param x   The X coordinate of the mouse click.
+  * @param y   The Y coordinate of the mouse click.
+- * @return    true if scrollbar slider is pressed
+  */
+-static bool ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, int y, int mi, int ma)
++static void ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, int y, int mi, int ma)
+ {
+ 	int pos;
+ 	int button_size;
+ 	bool rtl = false;
+-	bool sliderPressed = false;
+ 
+ 	if (sb->type == NWID_HSCROLLBAR) {
+ 		pos = x;
+@@ -134,12 +132,10 @@ static bool ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, in
+ 				_scrollbar_size -= button_size;
+ 			w->scrolling_scrollbar = sb->index;
+ 			_cursorpos_drag_start = _cursor.pos;
+-			sliderPressed = true;
+ 		}
+ 	}
+ 
+ 	w->SetDirty();
+-	return sliderPressed;
+ }
+ 
+ /**
+@@ -149,9 +145,8 @@ static bool ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, in
+  * @param nw Pointer to the scrollbar widget.
+  * @param x The X coordinate of the mouse click.
+  * @param y The Y coordinate of the mouse click.
+- * @return true if scrollbar slider is pressed
+  */
+-bool ScrollbarClickHandler(Window *w, NWidgetCore *nw, int x, int y)
++void ScrollbarClickHandler(Window *w, NWidgetCore *nw, int x, int y)
+ {
+ 	int mi, ma;
+ 
+@@ -164,7 +159,7 @@ bool ScrollbarClickHandler(Window *w, NWidgetCore *nw, int x, int y)
+ 	}
+ 	NWidgetScrollbar *scrollbar = dynamic_cast<NWidgetScrollbar*>(nw);
+ 	assert(scrollbar != NULL);
+-	return ScrollbarClickPositioning(w, scrollbar, x, y, mi, ma);
++	ScrollbarClickPositioning(w, scrollbar, x, y, mi, ma);
+ }
+ 
+ /**
+diff --git a/src/window.cpp b/src/window.cpp
+index ab4f860089..9d1b63ddc5 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -808,7 +808,8 @@ static void ChangeFocusedWindow(Window *w, int x, int y)
+ 	switch (widget_type) {
+ 		case NWID_VSCROLLBAR:
+ 		case NWID_HSCROLLBAR:
+-			if (ScrollbarClickHandler(w, nw, x, y)) _dragging_widget = true;
++			ScrollbarClickHandler(w, nw, x, y);
++			_dragging_widget = true;
+ 			break;
+ 
+ 		case WWT_RESIZEBOX:
+@@ -2213,7 +2214,14 @@ static EventState HandleMouseDragDrop()
+ {
+ 	if (_special_mouse_mode != WSM_DRAGDROP) return ES_NOT_HANDLED;
+ 
+-	if (_left_button_down && _cursor.delta.x == 0 && _cursor.delta.y == 0) return ES_HANDLED; // Dragging, but the mouse did not move.
++	bool button = _left_button_down;
++	static bool button_second_click = false;
++	if (!_settings_client.gui.windows_titlebars) {
++		if (_left_button_down) button_second_click = true;
++		button = _left_button_down || !button_second_click;
++	}
++
++	if (button && _cursor.delta.x == 0 && _cursor.delta.y == 0) return ES_HANDLED; // Dragging, but the mouse did not move.
+ 
+ 	Window *w = _thd.GetCallbackWnd();
+ 	if (w != NULL) {
+@@ -2221,14 +2229,18 @@ static EventState HandleMouseDragDrop()
+ 		Point pt;
+ 		pt.x = _cursor.pos.x - w->left;
+ 		pt.y = _cursor.pos.y - w->top;
+-		if (_left_button_down) {
++		if (button) {
+ 			w->OnMouseDrag(pt, GetWidgetFromPos(w, pt.x, pt.y));
+ 		} else {
+ 			w->OnDragDrop(pt, GetWidgetFromPos(w, pt.x, pt.y));
+ 		}
+ 	}
+ 
+-	if (!_left_button_down) ResetObjectToPlace(); // Button released, finished dragging.
++	if (!button) {
++		ResetObjectToPlace(); // Button released, finished dragging.
++		button_second_click = false;
++	}
++
+ 	return ES_HANDLED;
+ }
+ 
+diff --git a/src/window_gui.h b/src/window_gui.h
+index 67c84e65da..ea7d732550 100644
+--- a/src/window_gui.h
++++ b/src/window_gui.h
+@@ -912,6 +912,6 @@ extern SpecialMouseMode _special_mouse_mode;
+ 
+ void SetFocusedWindow(Window *w);
+ 
+-bool ScrollbarClickHandler(Window *w, NWidgetCore *nw, int x, int y);
++void ScrollbarClickHandler(Window *w, NWidgetCore *nw, int x, int y);
+ 
+ #endif /* WINDOW_GUI_H */
+-- 
+2.55.0
+

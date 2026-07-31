@@ -1,0 +1,133 @@
+From 556e9e8434fed5986f2bad48255f6a7fe60ffece Mon Sep 17 00:00:00 2001
+From: Tyler Trahan <tyler@tylertrahan.com>
+Date: Fri, 13 Jan 2023 18:04:30 -0500
+Subject: [PATCH 0861/1053] Feature: Press Ctrl to build a diagonal area of
+ trees (#10342)
+
+---
+ src/lang/english.txt           | 4 ++--
+ src/script/api/script_tile.cpp | 4 ++--
+ src/tree_cmd.cpp               | 8 +++++---
+ src/tree_cmd.h                 | 2 +-
+ src/tree_gui.cpp               | 6 +++---
+ 5 files changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index f626e025b9..42bfb95d9f 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -386,7 +386,7 @@ STR_SCENEDIT_TOOLBAR_TOWN_GENERATION                            :{BLACK}Town gen
+ STR_SCENEDIT_TOOLBAR_INDUSTRY_GENERATION                        :{BLACK}Industry generation
+ STR_SCENEDIT_TOOLBAR_ROAD_CONSTRUCTION                          :{BLACK}Road construction
+ STR_SCENEDIT_TOOLBAR_TRAM_CONSTRUCTION                          :{BLACK}Tramway construction
+-STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}Plant trees. Shift toggles building/showing cost estimate
++STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}Plant trees. Ctrl selects the area diagonally. Shift toggles building/showing cost estimate
+ STR_SCENEDIT_TOOLBAR_PLACE_SIGN                                 :{BLACK}Place sign
+ STR_SCENEDIT_TOOLBAR_PLACE_OBJECT                               :{BLACK}Place object. Ctrl selects the area diagonally. Shift toggles building/showing cost estimate
+ 
+@@ -2821,7 +2821,7 @@ STR_OBJECT_CLASS_TRNS                                           :Transmitters
+ STR_PLANT_TREE_CAPTION                                          :{WHITE}Trees
+ STR_PLANT_TREE_TOOLTIP                                          :{BLACK}Select tree type to plant. If the tile already has a tree, this will add more trees of mixed types independent of the selected type
+ STR_TREES_RANDOM_TYPE                                           :{BLACK}Trees of random type
+-STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}Place trees of random type. Shift toggles building/showing cost estimate
++STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}Place trees of random type. Ctrl selects the area diagonally. Shift toggles building/showing cost estimate
+ STR_TREES_RANDOM_TREES_BUTTON                                   :{BLACK}Random Trees
+ STR_TREES_RANDOM_TREES_TOOLTIP                                  :{BLACK}Plant trees randomly throughout the landscape
+ STR_TREES_MODE_NORMAL_BUTTON                                    :{BLACK}Normal
+diff --git a/src/script/api/script_tile.cpp b/src/script/api/script_tile.cpp
+index d8bcc399fa..ed7b1300cd 100644
+--- a/src/script/api/script_tile.cpp
++++ b/src/script/api/script_tile.cpp
+@@ -287,7 +287,7 @@
+ 	EnforcePrecondition(false, ScriptObject::GetCompany() != OWNER_DEITY);
+ 	EnforcePrecondition(false, ::IsValidTile(tile));
+ 
+-	return ScriptObject::Command<CMD_PLANT_TREE>::Do(tile, tile, TREE_INVALID);
++	return ScriptObject::Command<CMD_PLANT_TREE>::Do(tile, tile, TREE_INVALID, false);
+ }
+ 
+ /* static */ bool ScriptTile::PlantTreeRectangle(TileIndex tile, uint width, uint height)
+@@ -298,7 +298,7 @@
+ 	EnforcePrecondition(false, height >= 1 && height <= 20);
+ 	TileIndex end_tile = tile + ::TileDiffXY(width - 1, height - 1);
+ 
+-	return ScriptObject::Command<CMD_PLANT_TREE>::Do(tile, end_tile, TREE_INVALID);
++	return ScriptObject::Command<CMD_PLANT_TREE>::Do(tile, end_tile, TREE_INVALID, false);
+ }
+ 
+ /* static */ bool ScriptTile::IsWithinTownInfluence(TileIndex tile, TownID town_id)
+diff --git a/src/tree_cmd.cpp b/src/tree_cmd.cpp
+index c98758062f..5f09722f6d 100644
+--- a/src/tree_cmd.cpp
++++ b/src/tree_cmd.cpp
+@@ -384,9 +384,10 @@ void GenerateTrees()
+  * @param tile end tile of area-drag
+  * @param start_tile start tile of area-drag of tree plantation
+  * @param tree_to_plant tree type, TREE_INVALID means random.
++ * @param diagonal Whether to use the Orthogonal (false) or Diagonal (true) iterator.
+  * @return the cost of this operation or an error
+  */
+-CommandCost CmdPlantTree(DoCommandFlag flags, TileIndex tile, TileIndex start_tile, byte tree_to_plant)
++CommandCost CmdPlantTree(DoCommandFlag flags, TileIndex tile, TileIndex start_tile, byte tree_to_plant, bool diagonal)
+ {
+ 	StringID msg = INVALID_STRING_ID;
+ 	CommandCost cost(EXPENSES_OTHER);
+@@ -398,8 +399,9 @@ CommandCost CmdPlantTree(DoCommandFlag flags, TileIndex tile, TileIndex start_ti
+ 	Company *c = (_game_mode != GM_EDITOR) ? Company::GetIfValid(_current_company) : nullptr;
+ 	int limit = (c == nullptr ? INT32_MAX : GB(c->tree_limit, 16, 16));
+ 
+-	TileArea ta(tile, start_tile);
+-	for (TileIndex current_tile : ta) {
++	std::unique_ptr<TileIterator> iter(diagonal ? static_cast<TileIterator *>(new DiagonalTileIterator(tile, start_tile)) : static_cast<TileIterator *>(new OrthogonalTileIterator(tile, start_tile)));
++	for (; *iter != INVALID_TILE; ++(*iter)) {
++		TileIndex current_tile = *iter;
+ 		switch (GetTileType(current_tile)) {
+ 			case MP_TREES:
+ 				/* no more space for trees? */
+diff --git a/src/tree_cmd.h b/src/tree_cmd.h
+index 8f2199e3e8..d730cf74ae 100644
+--- a/src/tree_cmd.h
++++ b/src/tree_cmd.h
+@@ -12,7 +12,7 @@
+ 
+ #include "command_type.h"
+ 
+-CommandCost CmdPlantTree(DoCommandFlag flags, TileIndex tile, TileIndex start_tile, byte tree_to_plant);
++CommandCost CmdPlantTree(DoCommandFlag flags, TileIndex tile, TileIndex start_tile, byte tree_to_plant, bool diagonal);
+ 
+ DEF_CMD_TRAIT(CMD_PLANT_TREE, CmdPlantTree, CMD_AUTO, CMDT_LANDSCAPE_CONSTRUCTION)
+ 
+diff --git a/src/tree_gui.cpp b/src/tree_gui.cpp
+index f3d3603fbd..5292ba1e64 100644
+--- a/src/tree_gui.cpp
++++ b/src/tree_gui.cpp
+@@ -103,7 +103,7 @@ class BuildTreesWindow : public Window
+ 		if (this->tree_to_plant >= 0) {
+ 			/* Activate placement */
+ 			if (_settings_client.sound.confirm) SndPlayFx(SND_15_BEEP);
+-			SetObjectToPlace(SPR_CURSOR_TREE, PAL_NONE, HT_RECT, this->window_class, this->window_number);
++			SetObjectToPlace(SPR_CURSOR_TREE, PAL_NONE, HT_RECT | HT_DIAGONAL, this->window_class, this->window_number);
+ 			this->tree_to_plant = current_tree; // SetObjectToPlace may call ResetObjectToPlace which may reset tree_to_plant to -1
+ 		} else {
+ 			/* Deactivate placement */
+@@ -231,7 +231,7 @@ public:
+ 			TileIndex tile = TileVirtXY(pt.x, pt.y);
+ 
+ 			if (this->mode == PM_NORMAL) {
+-				Command<CMD_PLANT_TREE>::Post(tile, tile, this->tree_to_plant);
++				Command<CMD_PLANT_TREE>::Post(tile, tile, this->tree_to_plant, false);
+ 			} else {
+ 				this->DoPlantForest(tile);
+ 			}
+@@ -241,7 +241,7 @@ public:
+ 	void OnPlaceMouseUp(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt, TileIndex start_tile, TileIndex end_tile) override
+ 	{
+ 		if (_game_mode != GM_EDITOR && this->mode == PM_NORMAL && pt.x != -1 && select_proc == DDSP_PLANT_TREES) {
+-			Command<CMD_PLANT_TREE>::Post(STR_ERROR_CAN_T_PLANT_TREE_HERE, end_tile, start_tile, this->tree_to_plant);
++			Command<CMD_PLANT_TREE>::Post(STR_ERROR_CAN_T_PLANT_TREE_HERE, end_tile, start_tile, this->tree_to_plant, _ctrl_pressed);
+ 		}
+ 	}
+ 
+-- 
+2.55.0
+

@@ -1,0 +1,25 @@
+From 24a9d18717141d37b007c57292fd81b8e8e09457 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 15 Apr 2016 22:22:34 +0300
+Subject: [PATCH 0271/1053] Added vertical toolbar setting to advanced settings
+ dialog
+
+---
+ src/settings_gui.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index d0d697c1ed..f83e9479ff 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -1607,6 +1607,7 @@ static SettingsContainer &GetSettingsTree()
+ 			}
+ 
+ 			interface->Add(new SettingEntry("gui.autosave"));
++			interface->Add(new SettingEntry("gui.vertical_toolbar"));
+ 			interface->Add(new SettingEntry("gui.toolbar_pos"));
+ 			interface->Add(new SettingEntry("gui.statusbar_pos"));
+ 			interface->Add(new SettingEntry("gui.prefer_teamchat"));
+-- 
+2.55.0
+

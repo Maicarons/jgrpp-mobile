@@ -1,0 +1,63 @@
+From 19d76ddbbd21bde7c8e3af43a17e8c1059836e91 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 6 Apr 2014 23:23:10 +0300
+Subject: [PATCH 0113/1053] Adopted "move when clicking near edge" setting for
+ touchscreen
+
+---
+ src/window.cpp | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index b9041801be..4279f80786 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2695,12 +2695,14 @@ static int _input_events_this_tick = 0;
+  */
+ static void HandleAutoscroll()
+ {
++	_move_pressed = false;
+ 	if (_game_mode == GM_MENU || HasModalProgress()) return;
+ 	if (_settings_client.gui.auto_scrolling == VA_DISABLED) return;
+ 	if (_settings_client.gui.auto_scrolling == VA_MAIN_VIEWPORT_FULLSCREEN && !_fullscreen) return;
+ 
+ 	int x = _cursor.pos.x;
+ 	int y = _cursor.pos.y;
++	int border = RescaleFrom854x480(_settings_client.gui.min_button);
+ 	Window *w = FindWindowFromPt(x, y);
+ 	if (w == NULL || w->flags & WF_DISABLE_VP_SCROLL) return;
+ 	if (_settings_client.gui.auto_scrolling != VA_EVERY_VIEWPORT && w->window_class != WC_MAIN_WINDOW) return;
+@@ -2712,16 +2714,20 @@ static void HandleAutoscroll()
+ 	y -= vp->top;
+ 
+ 	/* here allows scrolling in both x and y axis */
+-#define scrollspeed 3
+-	if (x - 15 < 0) {
+-		w->viewport->dest_scrollpos_x += ScaleByZoom((x - 15) * scrollspeed, vp->zoom);
+-	} else if (15 - (vp->width - x) > 0) {
+-		w->viewport->dest_scrollpos_x += ScaleByZoom((15 - (vp->width - x)) * scrollspeed, vp->zoom);
+-	}
+-	if (y - 15 < 0) {
+-		w->viewport->dest_scrollpos_y += ScaleByZoom((y - 15) * scrollspeed, vp->zoom);
+-	} else if (15 - (vp->height - y) > 0) {
+-		w->viewport->dest_scrollpos_y += ScaleByZoom((15 - (vp->height - y)) * scrollspeed, vp->zoom);
++#define scrollspeed 15
++	if (x - border < 0) {
++		_move_pressed = true;
++		w->viewport->dest_scrollpos_x += ScaleByZoom(-scrollspeed, vp->zoom);
++	} else if (border - (vp->width - x) > 0) {
++		_move_pressed = true;
++		w->viewport->dest_scrollpos_x += ScaleByZoom(scrollspeed, vp->zoom);
++	}
++	if (y - border * 2 < 0) { // Border twice thicker, to accomodate top toolbar
++		_move_pressed = true;
++		w->viewport->dest_scrollpos_y += ScaleByZoom(-scrollspeed, vp->zoom);
++	} else if (border - (vp->height - y) > 0) { // Same thickness, because bottom toolbar does not cover whole screen width
++		_move_pressed = true;
++		w->viewport->dest_scrollpos_y += ScaleByZoom(scrollspeed, vp->zoom);
+ 	}
+ #undef scrollspeed
+ }
+-- 
+2.55.0
+

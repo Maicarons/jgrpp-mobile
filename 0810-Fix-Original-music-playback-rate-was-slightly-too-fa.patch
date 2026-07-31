@@ -1,0 +1,43 @@
+From 4a309ebb4db6ba64eb4a69287af69426e3e9a0b8 Mon Sep 17 00:00:00 2001
+From: Niels Martin Hansen <nielsm@indvikleren.dk>
+Date: Tue, 25 Jan 2022 21:18:17 +0100
+Subject: [PATCH 0810/1053] Fix: Original music playback rate was slightly too
+ fast
+
+Found a new tempo value experimentally. The new value gives a timing error of less than 0.01 second per minute.
+---
+ src/music/midifile.cpp | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/src/music/midifile.cpp b/src/music/midifile.cpp
+index 4240f4d8df..8f12aae1e3 100644
+--- a/src/music/midifile.cpp
++++ b/src/music/midifile.cpp
+@@ -525,8 +525,8 @@ struct MpsMachine {
+ 	Channel channels[16];         ///< playback status for each MIDI channel
+ 	std::vector<uint32> segments; ///< pointers into songdata to repeatable data segments
+ 	int16 tempo_ticks;            ///< ticker that increments when playing a frame, decrements before playing a frame
+-	int16 current_tempo;         ///< threshold for actually playing a frame
+-	int16 initial_tempo;         ///< starting tempo of song
++	int16 current_tempo;          ///< threshold for actually playing a frame
++	int16 initial_tempo;          ///< starting tempo of song
+ 	bool shouldplayflag;          ///< not-end-of-song flag
+ 
+ 	static const int TEMPO_RATE;
+@@ -787,10 +787,11 @@ struct MpsMachine {
+ 	bool PlayInto()
+ 	{
+ 		/* Tempo seems to be handled as TEMPO_RATE = 148 ticks per second.
+-		 * Use this as the tickdiv, and define the tempo to be one second (1M microseconds) per tickdiv.
++		 * Use this as the tickdiv, and define the tempo to be somewhat less than one second (1M microseconds) per quarter note.
++		 * This value was found experimentally to give a very close approximation of the correct playback speed.
+ 		 * MIDI software loading exported files will show a bogus tempo, but playback will be correct. */
+ 		this->target.tickdiv = TEMPO_RATE;
+-		this->target.tempos.push_back(MidiFile::TempoChange(0, 1000000));
++		this->target.tempos.push_back(MidiFile::TempoChange(0, 980500));
+ 
+ 		/* Initialize playback simulation */
+ 		this->RestartSong();
+-- 
+2.55.0
+

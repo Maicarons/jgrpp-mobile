@@ -1,0 +1,26 @@
+From 10fb568cd057450a04ed60f76f6063e8fc8fe0ac Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 5 May 2021 23:31:51 +0300
+Subject: [PATCH 0677/1053] Emscripten: explicitly linking to libexpat and
+ libuuid is not necessary
+
+---
+ os/emscripten/emscripten-build.sh | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/os/emscripten/emscripten-build.sh b/os/emscripten/emscripten-build.sh
+index 9e1427a8e1..ebbafb0082 100755
+--- a/os/emscripten/emscripten-build.sh
++++ b/os/emscripten/emscripten-build.sh
+@@ -188,8 +188,6 @@ mkdir -p baseset
+ 	-DFontconfig_LIBRARY=`pwd`/fontconfig-2.13.1/build-wasm/lib/libfontconfig.a \
+ 	-DLZO_INCLUDE_DIR=`pwd`/lzo-2.10/build-wasm/include \
+ 	-DLZO_LIBRARY=`pwd`/lzo-2.10/build-wasm/lib/liblzo2.a \
+-	-DCMAKE_EXE_LINKER_FLAGS="-L`pwd`/expat-2.3.0/build-wasm/lib -lexpat \
+-		-L`pwd`/libuuid-1.0.3/build-wasm/lib -luuid" \
+ 	|| exit 1
+ 
+ #	-DTimidity_LIBRARY=`pwd`/libtimidity-0.2.7/build-wasm/lib/libtimidity.a \
+-- 
+2.55.0
+

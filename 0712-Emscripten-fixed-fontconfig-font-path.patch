@@ -1,0 +1,89 @@
+From ef3b0961c14a954473eae97a6d21512b4d28ae47 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sat, 19 Jun 2021 01:10:34 +0300
+Subject: [PATCH 0712/1053] Emscripten: fixed fontconfig font path
+
+---
+ os/emscripten/emscripten-build.sh | 3 ++-
+ src/openttd.cpp                   | 9 +++++----
+ src/os/unix/font_unix.cpp         | 2 +-
+ src/strings.cpp                   | 4 ++--
+ 4 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/os/emscripten/emscripten-build.sh b/os/emscripten/emscripten-build.sh
+index f25a12826e..d0fb7d696f 100755
+--- a/os/emscripten/emscripten-build.sh
++++ b/os/emscripten/emscripten-build.sh
+@@ -219,10 +219,11 @@ mkdir -p baseset
+ 	cp -f "icu/source/data/in/icudt68l.dat" ./ || exit 1
+ }
+ 
+-[ -e fonts ] || {
++[ -e fonts/fonts.conf ] || {
+ 	wget -nc https://sourceforge.net/projects/libsdl-android/files/openttd-fonts.zip || exit 1
+ 	unzip openttd-fonts.zip || exit 1
+ 	rm openttd-fonts.zip
++	sed 's@/usr/share/fonts@/fonts@g' fontconfig-2.13.1/build-wasm/etc/fonts/fonts.conf > fonts/fonts.conf || exit 1
+ }
+ 
+ #[ -e TimGM6mb.sf2 ] || {
+diff --git a/src/openttd.cpp b/src/openttd.cpp
+index 480d934b8e..0307f3c4ae 100644
+--- a/src/openttd.cpp
++++ b/src/openttd.cpp
+@@ -705,12 +705,13 @@ int openttd_main(int argc, char *argv[])
+ 
+ 	{
+ #ifndef WIN32
+-		// Configure local font path on Android
+-		//char curdir[PATH_MAX];
+-		//getcwd(curdir, sizeof(curdir));
+-		//setenv("FONTCONFIG_FONTS", (std::string(curdir) + "/fonts").c_str(), 1);
++		// Configure local font path on Android, it uses older Fontconfig version that does not require config file
+ 		setenv("FONTCONFIG_FONTS", "fonts", 1);
+ 		DEBUG(misc, 1, "Set FONTCONFIG_FONTS to %s", getenv("FONTCONFIG_FONTS"));
++#endif
++#ifdef __EMSCRIPTEN__
++		// Fontconfig config file is required on Emscripten, and the path to fonts directory is named differently
++		setenv("FONTCONFIG_FILE", "/fonts/fonts.conf", 1);
+ #endif
+ 	}
+ 	/* enumerate language files */
+diff --git a/src/os/unix/font_unix.cpp b/src/os/unix/font_unix.cpp
+index 8ef5a473f1..b86742c023 100644
+--- a/src/os/unix/font_unix.cpp
++++ b/src/os/unix/font_unix.cpp
+@@ -133,7 +133,7 @@ bool SetFallbackFont(FreeTypeSettings *settings, const char *language_isocode, i
+ 			if (res != FcResultMatch || file == nullptr) {
+ 				continue;
+ 			}
+-			DEBUG(freetype, 1, "Got font %s", file);
++			DEBUG(freetype, 1, "Found font %s", file);
+ 			int missing = 0;
+ 
+ 			/* Get a font with the right spacing .*/
+diff --git a/src/strings.cpp b/src/strings.cpp
+index 398784e4f8..88140636a3 100644
+--- a/src/strings.cpp
++++ b/src/strings.cpp
+@@ -2038,7 +2038,7 @@ int MissingGlyphSearcher::FindMissingGlyphs()
+ 					default: NOT_REACHED();
+ 				}
+ 
+-				DEBUG(freetype, 1, "Font %s is missing glyphs to display char 0x%X '%s' in %s font size", font_name.c_str(), c, char_name, size_name.c_str());
++				//DEBUG(freetype, 1, "Font %s is missing glyphs to display char 0x%X '%s' in %s font size", font_name.c_str(), c, char_name, size_name.c_str());
+ 				missing++;
+ 			}
+ 		}
+@@ -2135,7 +2135,7 @@ void CheckForMissingGlyphs(bool base_font, MissingGlyphSearcher *searcher)
+ 			 * future, so for safety we just Utf8 Encode it into the string,
+ 			 * which takes exactly three characters, so it replaces the "XXX"
+ 			 * with the colour marker. */
+-#ifndef __ANDROID__
++#if !defined(__ANDROID__) && !defined(__EMSCRIPTEN__)
+ 			static char *err_str = stredup("XXXThe current font is missing some of the characters used in the texts for this language. Using system fallback font instead.");
+ 			Utf8Encode(err_str, SCC_YELLOW);
+ 			SetDParamStr(0, err_str);
+-- 
+2.55.0
+

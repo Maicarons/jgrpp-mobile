@@ -1,0 +1,198 @@
+From c1806bfca11f9e4b001a7c1843bbce4b8c294f3c Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Fri, 31 Dec 2021 01:04:35 +0100
+Subject: [PATCH 0787/1053] Fix #9743: [OSX] Only (re-)create touchbar sprites
+ when requested by the main loop.
+
+---
+ src/video/cocoa/cocoa_ogl.mm |  4 +++
+ src/video/cocoa/cocoa_v.h    |  6 +++-
+ src/video/cocoa/cocoa_v.mm   | 15 ++++++++++
+ src/video/cocoa/cocoa_wnd.h  |  2 ++
+ src/video/cocoa/cocoa_wnd.mm | 54 ++++++++++++++++++++++++------------
+ 5 files changed, 63 insertions(+), 18 deletions(-)
+
+diff --git a/src/video/cocoa/cocoa_ogl.mm b/src/video/cocoa/cocoa_ogl.mm
+index 30c299d3d5..96c7fcc540 100644
+--- a/src/video/cocoa/cocoa_ogl.mm
++++ b/src/video/cocoa/cocoa_ogl.mm
+@@ -234,11 +234,15 @@ void VideoDriver_CocoaOpenGL::Stop()
+ 
+ void VideoDriver_CocoaOpenGL::PopulateSystemSprites()
+ {
++	VideoDriver_Cocoa::PopulateSystemSprites();
++
+ 	OpenGLBackend::Get()->PopulateCursorCache();
+ }
+ 
+ void VideoDriver_CocoaOpenGL::ClearSystemSprites()
+ {
++	VideoDriver_Cocoa::ClearSystemSprites();
++
+ 	CGLSetCurrentContext(this->gl_context);
+ 	OpenGLBackend::Get()->ClearCursorCache();
+ }
+diff --git a/src/video/cocoa/cocoa_v.h b/src/video/cocoa/cocoa_v.h
+index 3d3db5454c..3fe79ac905 100644
+--- a/src/video/cocoa/cocoa_v.h
++++ b/src/video/cocoa/cocoa_v.h
+@@ -22,7 +22,8 @@ extern bool _cocoa_video_started;
+ 
+ class VideoDriver_Cocoa : public VideoDriver {
+ private:
+-	Dimension orig_res;   ///< Saved window size for non-fullscreen mode.
++	Dimension orig_res;       ///< Saved window size for non-fullscreen mode.
++	bool refresh_sys_sprites; ///< System sprites need refreshing.
+ 
+ public:
+ 	bool setup; ///< Window is currently being created.
+@@ -45,6 +46,9 @@ public:
+ 	bool ChangeResolution(int w, int h) override;
+ 	bool ToggleFullscreen(bool fullscreen) override;
+ 
++	void ClearSystemSprites() override;
++	void PopulateSystemSprites() override;
++
+ 	void EditBoxLostFocus() override;
+ 
+ 	std::vector<int> GetListOfMonitorRefreshRates() override;
+diff --git a/src/video/cocoa/cocoa_v.mm b/src/video/cocoa/cocoa_v.mm
+index 2f0f2a746a..0636f2cc0f 100644
+--- a/src/video/cocoa/cocoa_v.mm
++++ b/src/video/cocoa/cocoa_v.mm
+@@ -99,6 +99,8 @@ VideoDriver_Cocoa::VideoDriver_Cocoa()
+ 	this->setup         = false;
+ 	this->buffer_locked = false;
+ 
++	this->refresh_sys_sprites = true;
++
+ 	this->window    = nil;
+ 	this->cocoaview = nil;
+ 	this->delegate  = nil;
+@@ -221,6 +223,19 @@ bool VideoDriver_Cocoa::ToggleFullscreen(bool full_screen)
+ 	return false;
+ }
+ 
++void VideoDriver_Cocoa::ClearSystemSprites()
++{
++	this->refresh_sys_sprites = true;
++}
++
++void VideoDriver_Cocoa::PopulateSystemSprites()
++{
++	if (this->refresh_sys_sprites && this->window != nil) {
++		[ this->window refreshSystemSprites ];
++		this->refresh_sys_sprites = false;
++	}
++}
++
+ /**
+  * Callback invoked after the blitter was changed.
+  * @return True if no error.
+diff --git a/src/video/cocoa/cocoa_wnd.h b/src/video/cocoa/cocoa_wnd.h
+index 6322bd1714..2b29dff42f 100644
+--- a/src/video/cocoa/cocoa_wnd.h
++++ b/src/video/cocoa/cocoa_wnd.h
+@@ -95,6 +95,8 @@ static NSDictionary *touchBarFallbackText = @{
+ - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSUInteger)styleMask backing:(NSBackingStoreType)backingType defer:(BOOL)flag driver:(VideoDriver_Cocoa *)drv;
+ 
+ - (void)setFrame:(NSRect)frameRect display:(BOOL)flag;
++
++- (void)refreshSystemSprites;
+ @end
+ 
+ /** Subclass of NSView to support mouse awareness and text input. */
+diff --git a/src/video/cocoa/cocoa_wnd.mm b/src/video/cocoa/cocoa_wnd.mm
+index 355781d9ea..c240e64ede 100644
+--- a/src/video/cocoa/cocoa_wnd.mm
++++ b/src/video/cocoa/cocoa_wnd.mm
+@@ -414,6 +414,7 @@ void CocoaDialog(const char *title, const char *message, const char *buttonLabel
+ 
+ @implementation OTTD_CocoaWindow {
+ 	VideoDriver_Cocoa *driver;
++	bool touchbar_created;
+ }
+ 
+ /**
+@@ -423,6 +424,7 @@ void CocoaDialog(const char *title, const char *message, const char *buttonLabel
+ {
+ 	if (self = [ super initWithContentRect:contentRect styleMask:styleMask backing:backingType defer:flag ]) {
+ 		self->driver = drv;
++		self->touchbar_created = false;
+ 
+ 		[ self setContentMinSize:NSMakeSize(64.0f, 64.0f) ];
+ 
+@@ -461,27 +463,14 @@ void CocoaDialog(const char *title, const char *message, const char *buttonLabel
+ 	bar.delegate = self;
+ 	bar.defaultItemIdentifiers = touchBarButtonIdentifiers;
+ 
++	self->touchbar_created = true;
++
+ 	return bar;
+ }
+ 
+ - (nullable NSTouchBarItem *)touchBar:(NSTouchBar *)touchBar makeItemForIdentifier:(NSTouchBarItemIdentifier)identifier
+ {
+-	NSNumber *num = touchBarButtonSprites[identifier];
+-	NSImage *image = NSImageFromSprite(num.unsignedIntValue, _settings_client.gui.zoom_min);
+-
+-	NSButton *button;
+-	if (image != nil) {
+-		/* Human Interface Guidelines: Maximum touch bar glyph size 22 pt. */
+-		CGFloat max_dim = std::max(image.size.width, image.size.height);
+-		if (max_dim > 0.0) {
+-			CGFloat scale = 22.0 / max_dim;
+-			image.size = NSMakeSize(image.size.width * scale, image.size.height * scale);
+-		}
+-
+-		button = [ NSButton buttonWithImage:image target:self action:@selector(touchBarButtonAction:) ];
+-	} else {
+-		button = [ NSButton buttonWithTitle:touchBarFallbackText[identifier] target:self action:@selector(touchBarButtonAction:) ];
+-	}
++	NSButton *button = [ NSButton buttonWithTitle:touchBarFallbackText[identifier] target:self action:@selector(touchBarButtonAction:) ];
+ 	button.identifier = identifier;
+ 	button.imageScaling = NSImageScaleProportionallyDown;
+ 
+@@ -489,7 +478,38 @@ void CocoaDialog(const char *title, const char *message, const char *buttonLabel
+ 	tb_item.view = button;
+ 	return tb_item;
+ }
+-#endif
++
++#endif /* HAVE_TOUCHBAR_SUPPORT */
++
++- (void)refreshSystemSprites
++{
++#ifdef HAVE_TOUCHBAR_SUPPORT
++	if (!self->touchbar_created || ![ self respondsToSelector:@selector(touchBar) ] || self.touchBar == nil) return;
++
++	/* Re-create button images from OTTD sprites. */
++	for (NSTouchBarItemIdentifier ident in self.touchBar.itemIdentifiers) {
++		NSCustomTouchBarItem *tb_item = [ self.touchBar itemForIdentifier:ident ];
++		NSButton *button = tb_item.view;
++
++		NSNumber *num = touchBarButtonSprites[ident];
++		NSImage *image = NSImageFromSprite(num.unsignedIntValue, _settings_client.gui.zoom_min);
++		if (image != nil) {
++			/* Human Interface Guidelines: Maximum touch bar glyph size 22 pt. */
++			CGFloat max_dim = std::max(image.size.width, image.size.height);
++			if (max_dim > 0.0) {
++				CGFloat scale = 22.0 / max_dim;
++				image.size = NSMakeSize(image.size.width * scale, image.size.height * scale);
++			}
++
++			button.image = image;
++			button.imagePosition = NSImageOnly;
++		} else {
++			button.image = nil;
++			button.imagePosition = NSNoImage;
++		}
++	}
++#endif /* HAVE_TOUCHBAR_SUPPORT */
++}
+ 
+ @end
+ 
+-- 
+2.55.0
+

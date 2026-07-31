@@ -1,0 +1,43 @@
+From 731a4d2b1165bde0fe1ed27568274aadf36d7cc8 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Feb 2022 01:14:43 +0200
+Subject: [PATCH 0801/1053] CI: apparently we also need gperf for libfontconfig
+
+---
+ .github/workflows/ci-build.yml | 1 +
+ os/emscripten/README.md        | 4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index 2c7561423f..ec5d35e52c 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -34,6 +34,7 @@ jobs:
+           autoconf \
+           automake \
+           libtool \
++          gperf \
+           libharfbuzz-dev \
+           libicu-dev \
+           # EOF
+diff --git a/os/emscripten/README.md b/os/emscripten/README.md
+index 7cd818c7d6..488fe92a72 100644
+--- a/os/emscripten/README.md
++++ b/os/emscripten/README.md
+@@ -2,11 +2,11 @@
+ 
+ Building with Emscripten works with emsdk 3.0.0 and above.
+ 
+-You will also need autoconf, libharfbuzz-dev, and libicu-dev installed on your host OS.
++You will also need libharfbuzz-dev and libicu-dev installed on your host OS.
+ 
+ 
+ ```
+-  sudo apt-get install autoconf automake libtool libharfbuzz-dev libicu-dev
++  sudo apt-get install autoconf automake libtool gperf libharfbuzz-dev libicu-dev
+ 
+   ./emscripten-build.sh
+ ```
+-- 
+2.55.0
+

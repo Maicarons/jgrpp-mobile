@@ -1,0 +1,30 @@
+From d098c1654df8559e567712ad8faf91303e9e2da7 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 31 Mar 2017 22:53:01 +0300
+Subject: [PATCH 0376/1053] Fix for main menu dragged off screen
+
+---
+ src/window.cpp | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index 690fe8f212..7899427a9d 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2459,12 +2459,7 @@ static EventState HandleWindowDragging()
+ 			if (!_left_button_down) {
+ 				w->flags &= ~WF_DRAGGING;
+ 				if (GetWindowDraggedOffScreen(w)) {
+-					if (w->window_class == WC_SELECT_GAME) {
+-						w->left = (_screen.width - w->width) / 2;
+-						w->top = (_screen.height - w->height) / 2;
+-					} else {
+-						delete w;
+-					}
++					if (w->window_class != WC_SELECT_GAME) delete w;
+ 				}
+ 				break;
+ 			}
+-- 
+2.55.0
+

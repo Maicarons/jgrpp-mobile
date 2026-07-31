@@ -1,0 +1,52 @@
+From e7ba18bfd999ac8ff9039cabed4e7536461c504a Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Sun, 21 Dec 2025 15:08:13 +0000
+Subject: [PATCH 0956/1053] Fix #14945: Hang when deleting implicit orders
+ during vehicle loading. (#14946)
+
+---
+ src/vehicle.cpp | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/src/vehicle.cpp b/src/vehicle.cpp
+index 91c2f4c12b..91588a6129 100644
+--- a/src/vehicle.cpp
++++ b/src/vehicle.cpp
+@@ -2248,22 +2248,22 @@ void Vehicle::BeginLoading()
+ 						InvalidateVehicleOrder(this, 0);
+ 					} else {
+ 						/* Delete all implicit orders up to the station we just reached */
+-						VehicleOrderID cur = this->cur_implicit_order_index;
+-						auto orders = this->Orders();
+-						while (!orders[cur].IsType(OT_IMPLICIT) || orders[cur].GetDestination() != this->last_station_visited) {
+-							if (orders[cur].IsType(OT_IMPLICIT)) {
++						const Order *order = this->GetOrder(this->cur_implicit_order_index);
++						while (!order->IsType(OT_IMPLICIT) || order->GetDestination() != this->last_station_visited) {
++							if (order->IsType(OT_IMPLICIT)) {
+ 								DeleteOrder(this, this->cur_implicit_order_index);
+-								/* DeleteOrder does various magic with order_indices, so resync 'order' with 'cur_implicit_order_index' */
+ 							} else {
+ 								/* Skip non-implicit orders, e.g. service-orders */
+-								if (cur < this->orders->GetNext(cur)) {
+-									this->cur_implicit_order_index++;
+-								} else {
+-									/* Wrapped around. */
+-									this->cur_implicit_order_index = 0;
+-								}
+-								cur = this->orders->GetNext(cur);
++								++this->cur_implicit_order_index;
+ 							}
++							order = this->GetOrder(this->cur_implicit_order_index);
++
++							/* Wrapped around. */
++							if (order == nullptr) {
++								this->cur_implicit_order_index = 0;
++								order = this->GetOrder(this->cur_implicit_order_index);
++							}
++							assert(order != nullptr);
+ 						}
+ 					}
+ 				} else if (!suppress_implicit_orders &&
+-- 
+2.55.0
+

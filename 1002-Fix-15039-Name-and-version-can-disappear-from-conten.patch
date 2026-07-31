@@ -1,0 +1,29 @@
+From a39c836fd1979e0e53094ba1b48e432010e81f8e Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Sun, 4 Jan 2026 17:54:59 +0000
+Subject: [PATCH 1002/1053] Fix #15039: Name and version can disappear from
+ content list. (#15040)
+
+If the small font is set larger than the normal font, both name and version text disappeared.
+
+Take account of the height of the small font when setting the resize height.
+---
+ src/network/network_content_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/network/network_content_gui.cpp b/src/network/network_content_gui.cpp
+index 93bb0ef857..914b630cba 100644
+--- a/src/network/network_content_gui.cpp
++++ b/src/network/network_content_gui.cpp
+@@ -603,7 +603,7 @@ public:
+ 				break;
+ 
+ 			case WID_NCL_MATRIX:
+-				fill.height = resize.height = std::max(this->checkbox_size.height, (uint)GetCharacterHeight(FS_NORMAL)) + padding.height;
++				fill.height = resize.height = std::max<uint>(std::max<uint>(this->checkbox_size.height, GetCharacterHeight(FS_NORMAL)), GetCharacterHeight(FS_SMALL)) + padding.height;
+ 				size.height = 10 * resize.height;
+ 				break;
+ 		}
+-- 
+2.55.0
+

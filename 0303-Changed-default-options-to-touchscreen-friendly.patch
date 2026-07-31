@@ -1,0 +1,34 @@
+From 7e93ca0d25948569fdb8c8c0be62bda6f0dce2b2 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 27 Jan 2017 21:29:47 +0200
+Subject: [PATCH 0303/1053] Changed default options to touchscreen-friendly
+
+---
+ src/table/settings.ini | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index 617b990386..7d31bb51ec 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2590,7 +2590,7 @@ cat      = SC_BASIC
+ [SDTC_BOOL]
+ var      = gui.reverse_scroll
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+-def      = false
++def      = true
+ str      = STR_CONFIG_SETTING_REVERSE_SCROLLING
+ strhelp  = STR_CONFIG_SETTING_REVERSE_SCROLLING_HELPTEXT
+ cat      = SC_BASIC
+@@ -2605,7 +2605,7 @@ strhelp  = STR_CONFIG_SETTING_SMOOTH_SCROLLING_HELPTEXT
+ [SDTC_BOOL]
+ var      = gui.left_mouse_btn_scrolling
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+-def      = false
++def      = true
+ str      = STR_CONFIG_SETTING_LEFT_MOUSE_BTN_SCROLLING
+ strhelp  = STR_CONFIG_SETTING_LEFT_MOUSE_BTN_SCROLLING_HELPTEXT
+ cat      = SC_BASIC
+-- 
+2.55.0
+

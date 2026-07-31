@@ -1,0 +1,36 @@
+From 44453a4f3d312f5a3c24981baaba51963d1d635a Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 3 Apr 2016 00:13:59 +0300
+Subject: [PATCH 0243/1053] Fixed minimap scrolling
+
+---
+ src/smallmap_gui.cpp | 1 +
+ todo.txt             | 2 --
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/smallmap_gui.cpp b/src/smallmap_gui.cpp
+index 42625b67c1..4fb8293a61 100644
+--- a/src/smallmap_gui.cpp
++++ b/src/smallmap_gui.cpp
+@@ -1390,6 +1390,7 @@ int SmallMapWindow::GetPositionOnLegend(Point pt)
+ 			 * actually being (virtually) clicked every inputloop.
+ 			 */
+ 			_left_button_clicked = false;
++			_scrolling_viewport = true;
+ 
+ 			const NWidgetBase *wid = this->GetWidget<NWidgetBase>(WID_SM_MAP);
+ 			Window *w = FindWindowById(WC_MAIN_WINDOW, 0);
+diff --git a/todo.txt b/todo.txt
+index df1dbba1a9..51a3d8f03c 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,6 +3,4 @@
+ 
+ - Subsidies list text too small.
+ 
+-- Map of the world cannot be scrolled with one finger.
+-
+ - Hide all windows when building something, add Confirm/Cancel dialog.
+-- 
+2.55.0
+

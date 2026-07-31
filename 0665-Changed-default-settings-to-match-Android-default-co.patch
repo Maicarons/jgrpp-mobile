@@ -1,0 +1,113 @@
+From e2a7da0b5fbe1f81350f9355bdac1a8f79eb4f8d Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 5 May 2021 00:08:42 +0300
+Subject: [PATCH 0665/1053] Changed default settings to match Android default
+ config file
+
+---
+ src/table/misc_settings.ini | 20 ++++++++++----------
+ src/table/settings.ini      |  2 +-
+ 2 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/src/table/misc_settings.ini b/src/table/misc_settings.ini
+index 935993c7c2..d432cf43aa 100644
+--- a/src/table/misc_settings.ini
++++ b/src/table/misc_settings.ini
+@@ -202,7 +202,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""small_size""
+ type     = SLE_UINT
+ var      = _freetype.small.size
+-def      = 0
++def      = 10
+ min      = 0
+ max      = 72
+ 
+@@ -211,7 +211,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""medium_size""
+ type     = SLE_UINT
+ var      = _freetype.medium.size
+-def      = 0
++def      = 12
+ min      = 0
+ max      = 72
+ 
+@@ -220,7 +220,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""large_size""
+ type     = SLE_UINT
+ var      = _freetype.large.size
+-def      = 0
++def      = 16
+ min      = 0
+ max      = 72
+ 
+@@ -229,7 +229,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""mono_size""
+ type     = SLE_UINT
+ var      = _freetype.mono.size
+-def      = 0
++def      = 12
+ min      = 0
+ max      = 72
+ 
+@@ -237,31 +237,31 @@ max      = 72
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""small_aa""
+ var      = _freetype.small.aa
+-def      = false
++def      = true
+ 
+ [SDTG_BOOL]
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""medium_aa""
+ var      = _freetype.medium.aa
+-def      = false
++def      = true
+ 
+ [SDTG_BOOL]
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""large_aa""
+ var      = _freetype.large.aa
+-def      = false
++def      = true
+ 
+ [SDTG_BOOL]
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""mono_aa""
+ var      = _freetype.mono.aa
+-def      = false
++def      = true
+ 
+ [SDTG_VAR]
+ name     = ""min_button_size""
+ type     = SLE_UINT
+ var      = _settings_client.gui.min_button
+-def      = 40
++def      = 48
+ min      = 0
+ max      = 100
+ cat      = SC_EXPERT
+@@ -270,7 +270,7 @@ cat      = SC_EXPERT
+ name     = ""min_step_size""
+ type     = SLE_UINT
+ var      = _settings_client.gui.min_step
+-def      = 40
++def      = 48
+ min      = 0
+ max      = 100
+ cat      = SC_EXPERT
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index 6d1b6ea7f8..2cb0488bb5 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2743,7 +2743,7 @@ cat      = SC_BASIC
+ [SDTC_BOOL]
+ var      = gui.windows_titlebars
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+-def      = true
++def      = false
+ str      = STR_CONFIG_SETTING_WINDOWS_TITLEBARS
+ strhelp  = STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT
+ cat      = SC_BASIC
+-- 
+2.55.0
+

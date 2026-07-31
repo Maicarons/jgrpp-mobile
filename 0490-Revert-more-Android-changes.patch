@@ -1,0 +1,24 @@
+From 7705493812f7f70a0eeae1fd214078a27f2e4d31 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 1 Jun 2018 21:52:50 +0300
+Subject: [PATCH 0490/1053] Revert more Android changes
+
+---
+ src/lang/english.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 23d5c36d06..41409ee956 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -462,6 +462,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Message history
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Land area information
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TUTORIAL                                         :{BLACK}Tutorial
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Toggle console
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Game script debug
+-- 
+2.55.0
+

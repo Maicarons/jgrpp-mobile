@@ -1,0 +1,23 @@
+From 9fe6cbf9094d145dfffa989d4287362777b3fb5e Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 20 Mar 2017 22:45:35 +0200
+Subject: [PATCH 0320/1053] Updated todo
+
+---
+ todo.txt | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index 9c7984f2eb..ae13d8305b 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -17,5 +17,4 @@
+ 
+ - Default button size set to 48, update vertical toolbar buttons.
+ 
+-- Remove Shift key from toolbar, it's not needed anymore.
+-
++- Tooltip window steals touches.
+-- 
+2.55.0
+

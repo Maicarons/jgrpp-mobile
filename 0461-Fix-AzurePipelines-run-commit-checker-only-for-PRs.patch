@@ -1,0 +1,28 @@
+From 3a97b541af0e6883a990f545c2bcc0dc8f18f554 Mon Sep 17 00:00:00 2001
+From: glx <glx@openttd.org>
+Date: Sun, 10 Mar 2019 15:09:57 +0100
+Subject: [PATCH 0461/1053] Fix: [AzurePipelines] run commit checker only for
+ PRs
+
+---
+ azure-pipelines/templates/linux-build.yml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/azure-pipelines/templates/linux-build.yml b/azure-pipelines/templates/linux-build.yml
+index 98fbfecdbe..7f442904c4 100644
+--- a/azure-pipelines/templates/linux-build.yml
++++ b/azure-pipelines/templates/linux-build.yml
+@@ -23,8 +23,8 @@ steps:
+     displayName: 'Build'
+   ${{ if eq(parameters.Image, 'compile-farm-ci') }}:
+     displayName: 'Build and test'
+-  ${{ if eq(parameters.Tag, 'commit-checker') }}:
+-    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
++    # Run the commit-checker only if it is a Pull Request
++    condition: and(succeeded(), or(ne(variables['Agent.JobName'], 'commit-checker'), eq(variables['Build.Reason'], 'PullRequest')))
+   inputs:
+     command: 'Run an image'
+     imageName: openttd/${{ parameters.Image }}:${{ parameters.Tag }}
+-- 
+2.55.0
+

@@ -1,0 +1,28 @@
+From a80c9325b21f17feb06a152cd7b90bb22aed5ac9 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Tue, 13 Jan 2026 18:45:42 +0000
+Subject: [PATCH 1014/1053] Fix: [Script] Potential out of bounds indexed
+ string access.
+
+---
+ src/3rdparty/squirrel/squirrel/sqvm.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/3rdparty/squirrel/squirrel/sqvm.cpp b/src/3rdparty/squirrel/squirrel/sqvm.cpp
+index 1637c359f3..8c1d3cae5d 100644
+--- a/src/3rdparty/squirrel/squirrel/sqvm.cpp
++++ b/src/3rdparty/squirrel/squirrel/sqvm.cpp
+@@ -1285,8 +1285,8 @@ bool SQVM::FallBackGet(const SQObjectPtr &self,const SQObjectPtr &key,SQObjectPt
+ 		if(sq_isnumeric(key)){
+ 			SQInteger n=tointeger(key);
+ 			std::string_view str = _stringval(self);
+-			if(std::abs(n) < static_cast<SQInteger>(str.size())){
+-				if(n<0)n=str.size()+n;
++			if (n < 0) n = str.size() + n;
++			if (n >= 0 && n < static_cast<SQInteger>(str.size())) {
+ 				dest=SQInteger(str[n]);
+ 				return true;
+ 			}
+-- 
+2.55.0
+

@@ -1,0 +1,61 @@
+From cdde92950020596374c92aa4d34680af91d94c97 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 12 Mar 2015 22:49:48 +0200
+Subject: [PATCH 0184/1053] Better support for hardware Ctrl/Shift keys and
+ hardware mouse
+
+---
+ src/video/sdl_v.cpp | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 613b664476..63c7755dfb 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -601,6 +601,11 @@ int VideoDriver_SDL::PollEvent()
+ 					_right_button_clicked = true;
+ 					_right_button_down_pos.x = ev.motion.x;
+ 					_right_button_down_pos.y = ev.motion.y;
++#ifdef __ANDROID__
++					// Right button click on Android - cancel whatever action we were doing
++					ResetObjectToPlace();
++					ToolbarSelectLastTool();
++#endif
+ 					break;
+ 
+ 				case SDL_BUTTON_WHEELUP:   _cursor.wheel--; break;
+@@ -622,7 +627,7 @@ int VideoDriver_SDL::PollEvent()
+ #ifdef __ANDROID__
+ 				if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON_RMASK) {
+ 					// Two-finger click - hacky way to determine if the right mouse button is already pressed without processing the left button event
+-					// Cancel whatewer action we were doing, to allow two finger scrolling
++					// Cancel whatever action we were doing, to allow two finger scrolling
+ 					ResetObjectToPlace();
+ 					ToolbarSelectLastTool();
+ 				}
+@@ -656,8 +661,22 @@ int VideoDriver_SDL::PollEvent()
+ 				WChar character;
+ 				uint keycode = ConvertSdlKeyIntoMy(&ev.key.keysym, &character);
+ 				HandleKeypress(keycode, character);
++#ifdef __ANDROID__
++				if (ev.key.keysym.sym == SDLK_LCTRL || ev.key.keysym.sym == SDLK_RCTRL)
++					_ctrl_pressed = true;
++				if (ev.key.keysym.sym == SDLK_LSHIFT || ev.key.keysym.sym == SDLK_RSHIFT)
++					_shift_pressed = true;
++#endif
+ 			}
+ 			break;
++		case SDL_KEYUP:
++#ifdef __ANDROID__
++			if (ev.key.keysym.sym == SDLK_LCTRL || ev.key.keysym.sym == SDLK_RCTRL)
++				_ctrl_pressed = false;
++			if (ev.key.keysym.sym == SDLK_LSHIFT || ev.key.keysym.sym == SDLK_RSHIFT)
++				_shift_pressed = false;
++#endif
++			break;
+ #ifndef __ANDROID__
+ 		case SDL_VIDEORESIZE: {
+ 			int w = max(ev.resize.w, 64);
+-- 
+2.55.0
+

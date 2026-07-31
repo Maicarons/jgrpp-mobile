@@ -1,0 +1,1009 @@
+From b1dcaa74f1b900be1c054667a3f10db8c3c0f333 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Thu, 4 Apr 2024 14:58:06 +0100
+Subject: [PATCH 0882/1053] fix: Undo mistakes from merge
+
+---
+ CMakeLists.txt                      |   9 +-
+ cmake/FindFontconfig.cmake          |  43 +++----
+ cmake/FindICU.cmake                 |   9 +-
+ cmake/InstallAndPackage.cmake       |   4 +-
+ cmake/Options.cmake                 |  12 --
+ cmake/scripts/GenerateWidget.cmake  |   5 +-
+ src/build_confirmation_gui.cpp      |  19 ++--
+ src/console_gui.cpp                 |   5 +-
+ src/network/network_chat_gui.cpp    |   2 +-
+ src/object_gui.cpp                  |   2 +-
+ src/openttd.cpp                     |   6 +-
+ src/rail_gui.cpp                    |   6 +-
+ src/road_gui.cpp                    |   4 +-
+ src/settings_table.cpp              |   2 +-
+ src/settings_type.h                 |   1 -
+ src/table/settings/gui_settings.ini |   2 +-
+ src/terraform_gui.cpp               |   2 +-
+ src/toolbar_gui.cpp                 | 169 ++++++++++++++--------------
+ src/tutorial_gui.cpp                |   4 +-
+ src/vehicle_gui.cpp                 |   2 +-
+ src/widget.cpp                      |  23 ++--
+ src/widgets/dropdown.cpp            |   4 +-
+ src/widgets/dropdown_type.h         |   1 -
+ src/window.cpp                      |   8 +-
+ 24 files changed, 162 insertions(+), 182 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 235afe4753..3792987275 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -344,7 +344,6 @@ if(NOT OPTION_DEDICATED)
+     link_package(FREETYPE TARGET Freetype::Freetype)
+     link_package(Fontconfig TARGET Fontconfig::Fontconfig)
+     link_package(Harfbuzz TARGET harfbuzz::harfbuzz)
+-    link_package(ICU_uc)
+     link_package(ICU_i18n)
+ 
+     if(SDL2_FOUND AND OPENGL_FOUND AND UNIX)
+@@ -386,9 +385,6 @@ endif()
+ 
+ if(EMSCRIPTEN)
+     add_library(WASM::WASM INTERFACE IMPORTED)
+-    if(DEFINED WASM_LINKER_FLAGS)
+-        target_link_libraries(WASM::WASM INTERFACE "${WASM_LINKER_FLAGS}")
+-    endif()
+ 
+     # Allow heap-growth, and start with a bigger memory size.
+     target_link_libraries(WASM::WASM INTERFACE "-s ALLOW_MEMORY_GROWTH=1")
+@@ -407,7 +403,7 @@ if(EMSCRIPTEN)
+     # the more languages you add the slower downloading becomes, we decided to
+     # only ship the English language.
+     target_link_libraries(WASM::WASM INTERFACE "--preload-file ${CMAKE_BINARY_DIR}/baseset@/baseset")
+-    target_link_libraries(WASM::WASM INTERFACE "--preload-file ${CMAKE_BINARY_DIR}/lang@/lang")
++    target_link_libraries(WASM::WASM INTERFACE "--preload-file ${CMAKE_BINARY_DIR}/lang/english.lng@/lang/english.lng")
+     target_link_libraries(WASM::WASM INTERFACE "--preload-file ${CMAKE_SOURCE_DIR}/bin/ai@/ai")
+     target_link_libraries(WASM::WASM INTERFACE "--preload-file ${CMAKE_SOURCE_DIR}/bin/game@/game")
+     # Documentation files for the in-game text file viewer
+@@ -431,9 +427,6 @@ if(EMSCRIPTEN)
+     # We use IDBFS for persistent storage.
+     target_link_libraries(WASM::WASM INTERFACE "-lidbfs.js")
+ 
+-    # Socket proxy
+-    target_link_libraries(WASM::WASM INTERFACE "-lwebsocket.js")
+-
+     # Use custom pre-js and shell.html.
+     target_link_libraries(WASM::WASM INTERFACE "--pre-js ${CMAKE_SOURCE_DIR}/os/emscripten/pre.js")
+     target_link_libraries(WASM::WASM INTERFACE "--shell-file ${CMAKE_SOURCE_DIR}/os/emscripten/shell.html")
+diff --git a/cmake/FindFontconfig.cmake b/cmake/FindFontconfig.cmake
+index b5f4607804..c873b538f7 100644
+--- a/cmake/FindFontconfig.cmake
++++ b/cmake/FindFontconfig.cmake
+@@ -32,29 +32,30 @@ This will define the following variables in your project:
+ 
+ #]=======================================================================]
+ 
++
+ if(NOT ANDROID)
+-  # use pkg-config to get the directories and then use these values
+-  # in the FIND_PATH() and FIND_LIBRARY() calls
+-  find_package(PkgConfig QUIET)
+-  pkg_check_modules(PKG_FONTCONFIG QUIET fontconfig)
+-  set(Fontconfig_COMPILE_OPTIONS ${PKG_FONTCONFIG_CFLAGS_OTHER})
+-  set(Fontconfig_VERSION ${PKG_FONTCONFIG_VERSION})
+-
+-  find_path( Fontconfig_INCLUDE_DIR
+-    NAMES
+-      fontconfig/fontconfig.h
+-    HINTS
+-      ${PKG_FONTCONFIG_INCLUDE_DIRS}
+-      /usr/X11/include
+-  )
++# use pkg-config to get the directories and then use these values
++# in the FIND_PATH() and FIND_LIBRARY() calls
++find_package(PkgConfig QUIET)
++pkg_check_modules(PKG_FONTCONFIG QUIET fontconfig)
++set(Fontconfig_COMPILE_OPTIONS ${PKG_FONTCONFIG_CFLAGS_OTHER})
++set(Fontconfig_VERSION ${PKG_FONTCONFIG_VERSION})
++
++find_path( Fontconfig_INCLUDE_DIR
++  NAMES
++    fontconfig/fontconfig.h
++  HINTS
++    ${PKG_FONTCONFIG_INCLUDE_DIRS}
++    /usr/X11/include
++)
+ 
+-  find_library( Fontconfig_LIBRARY
+-    NAMES
+-      fontconfig
+-    PATHS
+-      ${PKG_FONTCONFIG_LIBRARY_DIRS}
+-  )
+-endif (NOT ANDROID)
++find_library( Fontconfig_LIBRARY
++  NAMES
++    fontconfig
++  PATHS
++    ${PKG_FONTCONFIG_LIBRARY_DIRS}
++)
++endif(NOT ANDROID)
+ 
+ if(Fontconfig_INCLUDE_DIR AND NOT Fontconfig_VERSION)
+   file(STRINGS ${Fontconfig_INCLUDE_DIR}/fontconfig/fontconfig.h _contents REGEX "^#define[ \t]+FC_[A-Z]+[ \t]+[0-9]+$")
+diff --git a/cmake/FindICU.cmake b/cmake/FindICU.cmake
+index 15c0edc047..efb3ba3abf 100644
+--- a/cmake/FindICU.cmake
++++ b/cmake/FindICU.cmake
+@@ -42,13 +42,12 @@ foreach(MOD_NAME IN LISTS ICU_FIND_COMPONENTS)
+     # Check the libraries returned by pkg-config really exist.
+     unset(PC_LIBRARIES)
+     foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
+-        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+-            find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
+-        endif()
+-        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
++        unset(PC_LIBRARY CACHE)
++        find_library(PC_LIBRARY NAMES ${LIBRARY})
++        if(NOT PC_LIBRARY)
+             unset(PC_ICU_${MOD_NAME}_FOUND)
+         endif()
+-        list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
++        list(APPEND PC_LIBRARIES ${PC_LIBRARY})
+     endforeach()
+     unset(PC_LIBRARY CACHE)
+ 
+diff --git a/cmake/InstallAndPackage.cmake b/cmake/InstallAndPackage.cmake
+index 4ad7c6b130..8df796bf24 100644
+--- a/cmake/InstallAndPackage.cmake
++++ b/cmake/InstallAndPackage.cmake
+@@ -173,10 +173,10 @@ elseif(WIN32)
+ 
+     set(CPACK_PACKAGE_FILE_NAME "openttd-#CPACK_PACKAGE_VERSION#-windows-${CPACK_SYSTEM_NAME}")
+ 
+-    if(WINDOWS_CERTIFICATE_COMMON_NAME)
++    if(DEFINED ENV{AZURE_CODESIGN_PROFILE_NAME})
+       add_custom_command(TARGET openttd
+         POST_BUILD
+-        COMMAND "${CMAKE_SOURCE_DIR}/os/windows/sign.bat" "$<TARGET_FILE:openttd>" "${WINDOWS_CERTIFICATE_COMMON_NAME}"
++        COMMAND "${CMAKE_SOURCE_DIR}/os/windows/sign.bat" "${BINARY_DESTINATION_DIR}"
+       )
+     endif()
+ elseif(UNIX)
+diff --git a/cmake/Options.cmake b/cmake/Options.cmake
+index 01e5d42eb1..da2d172808 100644
+--- a/cmake/Options.cmake
++++ b/cmake/Options.cmake
+@@ -57,13 +57,6 @@ function(set_options)
+     option(OPTION_DEDICATED "Build dedicated server only (no GUI)" OFF)
+     option(OPTION_INSTALL_FHS "Install with Filesystem Hierarchy Standard folders" ${DEFAULT_OPTION_INSTALL_FHS})
+     option(OPTION_USE_ASSERTS "Use assertions; leave enabled for nightlies, betas, and RCs" OFF)
+-    if(EMSCRIPTEN)
+-        # Although pthreads is supported, it is not in a way yet that is
+-        # useful for us.
+-        option(OPTION_USE_THREADS "Use threads" OFF)
+-    else()
+-        option(OPTION_USE_THREADS "Use threads" ON)
+-    endif()
+     option(OPTION_USE_NSIS "Use NSIS to create windows installer; enable only for stable releases" OFF)
+     option(OPTION_TOOLS_ONLY "Build only tools target" OFF)
+     option(OPTION_DOCS_ONLY "Build only docs target" OFF)
+@@ -85,7 +78,6 @@ function(show_options)
+     message(STATUS "Option Dedicated - ${OPTION_DEDICATED}")
+     message(STATUS "Option Install FHS - ${OPTION_INSTALL_FHS}")
+     message(STATUS "Option Use assert - ${OPTION_USE_ASSERTS}")
+-    message(STATUS "Option Use threads - ${OPTION_USE_THREADS}")
+     message(STATUS "Option Use NSIS - ${OPTION_USE_NSIS}")
+ 
+     if(OPTION_SURVEY_KEY)
+@@ -109,10 +101,6 @@ function(add_definitions_based_on_options)
+         add_definitions(-DDEDICATED)
+     endif()
+ 
+-    if(NOT OPTION_USE_THREADS)
+-        add_definitions(-DNO_THREADS)
+-    endif()
+-
+     if(OPTION_USE_ASSERTS)
+         add_definitions(-DWITH_ASSERT)
+     else()
+diff --git a/cmake/scripts/GenerateWidget.cmake b/cmake/scripts/GenerateWidget.cmake
+index b6748422f5..ffa5e6edea 100644
+--- a/cmake/scripts/GenerateWidget.cmake
++++ b/cmake/scripts/GenerateWidget.cmake
+@@ -56,11 +56,14 @@ foreach(ENUM IN LISTS ENUM_LINES)
+             endif()
+ 
+             # Check for enum match
+-            if("${LINE}" MATCHES "^	*enum *${ENUM_PATTERN} *\{")
++            if("${LINE}" MATCHES "^	*enum *${ENUM_PATTERN}( *: *[^ ]*)? *\{")
+                 # REGEX REPLACE does a REGEX MATCHALL and fails if an empty string is matched
+                 string(REGEX MATCH "[^	]*" RESULT "${LINE}")
+                 string(REPLACE "${RESULT}" "" RM_INDENT "${LINE}")
+ 
++                string(REGEX MATCH " *: *[^ ]*" RESULT "${LINE}")
++                string(REPLACE "${RESULT}" "" LINE "${LINE}")
++
+                 set(ACTIVE 1)
+                 if(ACTIVE_COMMENT GREATER 0)
+                      string(APPEND ${PLACE_HOLDER} "\n${COMMENT}")
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 66da95437c..a047170926 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -13,6 +13,7 @@
+ #include "string_func.h"
+ #include "strings_func.h"
+ #include "window_func.h"
++#include "tile_type.h"
+ #include "widget_type.h"
+ #include "window_gui.h"
+ #include "gfx_func.h"
+@@ -34,11 +35,11 @@ static const NWidgetPart _nested_build_info_widgets[] = {
+ 	NWidget(WWT_PANEL, COLOUR_GREY, WID_TT_BACKGROUND), SetMinimalSize(200, 32), EndContainer(),
+ };
+ 
+-static WindowDesc _build_info_desc(
+-	WDP_MANUAL, NULL, 0, 0, // Coordinates and sizes are not used,
++static WindowDesc _build_info_desc(__FILE__, __LINE__,
++	WDP_MANUAL, nullptr, 0, 0, // Coordinates and sizes are not used,
+ 	WC_TOOLTIPS, WC_NONE,
+ 	WDF_NO_FOCUS,
+-	_nested_build_info_widgets, lengthof(_nested_build_info_widgets)
++	std::begin(_nested_build_info_widgets), std::end(_nested_build_info_widgets)
+ );
+ 
+ /** Window for displaying accepted goods for a station. */
+@@ -68,7 +69,7 @@ struct BuildInfoWindow : public Window
+ 		CLRBITS(this->flags, WF_WHITE_BORDER);
+ 	}
+ 
+-	Point OnInitialPosition(int16 sm_width, int16 sm_height, int window_number) override
++	Point OnInitialPosition(int16_t sm_width, int16_t sm_height, int window_number) override
+ 	{
+ 		Point pt;
+ 		pt.y = GetMainViewTop();
+@@ -207,11 +208,11 @@ struct BuildConfirmationWindow : Window {
+ 		DrawFrameRect(x, y, x + w, y + h, COLOUR_GREY, FR_BORDERONLY);
+ 		Dimension d = GetStringBoundingBox(str);
+ 		DrawFrameRect(x + w / 2 - d.width / 2 - 1,
+-						Center(y, h) - 2,
++						CenterBounds(y, h, d.height) - 2,
+ 						x + w / 2 + d.width / 2 + 1,
+-						Center(y, h) + d.height,
++						CenterBounds(y, h, d.height) + d.height,
+ 						COLOUR_GREY, FR_NONE);
+-		DrawString(x, x + w, Center(y, h), str, TC_FROMSTRING, SA_HOR_CENTER);
++		DrawString(x, x + w, CenterBounds(y, h, d.height), str, TC_FROMSTRING, SA_HOR_CENTER);
+ 	}
+ };
+ 
+@@ -224,11 +225,11 @@ static const NWidgetPart _nested_build_confirmation_widgets[] = {
+ 	EndContainer(),
+ };
+ 
+-static WindowDesc _build_confirmation_desc(
++static WindowDesc _build_confirmation_desc(__FILE__, __LINE__,
+ 	WDP_MANUAL, "build_confirmation", 0, 0,
+ 	WC_BUILD_CONFIRMATION, WC_NONE,
+ 	0,
+-	_nested_build_confirmation_widgets, lengthof(_nested_build_confirmation_widgets)
++	std::begin(_nested_build_confirmation_widgets), std::end(_nested_build_confirmation_widgets)
+ );
+ 
+ /**
+diff --git a/src/console_gui.cpp b/src/console_gui.cpp
+index e163c8b996..1567cb4352 100644
+--- a/src/console_gui.cpp
++++ b/src/console_gui.cpp
+@@ -33,9 +33,6 @@
+ #ifdef __ANDROID__
+ #include <SDL_screenkeyboard.h>
+ #endif
+-#ifdef __EMSCRIPTEN__
+-#include <emscripten.h>
+-#endif
+ 
+ static const uint ICON_HISTORY_SIZE       = 20;
+ static const uint ICON_RIGHT_BORDERWIDTH  = 10;
+@@ -190,6 +187,8 @@ struct IConsoleWindow : Window
+ 		if (_focused_window == this && _iconsole_cmdline.caret) {
+ 			DrawString(this->line_offset + delta + _iconsole_cmdline.caretxoffs, right, this->height - this->line_height, "_", TC_WHITE, SA_LEFT | SA_FORCE);
+ 		}
++	}
++
+ 	void OnQueryTextFinished(char *str) override
+ 	{
+ 		_focused_window = this;
+diff --git a/src/network/network_chat_gui.cpp b/src/network/network_chat_gui.cpp
+index a5c3da24d2..ece8f5e88a 100644
+--- a/src/network/network_chat_gui.cpp
++++ b/src/network/network_chat_gui.cpp
+@@ -496,7 +496,7 @@ static constexpr NWidgetPart _nested_chat_window_widgets[] = {
+ 		NWidget(WWT_CLOSEBOX, COLOUR_GREY, WID_NC_CLOSE),
+ 		NWidget(WWT_PANEL, COLOUR_GREY, WID_NC_BACKGROUND),
+ 			NWidget(NWID_HORIZONTAL),
+-				NWidget(WWT_TEXT, COLOUR_GREY, WID_NC_DESTINATION), SetMinimalSize(62, 12), SetPadding(1, 0, 1, 0), SetTextColour(TC_BLACK), SetAlignment(SA_VERT_CENTER | SA_RIGHT), SetDataTip(STR_NULL, STR_NULL),
++				NWidget(WWT_TEXT, COLOUR_GREY, WID_NC_DESTINATION), SetMinimalSize(62, 12), SetPadding(1, 0, 1, 0), SetAlignment(SA_VERT_CENTER | SA_RIGHT), SetDataTip(STR_NULL, STR_NULL),
+ 				NWidget(WWT_EDITBOX, COLOUR_GREY, WID_NC_TEXTBOX), SetMinimalSize(100, 12), SetPadding(1, 0, 1, 0), SetResize(1, 0),
+ 																	SetDataTip(STR_NETWORK_CHAT_OSKTITLE, STR_NULL),
+ 				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_NC_SENDBUTTON), SetMinimalSize(62, 12), SetPadding(1, 0, 1, 0), SetDataTip(STR_NETWORK_CHAT_SEND, STR_NULL),
+diff --git a/src/object_gui.cpp b/src/object_gui.cpp
+index a72edbe4ff..366450dceb 100644
+--- a/src/object_gui.cpp
++++ b/src/object_gui.cpp
+@@ -108,7 +108,7 @@ public:
+ 		this->FinishInitNested(number);
+ 
+ 		NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BO_SELECT_MATRIX);
+-		matrix->SetScrollbar(this->GetScrollbar(WID_BO_SELECT_SCROLL));
++		matrix->SetScrollbar(this->GetScrollbar(WID_BO_SELECT_SCROLL), WID_BO_SELECT_SCROLL);
+ 		matrix->SetCount(ObjectClass::Get(_selected_object_class)->GetUISpecCount());
+ 
+ 		this->GetWidget<NWidgetMatrix>(WID_BO_OBJECT_MATRIX)->SetCount(4);
+diff --git a/src/openttd.cpp b/src/openttd.cpp
+index 665b426015..3b29bbae7a 100644
+--- a/src/openttd.cpp
++++ b/src/openttd.cpp
+@@ -1268,7 +1268,7 @@ void ProcessCloudSaveFromVideoThread()
+ 		}
+ 		MakeScreenshot(SC_VIEWPORT, NETWORK_SAVE_SCREENSHOT_FILE);
+ 		std::string screenshotFile = FioFindFullPath(SCREENSHOT_DIR, NETWORK_SAVE_SCREENSHOT_FILE_PNG);
+-		uint64_t playedTime = abs(_date - DAYS_TILL(_settings_newgame.game_creation.starting_year)) * 1000;
++		uint64_t playedTime = Ticks::DAY_TICKS * MILLISECONDS_PER_TICK * static_cast<uint64_t>((TimerGameCalendar::date - TimerGameCalendar::DateAtStartOfYear(_settings_newgame.game_creation.starting_year)).base());
+ 		int status = 0;
+ #ifdef __ANDROID__
+ 		status = SDL_ANDROID_CloudSave(_file_to_saveload.name.c_str(), lastPart, "OpenTTD", lastPart, screenshotFile.c_str(), playedTime);
+@@ -1307,8 +1307,8 @@ void ProcessCloudSaveFromVideoThread()
+ #endif
+ 		if (status) {
+ 			_file_to_saveload.SetMode(FIOS_TYPE_FILE);
+-			_file_to_saveload.SetName(savePath.c_str());
+-			_file_to_saveload.SetTitle("Network Save");
++			_file_to_saveload.name = savePath.c_str();
++			_file_to_saveload.title = "Network Save";
+ 			_switch_mode = SM_LOAD_GAME;
+ 		}
+ #ifdef __EMSCRIPTEN__
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index ffdfb14c0e..ea1c3ca0aa 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -832,7 +832,7 @@ struct BuildRailToolbarWindow : Window {
+ 	void SelectLastTool() override
+ 	{
+ 		// User misplaced something - activate last selected tool again
+-		if (this->last_user_action == WIDGET_LIST_END) return;
++		if (this->last_user_action == INVALID_WID_RAT) return;
+ 
+ 		Point dummy = {0, 0};
+ 		this->RaiseWidget(this->last_user_action);
+@@ -1120,7 +1120,7 @@ public:
+ 			_railstation.station_type = std::min<int>(_railstation.station_type, _railstation.station_count - 1);
+ 
+ 			NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BRAS_MATRIX);
+-			matrix->SetScrollbar(this->vscroll2);
++			matrix->SetScrollbar(this->vscroll2, this->vscroll2 ? WID_BRAS_MATRIX_SCROLL : -1);
+ 			matrix->SetCount(_railstation.station_count);
+ 			matrix->SetClicked(_railstation.station_type);
+ 
+@@ -2089,7 +2089,7 @@ struct BuildRailWaypointWindow : PickerWindowBase {
+ 		this->CreateNestedTree();
+ 
+ 		NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BRW_WAYPOINT_MATRIX);
+-		matrix->SetScrollbar(this->GetScrollbar(WID_BRW_SCROLL));
++		matrix->SetScrollbar(this->GetScrollbar(WID_BRW_SCROLL), WID_BRW_SCROLL);
+ 
+ 		this->FinishInitNested(TRANSPORT_RAIL);
+ 
+diff --git a/src/road_gui.cpp b/src/road_gui.cpp
+index dcaadd8235..568ae7ba71 100644
+--- a/src/road_gui.cpp
++++ b/src/road_gui.cpp
+@@ -634,7 +634,7 @@ struct BuildRoadToolbarWindow : Window {
+ 	void SelectLastTool() override
+ 	{
+ 		// User misplaced something - activate last selected tool again
+-		if (this->last_started_action == WIDGET_LIST_END)
++		if (this->last_started_action == INVALID_WID_ROT)
+ 			return;
+ 		Point dummy = {0, 0};
+ 		this->RaiseWidget(this->last_started_action);
+@@ -1257,7 +1257,7 @@ public:
+ 			this->SelectFirstAvailableTypeIfUnavailable();
+ 
+ 			NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BROS_MATRIX);
+-			matrix->SetScrollbar(this->vscrollMatrix);
++			matrix->SetScrollbar(this->vscrollMatrix, WID_BROS_MATRIX);
+ 			matrix->SetCount(_roadstop_gui_settings.roadstop_count);
+ 			matrix->SetClicked(_roadstop_gui_settings.roadstop_type);
+ 
+diff --git a/src/settings_table.cpp b/src/settings_table.cpp
+index 1c07835d38..c43c2f793c 100644
+--- a/src/settings_table.cpp
++++ b/src/settings_table.cpp
+@@ -314,7 +314,7 @@ static void ZoomMinMaxChanged(int32_t)
+ 	}
+ }
+ 
+-static void VerticalToolbarChanged(int32 p1)
++static void VerticalToolbarChanged(int32_t p1)
+ {
+ 	if (FindWindowByClass(WC_MAIN_TOOLBAR)) {
+ 		HideVitalWindows();
+diff --git a/src/settings_type.h b/src/settings_type.h
+index dfc0cc1885..bb4dab8ed1 100644
+--- a/src/settings_type.h
++++ b/src/settings_type.h
+@@ -365,7 +365,6 @@ struct GameCreationSettings {
+ 	byte   water_borders;                    ///< bitset of the borders that are water
+ 	uint16_t custom_town_number;               ///< manually entered number of towns
+ 	uint16_t custom_industry_number;           ///< manually entered number of industries
+-	uint16 custom_industry_number;           ///< manually entered number of industries
+ 	byte   variety;                          ///< variety level applied to TGP
+ 	byte   custom_terrain_type;              ///< manually entered height for TGP to aim for
+ 	byte   custom_sea_level;                 ///< manually entered percentage of water in the map
+diff --git a/src/table/settings/gui_settings.ini b/src/table/settings/gui_settings.ini
+index d5e179b4fb..bef8f52643 100644
+--- a/src/table/settings/gui_settings.ini
++++ b/src/table/settings/gui_settings.ini
+@@ -17,7 +17,7 @@ static void InvalidateNewGRFChangeWindows(int32_t new_value);
+ static void ZoomMinMaxChanged(int32_t new_value);
+ static void SpriteZoomMinChanged(int32_t new_value);
+ void InitializeNumberFormats();
+-static void VerticalToolbarChanged(int32 p1);
++static void VerticalToolbarChanged(int32_t p1);
+ 
+ static constexpr std::initializer_list<const char*> _osk_activation{"disabled", "double", "single", "immediately"};
+ static constexpr std::initializer_list<const char*> _savegame_date{"long", "short", "iso"};
+diff --git a/src/terraform_gui.cpp b/src/terraform_gui.cpp
+index 2548c2f3a8..147fa19b90 100644
+--- a/src/terraform_gui.cpp
++++ b/src/terraform_gui.cpp
+@@ -304,7 +304,7 @@ struct TerraformToolbarWindow : Window {
+ 	void SelectLastTool() override
+ 	{
+ 		// User misplaced something - activate last selected tool again
+-		if (this->last_user_action == WIDGET_LIST_END)
++		if (this->last_user_action == INVALID_WID_TT)
+ 			return;
+ 		Point dummy = {0, 0};
+ 		this->RaiseWidget(this->last_user_action);
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 265dde21e1..5fc3740c46 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -1921,7 +1921,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_HELP
+ 		};
+ 		/* With 'Shift' button included */
+-		static const byte arrange14shift[] = {
++		static const WidgetID arrange14shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_TRAINS,
+@@ -1956,7 +1956,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange15shift[] = {
++		static const WidgetID arrange15shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SMALL_MAP,
+@@ -1993,7 +1993,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange16shift[] = {
++		static const WidgetID arrange16shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SETTINGS,
+@@ -2032,7 +2032,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange17shift[] = {
++		static const WidgetID arrange17shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SETTINGS,
+@@ -2073,7 +2073,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange18shift[] = {
++		static const WidgetID arrange18shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SETTINGS,
+@@ -2116,7 +2116,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange19shift[] = {
++		static const WidgetID arrange19shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SETTINGS,
+@@ -2161,7 +2161,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange20shift[] = {
++		static const WidgetID arrange20shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SETTINGS,
+@@ -2208,7 +2208,7 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SHIFT,
+ 			WID_TN_SWITCH_BAR,
+ 		};
+-		static const byte arrange_all_shift[] = {
++		static const WidgetID arrange_all_shift[] = {
+ 			WID_TN_PAUSE,
+ 			WID_TN_FAST_FORWARD,
+ 			WID_TN_SETTINGS,
+@@ -2265,18 +2265,23 @@ class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+ 
+ /** Container for the vertical main toolbar */
+ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+-	int side;
+-
+ 	public:
+-	NWidgetVerticalToolbarContainer(int side) : NWidgetToolbarContainer(NWID_VERTICAL), side(side)
++	enum class Side {
++		LEFT = 0,
++		RIGHT = 1
++	};
++private:
++	Side side;
++public:
++	NWidgetVerticalToolbarContainer(Side side) : NWidgetToolbarContainer(NWID_VERTICAL), side(side)
+ 	{
+ 	}
+ 
+-	/* virtual */ const byte *GetButtonArrangement(uint &width, uint &arrangable_count, uint &button_count, uint &spacer_count) const
++	/* virtual */ const WidgetID *GetButtonArrangement(uint &width, uint &arrangable_count, uint &button_count, uint &spacer_count) const
+ 	{
+ 		// Ultra-compact arrangement, ultra-huge buttons.
+ 		// No WID_TN_SHIFT, WID_TN_STORY, WID_TN_GOAL, and WID_TN_LEAGUE buttons.
+-		static const byte arrange_left_compact[] = {
++		static const WidgetID arrange_left_compact[] = {
+ 			WID_TN_DELETE,
+ 			WID_TN_CTRL,
+ 			WID_TN_ZOOM_IN,
+@@ -2288,7 +2293,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_SMALL_MAP,
+ 			WID_TN_STATIONS,
+ 		};
+-		static const byte arrange_right_compact[] = {
++		static const WidgetID arrange_right_compact[] = {
+ 			WID_TN_SWITCH_BAR,
+ 			WID_TN_RAILS,
+ 			WID_TN_ROADS,
+@@ -2311,7 +2316,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_MESSAGES,
+ 			WID_TN_HELP,
+ 		};
+-		static const byte arrange_right_compact_noswitch[] = {
++		static const WidgetID arrange_right_compact_noswitch[] = {
+ 			WID_TN_RAILS,
+ 			WID_TN_TRAINS,
+ 			WID_TN_ROADVEHS,
+@@ -2325,7 +2330,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 		};
+ 
+ 		// Some rather artistic button arrangement, I'm proud of myself
+-		static const byte arrange_left_classic[] = {
++		static const WidgetID arrange_left_classic[] = {
+ 			WID_TN_DELETE,
+ 			WID_TN_CTRL,
+ 			WID_TN_SHIFT,
+@@ -2339,7 +2344,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_TOWNS,
+ 			WID_TN_SUBSIDIES,
+ 		};
+-		static const byte arrange_right_classic[] = {
++		static const WidgetID arrange_right_classic[] = {
+ 			WID_TN_SWITCH_BAR,
+ 			WID_TN_RAILS,
+ 			WID_TN_ROADS,
+@@ -2366,7 +2371,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_MESSAGES,
+ 			WID_TN_HELP,
+ 		};
+-		static const byte arrange_right_classic_noswitch[] = {
++		static const WidgetID arrange_right_classic_noswitch[] = {
+ 			WID_TN_RAILS,
+ 			WID_TN_TRAINS,
+ 			WID_TN_ROADVEHS,
+@@ -2383,7 +2388,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 
+ 		// Full-length toolbar without switch button.
+ 		// No WID_TN_SHIFT, WID_TN_STORY, WID_TN_GOAL, and WID_TN_LEAGUE buttons.
+-		static const byte arrange_left_almost_all[] = {
++		static const WidgetID arrange_left_almost_all[] = {
+ 			WID_TN_DELETE,
+ 			WID_TN_CTRL,
+ 			WID_TN_ZOOM_IN,
+@@ -2399,7 +2404,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_FINANCES,
+ 			WID_TN_COMPANIES,
+ 		};
+-		static const byte arrange_right_almost_all[] = {
++		static const WidgetID arrange_right_almost_all[] = {
+ 			WID_TN_RAILS,
+ 			WID_TN_ROADS,
+ 			WID_TN_WATER,
+@@ -2417,7 +2422,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 		};
+ 
+ 		// Full-length toolbar without switch button, all buttons are included.
+-		static const byte arrange_left_all[] = {
++		static const WidgetID arrange_left_all[] = {
+ 			WID_TN_DELETE,
+ 			WID_TN_CTRL,
+ 			WID_TN_SHIFT,
+@@ -2435,7 +2440,7 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 			WID_TN_COMPANIES,
+ 			WID_TN_STORY,
+ 		};
+-		static const byte arrange_right_all[] = {
++		static const WidgetID arrange_right_all[] = {
+ 			WID_TN_RAILS,
+ 			WID_TN_ROADS,
+ 			WID_TN_WATER,
+@@ -2459,27 +2464,27 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 		if (_screen.height / this->smallest_y >= lengthof(arrange_left_all))
+ 		{
+ 			button_count = arrangable_count = lengthof(arrange_left_all);
+-			if (side == 0) return arrange_left_all;
++			if (side == Side::LEFT) return arrange_left_all;
+ 			return arrange_right_all;
+ 		}
+ 
+ 		if (_screen.height / this->smallest_y >= lengthof(arrange_left_almost_all))
+ 		{
+ 			button_count = arrangable_count = lengthof(arrange_left_almost_all);
+-			if (side == 0) return arrange_left_almost_all;
++			if (side == Side::LEFT) return arrange_left_almost_all;
+ 			return arrange_right_almost_all;
+ 		}
+ 
+ 		if (_screen.height / this->smallest_y >= lengthof(arrange_left_classic))
+ 		{
+ 			button_count = arrangable_count = lengthof(arrange_left_classic);
+-			if (side == 0) return arrange_left_classic;
++			if (side == Side::LEFT) return arrange_left_classic;
+ 			if (_settings_client.gui.compact_vertical_toolbar) return arrange_right_classic_noswitch;
+ 			return &arrange_right_classic[((_toolbar_mode == TB_LOWER) ? button_count : 0)];
+ 		}
+ 
+ 		button_count = arrangable_count = lengthof(arrange_left_compact);
+-		if (side == 0) return arrange_left_compact;
++		if (side == Side::LEFT) return arrange_left_compact;
+ 		if (_settings_client.gui.compact_vertical_toolbar) return arrange_right_compact_noswitch;
+ 		return &arrange_right_compact[((_toolbar_mode == TB_LOWER) ? button_count : 0)];
+ 	}
+@@ -2649,7 +2654,7 @@ struct MainToolbarWindow : Window {
+ 	int *clickedFlag;
+ 	int clickedValue;
+ 
+-	MainToolbarWindow(WindowDesc *desc, int *clickedFlag = NULL, int clickedValue = 0) : Window(desc), clickedFlag(clickedFlag), clickedValue(clickedValue)
++	MainToolbarWindow(WindowDesc *desc, int *clickedFlag = nullptr, int clickedValue = 0) : Window(desc), clickedFlag(clickedFlag), clickedValue(clickedValue)
+ 	{
+ 		this->InitNested(0);
+ 
+@@ -2843,45 +2848,43 @@ struct MainToolbarWindow : Window {
+ 	}};
+ };
+ 
+-static std::unique_ptr<NWidgetBase> MakeMainToolbar()
+-{
+-	/** Sprites to use for the different toolbar buttons */
+-	static const SpriteID toolbar_button_sprites[] = {
+-		SPR_IMG_PAUSE,           // WID_TN_PAUSE
+-		SPR_IMG_FASTFORWARD,     // WID_TN_FAST_FORWARD
+-		SPR_IMG_SETTINGS,        // WID_TN_SETTINGS
+-		SPR_IMG_SAVE,            // WID_TN_SAVE
+-		SPR_IMG_SMALLMAP,        // WID_TN_SMALL_MAP
+-		SPR_IMG_TOWN,            // WID_TN_TOWNS
+-		SPR_IMG_SUBSIDIES,       // WID_TN_SUBSIDIES
+-		SPR_IMG_COMPANY_LIST,    // WID_TN_STATIONS
+-		SPR_IMG_COMPANY_FINANCE, // WID_TN_FINANCES
+-		SPR_IMG_COMPANY_GENERAL, // WID_TN_COMPANIES
+-		SPR_IMG_STORY_BOOK,      // WID_TN_STORY
+-		SPR_IMG_GOAL,            // WID_TN_GOAL
+-		SPR_IMG_GRAPHS,          // WID_TN_GRAPHS
+-		SPR_IMG_COMPANY_LEAGUE,  // WID_TN_LEAGUE
+-		SPR_IMG_INDUSTRY,        // WID_TN_INDUSTRIES
+-		SPR_IMG_TRAINLIST,       // WID_TN_TRAINS
+-		SPR_IMG_TRUCKLIST,       // WID_TN_ROADVEHS
+-		SPR_IMG_SHIPLIST,        // WID_TN_SHIPS
+-		SPR_IMG_AIRPLANESLIST,   // WID_TN_AIRCRAFT
+-		SPR_IMG_ZOOMIN,          // WID_TN_ZOOMIN
+-		SPR_IMG_ZOOMOUT,         // WID_TN_ZOOMOUT
+-		SPR_IMG_BUILDRAIL,       // WID_TN_RAILS
+-		SPR_IMG_BUILDROAD,       // WID_TN_ROADS
+-		SPR_IMG_BUILDTRAMS,      // WID_TN_TRAMS
+-		SPR_IMG_BUILDWATER,      // WID_TN_WATER
+-		SPR_IMG_BUILDAIR,        // WID_TN_AIR
+-		SPR_IMG_LANDSCAPING,     // WID_TN_LANDSCAPE
+-		SPR_IMG_MUSIC,           // WID_TN_MUSIC_SOUND
+-		SPR_IMG_MESSAGES,        // WID_TN_MESSAGES
+-		SPR_IMG_QUERY,           // WID_TN_HELP
+-		SPR_IMG_SWITCH_TOOLBAR,  // WID_TN_SWITCH_BAR
+-	};
++/** Sprites to use for the different toolbar buttons */
++static const SpriteID toolbar_button_sprites[] = {
++	SPR_IMG_PAUSE,           // WID_TN_PAUSE
++	SPR_IMG_FASTFORWARD,     // WID_TN_FAST_FORWARD
++	SPR_IMG_SETTINGS,        // WID_TN_SETTINGS
++	SPR_IMG_SAVE,            // WID_TN_SAVE
++	SPR_IMG_SMALLMAP,        // WID_TN_SMALL_MAP
++	SPR_IMG_TOWN,            // WID_TN_TOWNS
++	SPR_IMG_SUBSIDIES,       // WID_TN_SUBSIDIES
++	SPR_IMG_COMPANY_LIST,    // WID_TN_STATIONS
++	SPR_IMG_COMPANY_FINANCE, // WID_TN_FINANCES
++	SPR_IMG_COMPANY_GENERAL, // WID_TN_COMPANIES
++	SPR_IMG_STORY_BOOK,      // WID_TN_STORY
++	SPR_IMG_GOAL,            // WID_TN_GOAL
++	SPR_IMG_GRAPHS,          // WID_TN_GRAPHS
++	SPR_IMG_COMPANY_LEAGUE,  // WID_TN_LEAGUE
++	SPR_IMG_INDUSTRY,        // WID_TN_INDUSTRIES
++	SPR_IMG_TRAINLIST,       // WID_TN_TRAINS
++	SPR_IMG_TRUCKLIST,       // WID_TN_ROADVEHS
++	SPR_IMG_SHIPLIST,        // WID_TN_SHIPS
++	SPR_IMG_AIRPLANESLIST,   // WID_TN_AIRCRAFT
++	SPR_IMG_ZOOMIN,          // WID_TN_ZOOMIN
++	SPR_IMG_ZOOMOUT,         // WID_TN_ZOOMOUT
++	SPR_IMG_BUILDRAIL,       // WID_TN_RAILS
++	SPR_IMG_BUILDROAD,       // WID_TN_ROADS
++	SPR_IMG_BUILDTRAMS,      // WID_TN_TRAMS
++	SPR_IMG_BUILDWATER,      // WID_TN_WATER
++	SPR_IMG_BUILDAIR,        // WID_TN_AIR
++	SPR_IMG_LANDSCAPING,     // WID_TN_LANDSCAPE
++	SPR_IMG_MUSIC,           // WID_TN_MUSIC_SOUND
++	SPR_IMG_MESSAGES,        // WID_TN_MESSAGES
++	SPR_IMG_QUERY,           // WID_TN_HELP
++	SPR_IMG_SWITCH_TOOLBAR,  // WID_TN_SWITCH_BAR
+ };
+-using namespace tbs;
+ 
++static std::unique_ptr<NWidgetBase> MakeMainToolbar()
++{
+ 	auto hor = std::make_unique<NWidgetMainToolbarContainer>();
+ 	for (WidgetID i = 0; i < WID_TN_END; i++) {
+ 		switch (i) {
+@@ -2923,18 +2926,17 @@ static WindowDesc _toolb_normal_desc(__FILE__, __LINE__,
+ 	&MainToolbarWindow::hotkeys
+ );
+ 
+-static NWidgetBase *MakeVerticalLeftToolbar(int *biggest_index)
++static std::unique_ptr<NWidgetBase> MakeVerticalLeftToolbar()
+ {
+-	NWidgetVerticalToolbarContainer *tb = new NWidgetVerticalToolbarContainer(0);
++	auto tb = std::make_unique<NWidgetVerticalToolbarContainer>(NWidgetVerticalToolbarContainer::Side::LEFT);
+ 	for (uint i = 0; i <= WID_TN_SWITCH_BAR; i++) {
+-		tb->Add(new NWidgetLeaf(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, toolbar_button_sprites[i], STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i));
++		tb->Add(std::make_unique<NWidgetLeaf>(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, toolbar_button_sprites[i], STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i));
+ 	}
+ 
+-	tb->Add(new NWidgetLeaf(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP));
+-	tb->Add(new NWidgetLeaf(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP));
+-	tb->Add(new NWidgetLeaf(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP));
++	tb->Add(std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP));
++	tb->Add(std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP));
++	tb->Add(std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP));
+ 
+-	*biggest_index = std::max<int>(*biggest_index, WID_TN_DELETE);
+ 	return tb;
+ }
+ 
+@@ -2942,26 +2944,25 @@ static const NWidgetPart _nested_toolbar_vertical_left_widgets[] = {
+ 	NWidgetFunction(MakeVerticalLeftToolbar),
+ };
+ 
+-static WindowDesc _toolb_vertical_left_desc(
+-	WDP_MANUAL, NULL, 22, 480,
++static WindowDesc _toolb_vertical_left_desc(__FILE__, __LINE__,
++	WDP_MANUAL, nullptr, 22, 480,
+ 	WC_MAIN_TOOLBAR, WC_NONE,
+ 	WDF_NO_FOCUS,
+-	_nested_toolbar_vertical_left_widgets, lengthof(_nested_toolbar_vertical_left_widgets),
++	std::begin(_nested_toolbar_vertical_left_widgets), std::end(_nested_toolbar_vertical_left_widgets),
+ 	&MainToolbarWindow::hotkeys
+ );
+ 
+-static NWidgetBase *MakeVerticalRightToolbar(int *biggest_index)
++static std::unique_ptr<NWidgetBase> MakeVerticalRightToolbar()
+ {
+-	NWidgetVerticalToolbarContainer *tb = new NWidgetVerticalToolbarContainer(1);
++	auto tb = std::make_unique<NWidgetVerticalToolbarContainer>(NWidgetVerticalToolbarContainer::Side::RIGHT);
+ 	for (uint i = 0; i <= WID_TN_SWITCH_BAR; i++) {
+-		tb->Add(new NWidgetLeaf(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, toolbar_button_sprites[i], STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i));
++		tb->Add(std::make_unique<NWidgetLeaf>(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, toolbar_button_sprites[i], STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i));
+ 	}
+ 
+-	tb->Add(new NWidgetLeaf(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP));
+-	tb->Add(new NWidgetLeaf(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP));
+-	tb->Add(new NWidgetLeaf(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP));
++	tb->Add(std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP));
++	tb->Add(std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP));
++	tb->Add(std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP));
+ 
+-	*biggest_index = std::max<int>(*biggest_index, WID_TN_DELETE);
+ 	return tb;
+ }
+ 
+@@ -2969,11 +2970,11 @@ static const NWidgetPart _nested_toolbar_vertical_right_widgets[] = {
+ 	NWidgetFunction(MakeVerticalRightToolbar),
+ };
+ 
+-static WindowDesc _toolb_vertical_right_desc(
+-	WDP_MANUAL, NULL, 22, 480,
++static WindowDesc _toolb_vertical_right_desc(__FILE__, __LINE__,
++	WDP_MANUAL, nullptr, 22, 480,
+ 	WC_MAIN_TOOLBAR_RIGHT, WC_NONE,
+ 	WDF_NO_FOCUS,
+-	_nested_toolbar_vertical_right_widgets, lengthof(_nested_toolbar_vertical_right_widgets),
++	std::begin(_nested_toolbar_vertical_right_widgets), std::end(_nested_toolbar_vertical_right_widgets),
+ 	&MainToolbarWindow::hotkeys
+ );
+ 
+diff --git a/src/tutorial_gui.cpp b/src/tutorial_gui.cpp
+index a822ecb04b..85f7be6a10 100644
+--- a/src/tutorial_gui.cpp
++++ b/src/tutorial_gui.cpp
+@@ -128,11 +128,11 @@ static const NWidgetPart _nested_tutorial_widgets[] = {
+ 	EndContainer(),
+ };
+ 
+-static WindowDesc _tutorial_desc(
++static WindowDesc _tutorial_desc(__FILE__, __LINE__,
+ 	WDP_CENTER, NULL, 0, 0,
+ 	WC_GAME_OPTIONS, WC_NONE,
+ 	0,
+-	_nested_tutorial_widgets, lengthof(_nested_tutorial_widgets)
++	std::begin(_nested_tutorial_widgets), std::end(_nested_tutorial_widgets)
+ );
+ 
+ 
+diff --git a/src/vehicle_gui.cpp b/src/vehicle_gui.cpp
+index f5d65f84ac..e0014e8eb2 100644
+--- a/src/vehicle_gui.cpp
++++ b/src/vehicle_gui.cpp
+@@ -920,7 +920,7 @@ struct RefitWindow : public Window {
+ 
+ 			case WID_VR_INFO:
+ 				size->width = this->information_width + padding.height;
+-				size->height = GetMinButtonSize(FONT_HEIGHT_NORMAL);
++				size->height = GetMinButtonSize();
+ 				break;
+ 		}
+ 	}
+diff --git a/src/widget.cpp b/src/widget.cpp
+index c19dd90dbb..d8c449ac54 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -1025,20 +1025,19 @@ void NWidgetResizeBase::SetMinimalTextLines(uint8_t min_lines, uint8_t spacing,
+ 
+ void NWidgetResizeBase::SetMinimalSizeForSizingType()
+ {
+-	uint min_size = 0;
++	uint32_t min_size = 0;
+ 	switch (this->sizing_type) {
+ 		case NWST_NONE:
+ 			min_size = 0;
+ 			break;
+ 		case NWST_BUTTON:
+-			min_size = _settings_client.gui.min_button;
++			min_size = GetMinButtonSize();
+ 			break;
+ 		case NWST_VIEWPORT:
+-			min_size = 3 * _settings_client.gui.min_button;
++			min_size = (5 * _gui_scale) / 2;
+ 			break;
+ 		default: NOT_REACHED();
+ 	}
+-	min_size = RescaleFrom854x480(min_size);
+ 
+ 	this->min_x = std::max(this->min_x, min_size);
+ 	this->min_y = std::max(this->min_y, min_size);
+@@ -3261,12 +3260,11 @@ static const NWidgetPart *MakeNWidget(const NWidgetPart *nwid_begin, const NWidg
+ 			}
+ 
+ 			case WPT_SIZINGTYPE: {
+-				NWidgetResizeBase *nwrb = dynamic_cast<NWidgetResizeBase *>(*dest);
+-				if (nwrb != NULL) {
+-					assert(parts->u.sizing_type < NWST_END);
+-					nwrb->sizing_type = parts->u.sizing_type;
+-					nwrb->SetMinimalSize(0, 0);
+-				}
++				NWidgetResizeBase *nwrb = dynamic_cast<NWidgetResizeBase *>(dest.get());
++				if (nwrb == nullptr)  [[unlikely]] throw std::runtime_error("WPT_SIZINGTYPE requires NWidgetResizeBase");
++				assert(nwid_begin->u.sizing_type < NWST_END);
++				nwrb->sizing_type = nwid_begin->u.sizing_type;
++				nwrb->SetMinimalSize(0, 0);
+ 				break;
+ 			}
+ 
+@@ -3555,10 +3553,9 @@ std::unique_ptr<NWidgetBase> MakeCompanyButtonRows(WidgetID widget_first, Widget
+  * @param min_1 Minimal passed value.
+  * @return At least the passed value.
+  */
+-uint GetMinButtonSize(uint min_1)
++uint32_t GetMinButtonSize(uint32_t min_1)
+ {
+-	uint min_sizing = _settings_client.gui.min_button;
+-	min_sizing = RescaleFrom854x480(min_sizing);
++	uint32_t min_sizing = _gui_scale / 4;
+ 
+ 	return std::max(min_sizing, min_1);
+ }
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 1a4dce6cbc..ffa7485e98 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -333,12 +333,12 @@ struct DropdownWindow : Window {
+ 		if (!this->left_button_scrolling &&
+ 			_left_button_down &&
+ 			this->left_button_scroll_pos != -1 &&
+-			abs(this->left_button_scroll_pos - _cursor.pos.y) > (int)list[0]->Height(this->width)) {
++			abs(this->left_button_scroll_pos - _cursor.pos.y) > (int)list[0]->Height()) {
+ 			this->left_button_scrolling = true;
+ 			this->mouse_capture_widget = WID_DM_ITEMS;
+ 		}
+ 		if (this->left_button_scrolling) {
+-			int height = list[0]->Height(this->width);
++			int height = list[0]->Height();
+ 			int pos = (this->left_button_scroll_pos - _cursor.pos.y) / height;
+ 			if (pos != 0) {
+ 				this->scrolling = pos;
+diff --git a/src/widgets/dropdown_type.h b/src/widgets/dropdown_type.h
+index 523db82437..485ce44c8b 100644
+--- a/src/widgets/dropdown_type.h
++++ b/src/widgets/dropdown_type.h
+@@ -11,7 +11,6 @@
+ #define WIDGETS_DROPDOWN_TYPE_H
+ 
+ #include "../window_type.h"
+-#include "../widget_type.h"
+ #include "../gfx_func.h"
+ #include "../gfx_type.h"
+ #include "../palette_func.h"
+diff --git a/src/window.cpp b/src/window.cpp
+index 97bf9761b4..08870a8bb0 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1381,7 +1381,7 @@ static uint GetWindowZPriority(WindowClass wc)
+ 
+ 		case WC_STATUS_BAR:
+ 			++z_priority;
+-			FALLTHROUGH;
++			[[fallthrough]];
+ 
+ 		case WC_NEWS_WINDOW:
+ 			++z_priority;
+@@ -2376,9 +2376,9 @@ static EventState HandleWindowDragging()
+ 
+ 			w->SetDirty();
+ 			if (GetWindowDraggedOffScreen(w)) {
+-				GuiShowTooltips(w, STR_TOOLTIP_CLOSE_WINDOW, 0, NULL, TCC_NONE);
++				GuiShowTooltips(w, STR_TOOLTIP_CLOSE_WINDOW, TCC_NONE);
+ 			} else {
+-				GuiShowTooltips(w, STR_NULL, 0, NULL, TCC_NONE); // Hide tooltip
++				GuiShowTooltips(w, STR_NULL, TCC_NONE); // Hide tooltip
+ 			}
+ 
+ 			return ES_HANDLED;
+@@ -2890,7 +2890,7 @@ static void HandleAutoscroll()
+ 
+ 	int x = _cursor.pos.x;
+ 	int y = _cursor.pos.y;
+-	int border = RescaleFrom854x480(_settings_client.gui.min_button);
++	int border = GetMinButtonSize();
+ 	Window *w = FindWindowFromPt(x, y);
+ 	if (w == nullptr || w->flags & WF_DISABLE_VP_SCROLL) return;
+ 	if (_settings_client.gui.auto_scrolling != VA_EVERY_VIEWPORT && w->window_class != WC_MAIN_WINDOW) return;
+-- 
+2.55.0
+

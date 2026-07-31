@@ -1,0 +1,26 @@
+From 960e1a795795dc3f914b96d1c83a5efbe6e282d4 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 16 May 2021 01:25:34 +0300
+Subject: [PATCH 0709/1053] Emscripten: Sync FS before closing the browser
+ window
+
+---
+ os/emscripten/shell.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/os/emscripten/shell.html b/os/emscripten/shell.html
+index 33bb850964..1879a92243 100644
+--- a/os/emscripten/shell.html
++++ b/os/emscripten/shell.html
+@@ -177,7 +177,7 @@
+           document.getElementById("title").innerHTML = "Thank you for playing!";
+           document.getElementById("message").innerHTML = "We hope you enjoyed OpenTTD!<br/><br/>Reload your browser to restart the game.";
+ 
+-          window.close('','_parent','');
++          FS.syncfs(false, function (err) { window.close('','_parent',''); });
+         },
+ 
+         onAbort: function() {
+-- 
+2.55.0
+

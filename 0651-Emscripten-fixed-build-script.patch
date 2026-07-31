@@ -1,0 +1,25 @@
+From 38ba55633e310242fab3c8befa37394e97c470fa Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 2 May 2021 23:30:11 +0300
+Subject: [PATCH 0651/1053] Emscripten: fixed build script
+
+---
+ os/emscripten/emscripten-build.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/os/emscripten/emscripten-build.sh b/os/emscripten/emscripten-build.sh
+index 67431aa0c5..c8f45aa1b2 100755
+--- a/os/emscripten/emscripten-build.sh
++++ b/os/emscripten/emscripten-build.sh
+@@ -53,7 +53,7 @@ mkdir -p baseset
+ }
+ 
+ [ -e TimGM6mb.sf2 ] || {
+-	wget 'https://sourceforge.net/p/mscore/code/HEAD/tree/trunk/mscore/share/sound/TimGM6mb.sf2?format=raw' || exit 1
++	wget 'https://sourceforge.net/p/mscore/code/HEAD/tree/trunk/mscore/share/sound/TimGM6mb.sf2?format=raw' -O TimGM6mb.sf2 || exit 1
+ }
+ 
+ [ -e Makefile ] || emcmake cmake .. -DHOST_BINARY_DIR=$(pwd)/build-host -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DOPTION_USE_ASSERTS=OFF || exit 1
+-- 
+2.55.0
+

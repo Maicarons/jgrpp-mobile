@@ -1,0 +1,27 @@
+From 04fe79ca38d8efa1062873955efe1e149c382531 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Tue, 28 Mar 2017 23:24:13 +0300
+Subject: [PATCH 0354/1053] Disabled warning about missing translations, it
+ messes up UI
+
+---
+ src/intro_gui.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/intro_gui.cpp b/src/intro_gui.cpp
+index e47ed730f5..1c6ccb18e3 100644
+--- a/src/intro_gui.cpp
++++ b/src/intro_gui.cpp
+@@ -62,6 +62,9 @@ struct SelectGameWindow : public Window {
+ 	virtual void OnInit()
+ 	{
+ 		bool missing_sprites = _missing_extra_graphics > 0 && !IsReleasedVersion();
++#ifdef __ANDROID__
++		missing_sprites = false;
++#endif
+ 		this->GetWidget<NWidgetStacked>(WID_SGI_BASESET_SELECTION)->SetDisplayedPlane(missing_sprites ? 0 : SZSP_NONE);
+ 
+ 		bool missing_lang = _current_language->missing >= _settings_client.gui.missing_strings_threshold && !IsReleasedVersion();
+-- 
+2.55.0
+

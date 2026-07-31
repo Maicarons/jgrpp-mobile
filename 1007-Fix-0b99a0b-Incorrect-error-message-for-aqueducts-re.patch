@@ -1,0 +1,31 @@
+From 69ef22674a268af2347a2e1f28c82d8cc8ce5ed0 Mon Sep 17 00:00:00 2001
+From: Cyprian Klimaszewski <kapitan.cypek@gmail.com>
+Date: Thu, 8 Jan 2026 23:14:58 +0100
+Subject: [PATCH 1007/1053] Fix 0b99a0b: Incorrect error message for aqueducts
+ reaching northern map borders (#14974)
+
+---
+ src/tunnelbridge_cmd.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/tunnelbridge_cmd.cpp b/src/tunnelbridge_cmd.cpp
+index 16949cfd53..1aaf23781e 100644
+--- a/src/tunnelbridge_cmd.cpp
++++ b/src/tunnelbridge_cmd.cpp
+@@ -314,7 +314,12 @@ CommandCost CmdBuildBridge(DoCommandFlags flags, TileIndex tile_end, TileIndex t
+ 	RailType railtype = INVALID_RAILTYPE;
+ 	RoadType roadtype = INVALID_ROADTYPE;
+ 
+-	if (!IsValidTile(tile_start)) return CommandCost(STR_ERROR_BRIDGE_THROUGH_MAP_BORDER);
++	for (TileIndex t : {tile_start, tile_end}) {
++		if (!IsValidTile(t)) return CommandCost(STR_ERROR_BRIDGE_THROUGH_MAP_BORDER);
++		/* User cannot modify height of tiles with one coordinate equal to zero, they are always at the sea level, and you can't build bridge in the sea.
++		 * Furthermore, they are void tiles unless map is infinite water. If we don't return for them here, we will still fail as their slope is invalid. */
++		if (TileX(t) == 0 || TileY(t) == 0) return CommandCost(transport_type == TRANSPORT_WATER ? STR_ERROR_BRIDGE_THROUGH_MAP_BORDER : STR_ERROR_TOO_CLOSE_TO_EDGE_OF_MAP);
++	}
+ 
+ 	/* type of bridge */
+ 	switch (transport_type) {
+-- 
+2.55.0
+

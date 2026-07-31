@@ -1,0 +1,1185 @@
+From 4b701e053fa9e9accc1e3652be12ca001c359c40 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Mon, 8 Dec 2025 17:52:28 +0000
+Subject: [PATCH 0933/1053] Update: Backport language changes
+
+---
+ src/lang/afrikaans.txt            |  1 +
+ src/lang/arabic_egypt.txt         |  4 +---
+ src/lang/basque.txt               |  1 +
+ src/lang/belarusian.txt           |  1 +
+ src/lang/brazilian_portuguese.txt |  6 +++---
+ src/lang/bulgarian.txt            |  1 +
+ src/lang/catalan.txt              | 31 +++++++++++++++++++------------
+ src/lang/chuvash.txt              |  1 +
+ src/lang/croatian.txt             |  1 +
+ src/lang/czech.txt                |  4 +---
+ src/lang/danish.txt               |  4 +---
+ src/lang/dutch.txt                |  4 +---
+ src/lang/english_AU.txt           |  6 +++---
+ src/lang/english_US.txt           |  6 +++---
+ src/lang/esperanto.txt            |  1 +
+ src/lang/estonian.txt             |  1 +
+ src/lang/faroese.txt              |  1 +
+ src/lang/finnish.txt              |  6 +++---
+ src/lang/french.txt               |  4 +---
+ src/lang/frisian.txt              |  1 +
+ src/lang/gaelic.txt               |  1 +
+ src/lang/galician.txt             |  4 +---
+ src/lang/german.txt               |  4 +---
+ src/lang/greek.txt                |  6 +++---
+ src/lang/hebrew.txt               |  1 +
+ src/lang/hindi.txt                |  1 +
+ src/lang/hungarian.txt            |  4 +---
+ src/lang/icelandic.txt            |  1 +
+ src/lang/ido.txt                  |  1 +
+ src/lang/indonesian.txt           |  1 +
+ src/lang/irish.txt                |  1 +
+ src/lang/italian.txt              |  1 +
+ src/lang/japanese.txt             |  1 +
+ src/lang/korean.txt               |  4 +---
+ src/lang/latin.txt                |  1 +
+ src/lang/latvian.txt              |  4 +---
+ src/lang/lithuanian.txt           |  1 +
+ src/lang/luxembourgish.txt        |  4 +---
+ src/lang/macedonian.txt           |  1 +
+ src/lang/malay.txt                |  1 +
+ src/lang/maltese.txt              |  1 +
+ src/lang/maori.txt                |  4 +---
+ src/lang/marathi.txt              |  1 +
+ src/lang/norwegian_bokmal.txt     |  4 +---
+ src/lang/norwegian_nynorsk.txt    |  1 +
+ src/lang/persian.txt              |  4 +---
+ src/lang/polish.txt               |  6 +++---
+ src/lang/portuguese.txt           | 22 +++++++++++-----------
+ src/lang/romanian.txt             |  4 +---
+ src/lang/russian.txt              |  6 +++---
+ src/lang/serbian.txt              |  1 +
+ src/lang/simplified_chinese.txt   |  4 +---
+ src/lang/slovak.txt               |  1 +
+ src/lang/slovenian.txt            |  1 +
+ src/lang/spanish.txt              |  4 +---
+ src/lang/spanish_MX.txt           |  4 +---
+ src/lang/swedish.txt              |  4 +---
+ src/lang/tamil.txt                |  1 +
+ src/lang/thai.txt                 |  1 +
+ src/lang/traditional_chinese.txt  |  4 +---
+ src/lang/turkish.txt              |  1 +
+ src/lang/ukrainian.txt            |  4 +---
+ src/lang/urdu.txt                 |  1 +
+ src/lang/vietnamese.txt           |  4 +---
+ src/lang/welsh.txt                |  4 +---
+ 65 files changed, 107 insertions(+), 113 deletions(-)
+
+diff --git a/src/lang/afrikaans.txt b/src/lang/afrikaans.txt
+index 241d1081e4..7fabeb8ad4 100644
+--- a/src/lang/afrikaans.txt
++++ b/src/lang/afrikaans.txt
+@@ -2383,6 +2383,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Bou 'n s
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Verstek stasie
+ STR_STATION_CLASS_WAYP                                          :Roetebakens
+ 
+diff --git a/src/lang/arabic_egypt.txt b/src/lang/arabic_egypt.txt
+index e0cce46e66..45a0154c34 100644
+--- a/src/lang/arabic_egypt.txt
++++ b/src/lang/arabic_egypt.txt
+@@ -2288,10 +2288,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :الضواحي
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :الضواحي الداخلية
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :مركز المدينة
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :منع الترقيات
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :اختر ما اذا كان هذا المنزل محمي من الاستبدال مع نمو المدينة
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :ايقاف
+-STR_HOUSE_PICKER_PROTECT_ON                                     :تفعيل
++
+ 
+ STR_STATION_CLASS_DFLT                                          :المحطة القياسية
+ STR_STATION_CLASS_WAYP                                          :نقطة عبور
+diff --git a/src/lang/basque.txt b/src/lang/basque.txt
+index 7b85fa480d..3ed0960e6f 100644
+--- a/src/lang/basque.txt
++++ b/src/lang/basque.txt
+@@ -2263,6 +2263,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Geltokia
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Geltoki lehenetsia
+ STR_STATION_CLASS_WAYP                                          :Bidepuntuak
+ 
+diff --git a/src/lang/belarusian.txt b/src/lang/belarusian.txt
+index 63cc08ed68..47bc36c863 100644
+--- a/src/lang/belarusian.txt
++++ b/src/lang/belarusian.txt
+@@ -3100,6 +3100,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Пабу
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Стандартная станцыя
+ STR_STATION_CLASS_DFLT_STATION                                  :Стандартная чыг. станцыя
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Стандартны прыпынак
+diff --git a/src/lang/brazilian_portuguese.txt b/src/lang/brazilian_portuguese.txt
+index d17d1afdb6..17b6085590 100644
+--- a/src/lang/brazilian_portuguese.txt
++++ b/src/lang/brazilian_portuguese.txt
+@@ -1091,6 +1091,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marque esta cai
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Usar a fonte fixa tradicional
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Marque esta caixa se preferir usar o tipo de fonte tradicional de tamanho fixo
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Usar fonte padrão
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Marque esta opção para usar a fonte padrão em vez das fontes alternativas encontradas no sistema
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Fontes com contornos suaves
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Marque esta caixa para usar fontes redimensionáveis com contornos suaves
+ 
+@@ -2879,10 +2881,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Periferia Dista
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Periferia Próxima
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro da cidade
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Não permitir atualizações
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolher se essa casa será protegida contra substituição quando a cidade crescer
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Desativado
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Ativado
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Padrão
+ STR_STATION_CLASS_DFLT_STATION                                  :Estação padrão
+diff --git a/src/lang/bulgarian.txt b/src/lang/bulgarian.txt
+index f71f834857..e11a07a12b 100644
+--- a/src/lang/bulgarian.txt
++++ b/src/lang/bulgarian.txt
+@@ -2823,6 +2823,7 @@ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Вътрешн
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Градски център
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Станция по подразбиране
+ STR_STATION_CLASS_DFLT_STATION                                  :Товарна станция по подразбиране
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Спирка по подразбиране
+diff --git a/src/lang/catalan.txt b/src/lang/catalan.txt
+index bb38676de2..bcf5d1c51a 100644
+--- a/src/lang/catalan.txt
++++ b/src/lang/catalan.txt
+@@ -313,6 +313,7 @@ STR_SHOW_HIDDEN_ENGINES_VEHICLE_AIRCRAFT_TOOLTIP                :{BLACK}Activant
+ STR_BUTTON_DEFAULT                                              :{BLACK}Predeterminat
+ STR_BUTTON_CANCEL                                               :{BLACK}Cancel·la
+ STR_BUTTON_OK                                                   :{BLACK}D'acord
++STR_BUTTON_MOVE                                                 :{BLACK}Mou
+ 
+ # On screen keyboard window
+ STR_OSK_KEYBOARD_LAYOUT                                         :`1234567890-= qwertyuiop[]asdfghjkl;'#\zxcvbnm,./ .
+@@ -1090,6 +1091,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marqueu aquesta
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Fes servir la font tradicional
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Marqueu aquesta casella si preferiu fer servir la font tradicional de mida fixa i pixelada.
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Prefereix la font per defecte
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Marqueu aquesta casella si preferiu fer servir la font tradicional abans que les fonts alternatives trobades.
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Aplica anti-àlies a les fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Marqueu aquesta casella per a fer servir tècniques d'anti-àlies a les fonts redimensionables.
+ 
+@@ -2862,15 +2865,15 @@ STR_PICKER_HOUSE_CLASS_TOOLTIP                                  :Trieu quina zon
+ STR_PICKER_HOUSE_TYPE_TOOLTIP                                   :Trieu quin tipus de casa construir. Amb Ctrl+clic, s'afegeix o es trau l'element de la llista de desats.
+ 
+ STR_HOUSE_PICKER_CAPTION                                        :Selecció de cases
+-STR_HOUSE_PICKER_NAME                                           :{BLACK}Nom: {ORANGE}{STRING}
+-STR_HOUSE_PICKER_POPULATION                                     :{BLACK}Habitants: {ORANGE}{NUM}
+-STR_HOUSE_PICKER_YEARS                                          :{BLACK}Anys: {ORANGE}{NUM}-{NUM}
+-STR_HOUSE_PICKER_YEARS_ANY                                      :{BLACK}Anys: {ORANGE}Qualssevol
+-STR_HOUSE_PICKER_YEARS_FROM                                     :{BLACK}Anys: {ORANGE}De {NUM}
+-STR_HOUSE_PICKER_YEARS_UNTIL                                    :{BLACK}Anys: {ORANGE}Fins al {NUM}
+-STR_HOUSE_PICKER_SIZE                                           :{BLACK}Mida: {ORANGE}{NUM}x{NUM} caselles
+-STR_HOUSE_PICKER_CARGO_ACCEPTED                                 :{BLACK}Càrrega acceptada: {ORANGE}
+-STR_HOUSE_PICKER_CARGO_PRODUCED                                 :{BLACK}Càrrega produïda: {ORANGE}{CARGO_LIST}
++STR_HOUSE_PICKER_NAME                                           :{BLACK}Nom: {GOLD}{STRING}
++STR_HOUSE_PICKER_POPULATION                                     :{BLACK}Habitants: {GOLD}{NUM}
++STR_HOUSE_PICKER_YEARS                                          :{BLACK}Anys: {GOLD}{NUM}-{NUM}
++STR_HOUSE_PICKER_YEARS_ANY                                      :{BLACK}Anys: {GOLD}Qualssevol
++STR_HOUSE_PICKER_YEARS_FROM                                     :{BLACK}Anys: {GOLD}De {NUM}
++STR_HOUSE_PICKER_YEARS_UNTIL                                    :{BLACK}Anys: {GOLD}Fins al {NUM}
++STR_HOUSE_PICKER_SIZE                                           :{BLACK}Mida: {GOLD}{NUM}x{NUM} caselles
++STR_HOUSE_PICKER_CARGO_ACCEPTED                                 :{BLACK}Càrrega acceptada: {GOLD}
++STR_HOUSE_PICKER_CARGO_PRODUCED                                 :{BLACK}Càrrega produïda: {GOLD}{CARGO_LIST}
+ 
+ STR_HOUSE_PICKER_CLASS_ZONE1                                    :Vora
+ STR_HOUSE_PICKER_CLASS_ZONE2                                    :Afores
+@@ -2878,10 +2881,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Suburbi exterio
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Suburbi interior
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centre de la població
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Evita les millores
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolliu si aquesta casa s'ha de protegir i evitar que es reemplaci quan creixi la població.
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Desactivat
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Activat
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Per defecte
+ STR_STATION_CLASS_DFLT_STATION                                  :Estació per defecte
+@@ -3905,12 +3906,14 @@ STR_CARGO_RATING_EXCELLENT                                      :Excel·lent
+ STR_CARGO_RATING_OUTSTANDING                                    :Excepcional
+ 
+ STR_STATION_VIEW_CENTER_TOOLTIP                                 :{BLACK}Centra la vista principal al lloc de l'estació. Amb Ctrl+clic, s'obre una vista al lloc de l'estació.
++STR_STATION_VIEW_EDIT_TOOLTIP                                   :{BLACK}Canvia el nom de l'estació o mou-ne el senyal.
+ 
+ STR_STATION_VIEW_SCHEDULED_TRAINS_TOOLTIP                       :{BLACK}Mostra tots els trens que tinguin aquesta estació en el seu itinerari
+ STR_STATION_VIEW_SCHEDULED_ROAD_VEHICLES_TOOLTIP                :{BLACK}Mostra tots els vehicles que tinguin aquesta estació en el seu itinerari
+ STR_STATION_VIEW_SCHEDULED_AIRCRAFT_TOOLTIP                     :{BLACK}Mostra tots els avions que tinguin aquest aeroport en el seu itinerari
+ STR_STATION_VIEW_SCHEDULED_SHIPS_TOOLTIP                        :{BLACK}Mostra tots els vaixells que tinguin aquest port en el seu itinerari
+ 
++STR_STATION_VIEW_EDIT_STATION_SIGN                              :{WHITE}Edita el senyal de l'estació
+ 
+ STR_STATION_VIEW_CLOSE_AIRPORT                                  :{BLACK}Tanca l'aeroport
+ STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}Evita que els avions aterrin en aquest aeroport
+@@ -3918,9 +3921,11 @@ STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}Evita qu
+ # Waypoint/buoy view window
+ STR_WAYPOINT_VIEW_CAPTION                                       :{WHITE}{WAYPOINT}
+ STR_WAYPOINT_VIEW_CENTER_TOOLTIP                                :{BLACK}Centra la vista principal al lloc del punt de pas. Amb Ctrl+clic, s'obre una vista al lloc del punt de pas.
++STR_WAYPOINT_VIEW_EDIT_TOOLTIP                                  :{BLACK}Canvia el nom del punt de pas o mou-ne el senyal.
+ STR_BUOY_VIEW_CENTER_TOOLTIP                                    :{BLACK}Centra la vista principal en la boia. Amb Ctrl+clic, s'obre una vista centrada a la boia.
+ STR_BUOY_VIEW_RENAME_TOOLTIP                                    :{BLACK}Canvia el nom de la boia
+ 
++STR_WAYPOINT_VIEW_EDIT_WAYPOINT_SIGN                            :{WHITE}Edita el senyal del punt de pas
+ 
+ # Finances window
+ STR_FINANCES_CAPTION                                            :{WHITE}Finances de {COMPANY} {BLACK}{COMPANY_NUM}
+@@ -5134,6 +5139,7 @@ STR_ERROR_TOO_MANY_TRUCK_STOPS                                  :{WHITE}Masses e
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_DOCK                             :{WHITE}Massa prop d'un altre moll
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_AIRPORT                          :{WHITE}Massa prop d'un altre aeroport
+ STR_ERROR_CAN_T_RENAME_STATION                                  :{WHITE}No es pot canviar el nom de l'estació...
++STR_ERROR_CAN_T_MOVE_STATION_NAME                               :{WHITE}El senyal de l'estació no es pot moure...
+ STR_ERROR_DRIVE_THROUGH_ON_TOWN_ROAD                            :{WHITE}... aquesta carretera és propietat d'una població.
+ STR_ERROR_DRIVE_THROUGH_DIRECTION                               :{WHITE}... sentit de la carretera en la direcció incorrecta
+ STR_ERROR_DRIVE_THROUGH_CORNER                                  :{WHITE}... les estacions d'autobús de pas no poden tenir cantonades
+@@ -5165,6 +5171,7 @@ STR_ERROR_CAN_T_BUILD_RAIL_WAYPOINT                             :{WHITE}Aquí no
+ STR_ERROR_CAN_T_BUILD_ROAD_WAYPOINT                             :{WHITE}Aquí no es pot construir un punt de pas de carretera...
+ STR_ERROR_CAN_T_POSITION_BUOY_HERE                              :{WHITE}Aquí no es pot situar una boia...
+ STR_ERROR_CAN_T_CHANGE_WAYPOINT_NAME                            :{WHITE}No es pot canviar el nom del punt de pas...
++STR_ERROR_CAN_T_MOVE_WAYPOINT_NAME                              :{WHITE}El senyal del punt de pas no es pot moure...
+ 
+ STR_ERROR_CAN_T_REMOVE_RAIL_WAYPOINT                            :{WHITE}Aquí no es pot treure un punt de pas de tren...
+ STR_ERROR_CAN_T_REMOVE_ROAD_WAYPOINT                            :{WHITE}Aquí no es pot traure cap punt de pas de carretera...
+diff --git a/src/lang/chuvash.txt b/src/lang/chuvash.txt
+index e964b7876a..a002a1b8a0 100644
+--- a/src/lang/chuvash.txt
++++ b/src/lang/chuvash.txt
+@@ -1067,6 +1067,7 @@ STR_CONTENT_DETAIL_VERSION                                      :{SILVER}Вер
+ 
+ 
+ 
++
+ # Signal window
+ 
+ # Bridge selection window
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index d5212f9cc1..25b592a12b 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -2526,6 +2526,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Napravi
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Zadana postaja
+ STR_STATION_CLASS_WAYP                                          :Čvorišta
+ 
+diff --git a/src/lang/czech.txt b/src/lang/czech.txt
+index e9ad64e89d..a2313eecff 100644
+--- a/src/lang/czech.txt
++++ b/src/lang/czech.txt
+@@ -2916,10 +2916,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Vnější před
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Vnitní předměstí
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centrum města
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Zabránit vylepšování
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Vyber, zdali bude tento dům chráněn před nahrazením, jak se bude město rozrůstat
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Vypnuto
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Zapnuto
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Původní
+ STR_STATION_CLASS_DFLT_STATION                                  :Původní stanice
+diff --git a/src/lang/danish.txt b/src/lang/danish.txt
+index 1ab7756ad7..c1d6a12e59 100644
+--- a/src/lang/danish.txt
++++ b/src/lang/danish.txt
+@@ -2875,10 +2875,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ydre Forstæder
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Indre Forstæder
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Bymidte
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Forhindre opgraderinger
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Vælg om dette hus skal beskyttes mod udskiftning i takt med at byen vokser
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Slukket
+-STR_HOUSE_PICKER_PROTECT_ON                                     :tændt
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Standard station
+ STR_STATION_CLASS_DFLT_STATION                                  :Standard station
+diff --git a/src/lang/dutch.txt b/src/lang/dutch.txt
+index 8728600acc..db58750ffe 100644
+--- a/src/lang/dutch.txt
++++ b/src/lang/dutch.txt
+@@ -2877,10 +2877,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Buitenste voors
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Binnenste voorsteden
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Stadscentrum
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Opwaarderen voorkomen
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Kies of dit huis wordt beschermd tegen vervangen als de stad groeit
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Uit
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Aan
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Standaard
+ STR_STATION_CLASS_DFLT_STATION                                  :Standaard station
+diff --git a/src/lang/english_AU.txt b/src/lang/english_AU.txt
+index 6d2b3e8588..771c31ea7f 100644
+--- a/src/lang/english_AU.txt
++++ b/src/lang/english_AU.txt
+@@ -1090,6 +1090,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Check this box
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Use traditional sprite font
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Check this box if you prefer to use the traditional fixed-size sprite font
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Prefer default font
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Check this box if you prefer to use the default font over discovered fallback fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Anti-alias fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Check this box to anti-alias resizable fonts
+ 
+@@ -2878,10 +2880,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Outer Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Inner Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Town centre
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Prevent upgrades
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Choose whether this house will be protected from replacement as the town grows
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Off
+-STR_HOUSE_PICKER_PROTECT_ON                                     :On
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Default
+ STR_STATION_CLASS_DFLT_STATION                                  :Default station
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index 787ada1ba9..98026e3f34 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -1090,6 +1090,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Check this box
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Use traditional sprite font
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Check this box if you prefer to use the traditional fixed-size sprite font
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Prefer default font
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Check this box if you prefer to use the default font over discovered fallback fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Anti-alias fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Check this box to anti-alias resizable fonts
+ 
+@@ -2878,10 +2880,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Outer Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Inner Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Town center
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Prevent upgrades
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Choose whether this house will be protected from replacement as the town grows
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Off
+-STR_HOUSE_PICKER_PROTECT_ON                                     :On
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Default
+ STR_STATION_CLASS_DFLT_STATION                                  :Default station
+diff --git a/src/lang/esperanto.txt b/src/lang/esperanto.txt
+index eb9366c4dc..5ec8bc2e05 100644
+--- a/src/lang/esperanto.txt
++++ b/src/lang/esperanto.txt
+@@ -2742,6 +2742,7 @@ STR_HOUSE_PICKER_CLASS_ZONE2                                    :Periferioj
+ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Eksteraj Antaŭurboj
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Defaŭlta
+ STR_STATION_CLASS_DFLT_STATION                                  :Defaŭlta stacio
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Defaŭlta vojhaltejo
+diff --git a/src/lang/estonian.txt b/src/lang/estonian.txt
+index 1d9eec28bd..2daebbfe10 100644
+--- a/src/lang/estonian.txt
++++ b/src/lang/estonian.txt
+@@ -2847,6 +2847,7 @@ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Eeslinnad
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Kesklinn
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Vaikimisi
+ STR_STATION_CLASS_DFLT_STATION                                  :Vaikimisi jaam
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Vaikimisi peatus
+diff --git a/src/lang/faroese.txt b/src/lang/faroese.txt
+index c211506433..dd208003a0 100644
+--- a/src/lang/faroese.txt
++++ b/src/lang/faroese.txt
+@@ -2163,6 +2163,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Bygg ein
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Vanlig støð
+ STR_STATION_CLASS_WAYP                                          :Waypoint
+ 
+diff --git a/src/lang/finnish.txt b/src/lang/finnish.txt
+index 9a98c20ed2..e3ad12fa3e 100644
+--- a/src/lang/finnish.txt
++++ b/src/lang/finnish.txt
+@@ -1090,6 +1090,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Valitse tämä
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Käytä perinteistä sprite-fonttia
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Valitse tämä ruutu käyttääksesi perinteistä kiinteäkokoista sprite-kirjasintyyppiä
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Suosi oletusfonttia
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Valitse tämä ruutu, jos haluat käyttää oletuskirjaintyyppiä löydettyjen varafonttien sijaan
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Pehmennä kirjasinten reunoja
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Valitse tämä ruutu pehmentääksesi muuttuvan kokoisten fonttien reunoja
+ 
+@@ -2878,10 +2880,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ulommat lähiö
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Sisemmät lähiöt
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Keskusta
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Estä uudistaminen
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Valitse, suojataanko tämä talo korvaamiselta kunnan kasvaessa
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Ei
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Kyllä
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Oletus
+ STR_STATION_CLASS_DFLT_STATION                                  :Oletusasema
+diff --git a/src/lang/french.txt b/src/lang/french.txt
+index c4ec474cf8..5b65c3e7eb 100644
+--- a/src/lang/french.txt
++++ b/src/lang/french.txt
+@@ -2878,10 +2878,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Banlieue extér
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Banlieue intérieure
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centre-ville
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Empêcher les améliorations
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Définit si cette maison sera protégée contre son remplacement lors de la croissance de la ville
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Désactivé
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Activé
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Par défaut
+ STR_STATION_CLASS_DFLT_STATION                                  :Stations par défaut
+diff --git a/src/lang/frisian.txt b/src/lang/frisian.txt
+index 11570d8045..dc68bcbf2f 100644
+--- a/src/lang/frisian.txt
++++ b/src/lang/frisian.txt
+@@ -2264,6 +2264,7 @@ STR_STATION_BUILD_DRAG_DROP                                     :Sleepe en los l
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Standert stasjon
+ STR_STATION_CLASS_WAYP                                          :Kontrôleposten
+ 
+diff --git a/src/lang/gaelic.txt b/src/lang/gaelic.txt
+index 5bb1c50ed9..e6e6481f08 100644
+--- a/src/lang/gaelic.txt
++++ b/src/lang/gaelic.txt
+@@ -2565,6 +2565,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Tog stè
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Stèisean bunaiteach
+ STR_STATION_CLASS_WAYP                                          :Puingean-turais
+ 
+diff --git a/src/lang/galician.txt b/src/lang/galician.txt
+index 935e6811cf..f1721df2ca 100644
+--- a/src/lang/galician.txt
++++ b/src/lang/galician.txt
+@@ -2879,10 +2879,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Suburbios da pe
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Suburbios interiores
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro da vila
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Evitar melloras
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolle se esta casa estará protexida do remprazo a medida que a vila medra
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Desactivado
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Activado
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Por defecto
+ STR_STATION_CLASS_DFLT_STATION                                  :Estación por defecto
+diff --git a/src/lang/german.txt b/src/lang/german.txt
+index c96cb0d8b8..488d004456 100644
+--- a/src/lang/german.txt
++++ b/src/lang/german.txt
+@@ -2879,10 +2879,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Äußere Vorort
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Innere Vororte
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Stadtmitte
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Aufwertungen verhindern
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Auswählen, ob dieses Haus vor dem Ersetzen geschützt wird, wenn die Stadt wächst.
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Aus
+-STR_HOUSE_PICKER_PROTECT_ON                                     :An
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Standard
+ STR_STATION_CLASS_DFLT_STATION                                  :Standart-Haltestelle
+diff --git a/src/lang/greek.txt b/src/lang/greek.txt
+index 0f077fa914..e6752f439e 100644
+--- a/src/lang/greek.txt
++++ b/src/lang/greek.txt
+@@ -1183,6 +1183,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Τσεκάρε
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Χρήση παραδοσιακής γραμματοσειράς
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Τσεκάρετε αυτό το κουτάκι εάν προτιμάτε να χρησιμοποιήσετε την παραδοσιακή γραμματοσειρά σταθερού μεγέθους
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Προτίμησε την προεπιλεγμένη γραμματοσειρά
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Επιλέξτε αυτό το πλαίσιο αν προτιμάτε να χρησιμοποιήσετε την προεπιλεγμένη γραμματοσειρά αντί για τις ανακαλυφθείσες εφεδρικές γραμματοσειρές
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Εξομάλυνση εμφάνισης γραμματοσειράς
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Τσεκάρετε αυτό το κουτάκι για εξομάλυνση εμφάνισης γραμματοσειράς μεταβλητού μεγέθους
+ 
+@@ -2971,10 +2973,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Εξωτερι
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Εσωτερικά Προάστια
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Κέντρο της πόλης
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Αποτροπή αναβαθμίσεων
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Επιλέξτε αν αυτό το σπίτι θα προστατεύεται από αντικατάσταση καθώς η πόλη μεγαλώνει
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Ανενεργό
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Ενεργό
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Προεπιλεγμένος
+ STR_STATION_CLASS_DFLT_STATION                                  :Προεπιλεγμένος σταθμός
+diff --git a/src/lang/hebrew.txt b/src/lang/hebrew.txt
+index 22d17c8d76..e10378a46b 100644
+--- a/src/lang/hebrew.txt
++++ b/src/lang/hebrew.txt
+@@ -2549,6 +2549,7 @@ STR_PICKER_MODE_SAVED_TOOLTIP                                   :החלף הצג
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :ברירת מחדל
+ STR_STATION_CLASS_DFLT_STATION                                  :תחנת ברירת מחדל
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :תחנת ברירת מחדל
+diff --git a/src/lang/hindi.txt b/src/lang/hindi.txt
+index 918ff2c92f..af43909f58 100644
+--- a/src/lang/hindi.txt
++++ b/src/lang/hindi.txt
+@@ -885,6 +885,7 @@ STR_TOOLBAR_DISABLED_NO_VEHICLE_AVAILABLE                       :{BLACK}अक
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :मानक स्टेशन
+ STR_STATION_CLASS_WAYP                                          :पथ-संकेत
+ 
+diff --git a/src/lang/hungarian.txt b/src/lang/hungarian.txt
+index d97565b593..65bfaf9d07 100644
+--- a/src/lang/hungarian.txt
++++ b/src/lang/hungarian.txt
+@@ -2942,10 +2942,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Külső kertvá
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Belső kertváros
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Városközpont
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Frissítések megelőzése
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Válaszd ki, hogy a város növekedésével ez a ház védve legyen-e a cserétől
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Ki
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Be
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Alapértelmezett
+ STR_STATION_CLASS_DFLT_STATION                                  :Alapértelmezett állomás
+diff --git a/src/lang/icelandic.txt b/src/lang/icelandic.txt
+index 594d023a79..fdc0a912a8 100644
+--- a/src/lang/icelandic.txt
++++ b/src/lang/icelandic.txt
+@@ -2214,6 +2214,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Byggja l
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Sjálfgefin stöð
+ STR_STATION_CLASS_WAYP                                          :Millistöð
+ 
+diff --git a/src/lang/ido.txt b/src/lang/ido.txt
+index a94cfda45d..c2ccca33ad 100644
+--- a/src/lang/ido.txt
++++ b/src/lang/ido.txt
+@@ -963,6 +963,7 @@ STR_STATION_BUILD_ACCEPTS_CARGO                                 :{BLACK}Aceptas:
+ 
+ 
+ 
++
+ # Signal window
+ 
+ # Bridge selection window
+diff --git a/src/lang/indonesian.txt b/src/lang/indonesian.txt
+index 2499f83d64..2ac2b2c018 100644
+--- a/src/lang/indonesian.txt
++++ b/src/lang/indonesian.txt
+@@ -2717,6 +2717,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Membangu
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Standar
+ STR_STATION_CLASS_DFLT_STATION                                  :Stasiun standar
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Pemberhentian jalan standar
+diff --git a/src/lang/irish.txt b/src/lang/irish.txt
+index 9b35e39417..20fae506b5 100644
+--- a/src/lang/irish.txt
++++ b/src/lang/irish.txt
+@@ -2538,6 +2538,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Tóg st
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Stáisiún réamhshocraithe
+ STR_STATION_CLASS_WAYP                                          :Pointí bealaigh
+ 
+diff --git a/src/lang/italian.txt b/src/lang/italian.txt
+index 2c0b7afa19..cf19be9b49 100644
+--- a/src/lang/italian.txt
++++ b/src/lang/italian.txt
+@@ -2886,6 +2886,7 @@ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Sobborghi inter
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro città
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Predefinita
+ STR_STATION_CLASS_DFLT_STATION                                  :Stazione predefinita
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Fermata stradale predefinita
+diff --git a/src/lang/japanese.txt b/src/lang/japanese.txt
+index 96c1985476..fe15ba8792 100644
+--- a/src/lang/japanese.txt
++++ b/src/lang/japanese.txt
+@@ -2657,6 +2657,7 @@ STR_PICKER_MODE_ALL                                             :すべて
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :標準駅
+ STR_STATION_CLASS_WAYP                                          :中継駅
+ 
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index 4112fe2f0a..9cf523b305 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -2879,10 +2879,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :바깥쪽 시
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :안쪽 시내
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :도시 중심
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :업그레이드 방지
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :이 건물이 도시가 성장함에 따라 교체되는 것을 막을지 여부를 선택합니다
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :끄기
+-STR_HOUSE_PICKER_PROTECT_ON                                     :켜기
++
+ 
+ STR_STATION_CLASS_DFLT                                          :기본
+ STR_STATION_CLASS_DFLT_STATION                                  :기본 역
+diff --git a/src/lang/latin.txt b/src/lang/latin.txt
+index 495e4f4586..0dff47f786 100644
+--- a/src/lang/latin.txt
++++ b/src/lang/latin.txt
+@@ -2570,6 +2570,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Struere
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Statio solita
+ STR_STATION_CLASS_WAYP                                          :Interloci
+ 
+diff --git a/src/lang/latvian.txt b/src/lang/latvian.txt
+index acb8a53ba5..18d52c383c 100644
+--- a/src/lang/latvian.txt
++++ b/src/lang/latvian.txt
+@@ -2879,10 +2879,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ārējās priek
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Iekšējās priekšpilsētas
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Pilsētas centrs
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Novērst uzlabojumus
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Izvēlieties, vai šī māja tiks aizsargāta pret nomaiņu, pilsētai augot
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Izslēgts
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Ieslēgts
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Noklusējuma
+ STR_STATION_CLASS_DFLT_STATION                                  :Noklusējuma stacija
+diff --git a/src/lang/lithuanian.txt b/src/lang/lithuanian.txt
+index e4f09b3baa..0408675eeb 100644
+--- a/src/lang/lithuanian.txt
++++ b/src/lang/lithuanian.txt
+@@ -2935,6 +2935,7 @@ STR_PICKER_MODE_ALL                                             :Visi
+ STR_HOUSE_PICKER_CLASS_ZONE1                                    :Kraštas
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Numatytoji
+ STR_STATION_CLASS_DFLT_STATION                                  :Numatytoji stotelė
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Numatytoji kelio stotelė
+diff --git a/src/lang/luxembourgish.txt b/src/lang/luxembourgish.txt
+index c01468dcca..90ab2d7976 100644
+--- a/src/lang/luxembourgish.txt
++++ b/src/lang/luxembourgish.txt
+@@ -2878,10 +2878,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Aner Viruerter
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Bannescht Viruerter
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Stadzentrum
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Upgrades verhënneren
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Wiel aus ob dëst Haus firun engem Ersetze geschützt gëtt wann d'Stad wiisst
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Aus
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Un
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Standard
+ STR_STATION_CLASS_DFLT_STATION                                  :Standardstatioun
+diff --git a/src/lang/macedonian.txt b/src/lang/macedonian.txt
+index 4b2f9cbabf..2ed3b9fd8a 100644
+--- a/src/lang/macedonian.txt
++++ b/src/lang/macedonian.txt
+@@ -1304,6 +1304,7 @@ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_AUTORAIL                         :{BLACK}Изгр
+ 
+ 
+ 
++
+ # Signal window
+ STR_BUILD_SIGNAL_ELECTRIC_ENTRY_TOOLTIP                         :{BLACK}Влез сигнализација (електрика){}Зелено е се додека има барем еден зелен излез-сигнал во продолжението на траката, во спротивно е црвено.
+ STR_BUILD_SIGNAL_ELECTRIC_EXIT_TOOLTIP                          :{BLACK}Излез Сигнализација (електрика){}Се однесува на ист начин како блок-сигналот, но потребно е да ја има точната боја на влезен и комбо пресигнал.
+diff --git a/src/lang/malay.txt b/src/lang/malay.txt
+index 1389312e48..397fcb8bce 100644
+--- a/src/lang/malay.txt
++++ b/src/lang/malay.txt
+@@ -2110,6 +2110,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Bina ste
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Stesen lazim
+ STR_STATION_CLASS_WAYP                                          :Tandatuju
+ 
+diff --git a/src/lang/maltese.txt b/src/lang/maltese.txt
+index 2ef8f2b525..06017ea97c 100644
+--- a/src/lang/maltese.txt
++++ b/src/lang/maltese.txt
+@@ -892,6 +892,7 @@ STR_NETWORK_SERVER_MESSAGE                                      :*** {STRING}
+ 
+ 
+ 
++
+ # Signal window
+ 
+ # Bridge selection window
+diff --git a/src/lang/maori.txt b/src/lang/maori.txt
+index 86c009de0c..52baee704e 100644
+--- a/src/lang/maori.txt
++++ b/src/lang/maori.txt
+@@ -2877,10 +2877,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Paenoho Waho
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Paenoho Roto
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Pokapū Tāone
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Āraia ngā whakamohoa
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Kōwhiria mehemea ka tiakina tēnei whare kei whakakapi ina tupu ake te tāone
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Poko
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Kā
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Taunoa
+ STR_STATION_CLASS_DFLT_STATION                                  :Teihana taunoa
+diff --git a/src/lang/marathi.txt b/src/lang/marathi.txt
+index ae4d024745..b00b579f52 100644
+--- a/src/lang/marathi.txt
++++ b/src/lang/marathi.txt
+@@ -1198,6 +1198,7 @@ STR_NETWORK_SERVER_MESSAGE                                      :*** {STRING}
+ 
+ 
+ 
++
+ # Signal window
+ 
+ # Bridge selection window
+diff --git a/src/lang/norwegian_bokmal.txt b/src/lang/norwegian_bokmal.txt
+index fcfe0bedfa..370cb5bf9c 100644
+--- a/src/lang/norwegian_bokmal.txt
++++ b/src/lang/norwegian_bokmal.txt
+@@ -2880,10 +2880,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ytre forsteder
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Indre forsteder
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Bysentrum
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Forhindre oppgraderinger
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Velg hvorvidt dette huset skal være beskyttet mot å bli byttet ut når byen vokser
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Av
+-STR_HOUSE_PICKER_PROTECT_ON                                     :På
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Standard
+ STR_STATION_CLASS_DFLT_STATION                                  :Standard stasjon
+diff --git a/src/lang/norwegian_nynorsk.txt b/src/lang/norwegian_nynorsk.txt
+index 92f59251aa..f4dc777297 100644
+--- a/src/lang/norwegian_nynorsk.txt
++++ b/src/lang/norwegian_nynorsk.txt
+@@ -2286,6 +2286,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Bygg sta
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Standard stasjon
+ STR_STATION_CLASS_WAYP                                          :Kontrollpunkt
+ 
+diff --git a/src/lang/persian.txt b/src/lang/persian.txt
+index 9863fe09f7..20607b8661 100644
+--- a/src/lang/persian.txt
++++ b/src/lang/persian.txt
+@@ -2309,10 +2309,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :حومه‌ها
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :حومه‌های داخلی
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :مرکز شهر
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :جلوگیری از ارتقا
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :انتخاب کنید که آیا این خانه با رشد شهر از جایگزینی در امان خواهد بود یا خیر
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :خاموش
+-STR_HOUSE_PICKER_PROTECT_ON                                     :روشن
++
+ 
+ STR_STATION_CLASS_DFLT                                          :ایستگاه پیش فرض
+ STR_STATION_CLASS_WAYP                                          :نقطه مسیر ها
+diff --git a/src/lang/polish.txt b/src/lang/polish.txt
+index ec35667743..f6b7659dd7 100644
+--- a/src/lang/polish.txt
++++ b/src/lang/polish.txt
+@@ -1470,6 +1470,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Zaznacz to pole
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Użyj tradycyjnego fonta typu sprite
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Zaznacz to pole, jeśli wolisz używać tradycyjnego fonta typu sprite o stałym rozmiarze
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Preferuj font domyślny
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Zaznacz to pole, jeśli wolisz używać fontu domyślnego zamiast wykrytych fontów zastępczych
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Wygładzanie fontów
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Zaznacz to pole, aby wygładzać fonty o zmiennym rozmiarze
+ 
+@@ -3258,10 +3260,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Przedmieścia z
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Przedmieścia wewnętrzne
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centrum miasta
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Zapobieganie modernizacji
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Określ, czy ten budynek ma być chroniony przed zastąpieniem w miarę rozwoju miasta
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Wył.
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Wł.
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Standardowa
+ STR_STATION_CLASS_DFLT_STATION                                  :Standardowa stacja
+diff --git a/src/lang/portuguese.txt b/src/lang/portuguese.txt
+index ed598c463d..ad57f530af 100644
+--- a/src/lang/portuguese.txt
++++ b/src/lang/portuguese.txt
+@@ -1087,10 +1087,12 @@ STR_GAME_OPTIONS_GUI_SCALE_AUTO                                 :Detetar automat
+ STR_GAME_OPTIONS_GUI_SCALE_AUTO_TOOLTIP                         :Marque esta opção para detetar automaticamente o tamanho do interface
+ 
+ STR_GAME_OPTIONS_GUI_SCALE_BEVELS                               :Escalar rebordos
+-STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marque esta opção para dimensionar os chanfros por tamanho de interface
++STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marque esta opção para dimensionar os rebordos das janelas em relação ao tamanho da interface
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Usar o tipo de letra com gráficos tradicionais
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Marque esta opção se prefere usar o tipo de letra tradicional de tamanho fixo
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Preferir tipo de letra padrão
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Marque esta opção se prefere usar o tipo de letra padrão em vez os tipos de letra alternativos encontrados no seu sistema.
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Tipos de letra com contornos suaves
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Marque esta opção para tipos de letra redimensionáveis com contornos suaves
+ 
+@@ -2254,7 +2256,7 @@ STR_INTRO_TOOLTIP_TOYLAND_LANDSCAPE                             :{BLACK}Selecion
+ 
+ STR_INTRO_TOOLTIP_GAME_OPTIONS                                  :{BLACK}Abrir opções de jogo
+ STR_INTRO_TOOLTIP_HIGHSCORE                                     :{BLACK}Abrir tabela de classificações
+-STR_INTRO_TOOLTIP_HELP                                          :{BLACK}Obter acesso a documentação e recursos online
++STR_INTRO_TOOLTIP_HELP                                          :{BLACK}Aceder a documentação e outros recursos online
+ STR_INTRO_TOOLTIP_ONLINE_CONTENT                                :{BLACK}Verificar conteúdo novo e atualizado para descarga
+ STR_INTRO_TOOLTIP_QUIT                                          :{BLACK}Sair de 'OpenTTD'
+ 
+@@ -2676,9 +2678,9 @@ STR_CONTENT_MATRIX_TOOLTIP                                      :{BLACK}Clique n
+ STR_CONTENT_SELECT_ALL_CAPTION                                  :{BLACK}Selecionar tudo
+ STR_CONTENT_SELECT_ALL_CAPTION_TOOLTIP                          :{BLACK}Marcar todo o conteúdo para ser descarregado
+ STR_CONTENT_SELECT_UPDATES_CAPTION                              :{BLACK}Sel. atualizações
+-STR_CONTENT_SELECT_UPDATES_CAPTION_TOOLTIP                      :{BLACK}Marcar todo o conteúdo que seja atualização ao conteúdo existente a ser descarregado
++STR_CONTENT_SELECT_UPDATES_CAPTION_TOOLTIP                      :{BLACK}Marcar para descarregar todo o conteúdo que seja uma atualização ao conteúdo já presente no seu sistema
+ STR_CONTENT_UNSELECT_ALL_CAPTION                                :{BLACK}Desselecionar tudo
+-STR_CONTENT_UNSELECT_ALL_CAPTION_TOOLTIP                        :{BLACK}Marcar todo o conteúdo que não deva ser descarregado
++STR_CONTENT_UNSELECT_ALL_CAPTION_TOOLTIP                        :{BLACK}Desmarcar todo o conteúdo selecionado
+ STR_CONTENT_SEARCH_EXTERNAL                                     :{BLACK}Pesquisar em páginas externas
+ STR_CONTENT_SEARCH_EXTERNAL_TOOLTIP                             :{BLACK}Escolher conteúdo não disponível no serviço de conteúdo do OpenTTD em páginas não associadas ao OpenTTD
+ STR_CONTENT_SEARCH_EXTERNAL_DISCLAIMER_CAPTION                  :{WHITE}Está a sair do OpenTTD!
+@@ -2879,10 +2881,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Subúrbios Peri
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Subúrbios Centrais
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro da localidade
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Impedir atualizações
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolha se esta casa será protegida contra a substituição à medida que localidade cresce
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Desativado
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Ativado
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Padrão
+ STR_STATION_CLASS_DFLT_STATION                                  :Estação padrão
+@@ -4950,13 +4950,13 @@ STR_TEXTFILE_JUMPLIST_ITEM                                      :{WHITE}{STRING}
+ STR_TEXTFILE_NAVBACK_TOOLTIP                                    :{BLACK}Recuar no histórico de navegação
+ STR_TEXTFILE_NAVFORWARD_TOOLTIP                                 :{BLACK}Avançar no histórico de navegação
+ STR_TEXTFILE_WRAP_TEXT                                          :{WHITE}Envolver o texto
+-STR_TEXTFILE_WRAP_TEXT_TOOLTIP                                  :{BLACK}Envolve o texto da janela de forma que não é necessário deslizar listagem
++STR_TEXTFILE_WRAP_TEXT_TOOLTIP                                  :{BLACK}Envolve o texto da janela de forma em que não seja necessário deslizar o conteúdo na horizontal
+ STR_TEXTFILE_VIEW_README                                        :{BLACK}Leia-me
+-STR_TEXTFILE_VIEW_README_TOOLTIP                                :Ver 'Leia-me' para este conteúdo
++STR_TEXTFILE_VIEW_README_TOOLTIP                                :Ver 'Leia-me' deste conteúdo
+ STR_TEXTFILE_VIEW_CHANGELOG                                     :{BLACK}Lista de alterações
+-STR_TEXTFILE_VIEW_CHANGELOG_TOOLTIP                             :Ver o registo de alterações para este conteúdo
++STR_TEXTFILE_VIEW_CHANGELOG_TOOLTIP                             :Ver o registo de alterações deste conteúdo
+ STR_TEXTFILE_VIEW_LICENCE                                       :{BLACK}Licença
+-STR_TEXTFILE_VIEW_LICENCE_TOOLTIP                               :Ver a licença para este conteúdo
++STR_TEXTFILE_VIEW_LICENCE_TOOLTIP                               :Ver a licença deste conteúdo
+ ###length 5
+ STR_TEXTFILE_README_CAPTION                                     :{WHITE}Leiame {STRING} de {STRING}
+ STR_TEXTFILE_CHANGELOG_CAPTION                                  :{WHITE}Lista de alterações {STRING} de {STRING}
+diff --git a/src/lang/romanian.txt b/src/lang/romanian.txt
+index 7bce57d4e8..b69f78c5c6 100644
+--- a/src/lang/romanian.txt
++++ b/src/lang/romanian.txt
+@@ -2833,10 +2833,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Suburbiile peri
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Suburbiile urbane
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centrul orașului
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Preveniți upgrade-urile
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Alege dacă această casă va fi protejată împotriva înlocuirii pe măsură ce orașul crește
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Oprit
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Pornit
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Implicită
+ STR_STATION_CLASS_DFLT_STATION                                  :Stație implicită
+diff --git a/src/lang/russian.txt b/src/lang/russian.txt
+index 5bb2e66611..af72c9eb6c 100644
+--- a/src/lang/russian.txt
++++ b/src/lang/russian.txt
+@@ -1235,6 +1235,8 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Масштаб
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Использовать растровый шрифт
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Включить/отключить использование классического растрового шрифта фиксированного размера
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Предпочитать шрифт по умолчанию
++STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Всегда использовать шрифт по умолчанию вместо динамически подгружаемых шрифтов при отображении символов, отсутствующих в текущем шрифте
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Сглаживание шрифтов
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Включить/отключить сглаживание масштабируемых шрифтов
+ 
+@@ -3049,10 +3051,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Перифер
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Центральные районы
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Центр
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Запрет улучшений
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Вы можете указать, что это здание нельзя заменять другим, несмотря на рост и расширение города.
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :отключён
+-STR_HOUSE_PICKER_PROTECT_ON                                     :включён
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Стандартная станция
+ STR_STATION_CLASS_DFLT_STATION                                  :Стандартная ж/д станция
+diff --git a/src/lang/serbian.txt b/src/lang/serbian.txt
+index 71c7e144e1..e5835e5a7b 100644
+--- a/src/lang/serbian.txt
++++ b/src/lang/serbian.txt
+@@ -2912,6 +2912,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Gradnja
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Podrazumevana stanica
+ STR_STATION_CLASS_WAYP                                          :Putanje
+ 
+diff --git a/src/lang/simplified_chinese.txt b/src/lang/simplified_chinese.txt
+index 1fa10969fc..653915355e 100644
+--- a/src/lang/simplified_chinese.txt
++++ b/src/lang/simplified_chinese.txt
+@@ -2878,10 +2878,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :外郊区
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :内郊区
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :城镇中心
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :防止升级
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :选择是否保护房屋以防止房屋随着城镇发展被替换
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :关闭
+-STR_HOUSE_PICKER_PROTECT_ON                                     :开启
++
+ 
+ STR_STATION_CLASS_DFLT                                          :默认
+ STR_STATION_CLASS_DFLT_STATION                                  :默认车站
+diff --git a/src/lang/slovak.txt b/src/lang/slovak.txt
+index 36628f4739..4d7fc0d3aa 100644
+--- a/src/lang/slovak.txt
++++ b/src/lang/slovak.txt
+@@ -2849,6 +2849,7 @@ STR_PICKER_HOUSE_CLASS_TOOLTIP                                  :Zvoľ veľkosť
+ STR_HOUSE_PICKER_CLASS_ZONE1                                    :Okraj
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Pôvodná
+ STR_STATION_CLASS_DFLT_STATION                                  :Predvolená stanica
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Predvolená zastávka
+diff --git a/src/lang/slovenian.txt b/src/lang/slovenian.txt
+index f73345f6e3..2b2c463d4b 100644
+--- a/src/lang/slovenian.txt
++++ b/src/lang/slovenian.txt
+@@ -2509,6 +2509,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Zgradi p
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Privzeta postaja
+ STR_STATION_CLASS_WAYP                                          :Točke poti
+ 
+diff --git a/src/lang/spanish.txt b/src/lang/spanish.txt
+index 00d8ed6738..aa1735ebb8 100644
+--- a/src/lang/spanish.txt
++++ b/src/lang/spanish.txt
+@@ -2847,10 +2847,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Suburbios exter
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Suburbios interiores
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro urbano
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Evitar mejoras
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Selecciona si esta casa estará protegida de reemplazos cuando el municipio crezca
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :No
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Sí
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Por defecto
+ STR_STATION_CLASS_DFLT_STATION                                  :Estación por defecto
+diff --git a/src/lang/spanish_MX.txt b/src/lang/spanish_MX.txt
+index 7743adf742..217dc38dc0 100644
+--- a/src/lang/spanish_MX.txt
++++ b/src/lang/spanish_MX.txt
+@@ -2871,10 +2871,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Suburbios exter
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Suburbios interiores
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Prevenir mejoras
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Optar por que el edificio no sea reemplazado cuando el pueblo crezca
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :No
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Sí
++
+ 
+ STR_STATION_CLASS_DFLT                                          :por defecto
+ STR_STATION_CLASS_DFLT_STATION                                  :Estación por defecto
+diff --git a/src/lang/swedish.txt b/src/lang/swedish.txt
+index 0dfbec3c64..ec3c882acd 100644
+--- a/src/lang/swedish.txt
++++ b/src/lang/swedish.txt
+@@ -2878,10 +2878,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Yttrerförorter
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Innerförorter
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Stadskärnan
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Förhindra uppgraderingar
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Välj huruvida detta hus ska skyddas från att ersättas i samband med att staden växer
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Av
+-STR_HOUSE_PICKER_PROTECT_ON                                     :På
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Original
+ STR_STATION_CLASS_DFLT_STATION                                  :Standardstation
+diff --git a/src/lang/tamil.txt b/src/lang/tamil.txt
+index d0fedf3dbf..f606038505 100644
+--- a/src/lang/tamil.txt
++++ b/src/lang/tamil.txt
+@@ -2542,6 +2542,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}இழ
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :இயல்பிருப்பு
+ STR_STATION_CLASS_DFLT_STATION                                  :இயல்பிருப்பு நிலையம்
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :இயல்பிருப்பு சாலை நிறுத்தம்
+diff --git a/src/lang/thai.txt b/src/lang/thai.txt
+index 49d3ff0d93..6409d9a165 100644
+--- a/src/lang/thai.txt
++++ b/src/lang/thai.txt
+@@ -2399,6 +2399,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}สร
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :สถานีมาตรฐาน
+ STR_STATION_CLASS_WAYP                                          :จุดตรวจ
+ 
+diff --git a/src/lang/traditional_chinese.txt b/src/lang/traditional_chinese.txt
+index 719ee310fb..5733fb158a 100644
+--- a/src/lang/traditional_chinese.txt
++++ b/src/lang/traditional_chinese.txt
+@@ -2878,10 +2878,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :遠郊
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :近郊
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :市鎮中心
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :防止升級
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :選擇是否要保護房屋以免房屋隨著市鎮的發展而被替換
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :關閉
+-STR_HOUSE_PICKER_PROTECT_ON                                     :開啟
++
+ 
+ STR_STATION_CLASS_DFLT                                          :預設
+ STR_STATION_CLASS_DFLT_STATION                                  :預設車站
+diff --git a/src/lang/turkish.txt b/src/lang/turkish.txt
+index a396ffd3a1..5b8612f119 100644
+--- a/src/lang/turkish.txt
++++ b/src/lang/turkish.txt
+@@ -2803,6 +2803,7 @@ STR_HOUSE_PICKER_CLASS_ZONE4                                    :İç banliyöle
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Şehir merkezi
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :Varsayılan
+ STR_STATION_CLASS_DFLT_STATION                                  :Varsayılan istasyon
+ STR_STATION_CLASS_DFLT_ROADSTOP                                 :Varsayılan yol durağı
+diff --git a/src/lang/ukrainian.txt b/src/lang/ukrainian.txt
+index 0b73966f85..fe5c589d21 100644
+--- a/src/lang/ukrainian.txt
++++ b/src/lang/ukrainian.txt
+@@ -2986,10 +2986,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Передмі
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Щільне передмістя
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Центр міста
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Захист від оновлень
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Укажіть, чи буде захищено цю будівлю від змін у разі зростання міста
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :вимкнено
+-STR_HOUSE_PICKER_PROTECT_ON                                     :увімкнено
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Звичайна
+ STR_STATION_CLASS_DFLT_STATION                                  :Звичайна станція
+diff --git a/src/lang/urdu.txt b/src/lang/urdu.txt
+index 12174a8b1b..4a957b0060 100644
+--- a/src/lang/urdu.txt
++++ b/src/lang/urdu.txt
+@@ -1984,6 +1984,7 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}کھین
+ 
+ 
+ 
++
+ STR_STATION_CLASS_DFLT                                          :طے شدہ اسٹیشن
+ STR_STATION_CLASS_WAYP                                          :گزرگاہیں
+ 
+diff --git a/src/lang/vietnamese.txt b/src/lang/vietnamese.txt
+index e80fb49fc2..8cd03d4aa6 100644
+--- a/src/lang/vietnamese.txt
++++ b/src/lang/vietnamese.txt
+@@ -2875,10 +2875,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Phía ngoài ng
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Phía trong ngoại ô
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Nội thành
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Ngăn chặn nâng cấp
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Chọn nếu ngôi nhà này có được bảo vệ khỏi việc bị thay thế hay không khi thị trấn phát triển
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :Tắt
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Bật
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Mặc định
+ STR_STATION_CLASS_DFLT_STATION                                  :Trạm mặc định
+diff --git a/src/lang/welsh.txt b/src/lang/welsh.txt
+index 9d7d8ec871..4eee389e06 100644
+--- a/src/lang/welsh.txt
++++ b/src/lang/welsh.txt
+@@ -2863,10 +2863,8 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Maestrefi Allan
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Maestrefi Mewnol
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Canol y ddinas
+ 
+-STR_HOUSE_PICKER_PROTECT_TITLE                                  :Atal uwchraddiadau
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Dewis a fydd y tŷ yma'n cael ei amddiffyn rhag disodli wrth i'r dref tyfu
+-STR_HOUSE_PICKER_PROTECT_OFF                                    :I ffwrdd
+-STR_HOUSE_PICKER_PROTECT_ON                                     :Ymlaen
++
+ 
+ STR_STATION_CLASS_DFLT                                          :Rhagosodiad
+ STR_STATION_CLASS_DFLT_STATION                                  :Gorsaf rhagosodedig
+-- 
+2.55.0
+

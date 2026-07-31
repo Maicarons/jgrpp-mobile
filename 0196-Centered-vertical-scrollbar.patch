@@ -1,0 +1,29 @@
+From 963cd3c5eab601bc8f1a43224c6e0dd902641e5f Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 12 Apr 2015 22:55:07 +0300
+Subject: [PATCH 0196/1053] Centered vertical scrollbar
+
+---
+ src/widget.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 20fa5d1c96..21bb369d1e 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -388,10 +388,10 @@ static inline void DrawHorizontalScrollbar(const Rect &r, Colours colour, bool l
+ 	int height = NWidgetScrollbar::GetVerticalDimension().height;
+ 
+ 	DrawFrameRect(r.left, r.top, r.left + width - 1, r.bottom, colour, left_clicked ? FR_LOWERED : FR_NONE);
+-	DrawSprite(SPR_ARROW_LEFT, PAL_NONE, r.left + 1 + left_clicked, r.top + height / 2 + 1 + left_clicked);
++	DrawSpriteCenteredRect(SPR_ARROW_LEFT, PAL_NONE, r.left + left_clicked * 2, r.top + 2 + left_clicked * 2, r.left + height, r.bottom);
+ 
+ 	DrawFrameRect(r.right - (width - 1), r.top, r.right, r.bottom, colour, right_clicked ? FR_LOWERED : FR_NONE);
+-	DrawSprite(SPR_ARROW_RIGHT, PAL_NONE, r.right - (width - 2) + right_clicked, r.top + height / 2 + 1 + right_clicked);
++	DrawSpriteCenteredRect(SPR_ARROW_RIGHT, PAL_NONE, r.right - width + right_clicked * 2, r.top + 2 + right_clicked * 2, r.right, r.bottom);
+ 
+ 	int c1 = _colour_gradient[colour & 0xF][3];
+ 	int c2 = _colour_gradient[colour & 0xF][7];
+-- 
+2.55.0
+

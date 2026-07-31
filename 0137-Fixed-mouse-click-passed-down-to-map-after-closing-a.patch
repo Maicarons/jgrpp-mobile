@@ -1,0 +1,42 @@
+From 15db61be6912f57c4dcb320bb840df9c4e7bf0fb Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 3 Jun 2014 20:32:39 +0300
+Subject: [PATCH 0137/1053] Fixed mouse click passed down to map after closing
+ a window.
+
+---
+ src/window.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index a037d6d19a..88f8165325 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2837,6 +2837,7 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 	 * But there is no company related window open anyway, so _current_company is not used. */
+ 	assert(HasModalProgress() || IsLocalCompany());
+ 
++	static bool mouse_down_on_viewport = false;
+ 	int x = _cursor.pos.x;
+ 	int y = _cursor.pos.y;
+ 	Window *w = FindWindowFromPt(x, y);
+@@ -2889,13 +2890,15 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 					_scrolling_viewport = true;
+ 					_cursor.fix_at = false;
+ 				}
++				mouse_down_on_viewport = true;
+ 				break;
+ 
+ 			case MC_LEFT_UP:
+-				if (!_left_button_dragged) {
++				if (!_left_button_dragged && mouse_down_on_viewport) {
+ 					HandleViewportMouseUp(vp, x, y);
+ 				}
+ 				_left_button_dragged = false;
++				mouse_down_on_viewport = false;
+ 				break;
+ 
+ 			case MC_RIGHT:
+-- 
+2.55.0
+

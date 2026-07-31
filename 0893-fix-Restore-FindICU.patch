@@ -1,0 +1,60 @@
+From 6a317801ea82f55e7f674d21314242b8a4d5bda1 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sat, 6 Apr 2024 01:31:03 +0100
+Subject: [PATCH 0893/1053] fix: Restore FindICU
+
+fix: update CMakeLists to new format
+---
+ CMakeLists.txt      | 8 ++++----
+ cmake/FindICU.cmake | 9 +++++----
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 70e8dfdf2f..aa1eb4672f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -248,15 +248,15 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
+ 
+ include(MSVCFilters)
+ 
++add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
+ if(ANDROID)
+-    add_library(openttd SHARED ${GENERATED_SOURCE_FILES})
+     set(BINARY_NAME application)
+-    target_link_libraries(openttd log z)
++    target_link_libraries(openttd_lib log z)
++    add_library(openttd SHARED)
+ else()
+-    add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
+     add_executable(openttd WIN32)
+-    add_executable(openttd_test)
+ endif()
++add_executable(openttd_test)
+ 
+ set_target_properties(openttd PROPERTIES OUTPUT_NAME "${BINARY_NAME}")
+ # All other files are added via target_sources()
+diff --git a/cmake/FindICU.cmake b/cmake/FindICU.cmake
+index efb3ba3abf..15c0edc047 100644
+--- a/cmake/FindICU.cmake
++++ b/cmake/FindICU.cmake
+@@ -42,12 +42,13 @@ foreach(MOD_NAME IN LISTS ICU_FIND_COMPONENTS)
+     # Check the libraries returned by pkg-config really exist.
+     unset(PC_LIBRARIES)
+     foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
+-        unset(PC_LIBRARY CACHE)
+-        find_library(PC_LIBRARY NAMES ${LIBRARY})
+-        if(NOT PC_LIBRARY)
++        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
++            find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
++        endif()
++        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+             unset(PC_ICU_${MOD_NAME}_FOUND)
+         endif()
+-        list(APPEND PC_LIBRARIES ${PC_LIBRARY})
++        list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
+     endforeach()
+     unset(PC_LIBRARY CACHE)
+ 
+-- 
+2.55.0
+

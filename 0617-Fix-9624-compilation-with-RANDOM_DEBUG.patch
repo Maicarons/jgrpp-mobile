@@ -1,0 +1,29 @@
+From 8a250da3bba2e4f075166635401d8f6fdd7723c6 Mon Sep 17 00:00:00 2001
+From: glx22 <glx@openttd.org>
+Date: Tue, 19 Oct 2021 03:06:01 +0200
+Subject: [PATCH 0617/1053] Fix #9624: compilation with RANDOM_DEBUG
+
+---
+ src/network/network_client.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/network/network_client.cpp b/src/network/network_client.cpp
+index 22f7278f3e..bc5f24ac38 100644
+--- a/src/network/network_client.cpp
++++ b/src/network/network_client.cpp
+@@ -858,7 +858,11 @@ NetworkRecvStatus ClientNetworkGameSocketHandler::Receive_SERVER_FRAME(Packet *p
+ #ifdef ENABLE_NETWORK_SYNC_EVERY_FRAME
+ 	/* Test if the server supports this option
+ 	 *  and if we are at the frame the server is */
+-	if (p->pos + 1 < p->size) {
++#ifdef NETWORK_SEND_DOUBLE_SEED
++	if (p->CanReadFromPacket(sizeof(uint32) + sizeof(uint32))) {
++#else
++	if (p->CanReadFromPacket(sizeof(uint32))) {
++#endif
+ 		_sync_frame = _frame_counter_server;
+ 		_sync_seed_1 = p->Recv_uint32();
+ #ifdef NETWORK_SEND_DOUBLE_SEED
+-- 
+2.55.0
+

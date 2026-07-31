@@ -1,0 +1,19 @@
+From 7120636d014925bffeb82344e8475befdf3ba6bf Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 10 Dec 2021 02:38:09 +0200
+Subject: [PATCH 0745/1053] Updated .ottdrev to version 12.1
+
+---
+ .ottdrev | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index 5ca22e1b18..de6bbcb484 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-1.11.2	20210503	0	672f285218c6817784d86f737987b75db4bc78fc	1	1	2021
++12.1	20211108	0	17dfc6e28aac5ad2290e849b03893a416be97b03	1	1	2021
+-- 
+2.55.0
+

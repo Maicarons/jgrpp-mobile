@@ -1,0 +1,22 @@
+From c1908fcda54af6fccc8bfd128310af84e5c2c88b Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 11 Apr 2016 01:50:01 +0300
+Subject: [PATCH 0268/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 4ce410b16c..0dd18774c3 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -2,3 +2,5 @@
+ - 'Place Sign' does not work. Landscaping - Place Sign works.
+ 
+ - Multiplayer client list is too small again.
++
++- Selecting bigger font size crashes the game.
+-- 
+2.55.0
+

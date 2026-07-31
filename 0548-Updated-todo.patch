@@ -1,0 +1,22 @@
+From ef449023b203f48ac1806576d86a0c9b49637d46 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 22 Mar 2020 21:45:58 +0200
+Subject: [PATCH 0548/1053] Updated todo
+
+---
+ todo.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/todo.txt b/todo.txt
+index fa514af9bd..c900f3d552 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -9,4 +9,4 @@
+ 
+ - World map is too wide.
+ 
+-- Build rail window is ugly.
++- Build rail popup list is ugly.
+-- 
+2.55.0
+

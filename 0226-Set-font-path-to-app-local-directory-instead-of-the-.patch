@@ -1,0 +1,41 @@
+From 16f249f025e175f067200497634d4c3ed27c1151 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sat, 5 Dec 2015 23:53:14 +0200
+Subject: [PATCH 0226/1053] Set font path to app local directory instead of the
+ /system/fonts, because random devices miss random fonts
+
+---
+ src/openttd.cpp | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/src/openttd.cpp b/src/openttd.cpp
+index 55d3ade155..ca4f58f815 100644
+--- a/src/openttd.cpp
++++ b/src/openttd.cpp
+@@ -72,6 +72,8 @@
+ #ifdef __ANDROID__
+ #include <SDL_android.h>
+ #endif
++#include <limits.h>
++#include <string>
+ 
+ void CallLandscapeTick();
+ void IncreaseDate();
+@@ -734,6 +736,14 @@ int openttd_main(int argc, char *argv[])
+ 	 * just be out of the bounds of the window. */
+ 	_cursor.in_window = true;
+ 
++	{
++		// Configure local font path on Android
++		//char curdir[PATH_MAX];
++		//getcwd(curdir, sizeof(curdir));
++		//setenv("FONTCONFIG_FONTS", (std::string(curdir) + "/fonts").c_str(), 1);
++		setenv("FONTCONFIG_FONTS", "fonts", 1);
++		DEBUG(misc, 1, "Set FONTCONFIG_FONTS to %s", getenv("FONTCONFIG_FONTS"));
++	}
+ 	/* enumerate language files */
+ 	InitializeLanguagePacks();
+ 
+-- 
+2.55.0
+

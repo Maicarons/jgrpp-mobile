@@ -1,0 +1,20 @@
+From ba809d1b211deaec09c1b2c4c8292004db507341 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 27 May 2014 21:07:36 +0300
+Subject: [PATCH 0116/1053] Removed todo, it's not needed anymore
+
+---
+ todo.txt | 1 -
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 todo.txt
+
+diff --git a/todo.txt b/todo.txt
+deleted file mode 100644
+index 36c93f49af..0000000000
+--- a/todo.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-- Add Load button to Play Heightmap dialog
+-- 
+2.55.0
+

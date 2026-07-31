@@ -1,0 +1,36 @@
+From 615ad710de5a68f76bf64ba5cd1020adacd7f362 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 11 Apr 2016 01:13:01 +0300
+Subject: [PATCH 0266/1053] Fixed wrong minimap legend clicks items after few
+ minimap usages
+
+---
+ src/smallmap_gui.cpp | 1 +
+ todo.txt             | 2 --
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/smallmap_gui.cpp b/src/smallmap_gui.cpp
+index 8e83c07461..3eacb7f902 100644
+--- a/src/smallmap_gui.cpp
++++ b/src/smallmap_gui.cpp
+@@ -1353,6 +1353,7 @@ int SmallMapWindow::GetPositionOnLegend(Point pt)
+ 	uint line = (pt.y - wi->pos_y - WD_FRAMERECT_TOP) / this->row_height;
+ 	uint columns = this->GetNumberColumnsLegend(wi->current_x);
+ 	uint number_of_rows = this->GetNumberRowsLegend(columns);
++	number_of_rows = this->min_number_of_fixed_rows;
+ 	if (line >= number_of_rows) return -1;
+ 
+ 	bool rtl = _current_text_dir == TD_RTL;
+diff --git a/todo.txt b/todo.txt
+index 745939c084..4ce410b16c 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -2,5 +2,3 @@
+ - 'Place Sign' does not work. Landscaping - Place Sign works.
+ 
+ - Multiplayer client list is too small again.
+-
+-- Minimap legend clicks wrong items after few usages.
+-- 
+2.55.0
+

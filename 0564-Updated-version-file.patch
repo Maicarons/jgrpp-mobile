@@ -1,0 +1,19 @@
+From ac91ee617aad174c85ebff1bd448492d076f7d12 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 25 Jan 2021 20:01:01 +0200
+Subject: [PATCH 0564/1053] Updated version file
+
+---
+ .ottdrev | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index 48670fd10a..5ae0733bbb 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-1.9.3	20190916	0	f6643952ce53b1823c2273964466f785a907ec1a	1	1
++1.11.0-beta1	20210122	0	a252679a121a3e989ba76fae29007151fdac26a1	1	1	2021
+-- 
+2.55.0
+

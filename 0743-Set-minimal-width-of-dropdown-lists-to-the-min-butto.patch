@@ -1,0 +1,25 @@
+From 6c28ef9960fddd250c8ad78860e4cb770a688ced Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 9 Dec 2021 02:25:09 +0200
+Subject: [PATCH 0743/1053] Set minimal width of dropdown lists to the min
+ button size
+
+---
+ src/widgets/dropdown.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 4589429ffc..09a4953545 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -470,6 +470,7 @@ void ShowDropDownListAt(Window *w, DropDownList &&list, int selected, int button
+ 	}
+ 
+ 	if (auto_width) width = std::max(width, max_item_width);
++	width = GetMinButtonSize(width);
+ 
+ 	Point dw_pos = { w->left + (_current_text_dir == TD_RTL ? wi_rect.right + 1 - (int)width : wi_rect.left), top};
+ 	Dimension dw_size = {width, height};
+-- 
+2.55.0
+

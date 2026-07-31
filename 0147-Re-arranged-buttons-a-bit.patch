@@ -1,0 +1,29 @@
+From c0d262b572ad466a13bd8c862ed4dfe6460a8b27 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 19 Jul 2014 22:21:29 +0300
+Subject: [PATCH 0147/1053] Re-arranged buttons a bit
+
+---
+ src/toolbar_gui.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 0afa8727b8..9a8641ad7f 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -1643,10 +1643,10 @@ class NWidgetVerticalToolbarContainer : public NWidgetToolbarContainer {
+ 		};
+ 		// Full-length toolbar without switch button, if enough space
+ 		static const byte arrange_left_all[] = {
+-			32, 30, 31, 19, 20,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10,
++			32, 30, 31, 19, 20,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 13,
+ 		};
+ 		static const byte arrange_right_all[] = {
+-			11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28,
++			10, 11, 12, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28,
+ 		};
+ 
+ 		spacer_count = 0;
+-- 
+2.55.0
+

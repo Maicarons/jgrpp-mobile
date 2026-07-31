@@ -1,0 +1,31 @@
+From cc8a1d76d333a000c5d5bce39b8af3abf57310b5 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Feb 2022 01:12:35 +0200
+Subject: [PATCH 0799/1053] Emscripten: updated readme
+
+---
+ os/emscripten/README.md | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/os/emscripten/README.md b/os/emscripten/README.md
+index 2af4ab3dbc..7cd818c7d6 100644
+--- a/os/emscripten/README.md
++++ b/os/emscripten/README.md
+@@ -1,8 +1,13 @@
+ ## How to build with Emscripten
+ 
+-Building with Emscripten works with emsdk 2.0.31 and above.
++Building with Emscripten works with emsdk 3.0.0 and above.
++
++You will also need autoconf, libharfbuzz-dev, and libicu-dev installed on your host OS.
++
+ 
+ ```
++  sudo apt-get install autoconf automake libtool libharfbuzz-dev libicu-dev
++
+   ./emscripten-build.sh
+ ```
+ 
+-- 
+2.55.0
+

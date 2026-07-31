@@ -1,0 +1,32 @@
+From aefe44e67e48b3319880a8ffd168b201c7de38ba Mon Sep 17 00:00:00 2001
+From: glx <glx@openttd.org>
+Date: Sat, 9 Mar 2019 22:31:47 +0100
+Subject: [PATCH 0456/1053] Fix: [AzurePipelines] don't assume master as target
+ branch when rebasing PRs
+
+---
+ azure-pipelines/templates/ci-git-rebase.yml | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/azure-pipelines/templates/ci-git-rebase.yml b/azure-pipelines/templates/ci-git-rebase.yml
+index 924302fee3..19deb2f6d3 100644
+--- a/azure-pipelines/templates/ci-git-rebase.yml
++++ b/azure-pipelines/templates/ci-git-rebase.yml
+@@ -1,9 +1,9 @@
+ steps:
+-# Rebase to origin/master for every PR. This means users don't have to
+-# rebase every time master changes. As long as the PR applies cleanly, we
++# Rebase to target branch for every PR. This means users don't have to
++# rebase every time target branch changes. As long as the PR applies cleanly, we
+ # will validate it.
+-- script: |
++- bash: |
+     git config user.email 'info@openttd.org'
+     git config user.name 'OpenTTD CI'
+-    git rebase origin/master
+-  displayName: 'Rebase to master'
++    git rebase origin/$SYSTEM_PULLREQUEST_TARGETBRANCH
++  displayName: 'Rebase to $(System.PullRequest.TargetBranch)'
+-- 
+2.55.0
+

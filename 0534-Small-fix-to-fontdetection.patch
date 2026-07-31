@@ -1,0 +1,25 @@
+From de13867a4abc18a0ed60d093f35eac6aad10a5f6 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 17 Oct 2019 21:18:54 +0300
+Subject: [PATCH 0534/1053] Small fix to fontdetection
+
+---
+ src/fontdetection.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fontdetection.cpp b/src/fontdetection.cpp
+index 39e7b2eca9..8e9b20a94f 100644
+--- a/src/fontdetection.cpp
++++ b/src/fontdetection.cpp
+@@ -705,7 +705,7 @@ bool SetFallbackFont(FreeTypeSettings *settings, const char *language_isocode, i
+ 
+ 			callback->SetFontNames(settings, (const char*)file);
+ 
+-			missing = callback->FindMissingGlyphs(NULL);
++			missing += callback->FindMissingGlyphs(NULL);
+ 			DEBUG(freetype, 1, "Font \"%s\" misses %d glyphs for lang %s", file, missing, lang);
+ 
+ 			if (missing < best_missing_glypths) {
+-- 
+2.55.0
+

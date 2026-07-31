@@ -1,0 +1,26 @@
+From 28b88f50024d9a8bce25da318ca8d3a3a5797db5 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Mon, 2 Feb 2026 13:02:56 +0000
+Subject: [PATCH 1039/1053] Fix b4ac5e2231: don't compare clear density with
+ ClearGround (#15217)
+
+---
+ src/town_cmd.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/town_cmd.cpp b/src/town_cmd.cpp
+index b1db55ff9d..ae00db2891 100644
+--- a/src/town_cmd.cpp
++++ b/src/town_cmd.cpp
+@@ -2146,7 +2146,7 @@ static CommandCost TownCanBePlacedHere(TileIndex tile, bool check_surrounding)
+ 			switch (GetTileType(t)) {
+ 				case MP_CLEAR:
+ 					/* Don't allow rough tiles, as they are likely wetlands. */
+-					if (GetClearDensity(t) == CLEAR_ROUGH) continue;
++					if (GetClearGround(t) == CLEAR_ROUGH) continue;
+ 					break;
+ 
+ 				case MP_TREES:
+-- 
+2.55.0
+

@@ -1,0 +1,58 @@
+From 4206d8a84a2b0fa0ea0d5d8b3bb7c29f4051dfdf Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 11 Apr 2016 01:15:24 +0300
+Subject: [PATCH 0267/1053] Updated translations
+
+---
+ src/lang/croatian.txt |  2 ++
+ src/lang/serbian.txt  | 24 ++++++++++++++++++++++++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index d5f917f415..bb22cdaf68 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -5111,6 +5111,8 @@ STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Veličin
+ STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Veličina svih elemenata korisničkog sučelja
+ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Veličina fonta
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Veličina svih fontova u igri
++STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :{BLACK}Potvrdi akcije
++STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :{BLACK}Prikaži dijalog potvrde pri gradnji cesta i stanica
+ STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Zatvori sve otvorene prozore (osim zakačenih)
+ STR_TABLET_SHIFT_TOOLTIP                                        :{BLACK}Pritisnuti za procjenu troškova izvođenja neke akcije
+ STR_TABLET_CTRL_TOOLTIP                                         :{BLACK}Koristiti za sve akcije za koje se koristi tipka "CTRL"
+diff --git a/src/lang/serbian.txt b/src/lang/serbian.txt
+index 2fea1a9e3e..a49e1dc098 100644
+--- a/src/lang/serbian.txt
++++ b/src/lang/serbian.txt
+@@ -5181,3 +5181,27 @@ STR_SHIP                                                        :{BLACK}{SHIP}
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
+ 
+ # Android strings
++STR_ABOUT_MENU_TUTORIAL                                         :{BLACK}Priručnik
++STR_SMALLMAP_TOOLTIP_SHOW_LEGEND                                :{BLACK}Prikaži legendu mape / opis simbola na mapi
++STR_CONFIG_SETTING_VERTICAL_TOOLBAR                             :{BLACK}Vertikalna alatna traka
++STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT                    :{BLACK}Glavna alatna traka je podeljena na dve okomite alatne trake na rubovima ekrana
++STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Veličina dugmeta
++STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Veličina svih elemenata korisničkog interfejsa
++STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Veličina slova
++STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Veličina svih slova u igri
++STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :{BLACK}Potvrdi akcije
++STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :{BLACK}Prikaži dijalog potvrde pri gradnji drumova i stanica
++STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Zatvori sve otvorene prozore (osim zakačenih)
++STR_TABLET_SHIFT_TOOLTIP                                        :{BLACK}Pritisnite za dobivanje procene troškova odabrane akcije
++STR_TABLET_CTRL_TOOLTIP                                         :{BLACK}Koristite za sve akcije za koje se koristi tipka "CTRL"
++STR_TUTORIAL_WINDOW_TITLE                                       :{BLACK}Video za učenje
++STR_TUTORIAL_WINDOW_TOOLTIP                                     :{BLACK}Otvori video plejer za gledanje videa za učenje
++STR_TUTORIAL_ROADS_AND_STATIONS                                 :{BLACK}Gradnja cesta i stanica, kupovina vozila
++STR_TUTORIAL_RAILWAYS                                           :{BLACK}Šine i vozovi
++STR_TUTORIAL_ROAD_VEHICLES                                      :{BLACK}Drumska vozila
++STR_TUTORIAL_SHIPS                                              :{BLACK}Brodovi i dokovi
++STR_TUTORIAL_CARGO                                              :{BLACK}Tip tereta
++STR_SAVELOAD_LOAD_NETWORK_BUTTON                                :{BLACK}Učitaj igru sa mreže
++STR_SAVELOAD_LOAD_NETWORK_TOOLTIP                               :{BLACK}Učitaj igru sa mrežne pohrane podataka
++STR_SAVELOAD_SAVE_NETWORK_BUTTON                                :{BLACK}Spremi igru na mrežu
++STR_SAVELOAD_SAVE_NETWORK_TOOLTIP                               :{BLACK}Spremi igru na mrežu
+-- 
+2.55.0
+

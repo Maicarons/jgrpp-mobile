@@ -1,0 +1,25 @@
+From e004c5e6fe73f0a5ef23c5a47f2b520e70d44ead Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 8 Apr 2016 21:20:01 +0300
+Subject: [PATCH 0261/1053] Oops
+
+---
+ src/settings_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 4be249c44e..0ec8e9491b 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -610,7 +610,7 @@ struct GameOptionsWindow : Window {
+ 	{
+ 		if (!gui_scope) return;
+ 		this->SetWidgetLoweredState(WID_GO_FULLSCREEN_BUTTON, _fullscreen);
+-		this->SetWidgetLoweredState(WID_GO_VERTICAL_TOOLBAR, _settings_client.gui.vertical_toolbar);
++		//this->SetWidgetLoweredState(WID_GO_VERTICAL_TOOLBAR, _settings_client.gui.vertical_toolbar);
+ 		this->SetWidgetLoweredState(WID_GO_BUILD_CONFIRMATION, _settings_client.gui.build_confirmation);
+ 
+ 		bool missing_files = BaseGraphics::GetUsedSet()->GetNumMissing() == 0;
+-- 
+2.55.0
+

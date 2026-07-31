@@ -1,0 +1,22 @@
+From 0eec38eb5bba0be45da9c78ddd61f46625b3b404 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 25 Jan 2017 21:29:54 +0200
+Subject: [PATCH 0302/1053] Updated TODO
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 07aff99b86..726f212c93 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -2,3 +2,5 @@
+ - 'Place Sign' does not work. Landscaping - Place Sign works.
+ 
+ - Smallmap UI won't fit all FIRS industries.
++
++- Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), and fix double-backspace bug in SDL.
+-- 
+2.55.0
+

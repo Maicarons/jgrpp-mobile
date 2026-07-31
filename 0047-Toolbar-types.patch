@@ -1,0 +1,84 @@
+From cf89f0ff5e5c3f113520db288bd49c11e8b08ef9 Mon Sep 17 00:00:00 2001
+From: Juanjo <juanjo.ng.83@gmail.com>
+Date: Sat, 29 Jun 2013 19:17:27 +0200
+Subject: [PATCH 0047/1053] Toolbar types.
+
+---
+ projects/openttd_vs100.vcxproj         | 1 +
+ projects/openttd_vs100.vcxproj.filters | 3 +++
+ projects/openttd_vs80.vcproj           | 4 ++++
+ projects/openttd_vs90.vcproj           | 4 ++++
+ source.list                            | 1 +
+ 5 files changed, 13 insertions(+)
+
+diff --git a/projects/openttd_vs100.vcxproj b/projects/openttd_vs100.vcxproj
+index 2feba86c26..c85b1d6840 100644
+--- a/projects/openttd_vs100.vcxproj
++++ b/projects/openttd_vs100.vcxproj
+@@ -623,6 +623,7 @@
+     <ClInclude Include="..\src\tilehighlight_type.h" />
+     <ClInclude Include="..\src\tilematrix_type.hpp" />
+     <ClInclude Include="..\src\timetable.h" />
++    <ClInclude Include="..\src\toolbar_type.h" />
+     <ClInclude Include="..\src\toolbar_gui.h" />
+     <ClInclude Include="..\src\town.h" />
+     <ClInclude Include="..\src\town_type.h" />
+diff --git a/projects/openttd_vs100.vcxproj.filters b/projects/openttd_vs100.vcxproj.filters
+index 82b64ff76b..40dc6beb81 100644
+--- a/projects/openttd_vs100.vcxproj.filters
++++ b/projects/openttd_vs100.vcxproj.filters
+@@ -1098,6 +1098,9 @@
+     <ClInclude Include="..\src\timetable.h">
+       <Filter>Header Files</Filter>
+     </ClInclude>
++    <ClInclude Include="..\src\toolbar_type.h">
++      <Filter>Header Files</Filter>
++    </ClInclude>
+     <ClInclude Include="..\src\toolbar_gui.h">
+       <Filter>Header Files</Filter>
+     </ClInclude>
+diff --git a/projects/openttd_vs80.vcproj b/projects/openttd_vs80.vcproj
+index e417f4a136..3326538783 100644
+--- a/projects/openttd_vs80.vcproj
++++ b/projects/openttd_vs80.vcproj
+@@ -1766,6 +1766,10 @@
+ 				RelativePath=".\..\src\timetable.h"
+ 				>
+ 			</File>
++			<File
++				RelativePath=".\..\src\toolbar_type.h"
++				>
++			</File>
+ 			<File
+ 				RelativePath=".\..\src\toolbar_gui.h"
+ 				>
+diff --git a/projects/openttd_vs90.vcproj b/projects/openttd_vs90.vcproj
+index 6d9c92c40c..e7da3fb5ea 100644
+--- a/projects/openttd_vs90.vcproj
++++ b/projects/openttd_vs90.vcproj
+@@ -1763,6 +1763,10 @@
+ 				RelativePath=".\..\src\timetable.h"
+ 				>
+ 			</File>
++			<File
++				RelativePath=".\..\src\toolbar_type.h"
++				>
++			</File>
+ 			<File
+ 				RelativePath=".\..\src\toolbar_gui.h"
+ 				>
+diff --git a/source.list b/source.list
+index 17b937fb43..3e29ab45fe 100644
+--- a/source.list
++++ b/source.list
+@@ -358,6 +358,7 @@ tilehighlight_func.h
+ tilehighlight_type.h
+ tilematrix_type.hpp
+ timetable.h
++toolbar_type.h
+ toolbar_gui.h
+ town.h
+ town_type.h
+-- 
+2.55.0
+

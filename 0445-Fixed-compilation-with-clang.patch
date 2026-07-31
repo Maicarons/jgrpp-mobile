@@ -1,0 +1,24 @@
+From 2a04c343afefbcf633a61b33cc3a851e96fdeca2 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 26 Dec 2017 21:16:44 +0200
+Subject: [PATCH 0445/1053] Fixed compilation with clang
+
+---
+ src/3rdparty/squirrel/squirrel/sqobject.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/3rdparty/squirrel/squirrel/sqobject.h b/src/3rdparty/squirrel/squirrel/sqobject.h
+index d71e515a8d..0b4576f3d4 100644
+--- a/src/3rdparty/squirrel/squirrel/sqobject.h
++++ b/src/3rdparty/squirrel/squirrel/sqobject.h
+@@ -2,6 +2,7 @@
+ #ifndef _SQOBJECT_H_
+ #define _SQOBJECT_H_
+ 
++#include <limits>
+ #include "squtils.h"
+ 
+ #define SQ_CLOSURESTREAM_HEAD (('S'<<24)|('Q'<<16)|('I'<<8)|('R'))
+-- 
+2.55.0
+

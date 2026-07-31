@@ -1,0 +1,86 @@
+From 18c701d2741358f9306bdf91a2ff6b6349daf95c Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Wed, 25 Jan 2023 23:40:22 +0100
+Subject: [PATCH 0855/1053] Fix: warnings about obsolete settings/setting
+ values in Doxygen configurations
+
+---
+ Doxyfile.in                   | 4 +---
+ src/script/api/Doxyfile_AI.in | 3 +--
+ src/script/api/Doxyfile_GS.in | 3 +--
+ 3 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/Doxyfile.in b/Doxyfile.in
+index 8727594771..51a44526c3 100644
+--- a/Doxyfile.in
++++ b/Doxyfile.in
+@@ -41,7 +41,6 @@ INHERIT_DOCS           = YES
+ SEPARATE_MEMBER_PAGES  = NO
+ TAB_SIZE               = 2
+ ALIASES                =
+-TCL_SUBST              =
+ OPTIMIZE_OUTPUT_FOR_C  = YES
+ OPTIMIZE_OUTPUT_JAVA   = NO
+ OPTIMIZE_FOR_FORTRAN   = NO
+@@ -155,7 +154,6 @@ VERBATIM_HEADERS       = YES
+ # Configuration options related to the alphabetical class index
+ #---------------------------------------------------------------------------
+ ALPHABETICAL_INDEX     = NO
+-COLS_IN_ALPHA_INDEX    = 5
+ IGNORE_PREFIX          =
+ #---------------------------------------------------------------------------
+ # Configuration options related to the HTML output
+@@ -224,7 +222,7 @@ LATEX_OUTPUT           = latex
+ LATEX_CMD_NAME         = latex
+ MAKEINDEX_CMD_NAME     = makeindex
+ COMPACT_LATEX          = NO
+-PAPER_TYPE             = a4wide
++PAPER_TYPE             = a4
+ EXTRA_PACKAGES         =
+ LATEX_HEADER           =
+ LATEX_FOOTER           =
+diff --git a/src/script/api/Doxyfile_AI.in b/src/script/api/Doxyfile_AI.in
+index f0707e0d86..cde1f21350 100644
+--- a/src/script/api/Doxyfile_AI.in
++++ b/src/script/api/Doxyfile_AI.in
+@@ -121,7 +121,6 @@ VERBATIM_HEADERS       = NO
+ # configuration options related to the alphabetical class index
+ #---------------------------------------------------------------------------
+ ALPHABETICAL_INDEX     = NO
+-COLS_IN_ALPHA_INDEX    = 5
+ IGNORE_PREFIX          =
+ #---------------------------------------------------------------------------
+ # configuration options related to the HTML output
+@@ -151,7 +150,7 @@ LATEX_OUTPUT           = latex
+ LATEX_CMD_NAME         = latex
+ MAKEINDEX_CMD_NAME     = makeindex
+ COMPACT_LATEX          = NO
+-PAPER_TYPE             = a4wide
++PAPER_TYPE             = a4
+ EXTRA_PACKAGES         =
+ LATEX_HEADER           =
+ PDF_HYPERLINKS         = NO
+diff --git a/src/script/api/Doxyfile_GS.in b/src/script/api/Doxyfile_GS.in
+index 7dae7aad66..b017bc94c5 100644
+--- a/src/script/api/Doxyfile_GS.in
++++ b/src/script/api/Doxyfile_GS.in
+@@ -121,7 +121,6 @@ VERBATIM_HEADERS       = NO
+ # configuration options related to the alphabetical class index
+ #---------------------------------------------------------------------------
+ ALPHABETICAL_INDEX     = NO
+-COLS_IN_ALPHA_INDEX    = 5
+ IGNORE_PREFIX          =
+ #---------------------------------------------------------------------------
+ # configuration options related to the HTML output
+@@ -151,7 +150,7 @@ LATEX_OUTPUT           = latex
+ LATEX_CMD_NAME         = latex
+ MAKEINDEX_CMD_NAME     = makeindex
+ COMPACT_LATEX          = NO
+-PAPER_TYPE             = a4wide
++PAPER_TYPE             = a4
+ EXTRA_PACKAGES         =
+ LATEX_HEADER           =
+ PDF_HYPERLINKS         = NO
+-- 
+2.55.0
+

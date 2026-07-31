@@ -1,0 +1,22 @@
+From a0ef6ca2825820ca63e909d78e8b26a785a6b08a Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 10 Jun 2021 01:42:46 +0300
+Subject: [PATCH 0710/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index d0dbff51b8..de10627333 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -39,3 +39,5 @@
+ - Find some developer with a MacBook and $100 to publish the 'OpenTTD Webapp Launcher' to the Apple Store.
+ 
+ - Fast forward button requires separate rendering thread, implement frameskip instead.
++
++- Ctrl screen button is getting stuck in the pressed state.
+-- 
+2.55.0
+

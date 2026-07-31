@@ -1,0 +1,272 @@
+From 96501e9f08f44a23348be92c6f20021a9dc934d6 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 16 May 2016 22:15:41 +0300
+Subject: [PATCH 0280/1053] Warning: crashes! Confirmation dialog will also
+ show estimated cost
+
+---
+ src/build_confirmation_func.h  |  2 +
+ src/build_confirmation_gui.cpp | 67 +++++++++++++++++++++++++++-------
+ src/command.cpp                | 10 ++++-
+ src/misc_gui.cpp               |  5 +++
+ src/viewport.cpp               |  7 +++-
+ 5 files changed, 75 insertions(+), 16 deletions(-)
+
+diff --git a/src/build_confirmation_func.h b/src/build_confirmation_func.h
+index be9a400fea..7bbbba24ef 100644
+--- a/src/build_confirmation_func.h
++++ b/src/build_confirmation_func.h
+@@ -21,5 +21,7 @@ void ShowBuildConfirmationWindow();
+ void HideBuildConfirmationWindow();
+ bool ConfirmationWindowShown();
+ bool BuildConfirmationWindowProcessViewportClick();
++bool ConfirmationWindowEstimatingCost();
++void ConfirmationWindowSetEstimatedCost(Money cost);
+ 
+ #endif /* BUILD_CONFIRMATION_FUNC_H */
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 4c98ff9fc5..ce0e2157e9 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -29,34 +29,38 @@
+ 
+ #include "safeguards.h"
+ 
+-static const NWidgetPart _nested_station_build_info_widgets[] = {
++static const NWidgetPart _nested_build_info_widgets[] = {
+ 	NWidget(WWT_PANEL, COLOUR_GREY, WID_TT_BACKGROUND), SetMinimalSize(200, 32), EndContainer(),
+ };
+ 
+-static WindowDesc _station_build_info_desc(
++static WindowDesc _build_info_desc(
+ 	WDP_MANUAL, NULL, 0, 0, // Coordinates and sizes are not used,
+ 	WC_TOOLTIPS, WC_NONE,
+ 	WDF_NO_FOCUS,
+-	_nested_station_build_info_widgets, lengthof(_nested_station_build_info_widgets)
++	_nested_build_info_widgets, lengthof(_nested_build_info_widgets)
+ );
+ 
+ /** Window for displaying accepted goods for a station. */
+-struct StationBuildInfoWindow : public Window
++struct BuildInfoWindow : public Window
+ {
+ 	StationCoverageType sct;
++	bool station;
++	static Money cost;
+ 
+ 	static void show()
+ 	{
+-		StationCoverageType sct;
++		bool station = _settings_client.gui.station_show_coverage; // Station info is inaccurate when station coverage area option is disabled
++		StationCoverageType sct = SCT_ALL;
+ 		if (FindWindowByClass(WC_BUILD_STATION) != NULL) sct = SCT_ALL;
+ 		else if (FindWindowByClass(WC_BUS_STATION) != NULL) sct = SCT_PASSENGERS_ONLY;
+ 		else if (FindWindowByClass(WC_TRUCK_STATION) != NULL) sct = SCT_NON_PASSENGERS_ONLY;
+-		else return;
+-		new StationBuildInfoWindow(sct);
++		else station = false;
++		new BuildInfoWindow(station, sct);
+ 	}
+ 
+-	StationBuildInfoWindow(StationCoverageType sct) : Window(&_station_build_info_desc)
++	BuildInfoWindow(bool station, StationCoverageType sct) : Window(&_build_info_desc)
+ 	{
++		this->station = station;
+ 		this->sct = sct;
+ 		this->InitNested();
+ 
+@@ -74,7 +78,7 @@ struct StationBuildInfoWindow : public Window
+ 	virtual void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize)
+ 	{
+ 		size->width  = GetStringBoundingBox(STR_STATION_BUILD_COVERAGE_AREA_TITLE).width * 2.5;
+-		size->height = GetStringHeight(STR_STATION_BUILD_COVERAGE_AREA_TITLE, size->width) * 2;
++		size->height = GetStringHeight(STR_STATION_BUILD_COVERAGE_AREA_TITLE, size->width) * (this->station ? 3 : 1);
+ 
+ 		/* Increase slightly to have some space around the box. */
+ 		size->width  += 2 + WD_FRAMERECT_LEFT + WD_FRAMERECT_RIGHT;
+@@ -88,6 +92,17 @@ struct StationBuildInfoWindow : public Window
+ 		GfxFillRect(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1, PC_LIGHT_YELLOW);
+ 
+ 		int top = r.top + WD_FRAMERECT_TOP;
++		Money cost = BuildInfoWindow::cost;
++		StringID msg = STR_MESSAGE_ESTIMATED_COST;
++		SetDParam(0, cost);
++		if (cost < 0) {
++			msg = STR_MESSAGE_ESTIMATED_INCOME;
++			SetDParam(0, -cost);
++		}
++		top = DrawStringMultiLine(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, top, INT32_MAX, msg);
++
++		if (!this->station) return;
++
+ 		top = DrawStationCoverageAreaText(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, top, sct, _thd.outersize.x / TILE_SIZE / 2, false);
+ 		if (top - r.top <= GetStringHeight(STR_STATION_BUILD_COVERAGE_AREA_TITLE, r.right - r.left) * 1.5) {
+ 			DrawStationCoverageAreaText(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, top, sct, _thd.outersize.x / TILE_SIZE / 2, true);
+@@ -95,12 +110,14 @@ struct StationBuildInfoWindow : public Window
+ 	}
+ };
+ 
++Money BuildInfoWindow::cost = 0;
+ 
+ /** GUI for confirming building actions. */
+ struct BuildConfirmationWindow : Window {
+ 
+ 	// TODO: show estimated price
+ 	static bool shown;   ///< Just to speed up window hiding, HideBuildConfirmationWindow() is called very often.
++	static bool estimating_cost; ///< Calculate action cost instead of executing action.
+ 	Point selstart;      ///< The selection start on the viewport.
+ 	Point selend;        ///< The selection end on the viewport.
+ 
+@@ -128,6 +145,17 @@ struct BuildConfirmationWindow : Window {
+ 		this->viewport->dest_scrollpos_y = this->viewport->scrollpos_y;
+ 
+ 		BuildConfirmationWindow::shown = true;
++		BuildConfirmationWindow::estimating_cost = true;
++		ConfirmationWindowSetEstimatedCost(0); // Clear old value, just in case
++		// This is a hack - we invoke the build command with estimating_cost flag, which is equal to _shift_pressed,
++		// then we select last build tool, restore viewport selection, and hide all windows, which pop up when command is invoked,
++		// and all that just to get cost estimate value.
++		ConfirmPlacingObject();
++		ToolbarSelectLastTool();
++		_thd.selstart = selstart;
++		_thd.selend = selend;
++		BuildConfirmationWindow::estimating_cost = false;
++		MoveAllWindowsOffScreen();
+ 	}
+ 
+ 	~BuildConfirmationWindow()
+@@ -184,6 +212,7 @@ struct BuildConfirmationWindow : Window {
+ };
+ 
+ bool BuildConfirmationWindow::shown = false;
++bool BuildConfirmationWindow::estimating_cost = false;
+ 
+ static const NWidgetPart _nested_build_confirmation_widgets[] = {
+ 	NWidget(WWT_PANEL, COLOUR_GREY, WID_BC_PANEL),
+@@ -203,6 +232,8 @@ static WindowDesc _build_confirmation_desc(
+ */
+ void ShowBuildConfirmationWindow()
+ {
++	if (ConfirmationWindowEstimatingCost()) return; // Special case, ignore recursive call
++
+ 	HideBuildConfirmationWindow();
+ 
+ 	if (!_settings_client.gui.build_confirmation || _shift_pressed) {
+@@ -222,16 +253,16 @@ void ShowBuildConfirmationWindow()
+ 	w->SetDirty();
+ 	SetDirtyBlocks(0, 0, _screen.width, _screen.height); // I don't know what does this do, but it looks important
+ 
+-	if (_settings_client.gui.station_show_coverage) {
+-		StationBuildInfoWindow::show();
+-	}
++	BuildInfoWindow::show();
+ }
+ 
+ /**
+- * Destory build confirmation window, this does not cancel current action
++ * Destroy build confirmation window, this does not cancel current action
+ */
+ void HideBuildConfirmationWindow()
+ {
++	if (ConfirmationWindowEstimatingCost()) return; // Special case, ignore recursive call
++
+ 	if (!BuildConfirmationWindow::shown) return;
+ 
+ 	DeleteWindowById(WC_BUILD_CONFIRMATION, 0);
+@@ -262,3 +293,13 @@ bool BuildConfirmationWindowProcessViewportClick()
+ 
+ 	return false;
+ }
++
++bool ConfirmationWindowEstimatingCost()
++{
++	return BuildConfirmationWindow::estimating_cost;
++}
++
++void ConfirmationWindowSetEstimatedCost(Money cost)
++{
++	BuildInfoWindow::cost = cost;
++}
+diff --git a/src/command.cpp b/src/command.cpp
+index 769478ffa4..79a93c20e8 100644
+--- a/src/command.cpp
++++ b/src/command.cpp
+@@ -28,6 +28,7 @@
+ #include "object_base.h"
+ #include "string_func.h"
+ #include "tilehighlight_func.h"
++#include "build_confirmation_func.h"
+ 
+ #include "table/strings.h"
+ 
+@@ -553,11 +554,18 @@ bool DoCommandP(TileIndex tile, uint32 p1, uint32 p2, uint32 cmd, CommandCallbac
+ 	 * However, in case of incoming network commands,
+ 	 * map generation or the pause button we do want
+ 	 * to execute. */
+-	bool estimate_only = _shift_pressed && IsLocalCompany() &&
++	bool estimate_only = (_shift_pressed || ConfirmationWindowEstimatingCost()) &&
++			IsLocalCompany() &&
+ 			!_generating_world &&
+ 			!(cmd & CMD_NETWORK_COMMAND) &&
+ 			(cmd & CMD_ID_MASK) != CMD_PAUSE;
+ 
++	if (ConfirmationWindowEstimatingCost() && !estimate_only) {
++		// We cannot estimate cost, so abort the command - it will be repeated by confirmation dialog later
++		ShowEstimatedCostOrIncome(0, 0, 0);
++		return false;
++	}
++
+ 	/* We're only sending the command, so don't do
+ 	 * fancy things for 'success'. */
+ 	bool only_sending = _networking && !(cmd & CMD_NETWORK_COMMAND);
+diff --git a/src/misc_gui.cpp b/src/misc_gui.cpp
+index 9c22c450e0..7446e17348 100644
+--- a/src/misc_gui.cpp
++++ b/src/misc_gui.cpp
+@@ -26,6 +26,7 @@
+ #include "core/geometry_func.hpp"
+ #include "newgrf_debug.h"
+ #include "zoom_func.h"
++#include "build_confirmation_func.h"
+ 
+ #include "widgets/misc_widget.h"
+ 
+@@ -529,6 +530,10 @@ void ShowAboutWindow()
+  */
+ void ShowEstimatedCostOrIncome(Money cost, int x, int y)
+ {
++	if (ConfirmationWindowEstimatingCost()) {
++		ConfirmationWindowSetEstimatedCost(cost);
++		return;
++	}
+ 	StringID msg = STR_MESSAGE_ESTIMATED_COST;
+ 
+ 	if (cost < 0) {
+diff --git a/src/viewport.cpp b/src/viewport.cpp
+index 3e7e41bfb1..72e30f1347 100644
+--- a/src/viewport.cpp
++++ b/src/viewport.cpp
+@@ -3151,7 +3151,7 @@ EventState VpHandlePlaceSizingDrag()
+ 		return ES_HANDLED;
+ 	}
+ 
+-	ShowBuildConfirmationWindow(); // This will also remember tile selection, so it's okay for the4 code below
++	ShowBuildConfirmationWindow(); // This will also remember tile selection, so it's okay for the code below to change selection
+ 
+ 	/* mouse button released..
+ 	 * keep the selected tool, but reset it to the original mode. */
+@@ -3177,7 +3177,10 @@ place_mouseup:
+ void ConfirmPlacingObject()
+ {
+ 	Window *w = _thd.GetCallbackWnd();
+-	if (w == NULL) ResetObjectToPlace();
++	if (w == NULL) {
++		ResetObjectToPlace();
++		return;
++	}
+ 
+ 	w->OnPlaceMouseUp(_thd.select_method, _thd.select_proc, _thd.selend, TileVirtXY(_thd.selstart.x, _thd.selstart.y), TileVirtXY(_thd.selend.x, _thd.selend.y));
+ }
+-- 
+2.55.0
+

@@ -1,0 +1,32 @@
+From eadf5e9f4ae41f08b118cc80011acbbfb5b895a3 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 29 Apr 2015 20:56:56 +0300
+Subject: [PATCH 0218/1053] Fixed sort button marker not centered
+
+---
+ src/widget.cpp | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/src/widget.cpp b/src/widget.cpp
+index c6c87c6f71..c46cf672b7 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -607,12 +607,11 @@ void Window::DrawSortButtonState(int widget, SortButtonState state) const
+ 	const NWidgetBase *nwid = this->GetWidget<NWidgetBase>(widget);
+ 
+ 	/* Sort button uses the same sprites as vertical scrollbar */
+-	Dimension dim = NWidgetScrollbar::GetVerticalDimension();
+ 	int offset = this->IsWidgetLowered(widget) ? 1 : 0;
+-	int x = offset + nwid->pos_x + (_current_text_dir == TD_LTR ? nwid->current_x - dim.width : 0);
+-	int y = offset + nwid->pos_y + (nwid->current_y - dim.height) / 2;
++	int x = offset + nwid->pos_x + (_current_text_dir == TD_LTR ? nwid->current_x - SETTING_BUTTON_HEIGHT / 4 : SETTING_BUTTON_HEIGHT / 4);
++	int y = offset + nwid->pos_y + nwid->current_y - SETTING_BUTTON_HEIGHT / 2;
+ 
+-	DrawSprite(state == SBS_DOWN ? SPR_ARROW_DOWN : SPR_ARROW_UP, PAL_NONE, x, y);
++	DrawSpriteCentered(state == SBS_DOWN ? SPR_ARROW_DOWN : SPR_ARROW_UP, PAL_NONE, x, y);
+ }
+ 
+ /**
+-- 
+2.55.0
+

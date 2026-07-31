@@ -1,0 +1,39 @@
+From 3f4beeb2126d0e44ce5e1cc8927414f6e294253d Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 2 Apr 2016 23:39:41 +0300
+Subject: [PATCH 0240/1053] Fixed text input widget too small and bottom bar
+ too wide
+
+---
+ src/statusbar_gui.cpp | 2 +-
+ src/widget.cpp        | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/statusbar_gui.cpp b/src/statusbar_gui.cpp
+index 42c7e9caa5..a1a79d5bb4 100644
+--- a/src/statusbar_gui.cpp
++++ b/src/statusbar_gui.cpp
+@@ -105,7 +105,7 @@ struct StatusBarWindow : Window {
+ 
+ 	virtual void FindWindowPlacementAndResize(int def_width, int def_height)
+ 	{
+-		Window::FindWindowPlacementAndResize(min(_toolbar_width, _screen.width - SETTING_BUTTON_HEIGHT * 2), def_height);
++		Window::FindWindowPlacementAndResize(min(_toolbar_width, _screen.width - GetMinSizing(NWST_STEP) * 2), def_height);
+ 	}
+ 
+ 	virtual void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize)
+diff --git a/src/widget.cpp b/src/widget.cpp
+index fbb88fd36d..4c4246de91 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -2312,6 +2312,7 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 			Dimension sprite_size = GetSpriteSize(_current_text_dir == TD_RTL ? SPR_IMG_DELETE_RIGHT : SPR_IMG_DELETE_LEFT);
+ 			size.width = max(size.width, 30 + sprite_size.width);
+ 			size.height = max(sprite_size.height, GetStringBoundingBox("_").height + WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM);
++			size.height = GetMinSizing(NWST_BUTTON, size.height);
+ 			/* FALL THROUGH */
+ 		}
+ 		case WWT_PUSHBTN: {
+-- 
+2.55.0
+

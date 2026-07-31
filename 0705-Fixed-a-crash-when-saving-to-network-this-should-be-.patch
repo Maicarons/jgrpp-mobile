@@ -1,0 +1,181 @@
+From 2569a3f2ac606ea8a6f3e58c97e6826761e063d7 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 16 May 2021 00:14:33 +0300
+Subject: [PATCH 0705/1053] Fixed a crash when saving to network - this should
+ be done from the video thread
+
+---
+ src/fios_gui.cpp        | 18 +++---------
+ src/openttd.cpp         | 64 +++++++++++++++++++++++++++++------------
+ src/openttd.h           |  1 +
+ src/saveload/saveload.h |  2 ++
+ src/window.cpp          |  1 +
+ 5 files changed, 53 insertions(+), 33 deletions(-)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index 737e89c08c..f4c111cc99 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -42,7 +42,6 @@ LoadCheckData _load_check_data;    ///< Data loaded from save during SL_LOAD_CHE
+ 
+ static bool _fios_path_changed;
+ static bool _savegame_sort_dirty;
+-static const char *NETWORK_SAVE_FILENAME = "network-save.sav";
+ 
+ 
+ /**
+@@ -731,19 +730,10 @@ public:
+ 				this->SetDirty();
+ 				break;
+ 
+-			case WID_SL_LOAD_NETWORK_BUTTON: {
+-					std::string savePath = FiosMakeSavegameName(NETWORK_SAVE_FILENAME);
+-#ifdef __ANDROID__
+-					if (!SDL_ANDROID_CloudLoad(savePath.c_str(), NULL, "OpenTTD")) {
+-						break;
+-					}
+-#endif
+-					_file_to_saveload.SetMode(FIOS_TYPE_FILE);
+-					_file_to_saveload.SetName(savePath.c_str());
+-					_file_to_saveload.SetTitle("Network Save");
+-					_switch_mode = SM_LOAD_GAME;
+-					break;
+-				}
++			case WID_SL_LOAD_NETWORK_BUTTON:
++				_file_to_saveload.cloud_load = true;
++				delete this;
++				break;
+ 		}
+ 	}
+ 
+diff --git a/src/openttd.cpp b/src/openttd.cpp
+index f38042f020..480d934b8e 100644
+--- a/src/openttd.cpp
++++ b/src/openttd.cpp
+@@ -94,10 +94,6 @@ bool HandleBootstrap();
+ 
+ extern Company *DoStartupNewCompany(bool is_ai, CompanyID company = INVALID_COMPANY);
+ extern void ShowOSErrorBox(const char *buf, bool system);
+-
+-static const char *NETWORK_SAVE_SCREENSHOT_FILE = "OpenTTD-network-save";
+-static const char *NETWORK_SAVE_SCREENSHOT_FILE_PNG = "OpenTTD-network-save.png";
+-
+ extern std::string _config_file;
+ 
+ bool _save_config = false;
+@@ -1122,23 +1118,9 @@ void SwitchToMode(SwitchMode new_mode)
+ 				ShowErrorMessage(STR_JUST_RAW_STRING, INVALID_STRING_ID, WL_ERROR);
+ 			} else {
+ 				DeleteWindowById(WC_SAVELOAD, 0);
+-#ifdef __ANDROID__
+ 				if (_settings_client.gui.save_to_network) {
+-					const char* lastPart = strrchr(_file_to_saveload.name.c_str(), PATHSEPCHAR);
+-					if (!lastPart) {
+-						lastPart = _file_to_saveload.name.c_str();
+-					} else {
+-						lastPart++;
+-					}
+-					MakeScreenshot(SC_VIEWPORT, NETWORK_SAVE_SCREENSHOT_FILE);
+-					std::string screenshotFile = FioFindFullPath(SCREENSHOT_DIR, NETWORK_SAVE_SCREENSHOT_FILE_PNG);
+-					uint64_t playedTime = abs(_date - DAYS_TILL(_settings_newgame.game_creation.starting_year)) * 1000;
+-					int ret = SDL_ANDROID_CloudSave(_file_to_saveload.name.c_str(), lastPart, "OpenTTD", lastPart, screenshotFile.c_str(), playedTime);
+-					if (_settings_client.gui.save_to_network == 2) {
+-						_settings_client.gui.save_to_network = ret ? 1 : 0;
+-					}
++					_file_to_saveload.cloud_save = true;
+ 				}
+-#endif
+ 			}
+ 			break;
+ 
+@@ -1158,6 +1140,50 @@ void SwitchToMode(SwitchMode new_mode)
+ 	}
+ }
+ 
++/**
++ * Perform saving or loading to the cloud.
++ * This function must be called from the SDL video thread.
++ */
++void ProcessCloudSaveFromVideoThread()
++{
++	static const char *NETWORK_SAVE_FILENAME = "network-save.sav";
++	static const char *NETWORK_SAVE_SCREENSHOT_FILE = "OpenTTD-network-save";
++	static const char *NETWORK_SAVE_SCREENSHOT_FILE_PNG = "OpenTTD-network-save.png";
++
++	if (_file_to_saveload.cloud_save) {
++		_file_to_saveload.cloud_save = false;
++		const char* lastPart = strrchr(_file_to_saveload.name.c_str(), PATHSEPCHAR);
++		if (!lastPart) {
++			lastPart = _file_to_saveload.name.c_str();
++		} else {
++			lastPart++;
++		}
++		MakeScreenshot(SC_VIEWPORT, NETWORK_SAVE_SCREENSHOT_FILE);
++		std::string screenshotFile = FioFindFullPath(SCREENSHOT_DIR, NETWORK_SAVE_SCREENSHOT_FILE_PNG);
++		uint64_t playedTime = abs(_date - DAYS_TILL(_settings_newgame.game_creation.starting_year)) * 1000;
++		int status = 0;
++#ifdef __ANDROID__
++		status = SDL_ANDROID_CloudSave(_file_to_saveload.name.c_str(), lastPart, "OpenTTD", lastPart, screenshotFile.c_str(), playedTime);
++#endif
++		if (_settings_client.gui.save_to_network == 2) {
++			_settings_client.gui.save_to_network = status ? 1 : 0;
++		}
++	}
++	if (_file_to_saveload.cloud_load) {
++		_file_to_saveload.cloud_load = false;
++		std::string savePath = FiosMakeSavegameName(NETWORK_SAVE_FILENAME);
++		int status = 0;
++#ifdef __ANDROID__
++		status = SDL_ANDROID_CloudLoad(savePath.c_str(), NULL, "OpenTTD");
++#endif
++		if (status) {
++			_file_to_saveload.SetMode(FIOS_TYPE_FILE);
++			_file_to_saveload.SetName(savePath.c_str());
++			_file_to_saveload.SetTitle("Network Save");
++			_switch_mode = SM_LOAD_GAME;
++		}
++	}
++}
+ 
+ /**
+  * Check the validity of some of the caches.
+diff --git a/src/openttd.h b/src/openttd.h
+index efd27e76f3..e11236b077 100644
+--- a/src/openttd.h
++++ b/src/openttd.h
+@@ -82,6 +82,7 @@ int openttd_main(int argc, char *argv[]);
+ void HandleExitGameRequest();
+ 
+ void SwitchToMode(SwitchMode new_mode);
++void ProcessCloudSaveFromVideoThread();
+ 
+ bool RequestNewGRFScan(struct NewGRFScanCallback *callback = nullptr);
+ 
+diff --git a/src/saveload/saveload.h b/src/saveload/saveload.h
+index cda6af82b6..36a2707304 100644
+--- a/src/saveload/saveload.h
++++ b/src/saveload/saveload.h
+@@ -344,6 +344,8 @@ struct FileToSaveLoad {
+ 	AbstractFileType abstract_ftype; ///< Abstract type of file (scenario, heightmap, etc).
+ 	std::string name;                ///< Name of the file.
+ 	char title[255];                 ///< Internal name of the game.
++	bool cloud_save;                 ///< Save the file to the cloud from the video thread.
++	bool cloud_load;                 ///< Load the file from the cloud from the video thread.
+ 
+ 	void SetMode(FiosType ft);
+ 	void SetMode(SaveLoadOperation fop, AbstractFileType aft, DetailedFileType dft);
+diff --git a/src/window.cpp b/src/window.cpp
+index 22b74c3072..465ee91cf1 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -3480,6 +3480,7 @@ void UpdateWindows()
+ 	NetworkDrawChatMessage();
+ 	/* Redraw mouse cursor in case it was hidden */
+ 	DrawMouseCursor();
++	ProcessCloudSaveFromVideoThread();
+ }
+ 
+ /**
+-- 
+2.55.0
+

@@ -1,0 +1,25 @@
+From 1529c125ca12676887bbcf7afcb2a5ef1d8b8383 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Tue, 4 Apr 2017 23:14:30 +0300
+Subject: [PATCH 0393/1053] Fixed load savegame from network
+
+---
+ src/fios_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index 803545a08e..6850eb4b8b 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -662,7 +662,7 @@ public:
+ 					}
+ #endif
+ 					_load_check_data.Clear();
+-					SaveOrLoad(savePath, SLO_CHECK, DFT_GAME_FILE, NO_DIRECTORY, false);
++					SaveOrLoad(savePath, SLO_LOAD, DFT_GAME_FILE, NO_DIRECTORY, false);
+ 					this->InvalidateData(1);
+ 					break;
+ 				}
+-- 
+2.55.0
+

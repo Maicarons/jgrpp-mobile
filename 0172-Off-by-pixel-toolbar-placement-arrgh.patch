@@ -1,0 +1,25 @@
+From ac76047f546a0d221c10fdf45011108285e28f67 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 15 Nov 2014 23:35:25 +0200
+Subject: [PATCH 0172/1053] Off-by-pixel toolbar placement, arrgh
+
+---
+ src/window.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index 53bdc601f5..414c35f1b4 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1684,7 +1684,7 @@ Point GetToolbarAlignedWindowPosition(int window_width)
+ 	Point pt;
+ 	if (_settings_client.gui.vertical_toolbar) {
+ 		// Retermine if the window was opened from the left or the right toolbar
+-		pt.x = (_last_clicked_toolbar_idx == 0) ? w->left + w->width : _screen.width - w->width - window_width - 1;
++		pt.x = (_last_clicked_toolbar_idx == 0) ? w->left + w->width : _screen.width - w->width - window_width;
+ 		pt.y = w->top;
+ 	} else {
+ 		pt.x = _current_text_dir == TD_RTL ? w->left : (w->left + w->width) - window_width;
+-- 
+2.55.0
+

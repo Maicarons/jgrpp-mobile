@@ -1,0 +1,220 @@
+From 4137c2e2e832d0c7d21850c37bf5ca870b5d263f Mon Sep 17 00:00:00 2001
+From: Patric Stout <truebrain@openttd.org>
+Date: Sun, 3 Oct 2021 16:20:05 +0200
+Subject: [PATCH 0602/1053] Change: upgrade Emscripten to 2.0.31 and enable
+ LZMA by default (#9604)
+
+---
+ .github/workflows/ci-build.yml      |  9 +++--
+ .github/workflows/preview_build.yml |  9 +++--
+ CMakeLists.txt                      |  2 +-
+ os/emscripten/Dockerfile            |  2 +-
+ os/emscripten/README.md             |  2 +-
+ os/emscripten/emsdk-liblzma.patch   | 55 ++++++++++++-----------------
+ 6 files changed, 40 insertions(+), 39 deletions(-)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index 3f05869e05..952e860e4a 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -16,7 +16,7 @@ jobs:
+     runs-on: ubuntu-20.04
+     container:
+       # If you change this version, change the number in the cache step too.
+-      image: emscripten/emsdk:2.0.10
++      image: emscripten/emsdk:2.0.31
+ 
+     steps:
+     - name: Checkout
+@@ -26,7 +26,12 @@ jobs:
+       uses: actions/cache@v2
+       with:
+         path: /emsdk/upstream/emscripten/cache
+-        key: 2.0.10-${{ runner.os }}
++        key: 2.0.31-${{ runner.os }}
++
++    - name: Patch Emscripten to support LZMA
++      run: |
++        cd /emsdk/upstream/emscripten
++        patch -p1 < ${GITHUB_WORKSPACE}/os/emscripten/emsdk-liblzma.patch
+ 
+     - name: Build (host tools)
+       run: |
+diff --git a/.github/workflows/preview_build.yml b/.github/workflows/preview_build.yml
+index 9aea890bce..ad254a4939 100644
+--- a/.github/workflows/preview_build.yml
++++ b/.github/workflows/preview_build.yml
+@@ -12,7 +12,7 @@ jobs:
+     runs-on: ubuntu-20.04
+     container:
+       # If you change this version, change the number in the cache step too.
+-      image: emscripten/emsdk:2.0.10
++      image: emscripten/emsdk:2.0.31
+       # uid=1001(runner) gid=121(docker)
+       options: -u 1001:121
+ 
+@@ -46,7 +46,12 @@ jobs:
+       uses: actions/cache@v2
+       with:
+         path: /emsdk/upstream/emscripten/cache
+-        key: 2.0.10-${{ runner.os }}
++        key: 2.0.31-${{ runner.os }}
++
++    - name: Patch Emscripten to support LZMA
++      run: |
++        cd /emsdk/upstream/emscripten
++        patch -p1 < ${GITHUB_WORKSPACE}/os/emscripten/emsdk-liblzma.patch
+ 
+     - name: Build (host tools)
+       run: |
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 37e8697e40..8c2057cee5 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -305,7 +305,7 @@ if(EMSCRIPTEN)
+     add_definitions(-s DISABLE_EXCEPTION_CATCHING=0)
+ 
+     # Export functions to Javascript.
+-    target_link_libraries(WASM::WASM INTERFACE "-s EXPORTED_FUNCTIONS='[\"_main\", \"_em_openttd_add_server\"]' -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
++    target_link_libraries(WASM::WASM INTERFACE "-s EXPORTED_FUNCTIONS='[\"_main\", \"_em_openttd_add_server\"]' -s EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
+ 
+     # Preload all the files we generate during build.
+     # As we do not compile with FreeType / FontConfig, we also have no way to
+diff --git a/os/emscripten/Dockerfile b/os/emscripten/Dockerfile
+index 5184af6432..cbbff38c15 100644
+--- a/os/emscripten/Dockerfile
++++ b/os/emscripten/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM emscripten/emsdk:2.0.10
++FROM emscripten/emsdk:2.0.31
+ 
+ COPY emsdk-liblzma.patch /
+ RUN cd /emsdk/upstream/emscripten && patch -p1 < /emsdk-liblzma.patch
+diff --git a/os/emscripten/README.md b/os/emscripten/README.md
+index 4c5d7508cc..59f17c6269 100644
+--- a/os/emscripten/README.md
++++ b/os/emscripten/README.md
+@@ -1,6 +1,6 @@
+ ## How to build with Emscripten
+ 
+-Building with Emscripten works with emsdk 2.0.10 and above.
++Building with Emscripten works with emsdk 2.0.31 and above.
+ 
+ Currently there is no LibLZMA support upstream; for this we suggest to apply
+ the provided patch in this folder to your emsdk installation.
+diff --git a/os/emscripten/emsdk-liblzma.patch b/os/emscripten/emsdk-liblzma.patch
+index 103adae0cc..aa75fa5a49 100644
+--- a/os/emscripten/emsdk-liblzma.patch
++++ b/os/emscripten/emsdk-liblzma.patch
+@@ -10,44 +10,35 @@ Modifed by OpenTTD to have the bare minimum needed to work. Otherwise there
+ are constantly conflicts when trying to apply this patch to different versions
+ of emsdk.
+ 
+-diff --git a/embuilder.py b/embuilder.py
+-index 818262190ed..ab7d5adb7b2 100755
+---- a/embuilder.py
+-+++ b/embuilder.py
+-@@ -60,6 +60,7 @@
+-     'harfbuzz',
+-     'icu',
+-     'libjpeg',
+-+    'liblzma',
+-     'libpng',
+-     'ogg',
+-     'regal',
+-@@ -197,6 +198,8 @@ def main():
+-       build_port('ogg', libname('libogg'))
+-     elif what == 'libjpeg':
+-       build_port('libjpeg', libname('libjpeg'))
+-+    elif what == 'liblzma':
+-+      build_port('liblzma', libname('liblzma'))
+-     elif what == 'libpng':
+-       build_port('libpng', libname('libpng'))
+-     elif what == 'sdl2':
++diff --git a/tools/settings.py b/tools/settings.py
++--- a/tools/settings.py
+++++ b/tools/settings.py
++@@ -38,6 +38,7 @@
++     'USE_SDL_NET',
++     'USE_SDL_GFX',
++     'USE_LIBJPEG',
+++    'USE_LIBLZMA',
++     'USE_OGG',
++     'USE_REGAL',
++     'USE_BOOST_HEADERS',
+ diff --git a/src/settings.js b/src/settings.js
+-index 61cd98939ba..be6fcb678c6 100644
+ --- a/src/settings.js
+ +++ b/src/settings.js
+-@@ -1197,6 +1197,9 @@ var USE_BZIP2 = 0;
++@@ -1382,8 +1382,12 @@ var USE_BZIP2 = 0;
+  // 1 = use libjpeg from emscripten-ports
++ // [link]
+  var USE_LIBJPEG = 0;
+ 
+ +// 1 = use liblzma from emscripten-ports
+++// [link]
+ +var USE_LIBLZMA = 0;
+ +
+  // 1 = use libpng from emscripten-ports
++ // [link]
+  var USE_LIBPNG = 0;
+ 
+ diff --git a/tools/ports/liblzma.py b/tools/ports/liblzma.py
+ new file mode 100644
+-index 00000000000..e9567ef36ff
+ --- /dev/null
+ +++ b/tools/ports/liblzma.py
+ @@ -0,0 +1,160 @@
+@@ -58,6 +49,8 @@ index 00000000000..e9567ef36ff
+ +
+ +import os
+ +import shutil
+++import logging
+++from pathlib import Path
+ +
+ +VERSION = '5.2.5'
+ +HASH = '7443674247deda2935220fbc4dfc7665e5bb5a260be8ad858c8bd7d7b9f0f868f04ea45e62eb17c0a5e6a2de7c7500ad2d201e2d668c48ca29bd9eea5a73a3ce'
+@@ -68,10 +61,11 @@ index 00000000000..e9567ef36ff
+ +
+ +
+ +def get(ports, settings, shared):
+-+  libname = ports.get_lib_name('liblzma')
+ +  ports.fetch_project('liblzma', 'https://tukaani.org/xz/xz-' + VERSION + '.tar.gz', 'xz-' + VERSION, sha512hash=HASH)
+ +
+-+  def create():
+++  def create(final):
+++    logging.info('building port: liblzma')
+++
+ +    ports.clear_project_build('liblzma')
+ +
+ +    source_path = os.path.join(ports.get_dir(), 'liblzma', 'xz-' + VERSION)
+@@ -88,22 +82,19 @@ index 00000000000..e9567ef36ff
+ +                     'tuklib_exit.c', 'tuklib_mbstr_fw.c', 'tuklib_mbstr_width.c', 'tuklib_open_stdxxx.c', 'tuklib_progname.c']
+ +    include_dirs_rel = ['../common', 'api', 'common', 'check', 'lz', 'rangecoder', 'lzma', 'delta', 'simple']
+ +
+-+    open(os.path.join(dest_path, 'src', 'config.h'), 'w').write(config_h)
+++    Path(dest_path, os.path.join('src', 'config.h')).write_text(config_h)
+ +
+-+    final = os.path.join(dest_path, libname)
+ +    include_dirs = [os.path.join(dest_path, 'src', 'liblzma', p) for p in include_dirs_rel]
+ +    ports.build_port(os.path.join(dest_path, 'src'), final, flags=build_flags, exclude_dirs=exclude_dirs, exclude_files=exclude_files, includes=include_dirs)
+ +
+ +    ports.install_headers(os.path.join(dest_path, 'src', 'liblzma', 'api'), 'lzma.h')
+ +    ports.install_headers(os.path.join(dest_path, 'src', 'liblzma', 'api', 'lzma'), '*.h', 'lzma')
+ +
+-+    return final
+-+
+-+  return [shared.Cache.get(libname, create, what='port')]
+++  return [shared.Cache.get_lib('liblzma.a', create, what='port')]
+ +
+ +
+ +def clear(ports, settings, shared):
+-+  shared.Cache.erase_file(ports.get_lib_name('liblzma'))
+++  shared.Cache.erase_lib('liblzma.a')
+ +
+ +
+ +def process_args(ports):
+-- 
+2.55.0
+

@@ -1,0 +1,21 @@
+From 24de5eab68742ce9953c3428658acb7cf54d038e Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 10 Feb 2020 23:31:24 +0200
+Subject: [PATCH 0535/1053] Updated todo
+
+---
+ todo.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/todo.txt b/todo.txt
+index 5ba009087f..f0f4dc6376 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -7,3 +7,4 @@
+ 
+ - Create auto-save when the app is put to background, and load it on the next start.
+ 
++- Two-finger cancel action does not work when confirmation dialog is disabled.
+-- 
+2.55.0
+

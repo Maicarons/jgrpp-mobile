@@ -1,0 +1,42 @@
+From 59edb9d6068f40f5424b5c5307f1b21da346aa50 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 29 Jan 2018 21:46:42 +0200
+Subject: [PATCH 0451/1053] Updated translations, updated settigns GUI
+
+---
+ src/lang/english.txt | 4 ++--
+ src/settings_gui.cpp | 3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 045347d02b..38237b0e67 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1216,8 +1216,8 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Font siz
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Size of all game fonts
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Confirm actions: {STRING2}
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :Show confirmation dialog when building roads and stations
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :Title bars
+-STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :Show title bars for all windows, or hide them to save screen space
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Title bars
++STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Show title bars for all windows, or hide them to save screen space
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Window decorations: {STRING2}
+ STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Ornaments on window edges
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bit
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index ad50feadb5..0f8c724910 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -698,8 +698,7 @@ static const NWidgetPart _nested_game_options_widgets[] = {
+ 				EndContainer(),
+ 				NWidget(WWT_FRAME, COLOUR_GREY),
+ 					NWidget(NWID_HORIZONTAL),
+-						NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_WINDOWS_TITLEBARS, STR_NULL),
+-						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_WINDOWS_TITLEBARS), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT),
++						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_WINDOWS_TITLEBARS), SetMinimalSize(21, 9), SetDataTip(STR_CONFIG_SETTING_WINDOWS_TITLEBARS, STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT), SetFill(1, 0),
+ 					EndContainer(),
+ 				EndContainer(),
+ 			EndContainer(),
+-- 
+2.55.0
+

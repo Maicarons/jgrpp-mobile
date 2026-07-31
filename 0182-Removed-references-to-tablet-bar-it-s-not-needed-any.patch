@@ -1,0 +1,74 @@
+From ab0e3a8bef7832e8d7658b690885e5faa4b27f29 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 12 Mar 2015 21:43:35 +0200
+Subject: [PATCH 0182/1053] Removed references to tablet bar, it's not needed
+ anymore
+
+---
+ src/script/api/game/game_window.hpp.sq | 1 -
+ src/script/api/script_window.hpp       | 6 ------
+ src/window.cpp                         | 1 -
+ src/window_type.h                      | 6 ------
+ 4 files changed, 14 deletions(-)
+
+diff --git a/src/script/api/game/game_window.hpp.sq b/src/script/api/game/game_window.hpp.sq
+index 2646403f38..ca48a82dff 100644
+--- a/src/script/api/game/game_window.hpp.sq
++++ b/src/script/api/game/game_window.hpp.sq
+@@ -40,7 +40,6 @@ void SQGSWindow_Register(Squirrel *engine)
+ 	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_MAIN_WINDOW,                            "WC_MAIN_WINDOW");
+ 	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_MAIN_TOOLBAR,                           "WC_MAIN_TOOLBAR");
+ 	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_STATUS_BAR,                             "WC_STATUS_BAR");
+-	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_TABLET_BAR,                             "WC_TABLET_BAR");
+ 	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_BUILD_TOOLBAR,                          "WC_BUILD_TOOLBAR");
+ 	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_SCEN_BUILD_TOOLBAR,                     "WC_SCEN_BUILD_TOOLBAR");
+ 	SQGSWindow.DefSQConst(engine, ScriptWindow::WC_BUILD_TREES,                            "WC_BUILD_TREES");
+diff --git a/src/script/api/script_window.hpp b/src/script/api/script_window.hpp
+index db918744c9..c58b83a09c 100644
+--- a/src/script/api/script_window.hpp
++++ b/src/script/api/script_window.hpp
+@@ -148,12 +148,6 @@ public:
+ 		 */
+ 		WC_STATUS_BAR                                = ::WC_STATUS_BAR,
+ 
+-		/**
+-		 * Tablet bar; %Window numbers:
+-		 *   - 0 = #StatusbarWidgets
+-		 */
+-		WC_TABLET_BAR                                = ::WC_TABLET_BAR,
+-
+ 		/**
+ 		 * Build toolbar; %Window numbers:
+ 		 *   - #TRANSPORT_RAIL = #RailToolbarWidgets
+diff --git a/src/window.cpp b/src/window.cpp
+index 4f078611d1..03e0045ea0 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1296,7 +1296,6 @@ static uint GetWindowZPriority(const Window *w)
+ 			++z_priority;
+ 
+ 		case WC_NEWS_WINDOW:
+-		case WC_TABLET_BAR:
+ 			++z_priority;
+ 
+ 		default:
+diff --git a/src/window_type.h b/src/window_type.h
+index 7dd6882ed3..7386f6e809 100644
+--- a/src/window_type.h
++++ b/src/window_type.h
+@@ -65,12 +65,6 @@ enum WindowClass {
+ 	 */
+ 	WC_STATUS_BAR,
+ 
+-	/**
+-	 * Tablet bar; %Window numbers:
+-	 *   - 0 = #StatusbarWidgets
+-	 */
+-	WC_TABLET_BAR,
+-
+ 	/**
+ 	 * Build toolbar; %Window numbers:
+ 	 *   - #TRANSPORT_RAIL = #RailToolbarWidgets
+-- 
+2.55.0
+

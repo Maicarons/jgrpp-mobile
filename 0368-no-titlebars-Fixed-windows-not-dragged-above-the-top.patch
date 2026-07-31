@@ -1,0 +1,26 @@
+From 6887b52d0a8b1d589abf51c9a6adac02c9b35a0e Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 31 Mar 2017 03:21:18 +0300
+Subject: [PATCH 0368/1053] no-titlebars: Fixed windows not dragged above the
+ top of the screen
+
+---
+ src/window.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index 5f45be9b88..fd9d8524a0 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2205,7 +2205,7 @@ static void EnsureVisibleCaption(Window *w, int nx, int ny)
+ 		caption_rect.right  = caption->pos_x + caption->current_x;
+ 		caption_rect.top    = caption->pos_y;
+ 		caption_rect.bottom = caption->pos_y + caption->current_y;
+-		if (_settings_client.gui.windows_titlebars) {
++		if (!_settings_client.gui.windows_titlebars) {
+ 			caption_rect.left = w->left;
+ 			caption_rect.right = w->left + w->width;
+ 		}
+-- 
+2.55.0
+

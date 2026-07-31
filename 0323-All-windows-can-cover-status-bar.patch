@@ -1,0 +1,40 @@
+From 5153fba5e00388b3186ac44779e0c9192703a0ff Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Tue, 21 Mar 2017 21:40:37 +0200
+Subject: [PATCH 0323/1053] All windows can cover status bar
+
+---
+ src/window.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index 233e758ef0..fca479ce26 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1295,7 +1295,6 @@ static uint GetWindowZPriority(const Window *w)
+ 
+ 		case WC_MAIN_TOOLBAR:
+ 		case WC_MAIN_TOOLBAR_RIGHT:
+-		case WC_STATUS_BAR:
+ 			++z_priority;
+ 
+ 		case WC_OSK:
+@@ -1326,10 +1325,13 @@ static uint GetWindowZPriority(const Window *w)
+ 		case WC_CONSOLE:
+ 			++z_priority;
+ 
+-		case WC_NEWS_WINDOW:
++		default:
+ 			++z_priority;
+ 
+-		default:
++		case WC_STATUS_BAR:
++			++z_priority;
++
++		case WC_NEWS_WINDOW:
+ 			++z_priority;
+ 
+ 		case WC_MAIN_WINDOW:
+-- 
+2.55.0
+

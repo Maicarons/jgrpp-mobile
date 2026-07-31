@@ -1,0 +1,25 @@
+From d09722d529e0041b90a9965745351e39e196e9d7 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 31 Mar 2017 23:25:03 +0300
+Subject: [PATCH 0380/1053] Updated TODO
+
+---
+ todo.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/todo.txt b/todo.txt
+index 2205169be0..e070cd6bfd 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -7,7 +7,7 @@
+ 
+ - Misclicking station from orders dialog should hide the dialog for 3 times.
+ 
+-- Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), and fix double-backspace bug in SDL.
++- Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), TODO: it's broken in SDL.
+ 
+ - Draggable combo boxes.
+ 
+-- 
+2.55.0
+

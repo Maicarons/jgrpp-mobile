@@ -1,0 +1,22 @@
+From ef251985ee4bc8674ffa2ce2f8b14e64af3a4592 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 15 May 2019 23:17:12 +0300
+Subject: [PATCH 0511/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 04dc2205d3..7f8a230f60 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -12,3 +12,5 @@
+ - Create auto-save when the app is put to background, and load it on the next start.
+ 
+ - Select native screen width x 480 resolution on first run.
++
++- Minimap scrolling is broken.
+-- 
+2.55.0
+

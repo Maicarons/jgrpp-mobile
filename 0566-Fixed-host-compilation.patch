@@ -1,0 +1,45 @@
+From a4aa47c29a1b77118f51230fef71384903e84c7d Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 25 Jan 2021 21:48:41 +0200
+Subject: [PATCH 0566/1053] Fixed host compilation
+
+---
+ cmake/FindICU.cmake | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/cmake/FindICU.cmake b/cmake/FindICU.cmake
+index f681b63edd..641d58cb8e 100644
+--- a/cmake/FindICU.cmake
++++ b/cmake/FindICU.cmake
+@@ -38,13 +38,21 @@ foreach(MOD_NAME IN LISTS ICU_FIND_COMPONENTS)
+     unset(PC_LIBRARIES)
+     foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
+         unset(PC_LIBRARY CACHE)
+-        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+-            find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
+-        endif()
+-        if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+-            unset(PC_ICU_${MOD_NAME}_FOUND)
+-        endif()
+-        list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
++        if(ANDROID)
++            if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
++                find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
++            endif()
++            if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
++                unset(PC_ICU_${MOD_NAME}_FOUND)
++            endif()
++            list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
++        else(ANDROID)
++            find_library(PC_LIBRARY NAMES ${LIBRARY})
++            if(NOT PC_LIBRARY)
++                unset(PC_ICU_${MOD_NAME}_FOUND)
++            endif()
++            list(APPEND PC_LIBRARIES ${PC_LIBRARY})
++        endif(ANDROID)
+     endforeach()
+     unset(PC_LIBRARY CACHE)
+ 
+-- 
+2.55.0
+

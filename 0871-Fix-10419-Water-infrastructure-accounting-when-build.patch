@@ -1,0 +1,37 @@
+From 32d80d1a5748dd3126b0227aa919ac4e77b314b0 Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Sun, 29 Jan 2023 16:51:32 +0000
+Subject: [PATCH 0871/1053] Fix #10419: Water infrastructure accounting when
+ building ship depots
+
+---
+ src/water_cmd.cpp | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/src/water_cmd.cpp b/src/water_cmd.cpp
+index 44be4dc367..dbdbc8dd9c 100644
+--- a/src/water_cmd.cpp
++++ b/src/water_cmd.cpp
+@@ -136,11 +136,14 @@ CommandCost CmdBuildShipDepot(DoCommandFlag flags, TileIndex tile, Axis axis)
+ 		Depot *depot = new Depot(tile);
+ 		depot->build_date = _date;
+ 
+-		if (wc1 == WATER_CLASS_CANAL || wc2 == WATER_CLASS_CANAL) {
+-			/* Update infrastructure counts after the unconditional clear earlier. */
+-			Company::Get(_current_company)->infrastructure.water += wc1 == WATER_CLASS_CANAL && wc2 == WATER_CLASS_CANAL ? 2 : 1;
+-		}
+-		Company::Get(_current_company)->infrastructure.water += 2 * LOCK_DEPOT_TILE_FACTOR;
++		uint new_water_infra = 2 * LOCK_DEPOT_TILE_FACTOR;
++		/* Update infrastructure counts after the tile clears earlier.
++		 * Clearing object tiles may result in water tiles which are already accounted for in the water infrastructure total.
++		 * See: MakeWaterKeepingClass() */
++		if (wc1 == WATER_CLASS_CANAL && !(HasTileWaterClass(tile) && GetWaterClass(tile) == WATER_CLASS_CANAL && IsTileOwner(tile, _current_company))) new_water_infra++;
++		if (wc2 == WATER_CLASS_CANAL && !(HasTileWaterClass(tile2) && GetWaterClass(tile2) == WATER_CLASS_CANAL && IsTileOwner(tile2, _current_company))) new_water_infra++;
++
++		Company::Get(_current_company)->infrastructure.water += new_water_infra;
+ 		DirtyCompanyInfrastructureWindows(_current_company);
+ 
+ 		MakeShipDepot(tile,  _current_company, depot->index, DEPOT_PART_NORTH, axis, wc1);
+-- 
+2.55.0
+

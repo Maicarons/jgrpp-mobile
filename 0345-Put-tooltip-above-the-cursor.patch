@@ -1,0 +1,52 @@
+From 94fb0545548dcace88212cb7ca1e54943809682c Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 26 Mar 2017 23:34:52 +0300
+Subject: [PATCH 0345/1053] Put tooltip above the cursor
+
+---
+ src/misc_gui.cpp | 4 ++--
+ src/window.cpp   | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/misc_gui.cpp b/src/misc_gui.cpp
+index 951dfdd943..e49fdd2967 100644
+--- a/src/misc_gui.cpp
++++ b/src/misc_gui.cpp
+@@ -689,8 +689,8 @@ struct TooltipsWindow : public Window
+ 		/* Correctly position the tooltip position, watch out for window and cursor size
+ 		 * Clamp value to below main toolbar and above statusbar. If tooltip would
+ 		 * go below window, flip it so it is shown above the cursor */
+-		pt.y = Clamp(_cursor.pos.y + _cursor.total_size.y + _cursor.total_offs.y + 5, scr_top, scr_bot);
+-		if (pt.y + sm_height > scr_bot) pt.y = min(_cursor.pos.y + _cursor.total_offs.y - 5, scr_bot) - sm_height;
++		pt.y = min(_cursor.pos.y + _cursor.total_offs.y - 5, scr_bot) - sm_height - GetMinSizing(NWST_STEP);
++		if (pt.y < scr_top) pt.y = Clamp(_cursor.pos.y + _cursor.total_size.y + _cursor.total_offs.y + 5, scr_top, scr_bot) + GetMinSizing(NWST_STEP);
+ 		pt.x = sm_width >= _screen.width ? 0 : Clamp(_cursor.pos.x - (sm_width >> 1), 0, _screen.width - sm_width);
+ 
+ 		if (_settings_client.gui.windows_titlebars) {
+diff --git a/src/window.cpp b/src/window.cpp
+index 0e5757c176..f8ecb966ec 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2080,7 +2080,7 @@ static void HandleMouseDragNoTitlebars()
+ 	if (_settings_client.gui.windows_titlebars || _dragging_window ||
+ 		!_left_button_down || _focused_window == NULL || _dragging_widget) return;
+ 	unsigned distance = abs(_cursor.pos.x - _left_button_down_pos.x) + abs(_cursor.pos.y - _left_button_down_pos.y);
+-	if (distance * 2 > GetMinSizing(NWST_STEP, 6)) {
++	if (distance * 2 > GetMinSizing(NWST_STEP)) {
+ 		//SendLeftClickEventToWindow(_focused_window, _left_button_down_pos.x, _left_button_down_pos.y, 1);
+ 		StartWindowDrag(_focused_window);
+ 		_drag_delta.x += _cursor.pos.x - _left_button_down_pos.x;
+@@ -2296,8 +2296,8 @@ static bool GetWindowDraggedOffScreen(Window *w)
+ 	if (_settings_client.gui.windows_titlebars) return false;
+ 	Rect edge = { 0, GetMainViewTop(), _screen.width, _screen.height };
+ 	if (_settings_client.gui.vertical_toolbar && _game_mode != GM_EDITOR) {
+-		edge.left += GetMinSizing(NWST_BUTTON, 1);
+-		edge.right -= GetMinSizing(NWST_BUTTON, 1);
++		edge.left += GetMinSizing(NWST_BUTTON);
++		edge.right -= GetMinSizing(NWST_BUTTON);
+ 	}
+ 	if (w->left < edge.left && w->left + w->width < edge.right) return true;
+ 	if (w->left + w->width > edge.right && w->left > edge.left) return true;
+-- 
+2.55.0
+

@@ -1,0 +1,35 @@
+From 8741cbd50eff50481b2ab52cc11ebfabe12d163a Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 11 Jul 2019 23:04:45 +0300
+Subject: [PATCH 0518/1053] Fixed crash in minimap code
+
+---
+ src/smallmap_gui.cpp | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/src/smallmap_gui.cpp b/src/smallmap_gui.cpp
+index a56d2e73c8..d5197ec93c 100644
+--- a/src/smallmap_gui.cpp
++++ b/src/smallmap_gui.cpp
+@@ -1313,9 +1313,7 @@ void SmallMapWindow::SwitchMapType(SmallMapType map_type)
+ inline uint SmallMapWindow::GetNumberRowsLegend(uint columns) const
+ {
+ 	/* Reserve one column for link colours */
+-	uint num_rows_linkstats = CeilDiv(_smallmap_cargo_count, columns - 1);
+-	uint num_rows_others = CeilDiv(max(_smallmap_industry_count, _smallmap_company_count), columns);
+-	return max(this->min_number_of_fixed_rows, max(num_rows_linkstats, num_rows_others));
++	return this->min_number_of_fixed_rows;
+ }
+ 
+ /**
+@@ -1377,7 +1375,6 @@ int SmallMapWindow::GetPositionOnLegend(Point pt)
+ 	uint line = (pt.y - wi->pos_y - WD_FRAMERECT_TOP) / this->row_height;
+ 	uint columns = this->GetNumberColumnsLegend(wi->current_x);
+ 	uint number_of_rows = this->GetNumberRowsLegend(columns);
+-	number_of_rows = this->min_number_of_fixed_rows;
+ 	if (line >= number_of_rows) return -1;
+ 
+ 	bool rtl = _current_text_dir == TD_RTL;
+-- 
+2.55.0
+

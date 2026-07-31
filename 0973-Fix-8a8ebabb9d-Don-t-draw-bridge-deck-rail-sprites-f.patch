@@ -1,0 +1,48 @@
+From 2f2d6a419fcaf522ef9092724c6cafa2b9d00a5f Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Fri, 26 Dec 2025 15:33:09 +0000
+Subject: [PATCH 0973/1053] Fix 8a8ebabb9d: Don't draw bridge deck rail sprites
+ for default bridges. (#14985)
+
+Bridge deck sprites for default rail/road types should only be drawn for custom bridges.
+---
+ src/tunnelbridge_cmd.cpp | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/src/tunnelbridge_cmd.cpp b/src/tunnelbridge_cmd.cpp
+index a3810815d8..16949cfd53 100644
+--- a/src/tunnelbridge_cmd.cpp
++++ b/src/tunnelbridge_cmd.cpp
+@@ -1498,12 +1498,14 @@ static void DrawTile_TunnelBridge(TileInfo *ti)
+ 			EndSpriteCombine();
+ 		} else if (transport_type == TRANSPORT_RAIL) {
+ 			const RailTypeInfo *rti = GetRailTypeInfo(GetRailType(ti->tile));
+-			SpriteID surface = rti->UsesOverlay() ? GetCustomRailSprite(rti, ti->tile, RTSG_BRIDGE) : rti->base_sprites.bridge_deck;
+-			if (surface != 0) {
+-				if (HasBridgeFlatRamp(ti->tileh, DiagDirToAxis(tunnelbridge_direction))) {
+-					AddSortableSpriteToDraw(surface + ((DiagDirToAxis(tunnelbridge_direction) == AXIS_X) ? RTBO_X : RTBO_Y), PAL_NONE, *ti, {{0, 0, TILE_HEIGHT}, {TILE_SIZE, TILE_SIZE, 0}, {}});
+-				} else {
+-					AddSortableSpriteToDraw(surface + RTBO_SLOPE + tunnelbridge_direction, PAL_NONE, *ti, {{}, {TILE_SIZE, TILE_SIZE, TILE_HEIGHT}, {}});
++			if (is_custom_layout || rti->UsesOverlay()) {
++				SpriteID surface = rti->UsesOverlay() ? GetCustomRailSprite(rti, ti->tile, RTSG_BRIDGE) : rti->base_sprites.bridge_deck;
++				if (surface != 0) {
++					if (HasBridgeFlatRamp(ti->tileh, DiagDirToAxis(tunnelbridge_direction))) {
++						AddSortableSpriteToDraw(surface + ((DiagDirToAxis(tunnelbridge_direction) == AXIS_X) ? RTBO_X : RTBO_Y), PAL_NONE, *ti, {{0, 0, TILE_HEIGHT}, {TILE_SIZE, TILE_SIZE, 0}, {}});
++					} else {
++						AddSortableSpriteToDraw(surface + RTBO_SLOPE + tunnelbridge_direction, PAL_NONE, *ti, {{}, {TILE_SIZE, TILE_SIZE, TILE_HEIGHT}, {}});
++					}
+ 				}
+ 			}
+ 
+@@ -1674,7 +1676,7 @@ void DrawBridgeMiddle(const TileInfo *ti, BridgePillarFlags blocked_pillars)
+ 		DrawBridgeRoadBits(rampsouth, x, y, bridge_z, axis ^ 1, false, is_custom_layout);
+ 	} else if (transport_type == TRANSPORT_RAIL) {
+ 		const RailTypeInfo *rti = GetRailTypeInfo(GetRailType(rampsouth));
+-		if (!IsInvisibilitySet(TO_BRIDGES)) {
++		if ((is_custom_layout || rti->UsesOverlay()) && !IsInvisibilitySet(TO_BRIDGES)) {
+ 			SpriteID surface = rti->UsesOverlay() ? GetCustomRailSprite(rti, rampsouth, RTSG_BRIDGE, TCX_ON_BRIDGE) : rti->base_sprites.bridge_deck;
+ 			if (surface != 0) {
+ 				AddSortableSpriteToDraw(surface + axis, PAL_NONE, x, y, bridge_z, {{}, {TILE_SIZE, TILE_SIZE, 0}, {}}, IsTransparencySet(TO_BRIDGES));
+-- 
+2.55.0
+

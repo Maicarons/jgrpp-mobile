@@ -1,0 +1,40 @@
+From 678b7f122ac72c4f4480311d626e35dbc8174937 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Thu, 23 Mar 2017 23:09:32 +0200
+Subject: [PATCH 0330/1053] Re-centered start/stop vehicle string
+
+---
+ src/vehicle_gui.cpp | 4 ++--
+ todo.txt            | 4 ++++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/vehicle_gui.cpp b/src/vehicle_gui.cpp
+index 5623cc4432..1f2749c0fd 100644
+--- a/src/vehicle_gui.cpp
++++ b/src/vehicle_gui.cpp
+@@ -2654,8 +2654,8 @@ public:
+ 		int image_left = (rtl ? text_right + 1 : r.left) + WD_IMGBTN_LEFT;
+ 		int image = ((v->vehstatus & VS_STOPPED) != 0) ? SPR_FLAG_VEH_STOPPED : SPR_FLAG_VEH_RUNNING;
+ 		int lowered = this->IsWidgetLowered(WID_VV_START_STOP) ? 1 : 0;
+-		DrawSprite(image, PAL_NONE, image_left + lowered, r.top + WD_IMGBTN_TOP + lowered);
+-		DrawString(text_left + lowered, text_right + lowered, r.top + WD_FRAMERECT_TOP + lowered, str, TC_FROMSTRING, SA_HOR_CENTER);
++		DrawSprite(image, PAL_NONE, image_left + lowered, Center(r.top, r.bottom - r.top) + WD_IMGBTN_TOP + lowered);
++		DrawString(text_left + lowered, text_right + lowered, Center(r.top, r.bottom - r.top) + lowered, str, TC_FROMSTRING, SA_HOR_CENTER);
+ 	}
+ 
+ 	virtual void OnClick(Point pt, int widget, int click_count)
+diff --git a/todo.txt b/todo.txt
+index eceda2bf2c..68f7091e10 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -16,3 +16,7 @@
+ - Tooltip window steals touches, move tooltip window back to the top of the mouse cursor.
+ 
+ - Move windows by dragging past window edge, close windows by moving them to toolbar.
++
++- Graph window is too wide.
++
++- Timetable window is not finger-friendly.
+-- 
+2.55.0
+

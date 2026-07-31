@@ -1,0 +1,44 @@
+From 6f6bc66997c2cb90d8bbb0caf48e0c0590166334 Mon Sep 17 00:00:00 2001
+From: frosch <frosch@openttd.org>
+Date: Tue, 8 Feb 2022 23:08:03 +0100
+Subject: [PATCH 0809/1053] Fix #9811, 9156d7b: Use the NewGRF-defined vehicle
+ center when dragging ships and aircraft. (#9812)
+
+The alignment using the total-width of the vehicle-chain was meant for articulated trains and road vehicles only.
+---
+ src/vehicle_gui.cpp | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/src/vehicle_gui.cpp b/src/vehicle_gui.cpp
+index 10e925b8be..f30f772ebc 100644
+--- a/src/vehicle_gui.cpp
++++ b/src/vehicle_gui.cpp
+@@ -3183,6 +3183,7 @@ void SetMouseCursorVehicle(const Vehicle *v, EngineImageType image_type)
+ 	int total_width = 0;
+ 	int y_offset = 0;
+ 	bool rotor_seq = false; // Whether to draw the rotor of the vehicle in this step.
++	bool is_ground_vehicle = v->IsGroundVehicle();
+ 
+ 	while (v != nullptr) {
+ 		if (total_width >= ScaleGUITrad(2 * (int)VEHICLEINFO_FULL_VEHICLE_WIDTH)) break;
+@@ -3218,10 +3219,13 @@ void SetMouseCursorVehicle(const Vehicle *v, EngineImageType image_type)
+ 		}
+ 	}
+ 
+-	int offs = (ScaleGUITrad(VEHICLEINFO_FULL_VEHICLE_WIDTH) - total_width) / 2;
+-	if (rtl) offs = -offs;
+-	for (uint i = 0; i < _cursor.sprite_count; ++i) {
+-		_cursor.sprite_pos[i].x += offs;
++	if (is_ground_vehicle) {
++		/* Center trains and road vehicles on the front vehicle */
++		int offs = (ScaleGUITrad(VEHICLEINFO_FULL_VEHICLE_WIDTH) - total_width) / 2;
++		if (rtl) offs = -offs;
++		for (uint i = 0; i < _cursor.sprite_count; ++i) {
++			_cursor.sprite_pos[i].x += offs;
++		}
+ 	}
+ 
+ 	UpdateCursorSize();
+-- 
+2.55.0
+

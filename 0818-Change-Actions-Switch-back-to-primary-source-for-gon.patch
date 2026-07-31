@@ -1,0 +1,29 @@
+From 22169eb1821f708fd785c4892bb88218336ea12c Mon Sep 17 00:00:00 2001
+From: Owen Rudge <owen@owenrudge.net>
+Date: Thu, 31 Mar 2022 10:16:19 +0100
+Subject: [PATCH 0818/1053] Change: [Actions] Switch back to primary source for
+ 'gon' in macOS build job
+
+This reverts commit 7a97a33598774faf65576b55e5d1322716859de6.
+---
+ .github/workflows/release.yml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index dff88bdb77..fd6a8d8fa1 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -619,8 +619,8 @@ jobs:
+         HOMEBREW_NO_AUTO_UPDATE: 1
+         HOMEBREW_NO_INSTALL_CLEANUP: 1
+       run: |
+-        brew tap mistydemeo/gon
+-        brew install mistydemeo/gon/gon
++        brew tap mitchellh/gon
++        brew install mitchellh/gon/gon
+ 
+     - name: Notarize
+       env:
+-- 
+2.55.0
+

@@ -1,0 +1,38 @@
+From 5a5f2db0806a877fb2845b0d4f821c4b4a01c360 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 22 Jan 2017 23:04:13 +0200
+Subject: [PATCH 0301/1053] Save all settings immediately when closing the
+ Settings dialog, because users tend to kill the app instead of pressing
+ 'Quit' button
+
+---
+ src/settings_gui.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 372eeffbdc..e4a193a769 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -187,6 +187,7 @@ struct GameOptionsWindow : Window {
+ 	{
+ 		DeleteWindowById(WC_CUSTOM_CURRENCY, 0);
+ 		if (this->reload) _switch_mode = SM_MENU;
++		SaveToConfig(); // save all settins immediately on Android, because users tend to kill the app instead of pressing 'Quit' button
+ 	}
+ 
+ 	/**
+@@ -1931,6 +1932,11 @@ struct GameSettingsWindow : Window {
+ 		this->InvalidateData();
+ 	}
+ 
++	~GameSettingsWindow()
++	{
++		SaveToConfig(); // save all settins immediately on Android, because users tend to kill the app instead of pressing 'Quit' button
++	}
++
+ 	virtual void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize)
+ 	{
+ 		switch (widget) {
+-- 
+2.55.0
+

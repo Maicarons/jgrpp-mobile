@@ -1,0 +1,25 @@
+From 01ba6e32d5f606503dca4179f308f6b13745a807 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 28 Jan 2017 22:58:32 +0200
+Subject: [PATCH 0305/1053] Reverted to using extmidi for PC build
+
+---
+ source.list | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source.list b/source.list
+index b28fe8fb25..890185fc83 100644
+--- a/source.list
++++ b/source.list
+@@ -1123,7 +1123,7 @@ music/null_m.cpp
+ 			#else
+ 				#if MORPHOS
+ 				#else
+-					music/libtimidity.cpp
++					music/extmidi.cpp
+ 				#end
+ 			#end
+ 		#end
+-- 
+2.55.0
+

@@ -1,0 +1,201 @@
+From 8d0391bf9c84b306ab38bb815ad3b4332af80533 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 17 Apr 2016 00:30:13 +0300
+Subject: [PATCH 0274/1053] Change video color depth from game options
+
+---
+ src/lang/english.txt          |  8 ++++--
+ src/lang/german.txt           |  4 +++
+ src/main_gui.cpp              |  7 +++++
+ src/openttd.cpp               |  2 +-
+ src/settings_gui.cpp          | 48 ++++++++++++++++++++++++++++++++---
+ src/widgets/settings_widget.h |  3 +++
+ 6 files changed, 66 insertions(+), 6 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 24b5351816..dbe050bc21 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1220,6 +1220,12 @@ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Font siz
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Size of all game fonts
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :{BLACK}Confirm actions
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :{BLACK}Show confirmation dialog when building roads and stations
++STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bit
++STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT                          :{BLACK}Set video color depth to 8 bits per pixel, this video mode supports water animation
++STR_CONFIG_SETTING_VIDEO_16BPP                                  :{BLACK}16 bit
++STR_CONFIG_SETTING_VIDEO_16BPP_HELPTEXT                         :{BLACK}Set video color depth to 16 bits per pixel, this requires restart, this video mode does not support water animation
++STR_CONFIG_SETTING_VIDEO_24BPP                                  :{BLACK}24 bit
++STR_CONFIG_SETTING_VIDEO_24BPP_HELPTEXT                         :{BLACK}Set video color depth to 24 bits per pixel, this video mode supports water animation
+ STR_CONFIG_SETTING_SHOWFINANCES                                 :Show finances window at the end of the year: {STRING2}
+ STR_CONFIG_SETTING_SHOWFINANCES_HELPTEXT                        :If enabled, the finances window pops up at the end of each year to allow easy inspection of the financial status of the company
+ STR_CONFIG_SETTING_NONSTOP_BY_DEFAULT                           :New orders are 'non-stop' by default: {STRING2}
+@@ -2485,7 +2491,6 @@ STR_LANDSCAPING_TOOLTIP_RAISE_A_CORNER_OF_LAND                  :{BLACK}Raise a
+ STR_LANDSCAPING_LEVEL_LAND_TOOLTIP                              :{BLACK}Level an area of land to the height of the first selected corner. Ctrl selects the area diagonally. Shift toggles building/showing cost estimate
+ STR_LANDSCAPING_TOOLTIP_PURCHASE_LAND                           :{BLACK}Purchase land for future use. Shift toggles building/showing cost estimate
+ 
+-# Tablet toolbar
+ STR_TABLET_CLOSE                                                :{BLACK}X
+ STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Close all opened windows (except pinned ones)
+ STR_TABLET_SHIFT                                                :{BLACK}{TINY_FONT}Shft
+@@ -2706,7 +2711,6 @@ STR_ABOUT_ORIGINAL_COPYRIGHT                                    :{BLACK}Original
+ STR_ABOUT_VERSION                                               :{BLACK}OpenTTD version {REV}
+ STR_ABOUT_COPYRIGHT_OPENTTD                                     :{BLACK}OpenTTD {COPYRIGHT} 2002-2016 The OpenTTD team
+ 
+-#Tutorial window
+ STR_TUTORIAL_WINDOW_TITLE                                       :{BLACK}Tutorial videos
+ STR_TUTORIAL_WINDOW_TOOLTIP                                     :{BLACK}Open a video player to watch tutorial videos
+ STR_TUTORIAL_ROADS_AND_STATIONS                                 :{BLACK}Building roads and stations, buying vehicles
+diff --git a/src/lang/german.txt b/src/lang/german.txt
+index 54cd405fa2..77360f4c72 100644
+--- a/src/lang/german.txt
++++ b/src/lang/german.txt
+@@ -4971,3 +4971,7 @@ STR_SHIP                                                        :{BLACK}{SHIP}
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
+ 
+ # Android strings
++STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Schaltflächengröße
++STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Schriftartgröße
++STR_TABLET_CLOSE_TOOLTIP                                        :{BLACK}Schließe alle offene Fenster (außer Festgepinnte)
++STR_TUTORIAL_CARGO                                              :{BLACK}Warentypen
+diff --git a/src/main_gui.cpp b/src/main_gui.cpp
+index 820a48623f..3afe20a254 100644
+--- a/src/main_gui.cpp
++++ b/src/main_gui.cpp
+@@ -33,6 +33,7 @@
+ #include "tilehighlight_func.h"
+ #include "hotkeys.h"
+ #include "tutorial_gui.h"
++#include "gui.h"
+ 
+ #include "saveload/saveload.h"
+ 
+@@ -565,6 +566,12 @@ void SetupColoursAndInitialWindow()
+ 		case GM_MENU:
+ 			ShowSelectGameWindow();
+ 			ShowTutorialWindowOnceAfterInstall();
++			if (getenv("SDL_RESTART_PARAMS") != NULL) {
++				static int counter = 5; // This part of code is called several times during startup, which closes all windows, so we need to put random hacks here
++				counter--;
++				ShowGameOptions();
++				if (counter == 0) unsetenv("SDL_RESTART_PARAMS");
++			}
+ 			break;
+ 
+ 		case GM_NORMAL:
+diff --git a/src/openttd.cpp b/src/openttd.cpp
+index ca4f58f815..f106f09d92 100644
+--- a/src/openttd.cpp
++++ b/src/openttd.cpp
+@@ -770,7 +770,7 @@ int openttd_main(int argc, char *argv[])
+ 	GfxInitPalettes();
+ 
+ 	DEBUG(misc, 1, "Loading blitter...");
+-	if (blitter == NULL && _ini_blitter != NULL) blitter = stredup(_ini_blitter);
++	if (_ini_blitter != NULL) blitter = stredup(_ini_blitter);
+ 	_blitter_autodetected = StrEmpty(blitter);
+ 	/* Activate the initial blitter.
+ 	 * This is only some initial guess, after NewGRFs have been loaded SwitchNewGRFBlitter may switch to a different one.
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index f83e9479ff..58325f6733 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -37,11 +37,16 @@
+ #include "stringfilter_type.h"
+ #include "querystring_gui.h"
+ #include "fontcache.h"
++#include "settings_func.h"
+ 
+ #include <vector>
+ 
+ #include "safeguards.h"
+ 
++#ifdef __ANDROID__
++#include <SDL_android.h>
++#endif
++
+ enum { MIN_BUTTON_SIZE = 10, MAX_BUTTON_SIZE = 40 };
+ 
+ static const StringID _driveside_dropdown[] = {
+@@ -482,6 +487,39 @@ struct GameOptionsWindow : Window {
+ 				this->SetDirty();
+ 				break;
+ 
++			case WID_GO_8BPP_BUTTON:
++				if (this->IsWidgetLowered(WID_GO_8BPP_BUTTON)) break;
++				free(_ini_blitter);
++				_ini_blitter = stredup("8bpp-optimized");
++				SaveToConfig();
++				#ifdef __ANDROID__
++				SDL_ANDROID_SetConfigOption(SDL_ANDROID_CONFIG_VIDEO_DEPTH_BPP, 16);
++				SDL_ANDROID_RestartMyself("restart-settings"); // We terminate here, no need to update widget state
++				#endif
++				break;
++
++			case WID_GO_16BPP_BUTTON:
++				if (this->IsWidgetLowered(WID_GO_16BPP_BUTTON)) break;
++				free(_ini_blitter);
++				_ini_blitter = stredup("16bpp-simple");
++				SaveToConfig();
++				#ifdef __ANDROID__
++				SDL_ANDROID_SetConfigOption(SDL_ANDROID_CONFIG_VIDEO_DEPTH_BPP, 16);
++				SDL_ANDROID_RestartMyself("restart-settings"); // We terminate here, no need to update widget state
++				#endif
++				break;
++
++			case WID_GO_32BPP_BUTTON:
++				if (this->IsWidgetLowered(WID_GO_32BPP_BUTTON)) break;
++				free(_ini_blitter);
++				_ini_blitter = stredup("32bpp-anim");
++				SaveToConfig();
++				#ifdef __ANDROID__
++				SDL_ANDROID_SetConfigOption(SDL_ANDROID_CONFIG_VIDEO_DEPTH_BPP, 24);
++				SDL_ANDROID_RestartMyself("restart-settings"); // We terminate here, no need to update widget state
++				#endif
++				break;
++
+ 			default: {
+ 				int selected;
+ 				DropDownList *list = this->BuildDropDownList(widget, &selected);
+@@ -610,9 +648,12 @@ struct GameOptionsWindow : Window {
+ 	virtual void OnInvalidateData(int data = 0, bool gui_scope = true)
+ 	{
+ 		if (!gui_scope) return;
+-		this->SetWidgetLoweredState(WID_GO_FULLSCREEN_BUTTON, _fullscreen);
++		//this->SetWidgetLoweredState(WID_GO_FULLSCREEN_BUTTON, _fullscreen);
+ 		//this->SetWidgetLoweredState(WID_GO_VERTICAL_TOOLBAR, _settings_client.gui.vertical_toolbar);
+ 		this->SetWidgetLoweredState(WID_GO_BUILD_CONFIRMATION, _settings_client.gui.build_confirmation);
++		this->SetWidgetLoweredState(WID_GO_8BPP_BUTTON, _ini_blitter != NULL && strcmp(_ini_blitter, "8bpp-optimized") == 0);
++		this->SetWidgetLoweredState(WID_GO_16BPP_BUTTON, _ini_blitter == NULL || strcmp(_ini_blitter, "16bpp-simple") == 0);
++		this->SetWidgetLoweredState(WID_GO_32BPP_BUTTON, _ini_blitter != NULL && strcmp(_ini_blitter, "32bpp-anim") == 0);
+ 
+ 		bool missing_files = BaseGraphics::GetUsedSet()->GetNumMissing() == 0;
+ 		this->GetWidget<NWidgetCore>(WID_GO_BASE_GRF_STATUS)->SetDataTip(missing_files ? STR_EMPTY : STR_GAME_OPTIONS_BASE_GRF_STATUS, STR_NULL);
+@@ -645,8 +686,9 @@ static const NWidgetPart _nested_game_options_widgets[] = {
+ 				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_GAME_OPTIONS_RESOLUTION, STR_NULL),
+ 					NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_GO_RESOLUTION_DROPDOWN), SetMinimalSize(150, 12), SetDataTip(STR_BLACK_STRING, STR_GAME_OPTIONS_RESOLUTION_TOOLTIP), SetFill(1, 0), SetPadding(0, 0, 3, 0),
+ 					NWidget(NWID_HORIZONTAL),
+-						NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_FULLSCREEN, STR_NULL),
+-						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_FULLSCREEN_BUTTON), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP),
++						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_8BPP_BUTTON), SetMinimalSize(9, 9), SetDataTip(STR_CONFIG_SETTING_VIDEO_8BPP, STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT),
++						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_16BPP_BUTTON), SetMinimalSize(9, 9), SetDataTip(STR_CONFIG_SETTING_VIDEO_16BPP, STR_CONFIG_SETTING_VIDEO_16BPP_HELPTEXT),
++						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_32BPP_BUTTON), SetMinimalSize(9, 9), SetDataTip(STR_CONFIG_SETTING_VIDEO_24BPP, STR_CONFIG_SETTING_VIDEO_24BPP_HELPTEXT),
+ 					EndContainer(),
+ 				EndContainer(),
+ 				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_GAME_OPTIONS_GUI_ZOOM_FRAME, STR_NULL),
+diff --git a/src/widgets/settings_widget.h b/src/widgets/settings_widget.h
+index 2bed4aeaf4..292c50bafd 100644
+--- a/src/widgets/settings_widget.h
++++ b/src/widgets/settings_widget.h
+@@ -23,6 +23,9 @@ enum GameOptionsWidgets {
+ 	WID_GO_LANG_DROPDOWN,          ///< Language dropdown.
+ 	WID_GO_RESOLUTION_DROPDOWN,    ///< Dropdown for the resolution.
+ 	WID_GO_FULLSCREEN_BUTTON,      ///< Toggle fullscreen.
++	WID_GO_8BPP_BUTTON,            ///< 8 bits per pixel video mode
++	WID_GO_16BPP_BUTTON,           ///< 16 bits per pixel video mode
++	WID_GO_32BPP_BUTTON,           ///< 32 bits per pixel video mode
+ 	WID_GO_BUTTON_SIZE_DROPDOWN,   ///< Size of in-game UI elements, such as buttons.
+ 	WID_GO_TEXT_SIZE_DROPDOWN,     ///< Size of medium font, sizes of other fonts are derived from it.
+ 	WID_GO_VERTICAL_TOOLBAR,       ///< Enable vertical toolbar.
+-- 
+2.55.0
+

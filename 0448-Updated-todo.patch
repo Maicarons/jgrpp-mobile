@@ -1,0 +1,24 @@
+From 613faa31ecf59a157ac68c887ca02b975f0172c4 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 29 Jan 2018 17:19:20 +0200
+Subject: [PATCH 0448/1053] Updated todo
+
+---
+ todo.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 9cf0aca62c..0517c1bdfa 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -10,3 +10,7 @@
+ - Draggable combo boxes.
+ 
+ - New game crashes with AdmiralAI enabled.
++
++- 'Title bars' text should be black, and the button should be bigger.
++
++- AI crashes the game.
+-- 
+2.55.0
+

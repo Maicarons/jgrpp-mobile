@@ -1,0 +1,25 @@
+From a479267db27cb3e700cd25acc86c9c91150ff58d Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 29 Apr 2015 19:46:30 +0300
+Subject: [PATCH 0214/1053] Fixed 'Buy vehicle' dialog not resizable
+
+---
+ src/build_vehicle_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/build_vehicle_gui.cpp b/src/build_vehicle_gui.cpp
+index 7e60e13969..bd5c1180ae 100644
+--- a/src/build_vehicle_gui.cpp
++++ b/src/build_vehicle_gui.cpp
+@@ -71,7 +71,7 @@ static const NWidgetPart _nested_build_vehicle_widgets[] = {
+ 			EndContainer(),
+ 		EndContainer(),
+ 		/* Panel with details. */
+-		NWidget(WWT_PANEL, COLOUR_GREY, WID_BV_PANEL), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
++		NWidget(WWT_PANEL, COLOUR_GREY, WID_BV_PANEL), SetMinimalSize(240, 122), SetResize(1, 1), EndContainer(),
+ 	EndContainer(),
+ 	/* Build/rename buttons, resize button. */
+ 	NWidget(NWID_HORIZONTAL),
+-- 
+2.55.0
+

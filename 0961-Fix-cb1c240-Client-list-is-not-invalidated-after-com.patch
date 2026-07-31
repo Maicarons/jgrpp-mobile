@@ -1,0 +1,25 @@
+From ecd95d332cbd6ecd859d4c60988a93ddbd4e2296 Mon Sep 17 00:00:00 2001
+From: Cyprian Klimaszewski <kapitan.cypek@gmail.com>
+Date: Wed, 24 Dec 2025 14:01:15 +0100
+Subject: [PATCH 0961/1053] Fix cb1c240: Client list is not invalidated after
+ company take over. (#14955)
+
+---
+ src/economy.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/economy.cpp b/src/economy.cpp
+index 5bc76498c9..a82ccc1468 100644
+--- a/src/economy.cpp
++++ b/src/economy.cpp
+@@ -2004,6 +2004,7 @@ static void DoAcquireCompany(Company *c, bool hostile_takeover)
+ 	InvalidateWindowClassesData(WC_SHIPS_LIST, 0);
+ 	InvalidateWindowClassesData(WC_ROADVEH_LIST, 0);
+ 	InvalidateWindowClassesData(WC_AIRCRAFT_LIST, 0);
++	InvalidateWindowData(WC_CLIENT_LIST, 0);
+ 
+ 	delete c;
+ }
+-- 
+2.55.0
+

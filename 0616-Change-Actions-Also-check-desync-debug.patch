@@ -1,0 +1,25 @@
+From 6c7812636a00f667b4734f1170f9e8ee027389f9 Mon Sep 17 00:00:00 2001
+From: glx22 <glx@openttd.org>
+Date: Tue, 19 Oct 2021 02:58:16 +0200
+Subject: [PATCH 0616/1053] Change: [Actions] Also check desync debug
+
+---
+ .github/workflows/ci-build.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index 952e860e4a..5b69c1eea1 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -82,7 +82,7 @@ jobs:
+           libsdl: libsdl1.2-dev
+         - compiler: gcc
+           cxxcompiler: g++
+-          extra-cmake-parameters: -DOPTION_DEDICATED=ON
++          extra-cmake-parameters: -DOPTION_DEDICATED=ON -DCMAKE_CXX_FLAGS_INIT="-DRANDOM_DEBUG"
+ 
+     runs-on: ubuntu-20.04
+     env:
+-- 
+2.55.0
+

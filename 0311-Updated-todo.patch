@@ -1,0 +1,30 @@
+From 34ffe3eec9911f522e25bfc91650acc599b4b306 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 29 Jan 2017 17:46:41 +0200
+Subject: [PATCH 0311/1053] Updated todo
+
+---
+ todo.txt | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 4b3ebadca3..2e9ac4c1dd 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -6,3 +6,13 @@
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), and fix double-backspace bug in SDL.
+ 
+ - Put mouse cursor in the middle between touch points when zooming in and out.
++
++- Option to remove all window titles.
++
++- Move and resize all windows with two-finger gestures.
++
++- Windows can cover status bar.
++
++- Close news window by flicking it sideways.
++
++- Default button size set to 48, update vertical toolbar buttons.
+-- 
+2.55.0
+

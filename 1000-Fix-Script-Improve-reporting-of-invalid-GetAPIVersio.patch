@@ -1,0 +1,40 @@
+From a64ffbc5cad9bbb96bf89d893c71f9f1e6cdd2aa Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Fri, 2 Jan 2026 17:28:15 +0100
+Subject: [PATCH 1000/1053] Fix: [Script] Improve reporting of invalid
+ GetAPIVersion return (#15015)
+
+---
+ src/ai/ai_info.cpp     | 2 +-
+ src/game/game_info.cpp | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/ai/ai_info.cpp b/src/ai/ai_info.cpp
+index 3e8a1bcfed..daed660a83 100644
+--- a/src/ai/ai_info.cpp
++++ b/src/ai/ai_info.cpp
+@@ -80,7 +80,7 @@ template <> SQInteger PushClassName<AIInfo, ScriptType::AI>(HSQUIRRELVM vm) { sq
+ 	if (info->engine->MethodExists(info->SQ_instance, "GetAPIVersion")) {
+ 		if (!info->engine->CallStringMethod(info->SQ_instance, "GetAPIVersion", &info->api_version, MAX_GET_OPS)) return SQ_ERROR;
+ 		if (!CheckAPIVersion(info->api_version)) {
+-			Debug(script, 1, "Loading info.nut from ({}.{}): GetAPIVersion returned invalid version", info->GetName(), info->GetVersion());
++			sq_throwerror(vm, fmt::format("Loading info.nut from ({}.{}): GetAPIVersion returned invalid version", info->GetName(), info->GetVersion()));
+ 			return SQ_ERROR;
+ 		}
+ 	} else {
+diff --git a/src/game/game_info.cpp b/src/game/game_info.cpp
+index 23d1023c93..eea417ff3d 100644
+--- a/src/game/game_info.cpp
++++ b/src/game/game_info.cpp
+@@ -71,7 +71,7 @@ template <> SQInteger PushClassName<GameInfo, ScriptType::GS>(HSQUIRRELVM vm) {
+ 	if (!info->CheckMethod("GetAPIVersion")) return SQ_ERROR;
+ 	if (!info->engine->CallStringMethod(info->SQ_instance, "GetAPIVersion", &info->api_version, MAX_GET_OPS)) return SQ_ERROR;
+ 	if (!CheckAPIVersion(info->api_version)) {
+-		Debug(script, 1, "Loading info.nut from ({}.{}): GetAPIVersion returned invalid version", info->GetName(), info->GetVersion());
++		sq_throwerror(vm, fmt::format("Loading info.nut from ({}.{}): GetAPIVersion returned invalid version", info->GetName(), info->GetVersion()));
+ 		return SQ_ERROR;
+ 	}
+ 
+-- 
+2.55.0
+

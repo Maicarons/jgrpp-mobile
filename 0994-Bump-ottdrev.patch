@@ -1,0 +1,19 @@
+From 2fb4a59b1577784c61ffc277195004103a192e98 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sat, 3 Jan 2026 16:11:58 +0000
+Subject: [PATCH 0994/1053] Bump ottdrev
+
+---
+ .ottdrev | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index 88a3eab94e..daf445bd47 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-13.0	20231203	0	2ebc601d97aa431e5d8aebfe4a7bbfdabf29dc75	1	1	2023
++15.0	20260101	0	30cc053596e34eb1d66ecbaae861d515cf3644ac	1	1
+-- 
+2.55.0
+

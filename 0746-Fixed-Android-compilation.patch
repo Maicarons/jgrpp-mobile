@@ -1,0 +1,57 @@
+From f09fa9f3405ec38c39479a2f6d58e13321706e55 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 10 Dec 2021 03:40:35 +0200
+Subject: [PATCH 0746/1053] Fixed Android compilation
+
+---
+ src/debug.cpp             | 2 +-
+ src/music/libtimidity.cpp | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/debug.cpp b/src/debug.cpp
+index e5c8e75207..1a5f74bac6 100644
+--- a/src/debug.cpp
++++ b/src/debug.cpp
+@@ -121,7 +121,7 @@ char *DumpDebugFacilityNames(char *buf, char *last)
+ void DebugPrint(const char *level, const std::string &message)
+ {
+ #ifdef __ANDROID__
+-	__android_log_print(ANDROID_LOG_INFO, "OpenTTD", "[%s] %s", dbg, buf);
++	__android_log_print(ANDROID_LOG_INFO, "OpenTTD", "[%s] %s", level, message.c_str());
+ #endif
+ 	if (_debug_socket != INVALID_SOCKET) {
+ 		std::string msg = fmt::format("{}dbg: [{}] {}\n", GetLogPrefix(), level, message);
+diff --git a/src/music/libtimidity.cpp b/src/music/libtimidity.cpp
+index 3c2c419e09..c23ea08815 100644
+--- a/src/music/libtimidity.cpp
++++ b/src/music/libtimidity.cpp
+@@ -70,7 +70,7 @@ const char *MusicDriver_LibTimidity::Start(const StringList &param)
+ 			return "error initializing timidity";
+ 		}
+ 	}
+-	DEBUG(driver, 1, "successfully initialised timidity");
++	Debug(driver, 1, "successfully initialised timidity");
+ 
+ 	_midi.options.rate = samplerate;
+ 	_midi.options.format = MID_AUDIO_S16LSB;
+@@ -102,7 +102,7 @@ void MusicDriver_LibTimidity::PlaySong(const MusicSongInfo &song)
+ 
+ 	_midi.stream = mid_istream_open_file(filename.c_str());
+ 	if (_midi.stream == NULL) {
+-		DEBUG(driver, 0, "Could not open music file");
++		Debug(driver, 0, "Could not open music file");
+ 		return;
+ 	}
+ 
+@@ -111,7 +111,7 @@ void MusicDriver_LibTimidity::PlaySong(const MusicSongInfo &song)
+ 	_midi.song_length = mid_song_get_total_time(_midi.song);
+ 
+ 	if (_midi.song == NULL) {
+-		DEBUG(driver, 1, "Invalid MIDI file");
++		Debug(driver, 1, "Invalid MIDI file");
+ 		return;
+ 	}
+ 
+-- 
+2.55.0
+

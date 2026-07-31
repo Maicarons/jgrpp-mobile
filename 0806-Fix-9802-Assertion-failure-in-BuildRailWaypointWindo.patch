@@ -1,0 +1,25 @@
+From cce665c07b5c162f16ea53663647d03157a15021 Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Sat, 29 Jan 2022 13:22:03 +0000
+Subject: [PATCH 0806/1053] Fix #9802: Assertion failure in
+ BuildRailWaypointWindow constructor
+
+---
+ src/rail_gui.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index c54e172a0c..c9b04ee29d 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -2015,6 +2015,7 @@ struct BuildRailWaypointWindow : PickerWindowBase {
+ 		this->FinishInitNested(TRANSPORT_RAIL);
+ 
+ 		matrix->SetCount(_waypoint_count);
++		if (_cur_waypoint_type >= _waypoint_count) _cur_waypoint_type = 0;
+ 		matrix->SetClicked(_cur_waypoint_type);
+ 	}
+ 
+-- 
+2.55.0
+

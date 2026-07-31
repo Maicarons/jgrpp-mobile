@@ -1,0 +1,22 @@
+From aace588e64334b616a10c6830bc9bd38667fa966 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 22 Sep 2017 23:34:00 +0300
+Subject: [PATCH 0437/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 6d53214c0c..a54aa2215c 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -10,3 +10,5 @@
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), TODO: it's broken in SDL.
+ 
+ - Draggable combo boxes.
++
++- Group GUI is broken - Android patch did not apply.
+-- 
+2.55.0
+

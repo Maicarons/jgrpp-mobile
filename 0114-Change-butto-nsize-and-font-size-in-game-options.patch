@@ -1,0 +1,191 @@
+From fed40b76ff3533462aaaff943ee9d5e687d7e714 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 7 Apr 2014 22:36:22 +0300
+Subject: [PATCH 0114/1053] Change butto nsize and font size in game options
+
+---
+ src/lang/english.txt          |  4 ++
+ src/settings_gui.cpp          | 92 +++++++++++++++++++++++++----------
+ src/widgets/settings_widget.h |  2 +
+ 3 files changed, 73 insertions(+), 25 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index bd933a2eb6..31fefff068 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1189,6 +1189,10 @@ STR_CONFIG_SETTING_TOUCHSCREEN_MODE_HELPTEXT                    :If playing with
+ STR_CONFIG_SETTING_TOUCHSCREEN_NONE                             :no adaptation
+ STR_CONFIG_SETTING_TOUCHSCREEN_SIMPLE                           :simple
+ STR_CONFIG_SETTING_TOUCHSCREEN_CONFIRM                          :confirm
++STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Button size
++STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Size of all user interface elements
++STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Font size
++STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Size of all game fonts
+ STR_CONFIG_SETTING_SHOWFINANCES                                 :Show finances window at the end of the year: {STRING2}
+ STR_CONFIG_SETTING_SHOWFINANCES_HELPTEXT                        :If enabled, the finances window pops up at the end of each year to allow easy inspection of the financial status of the company
+ STR_CONFIG_SETTING_NONSTOP_BY_DEFAULT                           :New orders are 'non-stop' by default: {STRING2}
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index ed1caf81c6..07b51d6afe 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -39,6 +39,7 @@
+ #include "querystring_gui.h"
+ #include "fontcache.h"
+ 
++enum { MIN_BUTTON_SIZE = 10, MAX_BUTTON_SIZE = 40 };
+ 
+ static const StringID _driveside_dropdown[] = {
+ 	STR_GAME_OPTIONS_ROAD_VEHICLES_DROPDOWN_LEFT,
+@@ -102,6 +103,8 @@ static int GetCurRes()
+ 
+ static void ShowCustCurrency();
+ 
++static void ReconstructUserInterface();
++
+ template <class T>
+ static DropDownList *BuiltSetDropDownList(int *selected_index)
+ {
+@@ -282,6 +285,19 @@ struct GameOptionsWindow : Window {
+ 				}
+ 				break;
+ 
++			case WID_GO_BUTTON_SIZE_DROPDOWN: // Setup screenshot format dropdown
++			case WID_GO_TEXT_SIZE_DROPDOWN: // Setup screenshot format dropdown
++				list = new DropDownList();
++				*selected_index = (widget == WID_GO_BUTTON_SIZE_DROPDOWN) ?
++									_settings_client.gui.min_button :
++									_freetype.medium.size;
++				for (uint i = MIN_BUTTON_SIZE; i <= MAX_BUTTON_SIZE; i++) {
++					DropDownListParamStringItem *item = new DropDownListParamStringItem(STR_JUST_INT, i, false);
++					item->SetParam(0, i);
++					*list->Append() = item;
++				}
++				break;
++
+ 			case WID_GO_BASE_GRF_DROPDOWN:
+ 				list = BuiltSetDropDownList<BaseGraphics>(selected_index);
+ 				break;
+@@ -311,6 +327,8 @@ struct GameOptionsWindow : Window {
+ 			case WID_GO_LANG_DROPDOWN:       SetDParamStr(0, _current_language->own_name); break;
+ 			case WID_GO_RESOLUTION_DROPDOWN: SetDParam(0, GetCurRes() == _num_resolutions ? STR_GAME_OPTIONS_RESOLUTION_OTHER : SPECSTR_RESOLUTION_START + GetCurRes()); break;
+ 			case WID_GO_SCREENSHOT_DROPDOWN: SetDParam(0, SPECSTR_SCREENSHOT_START + _cur_screenshot_format); break;
++			case WID_GO_BUTTON_SIZE_DROPDOWN:SetDParam(0, _settings_client.gui.min_button); break;
++			case WID_GO_TEXT_SIZE_DROPDOWN:  SetDParam(0, _freetype.medium.size); break;
+ 			case WID_GO_BASE_GRF_DROPDOWN:   SetDParamStr(0, BaseGraphics::GetUsedSet()->name); break;
+ 			case WID_GO_BASE_GRF_STATUS:     SetDParam(0, BaseGraphics::GetUsedSet()->GetNumInvalid()); break;
+ 			case WID_GO_BASE_SFX_DROPDOWN:   SetDParamStr(0, BaseSounds::GetUsedSet()->name); break;
+@@ -507,29 +525,7 @@ struct GameOptionsWindow : Window {
+ 
+ 			case WID_GO_RESOLUTION_DROPDOWN: // Change resolution
+ 				if (index < _num_resolutions && ChangeResInGame(_resolutions[index].width, _resolutions[index].height)) {
+-					// Reinit all GUI elements and fonts, so they will rescale
+-					InitFreeType(true);
+-					CheckForMissingGlyphs();
+-
+-					DeleteAllNonVitalWindows();
+-
+-					switch (_game_mode) {
+-						case GM_MENU:
+-							DeleteWindowById(WC_SELECT_GAME, 0);
+-							extern void ShowSelectGameWindow();
+-							ShowSelectGameWindow();
+-							break;
+-
+-						case GM_NORMAL:
+-						case GM_EDITOR:
+-							HideVitalWindows();
+-							ShowVitalWindows();
+-							break;
+-
+-						default:
+-							break;
+-					}
+-
++					ReconstructUserInterface();
+ 					this->SetDirty();
+ 				}
+ 				break;
+@@ -539,6 +535,20 @@ struct GameOptionsWindow : Window {
+ 				this->SetDirty();
+ 				break;
+ 
++			case WID_GO_BUTTON_SIZE_DROPDOWN: // Setup screenshot format dropdown
++				_settings_client.gui.min_button = index;
++				_settings_client.gui.min_step = index;
++				ReconstructUserInterface();
++				break;
++
++			case WID_GO_TEXT_SIZE_DROPDOWN: // Setup screenshot format dropdown
++				_freetype.medium.size = index;
++				_freetype.small.size = _freetype.medium.size * 10 / 12;
++				_freetype.large.size = _freetype.medium.size * 16 / 12;
++				_freetype.mono.size = _freetype.medium.size;
++				ReconstructUserInterface();
++				break;
++
+ 			case WID_GO_BASE_GRF_DROPDOWN:
+ 				this->SetMediaSet<BaseGraphics>(index);
+ 				break;
+@@ -610,8 +620,11 @@ static const NWidgetPart _nested_game_options_widgets[] = {
+ 				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_GAME_OPTIONS_LANGUAGE, STR_NULL),
+ 					NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_GO_LANG_DROPDOWN), SetMinimalSize(150, 12), SetDataTip(STR_BLACK_RAW_STRING, STR_GAME_OPTIONS_LANGUAGE_TOOLTIP), SetFill(1, 0),
+ 				EndContainer(),
+-				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_GAME_OPTIONS_SCREENSHOT_FORMAT, STR_NULL),
+-					NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_GO_SCREENSHOT_DROPDOWN), SetMinimalSize(150, 12), SetDataTip(STR_BLACK_STRING, STR_GAME_OPTIONS_SCREENSHOT_FORMAT_TOOLTIP), SetFill(1, 0),
++				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_CONFIG_SETTING_BUTTON_SIZE, STR_NULL),
++					NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_GO_BUTTON_SIZE_DROPDOWN), SetMinimalSize(150, 12), SetDataTip(STR_JUST_INT, STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP), SetFill(1, 0),
++				EndContainer(),
++				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_CONFIG_SETTING_FONT_SIZE, STR_NULL),
++					NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_GO_TEXT_SIZE_DROPDOWN), SetMinimalSize(150, 12), SetDataTip(STR_JUST_INT, STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP), SetFill(1, 0),
+ 				EndContainer(),
+ 				NWidget(NWID_SPACER), SetMinimalSize(0, 0), SetFill(0, 1),
+ 			EndContainer(),
+@@ -2677,3 +2690,32 @@ static void ShowCustCurrency()
+ 	DeleteWindowById(WC_CUSTOM_CURRENCY, 0);
+ 	new CustomCurrencyWindow(&_cust_currency_desc);
+ }
++
++void ReconstructUserInterface()
++{
++	// Reinit all GUI elements and fonts, so they will rescale
++	InitFreeType(true);
++	CheckForMissingGlyphs();
++
++	DeleteAllNonVitalWindows();
++
++	switch (_game_mode) {
++		case GM_MENU:
++			DeleteWindowById(WC_SELECT_GAME, 0);
++			extern void ShowSelectGameWindow();
++			ShowSelectGameWindow();
++			break;
++
++		case GM_NORMAL:
++		case GM_EDITOR:
++			HideVitalWindows();
++			ShowVitalWindows();
++			break;
++
++		default:
++			break;
++	}
++
++	ReInitAllWindows();
++	ShowGameOptions();
++}
+diff --git a/src/widgets/settings_widget.h b/src/widgets/settings_widget.h
+index 6f045a2a25..1bb18185a2 100644
+--- a/src/widgets/settings_widget.h
++++ b/src/widgets/settings_widget.h
+@@ -24,6 +24,8 @@ enum GameOptionsWidgets {
+ 	WID_GO_RESOLUTION_DROPDOWN,    ///< Dropdown for the resolution.
+ 	WID_GO_FULLSCREEN_BUTTON,      ///< Toggle fullscreen.
+ 	WID_GO_SCREENSHOT_DROPDOWN,    ///< Select the screenshot type... please use PNG!.
++	WID_GO_BUTTON_SIZE_DROPDOWN,   ///< Size of in-game UI elements, such as buttons.
++	WID_GO_TEXT_SIZE_DROPDOWN,     ///< Size of medium font, sizes of other fonts are derived from it.
+ 	WID_GO_BASE_GRF_DROPDOWN,      ///< Use to select a base GRF.
+ 	WID_GO_BASE_GRF_STATUS,        ///< Info about missing files etc.
+ 	WID_GO_BASE_GRF_TEXTFILE,      ///< Open base GRF readme, changelog (+1) or license (+2).
+-- 
+2.55.0
+

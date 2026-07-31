@@ -1,0 +1,33 @@
+From deb04a55776ff18fbfd4c092c24bdacb2505d052 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sun, 7 Apr 2024 13:39:37 +0100
+Subject: [PATCH 0898/1053] fix: replace usage of removed strecat with fmt
+
+---
+ src/console_gui.cpp | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/src/console_gui.cpp b/src/console_gui.cpp
+index ecfddbe6a3..a729d12869 100644
+--- a/src/console_gui.cpp
++++ b/src/console_gui.cpp
+@@ -447,14 +447,12 @@ void IConsoleSwitch()
+ 			{
+ 				char buf[1024] = "";
+ 
+-				//for (const IConsoleLine *print = IConsoleLine::Get(0); print != NULL; print = print->previous) {
+ 				for (IConsoleLine &line : _iconsole_buffer) {
+ 					if (!line.buffer.empty()) {
+-						strecat(buf, line.buffer.c_str(), lastof(buf));
+-						strecat(buf, "\n", lastof(buf));
++						fmt::format_to_n(buf, sizeof(buf), "{}\n", line.buffer);
+ 					}
+ 				}
+-				strecat(buf, "\n\n\n\n\n\n\n\n", lastof(buf)); // Move all text to top
++				fmt::format_to_n(buf, sizeof(buf), "\n\n\n\n\n\n\n\n");
+ 				SDL_ANDROID_SetScreenKeyboardHintMesage(buf);
+ 				char text[512] = "";
+ 				SDL_ANDROID_GetScreenKeyboardTextInput(text, sizeof(text) - 1); /* Invoke Android built-in screen keyboard */
+-- 
+2.55.0
+

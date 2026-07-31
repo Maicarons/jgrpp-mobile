@@ -1,0 +1,44 @@
+From 078eceb4d67b831680a94770604b55e743b9d77a Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Wed, 10 Apr 2024 19:22:37 +0100
+Subject: [PATCH 0902/1053] fix: Allow vw to be clicked when drag with RMB
+
+---
+ src/window.cpp | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index f8e6e551c7..1367b9144f 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -94,7 +94,7 @@ uint8_t _scroller_click_timeout = 0;
+ 
+ bool _scrolling_viewport;  ///< A viewport is being scrolled with the mouse.
+ bool _mouse_hovering;      ///< The mouse is hovering over the same point.
+-static bool _left_button_dragged;
++static bool _left_button_dragged = false;
+ 
+ SpecialMouseMode _special_mouse_mode; ///< Mode of the mouse.
+ 
+@@ -3058,7 +3058,7 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 			case MC_LEFT:
+ 				mouse_down_on_viewport = true;
+ 				if (HandleViewportClicked(vp, x, y)) {
+-					// Viewport already clicked, prevent sending same event on mouse-up
++					// Viewport click already handled, prevent sending same event on mouse-up
+ 					_left_button_dragged = true;
+ 					return;
+ 				}
+@@ -3066,9 +3066,6 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 						(_settings_client.gui.scroll_mode == VSM_MAP_LMB || _move_pressed)) {
+ 					_scrolling_viewport = true;
+ 					_cursor.fix_at = false;
+-				} else {
+-					// Viewport already clicked, prevent sending same event on mouse-up
+-					_left_button_dragged = true;
+ 				}
+ 				return;
+ 
+-- 
+2.55.0
+

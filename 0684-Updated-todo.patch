@@ -1,0 +1,25 @@
+From f4a76cc6af3b608e1272043d05c2f3e3e4c2e610 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 6 May 2021 01:51:06 +0300
+Subject: [PATCH 0684/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 55582a2276..2f0ab1d164 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -15,6 +15,8 @@
+ 
+ - Fast Forward sometimes deactivates after auto-save, however Fast Forward button is still pressed.
+ 
++- De-press 'Go To' button in vehicle orders after clicking on a station.
++
+ ===== Emscripten TODO =====
+ 
+ - Fix window resizing to keep videomode height at 480 pixels.
+-- 
+2.55.0
+

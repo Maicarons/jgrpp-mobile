@@ -1,0 +1,117 @@
+From 94321a25e7f021ff10d97886a3400079f470cba8 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 4 Sep 2019 15:23:05 +0300
+Subject: [PATCH 0531/1053] Reverted deprecated Android changes
+
+---
+ config.lib          | 10 +++++-----
+ configure           |  2 +-
+ src/fileio.cpp      | 19 -------------------
+ src/video/sdl_v.cpp |  8 --------
+ 4 files changed, 6 insertions(+), 33 deletions(-)
+
+diff --git a/config.lib b/config.lib
+index 8993a27c64..de1285e0eb 100644
+--- a/config.lib
++++ b/config.lib
+@@ -1823,14 +1823,14 @@ make_cflags_and_ldflags() {
+ 		CFLAGS="$CFLAGS -DWITH_XAUDIO2"
+ 	fi
+ 
+-	if [ -n "$libtimidity" ]; then
++	if [ -n "$libtimidity_config" ]; then
+ 		CFLAGS="$CFLAGS -DLIBTIMIDITY"
+-		CFLAGS="$CFLAGS `$libtimidity --cflags | tr '\n\r' '  '`"
++		CFLAGS="$CFLAGS `$libtimidity_config --cflags | tr '\n\r' '  '`"
+ 
+ 		if [ "$enable_static" != "0" ]; then
+-			LIBS="$LIBS `$libtimidity --libs --static | tr '\n\r' '  '`"
++			LIBS="$LIBS `$libtimidity_config --libs --static | tr '\n\r' '  '`"
+ 		else
+-			LIBS="$LIBS `$libtimidity --libs | tr '\n\r' '  '`"
++			LIBS="$LIBS `$libtimidity_config --libs | tr '\n\r' '  '`"
+ 		fi
+ 	fi
+ 
+@@ -2772,7 +2772,7 @@ detect_lzo2() {
+ }
+ 
+ detect_libtimidity() {
+-	detect_pkg_config "$with_libtimidity" "libtimidity" "libtimidity" "0.1" "1"
++	detect_pkg_config "$with_libtimidity" "libtimidity" "libtimidity_config" "0.1" "1"
+ }
+ 
+ detect_fluidsynth() {
+diff --git a/configure b/configure
+index afc1de51b4..3644fa5174 100755
+--- a/configure
++++ b/configure
+@@ -124,7 +124,7 @@ AWKCOMMAND='
+ 		if ($0 == "MORPHOS"     && "'$os'" != "MORPHOS")           { next; }
+ 		if ($0 == "MSVC"        && "'$os'" != "MSVC")              { next; }
+ 		if ($0 == "DIRECTMUSIC" && "'$with_direct_music'" == "0")  { next; }
+-		if ($0 == "LIBTIMIDITY" && "'$libtimidity'" == "" )        { next; }
++		if ($0 == "LIBTIMIDITY" && "'$libtimidity_config'" == "" ) { next; }
+ 		if ($0 == "FLUIDSYNTH"  && "'$fluidsynth'" == "" )         { next; }
+ 		if ($0 == "HAVE_THREAD" && "'$with_threads'" == "0")       { next; }
+ 		if ($0 == "SSE"         && "'$with_sse'" != "1")           { next; }
+diff --git a/src/fileio.cpp b/src/fileio.cpp
+index e5e2875b87..0e6d86e3c7 100644
+--- a/src/fileio.cpp
++++ b/src/fileio.cpp
+@@ -292,11 +292,7 @@ static const char * const _subdirs[] = {
+ 	"ai" PATHSEP "library" PATHSEP,
+ 	"game" PATHSEP,
+ 	"game" PATHSEP "library" PATHSEP,
+-#ifdef __ANDROID__
+ 	"screenshot" PATHSEP,
+-#else
+-	"screenshot" PATHSEP,
+-#endif
+ };
+ assert_compile(lengthof(_subdirs) == NUM_SUBDIRS);
+ 
+@@ -1283,21 +1279,6 @@ void DeterminePaths(const char *exe)
+ 		_searchpaths[SP_AUTODOWNLOAD_DIR] = NULL;
+ 	}
+ #endif /* ENABLE_NETWORK */
+-
+-#ifdef __ANDROID__
+-	// Copy savegames from "full" OpenTTD to "lite" save directory
+-	char curdir[PATH_MAX];
+-	if (getcwd(curdir, sizeof(curdir)) && strstr(curdir, "org.openttd.sdl.lowmem")) {
+-		// No, I won't implement file copying in C, shell script is just fine for this job
+-		DEBUG(misc, 1, "Copying savegames from ../../org.openttd.sdl/files/.openttd/save to %s", curdir);
+-		system("cd ../../org.openttd.sdl/files/.openttd/save && "
+-				"for F in *.sav ; do "
+-				"ls \"../../../../org.openttd.sdl.lowmem/files/.openttd/save/$F\" || "
+-				"cat \"$F\" > \"../../../../org.openttd.sdl.lowmem/files/.openttd/save/$F\" ; "
+-				"done");
+-		chdir(curdir);
+-	}
+-#endif
+ }
+ 
+ /**
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index a4979d757c..478a21511c 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -615,14 +615,6 @@ int VideoDriver_SDL::PollEvent()
+ 			} else if (ev.button.button == SDL_BUTTON_LEFT) {
+ 				_left_button_down = false;
+ 				_left_button_clicked = false;
+-#ifdef __ANDROID__
+-				if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON_RMASK) {
+-					// Two-finger click - hacky way to determine if the right mouse button is already pressed without processing the left button event
+-					// Cancel whatever action we were doing, to allow two finger scrolling
+-					ResetObjectToPlace();
+-					ToolbarSelectLastTool();
+-				}
+-#endif
+ 			} else if (ev.button.button == SDL_BUTTON_RIGHT) {
+ 				_right_button_down = false;
+ 			}
+-- 
+2.55.0
+

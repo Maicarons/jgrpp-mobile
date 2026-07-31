@@ -1,0 +1,197 @@
+From c765e99c09ea9f9cfae906f042da914fd81637f9 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 7 May 2021 22:38:44 +0300
+Subject: [PATCH 0691/1053] Removed less used sizing types
+
+---
+ src/misc_gui.cpp  |  2 +-
+ src/news_gui.cpp  |  2 +-
+ src/osk_gui.cpp   | 38 +++++++++-----------------------------
+ src/widget.cpp    | 12 ++----------
+ src/widget_type.h |  5 +----
+ 5 files changed, 14 insertions(+), 45 deletions(-)
+
+diff --git a/src/misc_gui.cpp b/src/misc_gui.cpp
+index 726acadcec..849077a9d1 100644
+--- a/src/misc_gui.cpp
++++ b/src/misc_gui.cpp
+@@ -1234,7 +1234,7 @@ struct QueryWindow : public Window {
+ 	{
+ 		if (widget != WID_Q_TEXT) return;
+ 
+-		size->width = GetMinSizing(NWST_WINDOW_LENGTH, size->width);
++		size->width = std::max(GetMinSizing(NWST_BUTTON) * 8, size->width);
+ 		Dimension d = GetStringMultiLineBoundingBox(this->message, *size);
+ 		d.width += WD_FRAMETEXT_LEFT + WD_FRAMETEXT_RIGHT;
+ 		d.height += WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM;
+diff --git a/src/news_gui.cpp b/src/news_gui.cpp
+index 93e52ac2c0..24cdb857c1 100644
+--- a/src/news_gui.cpp
++++ b/src/news_gui.cpp
+@@ -362,7 +362,7 @@ struct NewsWindow : Window {
+ 				break;
+ 
+ 			case WID_N_MESSAGE:
+-				size->width = GetMinSizing(NWST_WINDOW_LENGTH, size->width);
++				size->width = std::max(GetMinSizing(NWST_BUTTON) * 8, size->width);
+ 				CopyInDParam(0, this->ni->params, lengthof(this->ni->params));
+ 				str = this->ni->string_id;
+ 				break;
+diff --git a/src/osk_gui.cpp b/src/osk_gui.cpp
+index 4ab8b270e2..bc2e8d9939 100644
+--- a/src/osk_gui.cpp
++++ b/src/osk_gui.cpp
+@@ -228,8 +228,7 @@ static const int KEY_PADDING = 6;     // Vertical padding for remaining key rows
+  */
+ static void AddKey(NWidgetHorizontal *hor, int pad_y, int num_half, WidgetType widtype, int widnum, uint16 widdata, int *biggest_index)
+ {
+-	int min_half_key = std::max<int>(GetMinSizing(NWST_BUTTON), HALF_KEY_WIDTH);
+-	int key_width = min_half_key + (INTER_KEY_SPACE + min_half_key) * (num_half - 1);
++	int key_width = HALF_KEY_WIDTH + (INTER_KEY_SPACE + HALF_KEY_WIDTH) * (num_half - 1);
+ 
+ 	if (widtype == NWID_SPACER) {
+ 		if (!hor->IsEmpty()) key_width += INTER_KEY_SPACE;
+@@ -266,10 +265,6 @@ static NWidgetBase *MakeTopKeys(int *biggest_index)
+ static NWidgetBase *MakeNumberKeys(int *biggest_index)
+ {
+ 	NWidgetHorizontal *hor = new NWidgetHorizontalLTR();
+-<<<<<<< HEAD
+-	int key_height = GetMinSizing(NWST_KEYBOARD, FONT_HEIGHT_NORMAL + 6);
+-=======
+->>>>>>> 6bd7f8816dfee1a5e697d18e30aad4b5ef7e320f
+ 
+ 	for (int widnum = WID_OSK_NUMBERS_FIRST; widnum <= WID_OSK_NUMBERS_LAST; widnum++) {
+ 		AddKey(hor, KEY_PADDING, 2, WWT_PUSHBTN, widnum, 0x0, biggest_index);
+@@ -281,10 +276,6 @@ static NWidgetBase *MakeNumberKeys(int *biggest_index)
+ static NWidgetBase *MakeQwertyKeys(int *biggest_index)
+ {
+ 	NWidgetHorizontal *hor = new NWidgetHorizontalLTR();
+-<<<<<<< HEAD
+-	int key_height = GetMinSizing(NWST_KEYBOARD, FONT_HEIGHT_NORMAL + 6);
+-=======
+->>>>>>> 6bd7f8816dfee1a5e697d18e30aad4b5ef7e320f
+ 
+ 	AddKey(hor, KEY_PADDING, 3, WWT_PUSHIMGBTN, WID_OSK_SPECIAL, SPR_OSK_SPECIAL, biggest_index);
+ 	for (int widnum = WID_OSK_QWERTY_FIRST; widnum <= WID_OSK_QWERTY_LAST; widnum++) {
+@@ -298,10 +289,6 @@ static NWidgetBase *MakeQwertyKeys(int *biggest_index)
+ static NWidgetBase *MakeAsdfgKeys(int *biggest_index)
+ {
+ 	NWidgetHorizontal *hor = new NWidgetHorizontalLTR();
+-<<<<<<< HEAD
+-	int key_height = GetMinSizing(NWST_KEYBOARD, FONT_HEIGHT_NORMAL + 6);
+-=======
+->>>>>>> 6bd7f8816dfee1a5e697d18e30aad4b5ef7e320f
+ 
+ 	AddKey(hor, KEY_PADDING, 4, WWT_IMGBTN, WID_OSK_CAPS, SPR_OSK_CAPS, biggest_index);
+ 	for (int widnum = WID_OSK_ASDFG_FIRST; widnum <= WID_OSK_ASDFG_LAST; widnum++) {
+@@ -314,10 +301,6 @@ static NWidgetBase *MakeAsdfgKeys(int *biggest_index)
+ static NWidgetBase *MakeZxcvbKeys(int *biggest_index)
+ {
+ 	NWidgetHorizontal *hor = new NWidgetHorizontalLTR();
+-<<<<<<< HEAD
+-	int key_height = GetMinSizing(NWST_KEYBOARD, FONT_HEIGHT_NORMAL + 6);
+-=======
+->>>>>>> 6bd7f8816dfee1a5e697d18e30aad4b5ef7e320f
+ 
+ 	AddKey(hor, KEY_PADDING, 3, WWT_IMGBTN, WID_OSK_SHIFT, SPR_OSK_SHIFT, biggest_index);
+ 	for (int widnum = WID_OSK_ZXCVB_FIRST; widnum <= WID_OSK_ZXCVB_LAST; widnum++) {
+@@ -331,22 +314,19 @@ static NWidgetBase *MakeZxcvbKeys(int *biggest_index)
+ static NWidgetBase *MakeSpacebarKeys(int *biggest_index)
+ {
+ 	NWidgetHorizontal *hor = new NWidgetHorizontal();
+-<<<<<<< HEAD
+-	int key_height = GetMinSizing(NWST_KEYBOARD, FONT_HEIGHT_NORMAL + 6);
+-=======
+->>>>>>> 6bd7f8816dfee1a5e697d18e30aad4b5ef7e320f
+-
+-	AddKey(hor, KEY_PADDING,  8, NWID_SPACER, 0, 0, biggest_index);
+-	AddKey(hor, KEY_PADDING, 13, WWT_PUSHTXTBTN, WID_OSK_SPACE, STR_EMPTY, biggest_index);
+-	AddKey(hor, KEY_PADDING,  3, NWID_SPACER, 0, 0, biggest_index);
+-	AddKey(hor, KEY_PADDING,  2, WWT_PUSHIMGBTN, WID_OSK_LEFT,  SPR_OSK_LEFT, biggest_index);
+-	AddKey(hor, KEY_PADDING,  2, WWT_PUSHIMGBTN, WID_OSK_RIGHT, SPR_OSK_RIGHT, biggest_index);
++	int key_height = FONT_HEIGHT_NORMAL + 6;
++
++	AddKey(hor, key_height,  8, NWID_SPACER, 0, 0, biggest_index);
++	AddKey(hor, key_height, 13, WWT_PUSHTXTBTN, WID_OSK_SPACE, STR_EMPTY, biggest_index);
++	AddKey(hor, key_height,  3, NWID_SPACER, 0, 0, biggest_index);
++	AddKey(hor, key_height,  2, WWT_PUSHIMGBTN, WID_OSK_LEFT,  SPR_OSK_LEFT, biggest_index);
++	AddKey(hor, key_height,  2, WWT_PUSHIMGBTN, WID_OSK_RIGHT, SPR_OSK_RIGHT, biggest_index);
+ 	return hor;
+ }
+ 
+ 
+ static const NWidgetPart _nested_osk_widgets[] = {
+-	NWidget(WWT_CAPTION, COLOUR_GREY, WID_OSK_CAPTION), SetSizingType(NWST_BUTTON), SetDataTip(STR_WHITE_STRING, STR_NULL),
++	NWidget(WWT_CAPTION, COLOUR_GREY, WID_OSK_CAPTION), SetDataTip(STR_WHITE_STRING, STR_NULL),
+ 	NWidget(WWT_PANEL, COLOUR_GREY),
+ 		NWidget(WWT_EDITBOX, COLOUR_GREY, WID_OSK_TEXT), SetMinimalSize(252, 12), SetPadding(2, 2, 2, 2),
+ 	EndContainer(),
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 8433292f95..d7a9625e36 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -903,7 +903,6 @@ void NWidgetResizeBase::SetMinimalSizeAbsolute(uint min_x, uint min_y)
+ 	uint min_size = 0;
+ 	switch (this->sizing_type) {
+ 		case NWST_NONE:
+-		case NWST_OVERRIDE:
+ 			min_size = 0;
+ 			break;
+ 		case NWST_BUTTON:
+@@ -2596,7 +2595,7 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 				this->SetMinimalSize(8, 8);
+ 				break;
+ 			default:
+-				this->sizing_type = NWST_OVERRIDE;
++				this->sizing_type = NWST_NONE;
+ 		}
+ 	}
+ 
+@@ -2701,7 +2700,7 @@ void NWidgetLeaf::SetupSmallestSize(Window *w, bool init_array)
+ 		this->type == WWT_DEFSIZEBOX || this->type == WWT_CLOSEBOX || this->type == WWT_DEBUGBOX)) {
+ 		static const Dimension extra = {0, 0};
+ 		padding = &extra;
+-		this->sizing_type = NWST_OVERRIDE;
++		this->sizing_type = NWST_NONE;
+ 		size = extra;
+ 		fill = extra;
+ 		resize = extra;
+@@ -3452,17 +3451,10 @@ uint GetMinSizing(NWidSizingType type, uint min_1)
+ 	uint min_sizing;
+ 	switch (type) {
+ 		case NWST_NONE:
+-		case NWST_OVERRIDE:
+ 			return min_1;
+ 		case NWST_BUTTON:
+ 			min_sizing = _settings_client.gui.min_button;
+ 			break;
+-		case NWST_KEYBOARD:
+-			min_sizing = 2 * _settings_client.gui.min_button;
+-			break;
+-		case NWST_WINDOW_LENGTH:
+-			min_sizing = 8 * _settings_client.gui.min_button;
+-			break;
+ 		default: NOT_REACHED();
+ 	}
+ 	min_sizing = RescaleFrom854x480(min_sizing);
+diff --git a/src/widget_type.h b/src/widget_type.h
+index febc61e99a..9b1a4b0385 100644
+--- a/src/widget_type.h
++++ b/src/widget_type.h
+@@ -40,12 +40,9 @@ enum ArrowWidgetValues {
+ 
+ /** Values for different minimal sizing of widgets. */
+ enum NWidSizingType {
+-	NWST_NONE,			///< No sizing type is yet defined.
++	NWST_NONE,			///< No automatic minimal sizing.
+ 	NWST_BUTTON,		///< Size will be set at least _settings_client.gui.min_button.
+-	NWST_KEYBOARD,		///< Size for keyboard keys.
+-	NWST_WINDOW_LENGTH,	///< Width for command errors, message windows and statusbar middle part.
+ 	NWST_VIEWPORT,		///< Sizing type for viewports.
+-	NWST_OVERRIDE,		///< Avoid widgets to use automatic minimal sizing.
+ 	NWST_END
+ };
+ 
+-- 
+2.55.0
+

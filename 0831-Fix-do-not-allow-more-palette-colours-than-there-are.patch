@@ -1,0 +1,32 @@
+From ed655948687085eed16087be6d99c1209b1f7abb Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Tue, 3 Jan 2023 18:50:33 +0100
+Subject: [PATCH 0831/1053] Fix: do not allow more palette colours than there
+ are indices for the colours
+
+Or: do not pass unchecked size from BMP file into memory allocation
+---
+ src/bmp.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/bmp.cpp b/src/bmp.cpp
+index 2877d01470..e4ca834410 100644
+--- a/src/bmp.cpp
++++ b/src/bmp.cpp
+@@ -367,7 +367,12 @@ bool BmpReadHeader(BmpBuffer *buffer, BmpInfo *info, BmpData *data)
+ 			info->palette_size = ReadDword(buffer); // number of colours in palette
+ 			SkipBytes(buffer, header_size - 16);    // skip the end of info header
+ 		}
+-		if (info->palette_size == 0) info->palette_size = 1 << info->bpp;
++
++		uint maximum_palette_size = 1U << info->bpp;
++		if (info->palette_size == 0) info->palette_size = maximum_palette_size;
++
++		/* More palette colours than palette indices is not supported. */
++		if (info->palette_size > maximum_palette_size) return false;
+ 
+ 		data->palette = CallocT<Colour>(info->palette_size);
+ 
+-- 
+2.55.0
+

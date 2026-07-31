@@ -1,0 +1,33 @@
+From a52425196eed3f86381b63d3532ac93187b9aba3 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Wed, 5 Jun 2024 22:47:04 +0100
+Subject: [PATCH 0921/1053] fix: Show console output
+
+---
+ src/console_gui.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/console_gui.cpp b/src/console_gui.cpp
+index a729d12869..1d5ae4623d 100644
+--- a/src/console_gui.cpp
++++ b/src/console_gui.cpp
+@@ -446,13 +446,14 @@ void IConsoleSwitch()
+ #ifdef __ANDROID__
+ 			{
+ 				char buf[1024] = "";
++				char *pos = &buf;
+ 
+ 				for (IConsoleLine &line : _iconsole_buffer) {
+ 					if (!line.buffer.empty()) {
+-						fmt::format_to_n(buf, sizeof(buf), "{}\n", line.buffer);
++						pos = fmt::format_to(pos, "{}\n", line.buffer);
+ 					}
+ 				}
+-				fmt::format_to_n(buf, sizeof(buf), "\n\n\n\n\n\n\n\n");
++				pos = fmt::format_to(pos, "\n\n\n\n\n\n\n\n");
+ 				SDL_ANDROID_SetScreenKeyboardHintMesage(buf);
+ 				char text[512] = "";
+ 				SDL_ANDROID_GetScreenKeyboardTextInput(text, sizeof(text) - 1); /* Invoke Android built-in screen keyboard */
+-- 
+2.55.0
+

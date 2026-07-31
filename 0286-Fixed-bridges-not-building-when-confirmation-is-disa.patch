@@ -1,0 +1,79 @@
+From db042040c21ca26946bf72f61f797c3702777fb5 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 20 May 2016 20:18:41 +0300
+Subject: [PATCH 0286/1053] Fixed bridges not building when confirmation is
+ disabled, rearranged tooltip position to not obscure buttons
+
+---
+ src/build_confirmation_gui.cpp |  1 -
+ src/misc_gui.cpp               | 13 ++++++++++---
+ src/window.cpp                 |  3 ---
+ 3 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index ce0e2157e9..c7d82bc2ca 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -238,7 +238,6 @@ void ShowBuildConfirmationWindow()
+ 
+ 	if (!_settings_client.gui.build_confirmation || _shift_pressed) {
+ 		ConfirmPlacingObject();
+-		ToolbarSelectLastTool();
+ 		return;
+ 	}
+ 
+diff --git a/src/misc_gui.cpp b/src/misc_gui.cpp
+index 7446e17348..ad525c843e 100644
+--- a/src/misc_gui.cpp
++++ b/src/misc_gui.cpp
+@@ -645,8 +645,6 @@ static WindowDesc _tool_tips_desc(
+ 	_nested_tooltips_widgets, lengthof(_nested_tooltips_widgets)
+ );
+ 
+-uint _tooltip_width = 194;
+-
+ /** Window for displaying a tooltip. */
+ struct TooltipsWindow : public Window
+ {
+@@ -687,6 +685,15 @@ struct TooltipsWindow : public Window
+ 		if (pt.y + sm_height > scr_bot) pt.y = min(_cursor.pos.y + _cursor.offs.y - 5, scr_bot) - sm_height;
+ 		pt.x = sm_width >= _screen.width ? 0 : Clamp(_cursor.pos.x - (sm_width >> 1), 0, _screen.width - sm_width);
+ 
++		// Move it to the top of the screen, away from mouse cursor, so it won't steal screen taps on Android
++		pt.y = GetMainViewTop();
++		pt.x = _cursor.pos.x > _screen.width / 2 ?
++				FindWindowById(WC_MAIN_TOOLBAR, 0)->width :
++				_screen.width - sm_width - FindWindowById(WC_MAIN_TOOLBAR, 0)->width;
++		if (_cursor.pos.y > pt.y + GetMinSizing(NWST_STEP)) {
++			pt.x = sm_width >= _screen.width ? 0 : Clamp(_cursor.pos.x - (sm_width >> 1), 0, _screen.width - sm_width);
++		}
++
+ 		return pt;
+ 	}
+ 
+@@ -695,7 +702,7 @@ struct TooltipsWindow : public Window
+ 		/* There is only one widget. */
+ 		for (uint i = 0; i != this->paramcount; i++) SetDParam(i, this->params[i]);
+ 
+-		size->width  = min(GetStringBoundingBox(this->string_id).width, ScaleGUITrad(194));
++		size->width  = min(GetStringBoundingBox(this->string_id).width, ScaleGUITrad(250));
+ 		size->height = GetStringHeight(this->string_id, size->width);
+ 
+ 		/* Increase slightly to have some space around the box. */
+diff --git a/src/window.cpp b/src/window.cpp
+index 6eb74312da..935685b5cd 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1891,9 +1891,6 @@ void CheckWindowMinSizings()
+ {
+ 	SETTING_BUTTON_HEIGHT = max<int>(GetMinSizing(NWST_STEP) - 10, 10);
+ 	SETTING_BUTTON_WIDTH  = 2 * SETTING_BUTTON_HEIGHT;
+-
+-	extern uint _tooltip_width;
+-	_tooltip_width = max<uint>(194, 10 * RescaleFrom854x480(_settings_client.gui.min_button));
+ }
+ 
+ /**
+-- 
+2.55.0
+

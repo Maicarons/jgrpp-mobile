@@ -1,0 +1,22 @@
+From 8835c7826187a99caaf1be6934b5cff8f7eeefa4 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 19 Aug 2014 19:34:01 +0300
+Subject: [PATCH 0156/1053] Updated release version
+
+Conflicts:
+	.ottdrev
+---
+ .ottdrev | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 .ottdrev
+
+diff --git a/.ottdrev b/.ottdrev
+new file mode 100644
+index 0000000000..38c021e62b
+--- /dev/null
++++ b/.ottdrev
+@@ -0,0 +1 @@
++1.4.2	26740	0	1.4.2
+-- 
+2.55.0
+

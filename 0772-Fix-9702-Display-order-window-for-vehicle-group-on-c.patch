@@ -1,0 +1,47 @@
+From 521287839b2e98f71f62bbc1cb91742d08354ada Mon Sep 17 00:00:00 2001
+From: Bernard Teo <btzy1996@hotmail.com>
+Date: Fri, 19 Nov 2021 08:03:52 +0800
+Subject: [PATCH 0772/1053] Fix #9702: Display order window for vehicle group
+ on ctrl-click only when using shared orders (#9704)
+
+---
+ src/group_gui.cpp | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/src/group_gui.cpp b/src/group_gui.cpp
+index bc6a9aaf2e..374ed5700d 100644
+--- a/src/group_gui.cpp
++++ b/src/group_gui.cpp
+@@ -746,17 +746,23 @@ public:
+ 						NOT_REACHED();
+ 				}
+ 				if (v) {
+-					if (_ctrl_pressed) {
+-						if (this->grouping == GB_NONE) {
+-							this->SelectGroup(v->group_id);
+-						} else {
+-							ShowOrdersWindow(v);
+-						}
++					if (_ctrl_pressed && this->grouping == GB_SHARED_ORDERS) {
++						ShowOrdersWindow(v);
+ 					} else {
+ 						this->vehicle_sel = v->index;
++
++						if (_ctrl_pressed && this->grouping == GB_NONE) {
++							/*
++							 * It only makes sense to select a group if not using shared orders
++							 * since two vehicles sharing orders can be from different groups.
++							 */
++							this->SelectGroup(v->group_id);
++						}
++
+ 						SetObjectToPlaceWnd(SPR_CURSOR_MOUSE, PAL_NONE, HT_DRAG, this);
+ 						SetMouseCursorVehicle(v, EIT_IN_LIST);
+ 						_cursor.vehchain = true;
++
+ 						this->SetDirty();
+ 					}
+ 				}
+-- 
+2.55.0
+

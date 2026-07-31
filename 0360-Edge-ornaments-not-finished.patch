@@ -1,0 +1,223 @@
+From 9d01d66923c5059e9ab605542be3fc56bcd478a5 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Wed, 29 Mar 2017 23:45:06 +0300
+Subject: [PATCH 0360/1053] Edge ornaments, not finished
+
+---
+ src/widget.cpp    | 132 ++++++++++++++++++++++++++++++++++++++++++++++
+ src/widget_type.h |   9 ++++
+ src/window.cpp    |   7 ++-
+ todo.txt          |   2 -
+ 4 files changed, 147 insertions(+), 3 deletions(-)
+
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 014a0be7ec..aa2cb9d5f7 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -20,6 +20,8 @@
+ #include "settings_type.h"
+ #include "settings_gui.h"
+ #include "querystring_gui.h"
++#include "blitter/factory.hpp"
++
+ 
+ #include "table/sprites.h"
+ #include "table/strings.h"
+@@ -1845,6 +1847,8 @@ void NWidgetBackground::Draw(const Window *w)
+ 			NOT_REACHED();
+ 	}
+ 
++	DrawEdgeOrnament(w);
++
+ 	if (this->index >= 0) w->DrawWidget(r, this->index);
+ 	if (this->child != NULL) this->child->Draw(w);
+ 
+@@ -1853,6 +1857,134 @@ void NWidgetBackground::Draw(const Window *w)
+ 	}
+ }
+ 
++
++/*
++  Ornament image
++  ++.........+
++  ..++.....++.
++  ....+...+...
++  .....+.+....
++  ......+.....
++  ......+.....
++  ..+..+.+..+.
++  ...++...++..
++*/
++
++static unsigned char ornamentImg[][2] = {
++	{ 0,  2 - 1, },
++	{ 1,  2 - 1, },
++	{ 2,  3 - 1, },
++	{ 3,  3 - 1, },
++	{ 4,  4 - 1, },
++	{ 5,  5 - 1, },
++	{ 6,  6 - 1, },
++	{ 7,  5 - 1, },
++	{ 8,  4 - 1, },
++	{ 9,  3 - 1, },
++	{ 10, 3 - 1, },
++	{ 11, 2 - 1, },
++
++//	{ 2,  8 - 1, },
++//	{ 3,  9 - 1, },
++//	{ 4,  9 - 1, },
++//	{ 5,  8 - 1, },
++//	{ 6,  7 - 1, },
++//	{ 7,  8 - 1, },
++//	{ 8,  9 - 1, },
++//	{ 9,  9 - 1, },
++//	{ 10, 8 - 1, },
++};
++
++enum { ORNAMENT_STEP = 12, ORNAMENT_IMG_LEN = sizeof(ornamentImg) / sizeof(ornamentImg[0]) };
++
++void NWidgetBackground::DrawEdgeOrnament(const Window *w)
++{
++	if (this->pos_x == 0) {
++		DrawEdgeOrnamentL(w);
++	}
++	if (int(this->pos_x + this->current_x) == w->width) {
++		DrawEdgeOrnamentR(w);
++	}
++	if (this->pos_y == 0) {
++		DrawEdgeOrnamentT(w);
++		if (this->pos_x == 0) {
++			DrawEdgeOrnamentTL(w);
++		}
++		if (int(this->pos_x + this->current_x) == w->width) {
++			DrawEdgeOrnamentTR(w);
++		}
++	}
++	if (int(this->pos_y + this->current_y) == w->height) {
++		DrawEdgeOrnamentB(w);
++		if (this->pos_x == 0) {
++			DrawEdgeOrnamentBL(w);
++		}
++		if (int(this->pos_x + this->current_x) == w->width) {
++			DrawEdgeOrnamentBR(w);
++		}
++	}
++}
++
++void NWidgetBackground::DrawEdgeOrnamentL(const Window *w)
++{
++	if (_cur_dpi == NULL || _cur_dpi->zoom != ZOOM_LVL_NORMAL) return;
++
++	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
++
++	void *dst = _cur_dpi->dst_ptr;
++	int left = _cur_dpi->left;
++	//int right = _cur_dpi->left + _cur_dpi->width;
++	int width = _cur_dpi->width;
++	int top = _cur_dpi->top;
++	//int bottom = _cur_dpi->top + _cur_dpi->height;
++	int height = _cur_dpi->height;
++
++	int half = this->pos_y + this->current_y / 2 - top;
++
++	int x = this->pos_x - left;
++
++	for (int y = this->pos_y - top; y < half; y += ORNAMENT_STEP) {
++		for (int i = 0; i < ORNAMENT_IMG_LEN; i++) {
++			int xx = x + ornamentImg[i][1];
++			int yy = y + ornamentImg[i][0];
++			if (xx >= 0 && xx < width && yy >= 0 && yy < height) {
++				blitter->SetPixel(dst, xx, yy, PC_DARK_GREY);
++			}
++		}
++	}
++
++	for (int y = this->pos_y + this->current_y - 1 - top; y > half; y -= ORNAMENT_STEP) {
++		for (int i = 0; i < ORNAMENT_IMG_LEN; i++) {
++			int xx = x + ornamentImg[i][1];
++			int yy = y + ORNAMENT_STEP - 1 - ornamentImg[i][0];
++			if (xx >= 0 && xx < width && yy >= 0 && yy < height) {
++				blitter->SetPixel(dst, xx, yy, PC_DARK_GREY);
++			}
++		}
++	}
++}
++void NWidgetBackground::DrawEdgeOrnamentR(const Window *w)
++{
++}
++void NWidgetBackground::DrawEdgeOrnamentT(const Window *w)
++{
++}
++void NWidgetBackground::DrawEdgeOrnamentB(const Window *w)
++{
++}
++void NWidgetBackground::DrawEdgeOrnamentTL(const Window *w)
++{
++}
++void NWidgetBackground::DrawEdgeOrnamentTR(const Window *w)
++{
++}
++void NWidgetBackground::DrawEdgeOrnamentBL(const Window *w)
++{
++}
++void NWidgetBackground::DrawEdgeOrnamentBR(const Window *w)
++{
++}
++
+ NWidgetCore *NWidgetBackground::GetWidgetFromPos(int x, int y)
+ {
+ 	NWidgetCore *nwid = NULL;
+diff --git a/src/widget_type.h b/src/widget_type.h
+index e7940da178..be4f02ff3d 100644
+--- a/src/widget_type.h
++++ b/src/widget_type.h
+@@ -577,6 +577,15 @@ public:
+ 
+ private:
+ 	NWidgetPIPContainer *child; ///< Child widget.
++	void DrawEdgeOrnament(const Window *w);
++	void DrawEdgeOrnamentL(const Window *w);
++	void DrawEdgeOrnamentR(const Window *w);
++	void DrawEdgeOrnamentT(const Window *w);
++	void DrawEdgeOrnamentB(const Window *w);
++	void DrawEdgeOrnamentTL(const Window *w);
++	void DrawEdgeOrnamentTR(const Window *w);
++	void DrawEdgeOrnamentBL(const Window *w);
++	void DrawEdgeOrnamentBR(const Window *w);
+ };
+ 
+ /**
+diff --git a/src/window.cpp b/src/window.cpp
+index 51dec1c21b..5f45be9b88 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2330,7 +2330,12 @@ static EventState HandleWindowDragging()
+ 			if (!_left_button_down) {
+ 				w->flags &= ~WF_DRAGGING;
+ 				if (GetWindowDraggedOffScreen(w)) {
+-					delete w;
++					if (w->window_class == WC_SELECT_GAME) {
++						w->left = (_screen.width - w->width) / 2;
++						w->top = (_screen.height - w->height) / 2;
++					} else {
++						delete w;
++					}
+ 				}
+ 				break;
+ 			}
+diff --git a/todo.txt b/todo.txt
+index b87a11f4d5..e348785af5 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -9,8 +9,6 @@
+ 
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), and fix double-backspace bug in SDL.
+ 
+-- Main menu can be closed permanently.
+-
+ - Combo box popup menu cannot reach top of the screen.
+ 
+ - Draggable combo boxes.
+-- 
+2.55.0
+

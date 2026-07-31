@@ -1,0 +1,38 @@
+From 400addf7af77c704a1faa0add5401c8476cc6cd7 Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Sun, 1 Jan 2023 22:54:48 +0100
+Subject: [PATCH 0828/1053] Fix: [Script] Copy compat files for version 13 to
+ build output.
+
+---
+ bin/ai/CMakeLists.txt   | 1 +
+ bin/game/CMakeLists.txt | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/bin/ai/CMakeLists.txt b/bin/ai/CMakeLists.txt
+index 9417004fce..08fd165d2f 100644
+--- a/bin/ai/CMakeLists.txt
++++ b/bin/ai/CMakeLists.txt
+@@ -13,6 +13,7 @@ set(AI_COMPAT_SOURCE_FILES
+ 	${CMAKE_CURRENT_SOURCE_DIR}/compat_1.10.nut
+ 	${CMAKE_CURRENT_SOURCE_DIR}/compat_1.11.nut
+ 	${CMAKE_CURRENT_SOURCE_DIR}/compat_12.nut
++	${CMAKE_CURRENT_SOURCE_DIR}/compat_13.nut
+ )
+ 
+ foreach(AI_COMPAT_SOURCE_FILE IN LISTS AI_COMPAT_SOURCE_FILES)
+diff --git a/bin/game/CMakeLists.txt b/bin/game/CMakeLists.txt
+index 55a992be32..c1134ed284 100644
+--- a/bin/game/CMakeLists.txt
++++ b/bin/game/CMakeLists.txt
+@@ -10,6 +10,7 @@ set(GS_COMPAT_SOURCE_FILES
+ 	${CMAKE_CURRENT_SOURCE_DIR}/compat_1.10.nut
+ 	${CMAKE_CURRENT_SOURCE_DIR}/compat_1.11.nut
+ 	${CMAKE_CURRENT_SOURCE_DIR}/compat_12.nut
++	${CMAKE_CURRENT_SOURCE_DIR}/compat_13.nut
+ )
+ 
+ foreach(GS_COMPAT_SOURCE_FILE IN LISTS GS_COMPAT_SOURCE_FILES)
+-- 
+2.55.0
+

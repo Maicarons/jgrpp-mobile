@@ -1,0 +1,34 @@
+From 71fc92240f7104e8cf52d2000ecd67c7bdaabeee Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 26 Jun 2017 23:10:45 +0300
+Subject: [PATCH 0418/1053] More items in graphs menu
+
+---
+ src/toolbar_gui.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index d8305cb36c..3b0078c9bd 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -693,7 +693,8 @@ static CallBackFunction MenuClickGoal(int index)
+ 
+ static CallBackFunction ToolbarGraphsClick(Window *w)
+ {
+-	PopupMainToolbMenu(w, WID_TN_GRAPHS, STR_GRAPH_MENU_OPERATING_PROFIT_GRAPH, (_toolbar_mode == TB_NORMAL) ? 6 : 8);
++	PopupMainToolbMenu(w, WID_TN_GRAPHS, STR_GRAPH_MENU_OPERATING_PROFIT_GRAPH,
++		(_toolbar_mode == TB_NORMAL && !_settings_client.gui.compact_vertical_toolbar) ? 6 : (_networking ? 8 : 9));
+ 	return CBF_NONE;
+ }
+ 
+@@ -715,6 +716,7 @@ static CallBackFunction MenuClickGraphs(int index)
+ 		/* functions for combined graphs/league button */
+ 		case 6: ShowCompanyLeagueTable();      break;
+ 		case 7: ShowPerformanceRatingDetail(); break;
++		case 8: ShowHighscoreTable(); break;
+ 	}
+ 	return CBF_NONE;
+ }
+-- 
+2.55.0
+

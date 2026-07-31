@@ -1,0 +1,740 @@
+From ca43839fc98b3bde7a6b3fe330613f0e16106fe6 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 1 Jun 2018 21:50:19 +0300
+Subject: [PATCH 0489/1053] Revert "Removed unused string from all lang files"
+
+This reverts commit 9ed2289b0e7302d9cef620c5c5709be1d30377e5.
+---
+ android-store-strings.sh          | 1 +
+ src/lang/afrikaans.txt            | 1 +
+ src/lang/arabic_egypt.txt         | 1 +
+ src/lang/basque.txt               | 1 +
+ src/lang/belarusian.txt           | 1 +
+ src/lang/brazilian_portuguese.txt | 1 +
+ src/lang/bulgarian.txt            | 1 +
+ src/lang/catalan.txt              | 1 +
+ src/lang/croatian.txt             | 1 +
+ src/lang/czech.txt                | 1 +
+ src/lang/danish.txt               | 1 +
+ src/lang/dutch.txt                | 1 +
+ src/lang/english_AU.txt           | 1 +
+ src/lang/english_US.txt           | 1 +
+ src/lang/esperanto.txt            | 1 +
+ src/lang/estonian.txt             | 1 +
+ src/lang/faroese.txt              | 1 +
+ src/lang/finnish.txt              | 1 +
+ src/lang/french.txt               | 1 +
+ src/lang/gaelic.txt               | 1 +
+ src/lang/galician.txt             | 1 +
+ src/lang/german.txt               | 1 +
+ src/lang/greek.txt                | 1 +
+ src/lang/hebrew.txt               | 1 +
+ src/lang/hungarian.txt            | 1 +
+ src/lang/icelandic.txt            | 1 +
+ src/lang/indonesian.txt           | 1 +
+ src/lang/irish.txt                | 1 +
+ src/lang/italian.txt              | 1 +
+ src/lang/japanese.txt             | 1 +
+ src/lang/korean.txt               | 1 +
+ src/lang/latin.txt                | 1 +
+ src/lang/latvian.txt              | 1 +
+ src/lang/lithuanian.txt           | 1 +
+ src/lang/luxembourgish.txt        | 1 +
+ src/lang/malay.txt                | 1 +
+ src/lang/norwegian_bokmal.txt     | 1 +
+ src/lang/norwegian_nynorsk.txt    | 1 +
+ src/lang/polish.txt               | 1 +
+ src/lang/portuguese.txt           | 1 +
+ src/lang/romanian.txt             | 1 +
+ src/lang/russian.txt              | 1 +
+ src/lang/serbian.txt              | 1 +
+ src/lang/simplified_chinese.txt   | 1 +
+ src/lang/slovak.txt               | 1 +
+ src/lang/slovenian.txt            | 1 +
+ src/lang/spanish.txt              | 1 +
+ src/lang/spanish_MX.txt           | 1 +
+ src/lang/swedish.txt              | 1 +
+ src/lang/tamil.txt                | 1 +
+ src/lang/thai.txt                 | 1 +
+ src/lang/traditional_chinese.txt  | 1 +
+ src/lang/turkish.txt              | 1 +
+ src/lang/ukrainian.txt            | 1 +
+ src/lang/vietnamese.txt           | 1 +
+ src/lang/welsh.txt                | 1 +
+ 56 files changed, 56 insertions(+)
+
+diff --git a/android-store-strings.sh b/android-store-strings.sh
+index 70781d22b7..7a9d540c25 100755
+--- a/android-store-strings.sh
++++ b/android-store-strings.sh
+@@ -7,6 +7,7 @@ for f in ../translations/lang/*.txt; do
+ 	{ grep -v "^# Android strings" $out ; echo "# Android strings" ; } > $out.new
+ 	mv -f $out.new $out
+ 	cat $f | grep '^STR' | while read name text; do
++		[ "$name" = "STR_ABOUT_MENU_SEPARATOR" ] && continue
+ 		{ grep -v "^$name\b" $out ; printf "%-64s%s\n" "$name" "$text" ; } > $out.new
+ 		mv -f $out.new $out
+ 	done
+diff --git a/src/lang/afrikaans.txt b/src/lang/afrikaans.txt
+index 88b8dbaa71..9075dd67a2 100644
+--- a/src/lang/afrikaans.txt
++++ b/src/lang/afrikaans.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Boodskapgeskied
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Gebied informasie
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Skakel terminaal
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Spel skript ontfout
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skermskoot
+diff --git a/src/lang/arabic_egypt.txt b/src/lang/arabic_egypt.txt
+index 23cf2bf200..4691c2dde7 100644
+--- a/src/lang/arabic_egypt.txt
++++ b/src/lang/arabic_egypt.txt
+@@ -444,6 +444,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :الرسائل
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :معلومات مربع في الخريطة
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :توقل كونسول
+ STR_ABOUT_MENU_AI_DEBUG                                         :مكتشف اخطاء الذكاء الصناعي
+ STR_ABOUT_MENU_SCREENSHOT                                       :صورة من الشاشة - Ctrl-S -
+diff --git a/src/lang/basque.txt b/src/lang/basque.txt
+index 91d7c8ba76..07a186af2f 100644
+--- a/src/lang/basque.txt
++++ b/src/lang/basque.txt
+@@ -462,6 +462,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Mezuen historia
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Lur arearen informazioa
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Konsola aktibatu
+ STR_ABOUT_MENU_AI_DEBUG                                         :IA/Joko script-aren garbitzailea
+ STR_ABOUT_MENU_SCREENSHOT                                       :Pantailan dagoenaren argazkia hartu (Ctrl+S)
+diff --git a/src/lang/belarusian.txt b/src/lang/belarusian.txt
+index f91394c9b7..dda7730935 100644
+--- a/src/lang/belarusian.txt
++++ b/src/lang/belarusian.txt
+@@ -781,6 +781,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Гісторы
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Зьвесткі аб зямлі
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Кансоль
+ STR_ABOUT_MENU_AI_DEBUG                                         :Наладка штучнага інтэлекту (ШІ/AI) / скрыптоў
+ STR_ABOUT_MENU_SCREENSHOT                                       :Здымак экрана (Ctrl+S)
+diff --git a/src/lang/brazilian_portuguese.txt b/src/lang/brazilian_portuguese.txt
+index 95d24964c2..e49a7ad756 100644
+--- a/src/lang/brazilian_portuguese.txt
++++ b/src/lang/brazilian_portuguese.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Histórico de M
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informação da área do terreno
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Alternar console
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depurar IA/Script do jogo
+ STR_ABOUT_MENU_SCREENSHOT                                       :Captura de tela
+diff --git a/src/lang/bulgarian.txt b/src/lang/bulgarian.txt
+index a0c1b9e8a3..27c1a7a11d 100644
+--- a/src/lang/bulgarian.txt
++++ b/src/lang/bulgarian.txt
+@@ -466,6 +466,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :История
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Информация за терена
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Показване/скриване на конзола
+ STR_ABOUT_MENU_AI_DEBUG                                         :ИИ дебъг
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+diff --git a/src/lang/catalan.txt b/src/lang/catalan.txt
+index a338a73f36..4521c36639 100644
+--- a/src/lang/catalan.txt
++++ b/src/lang/catalan.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historial de mi
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informació de la casella
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Commuta la consola
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depuració de les IA i l'script de partida
+ STR_ABOUT_MENU_SCREENSHOT                                       :Captura de pantalla
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index 7fed20bde5..9d10666838 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -564,6 +564,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Povijest poruka
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Podaci o zemljištu
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Otvori konzolu
+ STR_ABOUT_MENU_AI_DEBUG                                         :Debugiranje UI-ja/Skripte igre
+ STR_ABOUT_MENU_SCREENSHOT                                       :Slika zaslona
+diff --git a/src/lang/czech.txt b/src/lang/czech.txt
+index bb834a9a5b..40c73704d2 100644
+--- a/src/lang/czech.txt
++++ b/src/lang/czech.txt
+@@ -543,6 +543,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historie zpráv
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informace o zemi
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Zobrazit nebo skrýt konzoli
+ STR_ABOUT_MENU_AI_DEBUG                                         :Ladění AI / herních skriptů
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+diff --git a/src/lang/danish.txt b/src/lang/danish.txt
+index 362a135438..a76094bda2 100644
+--- a/src/lang/danish.txt
++++ b/src/lang/danish.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Tidligere beske
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Landområde information
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Tænd/Sluk konsol
+ STR_ABOUT_MENU_AI_DEBUG                                         :Computerspiller/spilscript debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skærmbillede (Ctrl-S)
+diff --git a/src/lang/dutch.txt b/src/lang/dutch.txt
+index 2384ee2f90..aef90e4a6c 100644
+--- a/src/lang/dutch.txt
++++ b/src/lang/dutch.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Berichtengeschi
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Landinformatie
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Schakel console aan/uit
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Game Script debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+diff --git a/src/lang/english_AU.txt b/src/lang/english_AU.txt
+index a483fd687d..90aac5acc8 100644
+--- a/src/lang/english_AU.txt
++++ b/src/lang/english_AU.txt
+@@ -459,6 +459,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Message history
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Land area information
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Toggle console
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Game script debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index 2df737cf5f..2cb34db571 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Message history
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Land area information
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Toggle console
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Game script debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+diff --git a/src/lang/esperanto.txt b/src/lang/esperanto.txt
+index 6906121c65..cfed15ad17 100644
+--- a/src/lang/esperanto.txt
++++ b/src/lang/esperanto.txt
+@@ -462,6 +462,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Mesaĝa Histori
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Landkvadrataj informoj
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Baskuligi Konzolon
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Ludo skripto sencimigo
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ekranfoto
+diff --git a/src/lang/estonian.txt b/src/lang/estonian.txt
+index 01d15c9df5..c85c0c07bd 100644
+--- a/src/lang/estonian.txt
++++ b/src/lang/estonian.txt
+@@ -525,6 +525,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Teadete ajalugu
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Maa-ala andmed
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Lülita konsool sisse/välja
+ STR_ABOUT_MENU_AI_DEBUG                                         :Arvutivea otsing
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ekraanitõmmis
+diff --git a/src/lang/faroese.txt b/src/lang/faroese.txt
+index da2a33a6f4..7127f86079 100644
+--- a/src/lang/faroese.txt
++++ b/src/lang/faroese.txt
+@@ -446,6 +446,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Boð søga
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Landa økis kunning
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Console opið ella lukka
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Spæl script debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skermmynd
+diff --git a/src/lang/finnish.txt b/src/lang/finnish.txt
+index 787a7f40b1..ea94c019c8 100644
+--- a/src/lang/finnish.txt
++++ b/src/lang/finnish.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Viestihistoria
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Maa-alueen tiedot
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Konsoli
+ STR_ABOUT_MENU_AI_DEBUG                                         :Tekoälyn/Peliskriptin virheenjäljitys
+ STR_ABOUT_MENU_SCREENSHOT                                       :Kuvakaappaus
+diff --git a/src/lang/french.txt b/src/lang/french.txt
+index 4ac6d26b69..9857c6fc8b 100644
+--- a/src/lang/french.txt
++++ b/src/lang/french.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historique des
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Outil d'inspection du paysage
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Afficher/Cacher la console
+ STR_ABOUT_MENU_AI_DEBUG                                         :Débogage de scripts
+ STR_ABOUT_MENU_SCREENSHOT                                       :Copie d'écran
+diff --git a/src/lang/gaelic.txt b/src/lang/gaelic.txt
+index a281323f15..94e21e5d93 100644
+--- a/src/lang/gaelic.txt
++++ b/src/lang/gaelic.txt
+@@ -656,6 +656,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Eachdraidh nam
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Fiosrachadh raon tìre
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Toglaich a' chonsoil
+ STR_ABOUT_MENU_AI_DEBUG                                         :Dì-bhugaich IF/sgriobt geama
+ STR_ABOUT_MENU_SCREENSHOT                                       :Glacadh-sgrìn
+diff --git a/src/lang/galician.txt b/src/lang/galician.txt
+index 51fefe5c80..a5a14bc484 100644
+--- a/src/lang/galician.txt
++++ b/src/lang/galician.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historial de me
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Información de área de terreo
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :(Des)Activar consola
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depuración IA/script do xogo
+ STR_ABOUT_MENU_SCREENSHOT                                       :Captura de pantalla
+diff --git a/src/lang/german.txt b/src/lang/german.txt
+index b4224f6b99..d1c2e62c5c 100644
+--- a/src/lang/german.txt
++++ b/src/lang/german.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Vergangene Nach
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Gebietsinformationen
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Konsole öffnen/schließen
+ STR_ABOUT_MENU_AI_DEBUG                                         :KI / Skript-Debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot (Standard: Strg+S)
+diff --git a/src/lang/greek.txt b/src/lang/greek.txt
+index 79f9919f8b..806139654a 100644
+--- a/src/lang/greek.txt
++++ b/src/lang/greek.txt
+@@ -529,6 +529,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Ιστορικ
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Πληροφορίες περιοχής εδάφους
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Εναλλαγή κονσόλας
+ STR_ABOUT_MENU_AI_DEBUG                                         :Αποσφαλμάτωση AI και δέσμης ενεργειών παιχνιδιού
+ STR_ABOUT_MENU_SCREENSHOT                                       :Στιγμιότυπο οθόνης
+diff --git a/src/lang/hebrew.txt b/src/lang/hebrew.txt
+index b43745e230..c649129a3e 100644
+--- a/src/lang/hebrew.txt
++++ b/src/lang/hebrew.txt
+@@ -482,6 +482,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :היסטורי
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :מידע על שטח קרקע
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :פתח/סגור קונסולה
+ STR_ABOUT_MENU_AI_DEBUG                                         :דיבאג של סקריפטים של בינה מלאכותית או של המשחק
+ STR_ABOUT_MENU_SCREENSHOT                                       :צילום מסך
+diff --git a/src/lang/hungarian.txt b/src/lang/hungarian.txt
+index a4c65b1755..913822b836 100644
+--- a/src/lang/hungarian.txt
++++ b/src/lang/hungarian.txt
+@@ -531,6 +531,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Előző üzenet
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Terület-információ
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Átváltás konzolra
+ STR_ABOUT_MENU_AI_DEBUG                                         :MI / Játékszkript nyomkövetés
+ STR_ABOUT_MENU_SCREENSHOT                                       :Képmentés
+diff --git a/src/lang/icelandic.txt b/src/lang/icelandic.txt
+index a67d01eb16..c2b76c7ed8 100644
+--- a/src/lang/icelandic.txt
++++ b/src/lang/icelandic.txt
+@@ -446,6 +446,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Saga skilaboða
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Landssvæðisupplýsingar
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Kveikja á stýriskjá
+ STR_ABOUT_MENU_AI_DEBUG                                         :Aflúsun gervigreindar/forskrifta
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skjámynd
+diff --git a/src/lang/indonesian.txt b/src/lang/indonesian.txt
+index fd9cbc345f..cb9f7037d7 100644
+--- a/src/lang/indonesian.txt
++++ b/src/lang/indonesian.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Berita Lampau
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informasi area daratan
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Hidup/matikan Layar Konsol
+ STR_ABOUT_MENU_AI_DEBUG                                         :Debug skrip AI
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ambil gambar
+diff --git a/src/lang/irish.txt b/src/lang/irish.txt
+index 9fab49ff2a..146dba04b0 100644
+--- a/src/lang/irish.txt
++++ b/src/lang/irish.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Stair na dteach
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Faisnéis faoin limistéar talún
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Scoránaigh consól
+ STR_ABOUT_MENU_AI_DEBUG                                         :Dífhabhtú AI/Scripteanna Cluiche
+ STR_ABOUT_MENU_SCREENSHOT                                       :Seat scáileáin
+diff --git a/src/lang/italian.txt b/src/lang/italian.txt
+index 63efd0fcf7..d5eaa6f590 100644
+--- a/src/lang/italian.txt
++++ b/src/lang/italian.txt
+@@ -470,6 +470,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Cronologia mess
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informazioni sull'area di terreno
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Apri/chiudi console
+ STR_ABOUT_MENU_AI_DEBUG                                         :Debug IA/Script
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+diff --git a/src/lang/japanese.txt b/src/lang/japanese.txt
+index 67a49ff1eb..075cbd592f 100644
+--- a/src/lang/japanese.txt
++++ b/src/lang/japanese.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :メッセージ
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :地域情報
++STR_ABOUT_MENU_SEPARATOR                                        :―――――――――――――――――
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :コンソールの表示切替
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/ゲームスクリプトのデバッグ
+ STR_ABOUT_MENU_SCREENSHOT                                       :スクリーンショット撮影(現在のズーム)
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index 31d80efd5e..6aa8f7ba65 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :과거 메시
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :지형 정보
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :콘솔 켜기/끄기
+ STR_ABOUT_MENU_AI_DEBUG                                         :인공지능/게임 스크립트 디버그
+ STR_ABOUT_MENU_SCREENSHOT                                       :스크린샷 찍기
+diff --git a/src/lang/latin.txt b/src/lang/latin.txt
+index 83fe0371ff..029556f0c7 100644
+--- a/src/lang/latin.txt
++++ b/src/lang/latin.txt
+@@ -656,6 +656,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historia nuntio
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Terrae regionis indicia
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Monstrare celareve consolam
+ STR_ABOUT_MENU_AI_DEBUG                                         :Emendatio IA/Ludi scriptorum
+ STR_ABOUT_MENU_SCREENSHOT                                       :Imago conspectus
+diff --git a/src/lang/latvian.txt b/src/lang/latvian.txt
+index 7496ebeaaa..5c31c59622 100644
+--- a/src/lang/latvian.txt
++++ b/src/lang/latvian.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Ziņojumu vēst
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Zemes platības informācija
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Atvērt/aizvērt konsoli
+ STR_ABOUT_MENU_AI_DEBUG                                         :MI/spēles skriptu atkļūdošana
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ekrānuzņēmums
+diff --git a/src/lang/lithuanian.txt b/src/lang/lithuanian.txt
+index 8b6885a8d9..b10e76da76 100644
+--- a/src/lang/lithuanian.txt
++++ b/src/lang/lithuanian.txt
+@@ -663,6 +663,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Žinučių isto
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Žemės ploto informacija
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Perjungti konsolę
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI / GameScript derinimas
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ekrano nuotrauka
+diff --git a/src/lang/luxembourgish.txt b/src/lang/luxembourgish.txt
+index 128a276a9d..fe351099cc 100644
+--- a/src/lang/luxembourgish.txt
++++ b/src/lang/luxembourgish.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Meldungshistori
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Landinformatiounen
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Konsole un/aus
+ STR_ABOUT_MENU_AI_DEBUG                                         :KI / Spill-Script Debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot (Ctrl+S)
+diff --git a/src/lang/malay.txt b/src/lang/malay.txt
+index 1e76da81eb..424e3e8dc2 100644
+--- a/src/lang/malay.txt
++++ b/src/lang/malay.txt
+@@ -448,6 +448,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Pesanan sebelum
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Maklumat kawasan tanah
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Papar atau padamkan konsol
+ STR_ABOUT_MENU_AI_DEBUG                                         :Al/Skrip pepijat permainan
+ STR_ABOUT_MENU_SCREENSHOT                                       :Tangkapan skrin (Ctrl+S)
+diff --git a/src/lang/norwegian_bokmal.txt b/src/lang/norwegian_bokmal.txt
+index 75d7727e96..6818333c40 100644
+--- a/src/lang/norwegian_bokmal.txt
++++ b/src/lang/norwegian_bokmal.txt
+@@ -470,6 +470,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Tidligere meldi
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informasjon om landområde
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Vis/skjul konsoll
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Spillskript-feilsøking
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skjermbilde
+diff --git a/src/lang/norwegian_nynorsk.txt b/src/lang/norwegian_nynorsk.txt
+index d724f94444..ceb761e8fa 100644
+--- a/src/lang/norwegian_nynorsk.txt
++++ b/src/lang/norwegian_nynorsk.txt
+@@ -470,6 +470,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Tidlegare meldi
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informasjon om landområde
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Syne/gøym konsoll
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI- / Spelscriptfeilsøking
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skjermdump
+diff --git a/src/lang/polish.txt b/src/lang/polish.txt
+index dbf74dea64..00a5db8e7f 100644
+--- a/src/lang/polish.txt
++++ b/src/lang/polish.txt
+@@ -847,6 +847,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Poprzednie wiad
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informacje o terenie
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Przełącz konsolę
+ STR_ABOUT_MENU_AI_DEBUG                                         :Debugowanie SI / Game Script
+ STR_ABOUT_MENU_SCREENSHOT                                       :Zrzut ekranu
+diff --git a/src/lang/portuguese.txt b/src/lang/portuguese.txt
+index 6e1597b501..833e232a09 100644
+--- a/src/lang/portuguese.txt
++++ b/src/lang/portuguese.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Histórico de m
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informações do terreno
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Mostrar/ocultar consola
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depuração da IA/Scripts de Jogo
+ STR_ABOUT_MENU_SCREENSHOT                                       :Captura de ecrã
+diff --git a/src/lang/romanian.txt b/src/lang/romanian.txt
+index 9664e88f65..1856a7a118 100644
+--- a/src/lang/romanian.txt
++++ b/src/lang/romanian.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Lista ultimelor
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informaţii despre teren
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Consolă pornit/oprit
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depanare Inteligenţă Artificială / Script Joc
+ STR_ABOUT_MENU_SCREENSHOT                                       :Capturează ecranul
+diff --git a/src/lang/russian.txt b/src/lang/russian.txt
+index d8ed380d1f..2d9c9a15d9 100644
+--- a/src/lang/russian.txt
++++ b/src/lang/russian.txt
+@@ -594,6 +594,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :История
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Информация об участке земли
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Консоль
+ STR_ABOUT_MENU_AI_DEBUG                                         :Отладка ИИ / скриптов
+ STR_ABOUT_MENU_SCREENSHOT                                       :Снимок экрана
+diff --git a/src/lang/serbian.txt b/src/lang/serbian.txt
+index 2fc263d6db..118d55c57a 100644
+--- a/src/lang/serbian.txt
++++ b/src/lang/serbian.txt
+@@ -656,6 +656,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Istorija Obave
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Podaci o zemljištu
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Uključi/isključi konzolu
+ STR_ABOUT_MENU_AI_DEBUG                                         :Korekcija veštačke inteligencije / skripte partije
+ STR_ABOUT_MENU_SCREENSHOT                                       :Sačuvaj sliku
+diff --git a/src/lang/simplified_chinese.txt b/src/lang/simplified_chinese.txt
+index b8d07a8df6..e947c00321 100644
+--- a/src/lang/simplified_chinese.txt
++++ b/src/lang/simplified_chinese.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :消息历史
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :查询地块信息
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :切换到控制台模式
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI /游戏脚本调试
+ STR_ABOUT_MENU_SCREENSHOT                                       :屏幕截图
+diff --git a/src/lang/slovak.txt b/src/lang/slovak.txt
+index f9dacafaa1..a3077747c4 100644
+--- a/src/lang/slovak.txt
++++ b/src/lang/slovak.txt
+@@ -532,6 +532,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Archív správ
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informácie o pozemku
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Zobraziť / skryť konzolu
+ STR_ABOUT_MENU_AI_DEBUG                                         :Umelá inteligencia / Ladenie skriptov
+ STR_ABOUT_MENU_SCREENSHOT                                       :Snímka
+diff --git a/src/lang/slovenian.txt b/src/lang/slovenian.txt
+index 7161104d74..8a08e15b51 100644
+--- a/src/lang/slovenian.txt
++++ b/src/lang/slovenian.txt
+@@ -621,6 +621,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Zgodovina sporo
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Informacije o terenu
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Vklopi/Izklopi konzolo
+ STR_ABOUT_MENU_AI_DEBUG                                         :Razhročevanje UI / skript
+ STR_ABOUT_MENU_SCREENSHOT                                       :Zajemi sliko
+diff --git a/src/lang/spanish.txt b/src/lang/spanish.txt
+index 480edcbde6..93d390dc2d 100644
+--- a/src/lang/spanish.txt
++++ b/src/lang/spanish.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historial de me
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Información del terreno
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Activar consola
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depuración de Script de Juego / IA
+ STR_ABOUT_MENU_SCREENSHOT                                       :Captura de pantalla
+diff --git a/src/lang/spanish_MX.txt b/src/lang/spanish_MX.txt
+index 9c84c510cc..50fe3fcb4f 100644
+--- a/src/lang/spanish_MX.txt
++++ b/src/lang/spanish_MX.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Historial de me
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Información sobre área de terreno
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Activar consola
+ STR_ABOUT_MENU_AI_DEBUG                                         :Depuración de scripts de IA o juego
+ STR_ABOUT_MENU_SCREENSHOT                                       :Captura de pantalla
+diff --git a/src/lang/swedish.txt b/src/lang/swedish.txt
+index 8f0f5cff61..7649cb7310 100644
+--- a/src/lang/swedish.txt
++++ b/src/lang/swedish.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Meddelandehisto
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Information om mark
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Visa/dölj konsolen
+ STR_ABOUT_MENU_AI_DEBUG                                         :Felsökning av AI / spelskript
+ STR_ABOUT_MENU_SCREENSHOT                                       :Skärmdump
+diff --git a/src/lang/tamil.txt b/src/lang/tamil.txt
+index e180d4a508..afb6f537a1 100644
+--- a/src/lang/tamil.txt
++++ b/src/lang/tamil.txt
+@@ -463,6 +463,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :செய்த
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :நிலா பகுதி விவரம்
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :முனையத்தை மாற்று
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/வரிவடிவம் சரிபார்
+ STR_ABOUT_MENU_SCREENSHOT                                       :திரைபிடிப்பு
+diff --git a/src/lang/thai.txt b/src/lang/thai.txt
+index c22999b533..4e254f7bda 100644
+--- a/src/lang/thai.txt
++++ b/src/lang/thai.txt
+@@ -460,6 +460,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :ดูข้อ
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :ข้อมูลพื้นที่
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :เปิด/ปิด คอนโซล
+ STR_ABOUT_MENU_AI_DEBUG                                         :ดีบัก สคริปต์ AI/Game
+ STR_ABOUT_MENU_SCREENSHOT                                       :จับภาพหน้าจอ (Ctrl+S)
+diff --git a/src/lang/traditional_chinese.txt b/src/lang/traditional_chinese.txt
+index dde15c0fa2..adc8d15a40 100644
+--- a/src/lang/traditional_chinese.txt
++++ b/src/lang/traditional_chinese.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :訊息記錄
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :土地資訊
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :切換主控台
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/遊戲腳本除錯
+ STR_ABOUT_MENU_SCREENSHOT                                       :擷取畫面
+diff --git a/src/lang/turkish.txt b/src/lang/turkish.txt
+index cc00468fe8..0c434c785f 100644
+--- a/src/lang/turkish.txt
++++ b/src/lang/turkish.txt
+@@ -469,6 +469,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Mesaj geçmişi
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Arazi bilgisi
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Konsolu aç/kapa
+ STR_ABOUT_MENU_AI_DEBUG                                         :YZ/Oyun betik hata ayıklama
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ekran görüntüsü
+diff --git a/src/lang/ukrainian.txt b/src/lang/ukrainian.txt
+index e15e43a7ac..db41938d94 100644
+--- a/src/lang/ukrainian.txt
++++ b/src/lang/ukrainian.txt
+@@ -593,6 +593,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Історія
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Інформація про ділянку
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Вкл./відкл. консоль
+ STR_ABOUT_MENU_AI_DEBUG                                         :Налагодження АІ / Ігрового Скрипта
+ STR_ABOUT_MENU_SCREENSHOT                                       :Знімок екрану
+diff --git a/src/lang/vietnamese.txt b/src/lang/vietnamese.txt
+index 5a217bf154..1352d6de19 100644
+--- a/src/lang/vietnamese.txt
++++ b/src/lang/vietnamese.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Thông báo cũ
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Thông tin vùng đất
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Bật/tắt bảng lệnh
+ STR_ABOUT_MENU_AI_DEBUG                                         :Gỡ rối AI / Game script
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ảnh chụp màn hình
+diff --git a/src/lang/welsh.txt b/src/lang/welsh.txt
+index 079ace0141..dacecd86ac 100644
+--- a/src/lang/welsh.txt
++++ b/src/lang/welsh.txt
+@@ -468,6 +468,7 @@ STR_NEWS_MENU_MESSAGE_HISTORY_MENU                              :Hanes negeseuon
+ 
+ ############ range for about menu starts
+ STR_ABOUT_MENU_LAND_BLOCK_INFO                                  :Gwybodaeth ardal tir
++STR_ABOUT_MENU_SEPARATOR                                        :
+ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Toglu Consol
+ STR_ABOUT_MENU_AI_DEBUG                                         :Dadnamu AI / Sgript Gêm
+ STR_ABOUT_MENU_SCREENSHOT                                       :Ciplun
+-- 
+2.55.0
+

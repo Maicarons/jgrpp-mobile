@@ -1,0 +1,44 @@
+From ecb5152c012a1234717832713e909d23dd18333b Mon Sep 17 00:00:00 2001
+From: ronvid <132984227+ronvid@users.noreply.github.com>
+Date: Sun, 8 Feb 2026 23:55:28 +0100
+Subject: [PATCH 1042/1053] Fix #15105: Czech townname generation causing
+ crashes. (#15231)
+
+---
+ src/townname.cpp | 18 +-----------------
+ 1 file changed, 1 insertion(+), 17 deletions(-)
+
+diff --git a/src/townname.cpp b/src/townname.cpp
+index f3a263eede..a05e4a64cb 100644
+--- a/src/townname.cpp
++++ b/src/townname.cpp
+@@ -701,25 +701,9 @@ static void MakeCzechTownName(StringBuilder &builder, uint32_t seed)
+ 			std::string_view poststr = _name_czech_subst_postfix[postfix];
+ 			std::string_view endstr = _name_czech_subst_ending[ending].name;
+ 
+-			size_t postlen = poststr.size();
+-			size_t endlen = endstr.size();
+-			assert(postlen > 0 && endlen > 0);
+-
+ 			/* Kill the "avava" and "Jananna"-like cases */
+-			if (postlen < 2 || postlen > endlen ||
+-					((poststr[1] != 'v' || poststr[1] != endstr[1]) &&
+-					poststr[2] != endstr[1])) {
++			if (poststr[1] != 'v' || poststr[1] != endstr[1]) {
+ 				builder += poststr;
+-
+-				/* k-i -> c-i, h-i -> z-i */
+-				if (endstr[0] == 'i') {
+-					std::string &str = builder.GetString();
+-					switch (str.back()) {
+-						case 'k': str.back() = 'c'; break;
+-						case 'h': str.back() = 'z'; break;
+-						default: break;
+-					}
+-				}
+ 			}
+ 		}
+ 		builder += _name_czech_subst_ending[ending].name;
+-- 
+2.55.0
+

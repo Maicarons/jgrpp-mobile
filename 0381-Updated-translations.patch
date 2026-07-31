@@ -1,0 +1,25 @@
+From eb650bf4b356bb3c61e67fda7d071bcf643ba2a5 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 1 Apr 2017 20:48:24 +0300
+Subject: [PATCH 0381/1053] Updated translations
+
+---
+ src/lang/croatian.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index 7ad1e7948a..ce4f61fef6 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -5119,6 +5119,8 @@ STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :{BLACK}Potvrdi
+ STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :{BLACK}Prikaži dijalog potvrde pri gradnji cesta i stanica
+ STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :{BLACK}Naslovne trake
+ STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :{BLACK}Prikaži naslovne trake za sve prozore ili ih sakrij za uštedu prostora na ekranu
++STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :{BLACK}Ukrasi prozora
++STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :{BLACK}Ukrasi na rubovima prozora
+ STR_CONFIG_SETTING_VIDEO_8BPP                                   :{BLACK}8 bit
+ STR_CONFIG_SETTING_VIDEO_8BPP_HELPTEXT                          :{BLACK}Postavi dubinu boja videa na 8 bitova po pikselu, ovaj način podržava animaciju vode
+ STR_CONFIG_SETTING_VIDEO_16BPP                                  :{BLACK}16 bit
+-- 
+2.55.0
+

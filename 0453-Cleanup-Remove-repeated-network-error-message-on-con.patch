@@ -1,0 +1,25 @@
+From 948de162556db8665db59b51850c455db28c3ee4 Mon Sep 17 00:00:00 2001
+From: SamuXarick <43006711+SamuXarick@users.noreply.github.com>
+Date: Thu, 7 Mar 2019 18:16:52 +0000
+Subject: [PATCH 0453/1053] Cleanup: Remove repeated network error message on
+ connection timeout. (#7327)
+
+---
+ src/network/network_client.cpp | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/network/network_client.cpp b/src/network/network_client.cpp
+index 0cb7728e66..62db6a5552 100644
+--- a/src/network/network_client.cpp
++++ b/src/network/network_client.cpp
+@@ -1175,7 +1175,6 @@ void ClientNetworkGameSocketHandler::CheckConnection()
+ 	 * the server will forcefully disconnect you. */
+ 	if (lag > 20) {
+ 		this->NetworkGameSocketHandler::CloseConnection();
+-		ShowErrorMessage(STR_NETWORK_ERROR_LOSTCONNECTION, INVALID_STRING_ID, WL_CRITICAL);
+ 		return;
+ 	}
+ 
+-- 
+2.55.0
+

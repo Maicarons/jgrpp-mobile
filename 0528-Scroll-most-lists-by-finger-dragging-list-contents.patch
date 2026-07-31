@@ -1,0 +1,212 @@
+From 17ee6fa2998fae091785aea8341b0563fc4f2200 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sat, 31 Aug 2019 23:34:02 +0300
+Subject: [PATCH 0528/1053] Scroll most lists by finger dragging list contents
+
+---
+ src/object_gui.cpp |  2 +-
+ src/rail_gui.cpp   |  4 ++--
+ src/widget.cpp     | 24 +++++++++++++++++++++++-
+ src/widget_type.h  |  5 ++++-
+ src/window.cpp     | 36 +++++++++++++++++++++++++++++++++---
+ src/window_gui.h   |  1 +
+ todo.txt           |  2 --
+ 7 files changed, 64 insertions(+), 10 deletions(-)
+
+diff --git a/src/object_gui.cpp b/src/object_gui.cpp
+index 8aabcfdc46..af9e688857 100644
+--- a/src/object_gui.cpp
++++ b/src/object_gui.cpp
+@@ -86,7 +86,7 @@ public:
+ 		this->vscroll->SetCount(ObjectClass::GetUIClassCount());
+ 
+ 		NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BO_SELECT_MATRIX);
+-		matrix->SetScrollbar(this->GetScrollbar(WID_BO_SELECT_SCROLL));
++		matrix->SetScrollbar(this->GetScrollbar(WID_BO_SELECT_SCROLL), WID_BO_SELECT_SCROLL);
+ 
+ 		this->SelectOtherClass(_selected_object_class);
+ 		if (this->CanRestoreSelectedObject()) {
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index ae07245e8c..a1ae370f97 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -1031,7 +1031,7 @@ public:
+ 			this->vscroll->SetPosition(Clamp(_railstation.station_class - 2, 0, max(this->vscroll->GetCount() - this->vscroll->GetCapacity(), 0)));
+ 
+ 			NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BRAS_MATRIX);
+-			matrix->SetScrollbar(this->vscroll2);
++			matrix->SetScrollbar(this->vscroll2, this->vscroll2 ? WID_BRAS_MATRIX_SCROLL : -1);
+ 			matrix->SetCount(_railstation.station_count);
+ 			matrix->SetClicked(_railstation.station_type);
+ 		}
+@@ -1851,7 +1851,7 @@ struct BuildRailWaypointWindow : PickerWindowBase {
+ 		this->CreateNestedTree();
+ 
+ 		NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BRW_WAYPOINT_MATRIX);
+-		matrix->SetScrollbar(this->GetScrollbar(WID_BRW_SCROLL));
++		matrix->SetScrollbar(this->GetScrollbar(WID_BRW_SCROLL), WID_BRW_SCROLL);
+ 
+ 		this->FinishInitNested(TRANSPORT_RAIL);
+ 
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 15da194eb2..900778a53d 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -101,6 +101,17 @@ static void ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, in
+ 		pos = y;
+ 		button_size = NWidgetScrollbar::GetVerticalDimension().height;
+ 	}
++
++	if (_scrollbar_finger_drag) {
++		w->mouse_capture_widget = sb->index;
++		_cursorpos_drag_start.x = x;
++		_cursorpos_drag_start.y = y;
++		_scrollbar_size = max(1, (int) sb->current_y * sb->GetCount() / sb->GetCapacity());
++		_scrollbar_start_pos = sb->GetPosition() * _scrollbar_size / sb->GetCount();
++		w->SetDirty();
++		return;
++	}
++
+ 	if (pos < mi + button_size) {
+ 		/* Pressing the upper button? */
+ 		SetBit(sb->disp_flags, NDB_SCROLLBAR_UP);
+@@ -1748,9 +1759,20 @@ void NWidgetMatrix::SetCount(int count)
+  * Assign a scrollbar to this matrix.
+  * @param sb The scrollbar to assign to us.
+  */
+-void NWidgetMatrix::SetScrollbar(Scrollbar *sb)
++void NWidgetMatrix::SetScrollbar(Scrollbar *sb, int index)
+ {
+ 	this->sb = sb;
++	this->sb_index = index;
++}
++
++Scrollbar *NWidgetMatrix::GetScrollbar()
++{
++	return this->sb;
++}
++
++int NWidgetMatrix::GetScrollbarWidget()
++{
++	return this->sb_index;
+ }
+ 
+ void NWidgetMatrix::SetupSmallestSize(Window *w, bool init_array)
+diff --git a/src/widget_type.h b/src/widget_type.h
+index 3edd25f6e6..6db7c7ba4b 100644
+--- a/src/widget_type.h
++++ b/src/widget_type.h
+@@ -520,7 +520,9 @@ public:
+ 	void SetColour(Colours colour);
+ 	void SetClicked(int clicked);
+ 	void SetCount(int count);
+-	void SetScrollbar(Scrollbar *sb);
++	void SetScrollbar(Scrollbar *sb, int index);
++	Scrollbar *GetScrollbar();
++	int GetScrollbarWidget();
+ 
+ 	void SetupSmallestSize(Window *w, bool init_array);
+ 	void AssignSizePosition(SizingType sizing, uint x, uint y, uint given_width, uint given_height, bool rtl);
+@@ -534,6 +536,7 @@ protected:
+ 	int clicked;    ///< The currently clicked widget.
+ 	int count;      ///< Amount of valid widgets.
+ 	Scrollbar *sb;  ///< The scrollbar we're associated with.
++	int sb_index;   ///< The scrollbar widget index.
+ private:
+ 	int widget_w;   ///< The width of the child widget including inter spacing.
+ 	int widget_h;   ///< The height of the child widget including inter spacing.
+diff --git a/src/window.cpp b/src/window.cpp
+index 4e689f2f12..d0ae836b4a 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -78,6 +78,7 @@ Point _cursorpos_drag_start;
+ 
+ int _scrollbar_start_pos;
+ int _scrollbar_size;
++bool _scrollbar_finger_drag;
+ byte _scroller_click_timeout = 0;
+ 
+ bool _scrolling_viewport;  ///< A viewport is being scrolled with the mouse.
+@@ -2113,9 +2114,34 @@ static void HandleMouseDragNoTitlebars()
+ 		_focused_window->window_class != WC_MAIN_TOOLBAR_RIGHT &&
+ 		_focused_window->window_class != WC_BUILD_CONFIRMATION &&
+ 		FindWindowByClass(WC_DROPDOWN_MENU) == NULL) {
+-		StartWindowDrag(_focused_window);
+-		_drag_delta.x += _cursor.pos.x - _left_button_down_pos.x;
+-		_drag_delta.y += _cursor.pos.y - _left_button_down_pos.y;
++		if (abs(_cursor.pos.x - _left_button_down_pos.x) < abs(_cursor.pos.y - _left_button_down_pos.y)) {
++			int widgetId = GetWidgetFromPos(_focused_window, _left_button_down_pos.x - _focused_window->left, _left_button_down_pos.y - _focused_window->top);
++			if (widgetId >= 0) {
++				NWidgetBase *widget = _focused_window->GetWidget<NWidgetBase>(widgetId);
++				NWidgetScrollbar *scroll = NULL;
++				if (widget && widget->type == WWT_MATRIX) {
++					NWidgetLeaf *list = _focused_window->GetWidget<NWidgetLeaf>(widgetId);
++					if (list && list->scrollbar_index >= 0) {
++						scroll = _focused_window->GetWidget<NWidgetScrollbar>(list->scrollbar_index);
++					}
++				}
++				if (widget && widget->type == NWID_MATRIX) {
++					NWidgetMatrix *list = _focused_window->GetWidget<NWidgetMatrix>(widgetId);
++					if (list && list->GetScrollbar() && list->GetScrollbarWidget() >= 0) {
++						scroll = _focused_window->GetWidget<NWidgetScrollbar>(list->GetScrollbarWidget());
++					}
++				}
++				if (scroll && scroll->IsVertical() && scroll->GetCount() > scroll->GetCapacity()) {
++					_scrollbar_finger_drag = true;
++					ScrollbarClickHandler(_focused_window, scroll, _left_button_down_pos.x, _left_button_down_pos.y);
++				}
++			}
++		}
++		if (_focused_window->mouse_capture_widget == -1) {
++			StartWindowDrag(_focused_window);
++			_drag_delta.x += _cursor.pos.x - _left_button_down_pos.x;
++			_drag_delta.y += _cursor.pos.y - _left_button_down_pos.y;
++		}
+ 	}
+ }
+ 
+@@ -2593,6 +2619,9 @@ static void HandleScrollbarScrolling(Window *w)
+ 	} else {
+ 		i = _cursor.pos.y - _cursorpos_drag_start.y;
+ 	}
++	if (_scrollbar_finger_drag) {
++		i = -i;
++	}
+ 
+ 	if (sb->disp_flags & ND_SCROLLBAR_BTN) {
+ 		if (_scroller_click_timeout == 1) {
+@@ -2624,6 +2653,7 @@ static EventState HandleActiveWidget()
+ 			/* Abort if no button is clicked any more. */
+ 			if (!_left_button_down) {
+ 				w->mouse_capture_widget = -1;
++				_scrollbar_finger_drag = false;
+ 				w->SetDirty();
+ 				return ES_HANDLED;
+ 			}
+diff --git a/src/window_gui.h b/src/window_gui.h
+index e9e4f6b4a0..18079941a1 100644
+--- a/src/window_gui.h
++++ b/src/window_gui.h
+@@ -906,6 +906,7 @@ extern Point _cursorpos_drag_start;
+ 
+ extern int _scrollbar_start_pos;
+ extern int _scrollbar_size;
++extern bool _scrollbar_finger_drag;
+ extern byte _scroller_click_timeout;
+ enum {
+ 	SCROLLER_CLICK_DELAY = 6 ///< Delay in video frames between scrollbar doing scroll, we don't want to get to the bottom of the list in an instant
+diff --git a/todo.txt b/todo.txt
+index 0948f2a12e..5ba009087f 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -5,7 +5,5 @@
+ 
+ - Misclicking station from orders dialog should hide the dialog for 3 times.
+ 
+-- Draggable combo boxes.
+-
+ - Create auto-save when the app is put to background, and load it on the next start.
+ 
+-- 
+2.55.0
+

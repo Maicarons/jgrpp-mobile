@@ -1,0 +1,55 @@
+From a7961b41cb60e71e668a23f4641f2dd2545df266 Mon Sep 17 00:00:00 2001
+From: glx22 <glx@openttd.org>
+Date: Sun, 21 Dec 2025 15:39:29 +0100
+Subject: [PATCH 0957/1053] Codechange: Check command callbacks registration
+ even in single player
+
+---
+ src/command_func.h              |  2 ++
+ src/network/network_command.cpp | 10 ++++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/src/command_func.h b/src/command_func.h
+index ab102c0811..ecbaba2bf4 100644
+--- a/src/command_func.h
++++ b/src/command_func.h
+@@ -28,6 +28,7 @@
+ static const CommandCost CMD_ERROR = CommandCost(INVALID_STRING_ID);
+ 
+ void NetworkSendCommand(Commands cmd, StringID err_message, CommandCallback *callback, CompanyID company, const CommandDataBuffer &cmd_data);
++bool IsNetworkRegisteredCallback(CommandCallback *callback);
+ 
+ bool IsValidCommand(Commands cmd);
+ CommandFlags GetCommandFlags(Commands cmd);
+@@ -196,6 +197,7 @@ public:
+ 	template <typename Tcallback>
+ 	static bool Post(StringID err_message, Tcallback *callback, Targs... args)
+ 	{
++		assert(::IsNetworkRegisteredCallback(reinterpret_cast<CommandCallback *>(reinterpret_cast<void(*)()>(callback))));
+ 		return InternalPost(err_message, callback, true, false, std::forward_as_tuple(args...));
+ 	}
+ 
+diff --git a/src/network/network_command.cpp b/src/network/network_command.cpp
+index 51a5f57db3..f610aab4b0 100644
+--- a/src/network/network_command.cpp
++++ b/src/network/network_command.cpp
+@@ -111,6 +111,16 @@ inline auto MakeCallbackTable(std::index_sequence<i...>) noexcept
+ /** Type-erased table of callbacks. */
+ static const auto _callback_table = MakeCallbackTable(std::make_index_sequence<_callback_tuple_size>{});
+ 
++/**
++ * Helper function to ensure that callbacks used when Posting commands are actually registered for the network calls.
++ * @param callback The callback to check.
++ * @return \c true when the callback is in the callback table, otherwise \c false.
++ */
++bool IsNetworkRegisteredCallback(CommandCallback *callback)
++{
++	return std::ranges::find(_callback_table, callback) != _callback_table.end();
++}
++
+ template <typename T> struct CallbackArgsHelper;
+ template <typename... Targs>
+ struct CallbackArgsHelper<void(*const)(Commands, const CommandCost &, Targs...)> {
+-- 
+2.55.0
+

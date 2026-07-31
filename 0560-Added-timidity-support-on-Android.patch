@@ -1,0 +1,187 @@
+From 88923bb3146e6935e7fcdaf56c729dc4f2ac754f Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 25 Jan 2021 01:05:26 +0200
+Subject: [PATCH 0560/1053] Added timidity support on Android
+
+---
+ CMakeLists.txt            |  2 ++
+ cmake/FindTimidity.cmake  | 65 +++++++++++++++++++++++++++++++++++++++
+ src/music/CMakeLists.txt  |  6 ++++
+ src/music/libtimidity.cpp |  6 ++--
+ src/music/libtimidity.h   | 17 +++++-----
+ 5 files changed, 84 insertions(+), 12 deletions(-)
+ create mode 100644 cmake/FindTimidity.cmake
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 214b971dd3..a278dfc04b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -124,6 +124,7 @@ if(NOT WIN32)
+             find_package(SDL)
+         endif()
+         find_package(Fluidsynth)
++        find_package(Timidity)
+         find_package(Fontconfig)
+         find_package(ICU OPTIONAL_COMPONENTS i18n lx)
+     else()
+@@ -220,6 +221,7 @@ link_package(LZO)
+ 
+ if(NOT OPTION_DEDICATED)
+     link_package(Fluidsynth)
++    link_package(Timidity)
+     link_package(SDL)
+     link_package(SDL2 TARGET SDL2::SDL2)
+     link_package(Allegro)
+diff --git a/cmake/FindTimidity.cmake b/cmake/FindTimidity.cmake
+new file mode 100644
+index 0000000000..ac47da62cd
+--- /dev/null
++++ b/cmake/FindTimidity.cmake
+@@ -0,0 +1,65 @@
++#[=======================================================================[.rst:
++FindTimidity
++-------
++
++Finds the Timidity library.
++
++Result Variables
++^^^^^^^^^^^^^^^^
++
++This will define the following variables:
++
++`Timidity_FOUND``
++  True if the system has the Timidity library.
++``Timidity_INCLUDE_DIRS``
++  Include directories needed to use Timidity.
++``Timidity_LIBRARIES``
++  Libraries needed to link to Timidity.
++``Timidity_VERSION``
++  The version of the Timidity library which was found.
++
++Cache Variables
++^^^^^^^^^^^^^^^
++
++The following cache variables may also be set:
++
++``Timidity_INCLUDE_DIR``
++  The directory containing ``timidity.h``.
++``Timidity_LIBRARY``
++  The path to the Timidity library.
++
++#]=======================================================================]
++
++find_package(PkgConfig QUIET)
++pkg_check_modules(PC_Timidity QUIET timidity)
++
++find_path(Timidity_INCLUDE_DIR
++    NAMES timidity.h
++    PATHS ${PC_Timidity_INCLUDE_DIRS}
++)
++
++find_library(Timidity_LIBRARY
++    NAMES timidity
++    PATHS ${PC_Timidity_LIBRARY_DIRS}
++)
++
++set(Timidity_VERSION ${PC_Timidity_VERSION})
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(Timidity
++    FOUND_VAR Timidity_FOUND
++    REQUIRED_VARS
++        Timidity_LIBRARY
++        Timidity_INCLUDE_DIR
++    VERSION_VAR Timidity_VERSION
++)
++
++if(Timidity_FOUND)
++    set(Timidity_LIBRARIES ${Timidity_LIBRARY})
++    set(Timidity_INCLUDE_DIRS ${Timidity_INCLUDE_DIR})
++endif()
++
++mark_as_advanced(
++    Timidity_INCLUDE_DIR
++    Timidity_LIBRARY
++)
+diff --git a/src/music/CMakeLists.txt b/src/music/CMakeLists.txt
+index b20f8aaf7c..3092fca19e 100644
+--- a/src/music/CMakeLists.txt
++++ b/src/music/CMakeLists.txt
+@@ -11,6 +11,12 @@ if(NOT OPTION_DEDICATED)
+         CONDITION Fluidsynth_FOUND
+     )
+ 
++    add_files(
++        libtimidity.cpp
++        libtimidity.h
++        CONDITION Timidity_FOUND
++    )
++
+     add_files(
+         cocoa_m.cpp
+         cocoa_m.h
+diff --git a/src/music/libtimidity.cpp b/src/music/libtimidity.cpp
+index b32850b33f..231685d894 100644
+--- a/src/music/libtimidity.cpp
++++ b/src/music/libtimidity.cpp
+@@ -68,17 +68,17 @@ void Android_MidiMixMusic(Sint16 *stream, int len)
+ static FMusicDriver_LibTimidity iFMusicDriver_LibTimidity;
+ 
+ enum { TIMIDITY_MAX_VOLUME = 50 };
+-const char *MusicDriver_LibTimidity::Start(const char * const *param)
++const char *MusicDriver_LibTimidity::Start(const StringList &param)
+ {
+ 	_midi.status = MIDI_STOPPED;
+ 	_midi.song = NULL;
+ 	volume = TIMIDITY_MAX_VOLUME; // Avoid clipping
+ 
+-	if (mid_init(param == NULL ? NULL : const_cast<char *>(param[0])) < 0) {
++	if (mid_init(NULL) < 0) {
+ 		/* If init fails, it can be because no configuration was found.
+ 		 *  If it was not forced via param, try to load it without a
+ 		 *  configuration. Who knows that works. */
+-		if (param != NULL || mid_init_no_config() < 0) {
++		if (mid_init_no_config() < 0) {
+ 			return "error initializing timidity";
+ 		}
+ 	}
+diff --git a/src/music/libtimidity.h b/src/music/libtimidity.h
+index 34dcc887da..c2cc04052c 100644
+--- a/src/music/libtimidity.h
++++ b/src/music/libtimidity.h
+@@ -1,5 +1,3 @@
+-/* $Id$ */
+-
+ /*
+  * This file is part of OpenTTD.
+  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
+@@ -18,18 +16,19 @@
+ class MusicDriver_LibTimidity : public MusicDriver {
+ 	int volume;
+ public:
+-	/* virtual */ const char *Start(const char * const *param);
++	const char *Start(const StringList &param) override;
++
++	void Stop() override;
+ 
+-	/* virtual */ void Stop();
++	void PlaySong(const MusicSongInfo &song) override;
+ 
+-	/* virtual */ void PlaySong(const MusicSongInfo &song);
++	void StopSong() override;
+ 
+-	/* virtual */ void StopSong();
++	bool IsSongPlaying() override;
+ 
+-	/* virtual */ bool IsSongPlaying();
++	void SetVolume(byte vol) override;
+ 
+-	/* virtual */ void SetVolume(byte vol);
+-	/* virtual */ const char *GetName() const { return "libtimidity"; }
++	const char *GetName() const override { return "libtimidity"; }
+ };
+ 
+ /** Factory for the libtimidity driver. */
+-- 
+2.55.0
+

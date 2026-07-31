@@ -1,0 +1,165 @@
+From 0b340fd3769fe6623d89a682959d957b5dfa0aef Mon Sep 17 00:00:00 2001
+From: Patric Stout <truebrain@openttd.org>
+Date: Sat, 30 Mar 2019 10:32:52 +0100
+Subject: [PATCH 0487/1053] Update: prepare for stable release (disable assert)
+
+---
+ config.lib                        | 4 ++--
+ projects/openttd_vs140.vcxproj    | 4 ++--
+ projects/openttd_vs140.vcxproj.in | 4 ++--
+ projects/openttd_vs141.vcxproj    | 4 ++--
+ projects/openttd_vs141.vcxproj.in | 4 ++--
+ projects/openttd_vs142.vcxproj    | 4 ++--
+ projects/openttd_vs142.vcxproj.in | 4 ++--
+ 7 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/config.lib b/config.lib
+index 8d651c502b..2bcc643fba 100644
+--- a/config.lib
++++ b/config.lib
+@@ -57,8 +57,8 @@ set_default() {
+ 	enable_translator="0"
+ 	enable_unicode="1"
+ 	enable_console="1";
+-	enable_assert="1"
+-	enable_strip="0"
++	enable_assert="0"
++	enable_strip="1"
+ 	enable_universal="0"
+ 	enable_osx_g5="0"
+ 	enable_cocoa_quartz="1"
+diff --git a/projects/openttd_vs140.vcxproj b/projects/openttd_vs140.vcxproj
+index c5137a61d4..9a741f28df 100644
+--- a/projects/openttd_vs140.vcxproj
++++ b/projects/openttd_vs140.vcxproj
+@@ -107,7 +107,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -230,7 +230,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+diff --git a/projects/openttd_vs140.vcxproj.in b/projects/openttd_vs140.vcxproj.in
+index 951f8b6048..8a9b9a8f97 100644
+--- a/projects/openttd_vs140.vcxproj.in
++++ b/projects/openttd_vs140.vcxproj.in
+@@ -107,7 +107,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -230,7 +230,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+diff --git a/projects/openttd_vs141.vcxproj b/projects/openttd_vs141.vcxproj
+index 66974da28f..2cde5b1d86 100644
+--- a/projects/openttd_vs141.vcxproj
++++ b/projects/openttd_vs141.vcxproj
+@@ -107,7 +107,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -230,7 +230,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+diff --git a/projects/openttd_vs141.vcxproj.in b/projects/openttd_vs141.vcxproj.in
+index d28f500f1c..57e153fc7d 100644
+--- a/projects/openttd_vs141.vcxproj.in
++++ b/projects/openttd_vs141.vcxproj.in
+@@ -107,7 +107,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -230,7 +230,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+diff --git a/projects/openttd_vs142.vcxproj b/projects/openttd_vs142.vcxproj
+index f0a75ff827..5999d00d6c 100644
+--- a/projects/openttd_vs142.vcxproj
++++ b/projects/openttd_vs142.vcxproj
+@@ -107,7 +107,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -230,7 +230,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+diff --git a/projects/openttd_vs142.vcxproj.in b/projects/openttd_vs142.vcxproj.in
+index 91689e8bde..7176fea58a 100644
+--- a/projects/openttd_vs142.vcxproj.in
++++ b/projects/openttd_vs142.vcxproj.in
+@@ -107,7 +107,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -230,7 +230,7 @@
+       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+       <OmitFramePointers>true</OmitFramePointers>
+       <AdditionalIncludeDirectories>..\objs\langs;..\objs\settings;..\src\3rdparty\squirrel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;WITH_ASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32_ENABLE_DIRECTMUSIC_SUPPORT;WITH_XAUDIO2;WITH_SSE;WITH_ZLIB;WITH_LZO;WITH_LZMA;WITH_PNG;WITH_FREETYPE;WITH_UNISCRIBE;ENABLE_NETWORK;WITH_PERSONAL_DIR;PERSONAL_DIR="OpenTTD";_SQ64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <ExceptionHandling>Sync</ExceptionHandling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+-- 
+2.55.0
+

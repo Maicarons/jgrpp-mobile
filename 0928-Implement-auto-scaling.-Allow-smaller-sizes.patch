@@ -1,0 +1,94 @@
+From d7ccd3ac661d178c16c8f56f5213767e5451032c Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Thu, 1 May 2025 00:25:25 +0100
+Subject: [PATCH 0928/1053] Implement auto scaling. Allow smaller sizes
+
+---
+ src/gfx.cpp         |  3 ++-
+ src/video/sdl_v.cpp | 18 ++++++++++++++++++
+ src/video/sdl_v.h   |  5 +++++
+ src/widget.cpp      |  4 ++--
+ 4 files changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/src/gfx.cpp b/src/gfx.cpp
+index 0df20e5864..fb41040c6a 100644
+--- a/src/gfx.cpp
++++ b/src/gfx.cpp
+@@ -1790,11 +1790,12 @@ void UpdateGUIZoom()
+ 	/* Determine real GUI zoom to use. */
+ 	if (_gui_scale_cfg == -1) {
+ 		_gui_scale = VideoDriver::GetInstance()->GetSuggestedUIScale();
++		_button_ratio = Clamp(_gui_scale * 2 , MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
+ 	} else {
+ 		_gui_scale = Clamp(_gui_scale_cfg, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
++		_button_ratio = Clamp(_button_ratio_cfg, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
+ 	}
+ 
+-	_button_ratio = Clamp(_button_ratio_cfg, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
+ 
+ 	int8_t new_zoom = ScaleGUITrad(1) <= 1 ? ZOOM_LVL_OUT_4X : ScaleGUITrad(1) >= 4 ? ZOOM_LVL_MIN : ZOOM_LVL_OUT_2X;
+ 	/* Font glyphs should not be clamped to min/max zoom. */
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index cac1fac449..d3b892b9af 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -405,6 +405,24 @@ bool VideoDriver_SDL::ClaimMousePointer()
+ 	return true;
+ }
+ 
++#ifdef __ANDROID__
++float VideoDriver_SDL::GetDPIScale()
++{
++	const auto metrics = SDL_ANDROID_GetDisplayMetrics();
++
++	// Simple cross-multiplication to determine the current dpi, given the native dpi and the current resolution
++	// max returned as it is better to be a bit too small than a bit too big
++	return std::max( (_cur_resolution.width * metrics.density) / metrics.width,
++	                 (_cur_resolution.height * metrics.density) / metrics.height);
++}
++
++Dimension VideoDriver_SDL::GetScreenSize() const
++{
++	const auto metrics = SDL_ANDROID_GetDisplayMetrics();
++	return { static_cast<uint>(metrics.width), static_cast<uint>(metrics.height) };
++}
++#endif
++
+ struct SDLVkMapping {
+ 	uint16_t vk_from;
+ 	uint8_t vk_count;
+diff --git a/src/video/sdl_v.h b/src/video/sdl_v.h
+index 2b37cbdb6a..2ac94f0d26 100644
+--- a/src/video/sdl_v.h
++++ b/src/video/sdl_v.h
+@@ -33,6 +33,11 @@ public:
+ 
+ 	const char *GetName() const override { return "sdl"; }
+ 
++#ifdef __ANDROID__
++	float GetDPIScale() override;
++	Dimension GetScreenSize() const override;
++#endif
++
+ protected:
+ 	void InputLoop() override;
+ 	void Paint() override;
+diff --git a/src/widget.cpp b/src/widget.cpp
+index d1604ef76b..38e119996c 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -3570,9 +3570,9 @@ std::unique_ptr<NWidgetBase> MakeCompanyButtonRows(WidgetID widget_first, Widget
+  */
+ uint32_t GetMinButtonSize(uint32_t min_1)
+ {
+-	if (_button_ratio_cfg == 0) _button_ratio_cfg = 25;
++	if (_button_ratio_cfg <= 0) _button_ratio_cfg = 100;
+ 
+-	uint32_t min_sizing = 0.25 * _gui_scale + 0.25 * _button_ratio_cfg;
++	uint32_t min_sizing = 0.25 * _button_ratio_cfg;
+ 
+ 	return std::max(min_sizing, min_1);
+ }
+-- 
+2.55.0
+

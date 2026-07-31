@@ -1,0 +1,49 @@
+From e3a082ce7c04432fb308d220b25a56e843e615a1 Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Wed, 20 Mar 2019 22:46:02 +0100
+Subject: [PATCH 0471/1053] Fix #7391, 9b99b95: Don't invalidate go to depot
+ orders of non-aircraft when invalidating hangar orders that happen to share
+ IDs.
+
+This was caused because hangars are referred to by station ID, which is not unique with respect to depot IDs.
+---
+ src/order_backup.cpp | 1 +
+ src/order_cmd.cpp    | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/order_backup.cpp b/src/order_backup.cpp
+index 181e3e59da..58d1b40606 100644
+--- a/src/order_backup.cpp
++++ b/src/order_backup.cpp
+@@ -267,6 +267,7 @@ CommandCost CmdClearOrderBackup(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 		for (Order *order = ob->orders; order != NULL; order = order->next) {
+ 			OrderType ot = order->GetType();
+ 			if (ot == OT_GOTO_DEPOT && (order->GetDepotActionType() & ODATFB_NEAREST_DEPOT) != 0) continue;
++			if (ot == OT_GOTO_DEPOT && hangar && !IsHangarTile(ob->tile)) continue; // Not an aircraft? Can't have a hangar order.
+ 			if (ot == OT_IMPLICIT || (IsHangarTile(ob->tile) && ot == OT_GOTO_DEPOT && !hangar)) ot = OT_GOTO_STATION;
+ 			if (ot == type && order->GetDestination() == destination) {
+ 				/* Remove the order backup! If a station/depot gets removed, we can't/shouldn't restore those broken orders. */
+diff --git a/src/order_cmd.cpp b/src/order_cmd.cpp
+index 007cfa5ec0..dae6e58ad6 100644
+--- a/src/order_cmd.cpp
++++ b/src/order_cmd.cpp
+@@ -1851,7 +1851,7 @@ void RemoveOrderFromAllVehicles(OrderType type, DestinationID destination, bool
+ 
+ 		order = &v->current_order;
+ 		if ((v->type == VEH_AIRCRAFT && order->IsType(OT_GOTO_DEPOT) && !hangar ? OT_GOTO_STATION : order->GetType()) == type &&
+-				v->current_order.GetDestination() == destination) {
++				(!hangar || v->type == VEH_AIRCRAFT) && v->current_order.GetDestination() == destination) {
+ 			order->MakeDummy();
+ 			SetWindowDirty(WC_VEHICLE_VIEW, v->index);
+ 		}
+@@ -1864,6 +1864,7 @@ restart:
+ 
+ 			OrderType ot = order->GetType();
+ 			if (ot == OT_GOTO_DEPOT && (order->GetDepotActionType() & ODATFB_NEAREST_DEPOT) != 0) continue;
++			if (ot == OT_GOTO_DEPOT && hangar && v->type != VEH_AIRCRAFT) continue; // Not an aircraft? Can't have a hangar order.
+ 			if (ot == OT_IMPLICIT || (v->type == VEH_AIRCRAFT && ot == OT_GOTO_DEPOT && !hangar)) ot = OT_GOTO_STATION;
+ 			if (ot == type && order->GetDestination() == destination) {
+ 				/* We want to clear implicit orders, but we don't want to make them
+-- 
+2.55.0
+

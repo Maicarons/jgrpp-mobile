@@ -1,0 +1,74 @@
+From 9bdda2756b9c9ed88f88aec9fdf69734387ccc36 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 2 Jun 2014 01:58:58 +0300
+Subject: [PATCH 0130/1053] Fixes to split toolbar
+
+---
+ src/toolbar_gui.cpp | 4 ++--
+ src/window.cpp      | 2 ++
+ src/window_type.h   | 7 +++++++
+ 3 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 794a4e6edc..fde6ed284c 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -1897,7 +1897,7 @@ struct MainToolbarWindow : Window {
+ 				ShowLandInfo(tile);
+ 				break;
+ 
+-			default: NOT_REACHED();
++			default: return; //NOT_REACHED();
+ 		}
+ 	}
+ 
+@@ -2099,7 +2099,7 @@ static const NWidgetPart _nested_toolbar_vertical_right_widgets[] = {
+ 
+ static WindowDesc _toolb_vertical_right_desc(
+ 	WDP_MANUAL, NULL, 22, 480,
+-	WC_MAIN_TOOLBAR, WC_NONE,
++	WC_MAIN_TOOLBAR_RIGHT, WC_NONE,
+ 	WDF_NO_FOCUS,
+ 	_nested_toolbar_vertical_right_widgets, lengthof(_nested_toolbar_vertical_right_widgets),
+ 	&MainToolbarWindow::hotkeys
+diff --git a/src/window.cpp b/src/window.cpp
+index 1c48892e04..77a94da937 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1222,6 +1222,7 @@ static inline bool IsVitalWindow(const Window *w)
+ {
+ 	switch (w->window_class) {
+ 		case WC_MAIN_TOOLBAR:
++		case WC_MAIN_TOOLBAR_RIGHT:
+ 		case WC_STATUS_BAR:
+ 		case WC_NEWS_WINDOW:
+ 		case WC_SEND_NETWORK_MSG:
+@@ -3373,6 +3374,7 @@ restart_search:
+ void HideVitalWindows()
+ {
+ 	DeleteWindowById(WC_MAIN_TOOLBAR, 0);
++	DeleteWindowById(WC_MAIN_TOOLBAR_RIGHT, 0);
+ 	DeleteWindowById(WC_STATUS_BAR, 0);
+ }
+ 
+diff --git a/src/window_type.h b/src/window_type.h
+index 9ad14702b4..d0fa1ad946 100644
+--- a/src/window_type.h
++++ b/src/window_type.h
+@@ -52,6 +52,13 @@ enum WindowClass {
+ 	 */
+ 	WC_MAIN_TOOLBAR,
+ 
++	/**
++	 * Right part of split main toolbar; %Window numbers:
++	 *   - 0 = #ToolbarNormalWidgets
++	 *   - 0 = #ToolbarEditorWidgets
++	 */
++	WC_MAIN_TOOLBAR_RIGHT,
++
+ 	/**
+ 	 * Statusbar (at the bottom of your screen); %Window numbers:
+ 	 *   - 0 = #StatusbarWidgets
+-- 
+2.55.0
+

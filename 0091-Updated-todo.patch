@@ -1,0 +1,21 @@
+From c0462a53e0d30ca83da61096427aa4953ced63cc Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 20 Mar 2014 20:24:35 +0200
+Subject: [PATCH 0091/1053] Updated todo
+
+---
+ todo.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/todo.txt b/todo.txt
+index d45e8e25c0..885d13f3cb 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,4 +3,3 @@
+ - Fix Online Content dialog
+ - Fix AI dialog
+ - Fix Multiplayer dialog
+-- Fix missing sprites error
+-- 
+2.55.0
+

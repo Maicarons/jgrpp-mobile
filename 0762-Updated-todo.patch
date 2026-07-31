@@ -1,0 +1,25 @@
+From 7f3bcf77dccb440db40ceb8acb4d91c243087d21 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 20 Dec 2021 01:58:41 +0200
+Subject: [PATCH 0762/1053] Updated todo
+
+---
+ todo.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index d61443e931..c0af4b726b 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -27,8 +27,6 @@
+ - Fix multiplayer using WebSocket Proxy Server, this depends on pthreads support,
+   so I'll probably need to hack together some custom proxy that does not use pthreads.
+ 
+-- Pinch-zoom support using SDL touch events.
+-
+ - Fix tutorial.
+ 
+ - Implement cloud saves by downloading the savegame from the web browser.
+-- 
+2.55.0
+

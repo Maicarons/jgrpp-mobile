@@ -1,0 +1,22 @@
+From be563833d5d69d36c0ba1831d3cab87741c5b644 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 9 Jul 2019 22:03:29 +0300
+Subject: [PATCH 0516/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 96933bbc97..763cac9ba1 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -17,3 +17,5 @@
+ 
+ - Scrollable lists open scrolled to bottom.
+ 
++- Two-finger scroll when building road is broken.
++
+-- 
+2.55.0
+

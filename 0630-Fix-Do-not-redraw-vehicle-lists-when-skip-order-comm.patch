@@ -1,0 +1,33 @@
+From 460a216d69a0f3a7ce041fb79edd12cef166d741 Mon Sep 17 00:00:00 2001
+From: J0anJosep <juanjo.ng.83@gmail.com>
+Date: Sat, 6 Nov 2021 23:04:33 +0100
+Subject: [PATCH 0630/1053] Fix: Do not redraw vehicle lists when skip order
+ command is tested.
+
+---
+ src/order_cmd.cpp | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/order_cmd.cpp b/src/order_cmd.cpp
+index f6e7f77a48..f282ca12bd 100644
+--- a/src/order_cmd.cpp
++++ b/src/order_cmd.cpp
+@@ -1136,11 +1136,11 @@ CommandCost CmdSkipToOrder(TileIndex tile, DoCommandFlag flags, uint32 p1, uint3
+ 		v->UpdateRealOrderIndex();
+ 
+ 		InvalidateVehicleOrder(v, VIWD_MODIFY_ORDERS);
+-	}
+ 
+-	/* We have an aircraft/ship, they have a mini-schedule, so update them all */
+-	if (v->type == VEH_AIRCRAFT) SetWindowClassesDirty(WC_AIRCRAFT_LIST);
+-	if (v->type == VEH_SHIP) SetWindowClassesDirty(WC_SHIPS_LIST);
++		/* We have an aircraft/ship, they have a mini-schedule, so update them all */
++		if (v->type == VEH_AIRCRAFT) SetWindowClassesDirty(WC_AIRCRAFT_LIST);
++		if (v->type == VEH_SHIP) SetWindowClassesDirty(WC_SHIPS_LIST);
++	}
+ 
+ 	return CommandCost();
+ }
+-- 
+2.55.0
+

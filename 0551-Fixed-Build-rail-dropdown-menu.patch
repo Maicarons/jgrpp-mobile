@@ -1,0 +1,80 @@
+From 77ecfa35feefea324a286ce349d20518bb4debd1 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Tue, 24 Mar 2020 23:24:49 +0200
+Subject: [PATCH 0551/1053] Fixed 'Build rail' dropdown menu
+
+---
+ src/smallmap_gui.cpp     | 4 ++--
+ src/toolbar_gui.cpp      | 8 ++++----
+ src/widgets/dropdown.cpp | 6 +++---
+ 3 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/src/smallmap_gui.cpp b/src/smallmap_gui.cpp
+index cac02ae3f8..1673efb9d2 100644
+--- a/src/smallmap_gui.cpp
++++ b/src/smallmap_gui.cpp
+@@ -36,7 +36,7 @@ static int _smallmap_company_count;  ///< Number of entries in the owner legend.
+ static int _smallmap_cargo_count;    ///< Number of cargos in the link stats legend.
+ 
+ /** Link stat colours shown in legenda. */
+-static uint8 _linkstat_colours_in_legenda[] = {0, 1, 3, 5, 7};
++static uint8 _linkstat_colours_in_legenda[] = {0, 1, 3, 5, 7, 9};
+ 
+ static const int NUM_NO_COMPANY_ENTRIES = 4; ///< Number of entries in the owner legend that are not companies.
+ 
+@@ -1177,8 +1177,8 @@ void SmallMapWindow::RebuildColourIndexIfNecessary()
+ 		}
+ 		this->min_number_of_fixed_rows = max(this->min_number_of_fixed_rows, height);
+ 		this->min_number_of_columns = max(this->min_number_of_columns, num_columns);
++		printf("i = %d this->min_number_of_fixed_rows %d this->min_number_of_columns %d num_columns %d\n", i, this->min_number_of_fixed_rows, this->min_number_of_columns, num_columns);
+ 	}
+-
+ 	/* The width of a column is the minimum width of all texts + the size of the blob + some spacing */
+ 	this->column_width = min_width + LEGEND_BLOB_WIDTH + WD_FRAMERECT_LEFT + WD_FRAMERECT_RIGHT;
+ }
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 289394bd60..fd5318f7a7 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -898,10 +898,10 @@ static CallBackFunction ToolbarBuildRailClick(Window *w)
+ 	DropDownList list = GetRailTypeDropDownList();
+ 	if (_settings_client.gui.compact_vertical_toolbar) {
+ 		const Company *c = Company::Get(_local_company);
+-		list.emplace_back(new DropDownListStringItem(STR_ROAD_MENU_ROAD_CONSTRUCTION, RAILTYPE_END + ROADTYPE_ROAD, false));
+-		list.emplace_back(new DropDownListStringItem(STR_ROAD_MENU_TRAM_CONSTRUCTION, RAILTYPE_END + ROADTYPE_TRAM, !HasBit(c->avail_roadtypes, ROADTYPE_TRAM)));
+-		list.emplace_back(new DropDownListStringItem(STR_WATERWAYS_MENU_WATERWAYS_CONSTRUCTION, RAILTYPE_END + WID_TN_WATER, false));
+-		list.emplace_back(new DropDownListStringItem(STR_AIRCRAFT_MENU_AIRPORT_CONSTRUCTION, RAILTYPE_END + WID_TN_AIR, false));
++		list.emplace_back(new DropDownListIconItem(SPR_IMG_BUILDROAD, PAL_NONE, STR_ROAD_MENU_ROAD_CONSTRUCTION, RAILTYPE_END + ROADTYPE_ROAD, false));
++		list.emplace_back(new DropDownListIconItem(SPR_IMG_BUILDTRAMS, PAL_NONE, STR_ROAD_MENU_TRAM_CONSTRUCTION, RAILTYPE_END + ROADTYPE_TRAM, !HasBit(c->avail_roadtypes, ROADTYPE_TRAM)));
++		list.emplace_back(new DropDownListIconItem(SPR_IMG_BUILDWATER, PAL_NONE, STR_WATERWAYS_MENU_WATERWAYS_CONSTRUCTION, RAILTYPE_END + WID_TN_WATER, false));
++		list.emplace_back(new DropDownListIconItem(SPR_IMG_BUILDAIR, PAL_NONE, STR_AIRCRAFT_MENU_AIRPORT_CONSTRUCTION, RAILTYPE_END + WID_TN_AIR, false));
+ 	}
+ 	ShowDropDownList(w, std::move(list), _last_built_railtype, WID_TN_RAILS, 140, true);
+ 	if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 11a7981d49..060035abe1 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -83,7 +83,7 @@ DropDownListIconItem::DropDownListIconItem(SpriteID sprite, PaletteID pal, Strin
+ 
+ uint DropDownListIconItem::Height(uint width) const
+ {
+-	return max(this->dim.height, (uint)FONT_HEIGHT_NORMAL);
++	return max(this->dim.height, DropDownListParamStringItem::Height(width));
+ }
+ 
+ uint DropDownListIconItem::Width() const
+@@ -94,8 +94,8 @@ uint DropDownListIconItem::Width() const
+ void DropDownListIconItem::Draw(int left, int right, int top, int bottom, bool sel, Colours bg_colour) const
+ {
+ 	bool rtl = _current_text_dir == TD_RTL;
+-	DrawSprite(this->sprite, this->pal, rtl ? right - this->dim.width - WD_FRAMERECT_RIGHT : left + WD_FRAMERECT_LEFT, top + this->sprite_y);
+-	DrawString(left + WD_FRAMERECT_LEFT + (rtl ? 0 : (this->dim.width + WD_FRAMERECT_LEFT)), right - WD_FRAMERECT_RIGHT - (rtl ? (this->dim.width + WD_FRAMERECT_RIGHT) : 0), top + this->text_y, this->String(), sel ? TC_WHITE : TC_BLACK);
++	DrawSprite(this->sprite, this->pal, rtl ? right - this->dim.width - WD_FRAMERECT_RIGHT : left + WD_FRAMERECT_LEFT, Center(top, bottom - top, this->dim.height));
++	DrawString(left + WD_FRAMERECT_LEFT + (rtl ? 0 : (this->dim.width + WD_FRAMERECT_LEFT)), right - WD_FRAMERECT_RIGHT - (rtl ? (this->dim.width + WD_FRAMERECT_RIGHT) : 0), Center(top, bottom - top), this->String(), sel ? TC_WHITE : TC_BLACK);
+ }
+ 
+ void DropDownListIconItem::SetDimension(Dimension d)
+-- 
+2.55.0
+

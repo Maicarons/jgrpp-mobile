@@ -1,0 +1,94 @@
+From 56a69f1de797bdd7fc824cabe9b0f283d3146b88 Mon Sep 17 00:00:00 2001
+From: peter1138 <peter1138@openttd.org>
+Date: Wed, 20 Mar 2019 01:21:10 +0000
+Subject: [PATCH 0468/1053] Fix #7386: Measurement tooltip for tunnels,
+ aqueducts & docks did not display or flickered.
+
+Measurement tooltip was auto-closed as the hover/right-click test for tooltips was not
+satisfied in this case. This is fixed by keeping the tooltip visible and instead explicitly
+closing the tooltip when the PlaceObject is cancelled/completed.
+---
+ src/misc_gui.cpp |  2 +-
+ src/viewport.cpp | 18 +++++++++++++++---
+ src/window_gui.h |  2 +-
+ 3 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/src/misc_gui.cpp b/src/misc_gui.cpp
+index 149ebe7177..061070a2b5 100644
+--- a/src/misc_gui.cpp
++++ b/src/misc_gui.cpp
+@@ -724,8 +724,8 @@ struct TooltipsWindow : public Window
+ 		 * we are dragging the tool. Normal tooltips work with hover or rmb. */
+ 		switch (this->close_cond) {
+ 			case TCC_RIGHT_CLICK: if (!_right_button_down) delete this; break;
+-			case TCC_LEFT_CLICK: if (!_left_button_down) delete this; break;
+ 			case TCC_HOVER: if (!_mouse_hovering) delete this; break;
++			case TCC_NONE: break;
+ 		}
+ 	}
+ };
+diff --git a/src/viewport.cpp b/src/viewport.cpp
+index 8945951191..d4eb9900da 100644
+--- a/src/viewport.cpp
++++ b/src/viewport.cpp
+@@ -2325,12 +2325,17 @@ void UpdateTileSelection()
+  * @param params (optional) up to 5 pieces of additional information that may be added to a tooltip
+  * @param close_cond Condition for closing this tooltip.
+  */
+-static inline void ShowMeasurementTooltips(StringID str, uint paramcount, const uint64 params[], TooltipCloseCondition close_cond = TCC_LEFT_CLICK)
++static inline void ShowMeasurementTooltips(StringID str, uint paramcount, const uint64 params[], TooltipCloseCondition close_cond = TCC_NONE)
+ {
+ 	if (!_settings_client.gui.measure_tooltip) return;
+ 	GuiShowTooltips(_thd.GetCallbackWnd(), str, paramcount, params, close_cond);
+ }
+ 
++void HideMeasurementTooltips()
++{
++	DeleteWindowById(WC_TOOLTIPS, 0);
++}
++
+ /** highlighting tiles while only going over them with the mouse */
+ void VpStartPlaceSizing(TileIndex tile, ViewportPlaceMethod method, ViewportDragDropSelectionProcess process)
+ {
+@@ -2386,7 +2391,11 @@ void VpSetPresizeRange(TileIndex from, TileIndex to)
+ 	_thd.next_drawstyle = HT_RECT;
+ 
+ 	/* show measurement only if there is any length to speak of */
+-	if (distance > 1) ShowMeasurementTooltips(STR_MEASURE_LENGTH, 1, &distance, TCC_HOVER);
++	if (distance > 1) {
++		ShowMeasurementTooltips(STR_MEASURE_LENGTH, 1, &distance);
++	} else {
++		HideMeasurementTooltips();
++	}
+ }
+ 
+ static void VpStartPreSizing()
+@@ -3038,7 +3047,10 @@ void SetObjectToPlace(CursorID icon, PaletteID pal, HighLightStyle mode, WindowC
+ 		 * this function might in some cases reset the newly set object to
+ 		 * place or not properly reset the original selection. */
+ 		_thd.window_class = WC_INVALID;
+-		if (w != NULL) w->OnPlaceObjectAbort();
++		if (w != NULL) {
++			w->OnPlaceObjectAbort();
++			HideMeasurementTooltips();
++		}
+ 	}
+ 
+ 	/* Mark the old selection dirty, in case the selection shape or colour changes */
+diff --git a/src/window_gui.h b/src/window_gui.h
+index 0abf79cca2..05a2b3c5a2 100644
+--- a/src/window_gui.h
++++ b/src/window_gui.h
+@@ -873,8 +873,8 @@ void RelocateAllWindows(int neww, int newh);
+ /* misc_gui.cpp */
+ enum TooltipCloseCondition {
+ 	TCC_RIGHT_CLICK,
+-	TCC_LEFT_CLICK,
+ 	TCC_HOVER,
++	TCC_NONE,
+ };
+ 
+ void GuiShowTooltips(Window *parent, StringID str, uint paramcount = 0, const uint64 params[] = NULL, TooltipCloseCondition close_tooltip = TCC_HOVER);
+-- 
+2.55.0
+

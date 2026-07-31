@@ -1,0 +1,202 @@
+From f24c334770ef1fb95d09921d7c61f81f44a245ae Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Fri, 31 Dec 2021 00:36:20 +0100
+Subject: [PATCH 0786/1053] Fix #9743: [OSX] Don't try to render touchbar
+ sprites with invalid zoom level.
+
+---
+ src/gfx.cpp                  | 32 ++++++++--------
+ src/gfx_func.h               |  2 +-
+ src/video/cocoa/cocoa_wnd.h  |  2 -
+ src/video/cocoa/cocoa_wnd.mm | 71 ++++++++++++++++--------------------
+ 4 files changed, 50 insertions(+), 57 deletions(-)
+
+diff --git a/src/gfx.cpp b/src/gfx.cpp
+index ad775803b7..e84cf58137 100644
+--- a/src/gfx.cpp
++++ b/src/gfx.cpp
+@@ -20,6 +20,7 @@
+ #include "window_func.h"
+ #include "newgrf_debug.h"
+ #include "thread.h"
++#include "core/backup_type.hpp"
+ 
+ #include "table/palettes.h"
+ #include "table/string_colours.h"
+@@ -1190,39 +1191,40 @@ static void GfxBlitter(const Sprite * const sprite, int x, int y, BlitterMode mo
+  * Draws a sprite to a new RGBA buffer (see Colour union) instead of drawing to the screen.
+  *
+  * @param spriteId The sprite to draw.
++ * @param zoom The zoom level at which to draw the sprites.
+  * @return Pixel buffer, or nullptr if an 8bpp blitter is being used.
+  */
+-std::unique_ptr<uint32[]> DrawSpriteToRgbaBuffer(SpriteID spriteId)
++std::unique_ptr<uint32[]> DrawSpriteToRgbaBuffer(SpriteID spriteId, ZoomLevel zoom)
+ {
++	/* Invalid zoom level requested? */
++	if (zoom < _settings_client.gui.zoom_min || zoom > _settings_client.gui.zoom_max) return nullptr;
++
+ 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+ 	if (!blitter->Is32BppSupported()) return nullptr;
+ 
+ 	/* Gather information about the sprite to write, reserve memory */
+ 	const SpriteID real_sprite = GB(spriteId, 0, SPRITE_WIDTH);
+ 	const Sprite *sprite = GetSprite(real_sprite, ST_NORMAL);
+-	std::unique_ptr<uint32[]> result(new uint32[sprite->width * sprite->height]);
++	Dimension dim = GetSpriteSize(real_sprite, nullptr, zoom);
++	std::unique_ptr<uint32[]> result(new uint32[dim.width * dim.height]);
++	/* Set buffer to fully transparent. */
++	MemSetT(result.get(), 0, dim.width * dim.height);
+ 
+ 	/* Prepare new DrawPixelInfo - Normally this would be the screen but we want to draw to another buffer here.
+ 	 * Normally, pitch would be scaled screen width, but in our case our "screen" is only the sprite width wide. */
+ 	DrawPixelInfo dpi;
+ 	dpi.dst_ptr = result.get();
+-	dpi.pitch = sprite->width;
++	dpi.pitch = dim.width;
+ 	dpi.left = 0;
+ 	dpi.top = 0;
+-	dpi.width = sprite->width;
+-	dpi.height = sprite->height;
+-	dpi.zoom = ZOOM_LVL_NORMAL;
+-
+-	/* Zero out the allocated memory, there may be garbage present. */
+-	uint32 *writeHead = (uint32*)result.get();
+-	for (int i = 0; i < sprite->width * sprite->height; i++) {
+-		writeHead[i] = 0;
+-	}
++	dpi.width = dim.width;
++	dpi.height = dim.height;
++	dpi.zoom = zoom;
+ 
+ 	/* Temporarily disable screen animations while blitting - This prevents 40bpp_anim from writing to the animation buffer. */
+-	_screen_disable_anim = true;
+-	GfxBlitter<1, false>(sprite, 0, 0, BM_NORMAL, nullptr, real_sprite, ZOOM_LVL_NORMAL, &dpi);
+-	_screen_disable_anim = false;
++	Backup<bool> disable_anim(_screen_disable_anim, true, FILE_LINE);
++	GfxBlitter<1, true>(sprite, 0, 0, BM_NORMAL, nullptr, real_sprite, zoom, &dpi);
++	disable_anim.Restore();
+ 
+ 	return result;
+ }
+diff --git a/src/gfx_func.h b/src/gfx_func.h
+index 462f693b64..59b6b54f93 100644
+--- a/src/gfx_func.h
++++ b/src/gfx_func.h
+@@ -91,7 +91,7 @@ void GfxScroll(int left, int top, int width, int height, int xo, int yo);
+ Dimension GetSpriteSize(SpriteID sprid, Point *offset = nullptr, ZoomLevel zoom = ZOOM_LVL_GUI);
+ void DrawSpriteViewport(SpriteID img, PaletteID pal, int x, int y, const SubSprite *sub = nullptr);
+ void DrawSprite(SpriteID img, PaletteID pal, int x, int y, const SubSprite *sub = nullptr, ZoomLevel zoom = ZOOM_LVL_GUI);
+-std::unique_ptr<uint32[]> DrawSpriteToRgbaBuffer(SpriteID spriteId);
++std::unique_ptr<uint32[]> DrawSpriteToRgbaBuffer(SpriteID spriteId, ZoomLevel zoom = ZOOM_LVL_GUI);
+ 
+ int DrawString(int left, int right, int top, const char *str, TextColour colour = TC_FROMSTRING, StringAlignment align = SA_LEFT, bool underline = false, FontSize fontsize = FS_NORMAL);
+ int DrawString(int left, int right, int top, const std::string &str, TextColour colour = TC_FROMSTRING, StringAlignment align = SA_LEFT, bool underline = false, FontSize fontsize = FS_NORMAL);
+diff --git a/src/video/cocoa/cocoa_wnd.h b/src/video/cocoa/cocoa_wnd.h
+index d0c946067c..6322bd1714 100644
+--- a/src/video/cocoa/cocoa_wnd.h
++++ b/src/video/cocoa/cocoa_wnd.h
+@@ -90,8 +90,6 @@ static NSDictionary *touchBarFallbackText = @{
+ @interface OTTD_CocoaWindow : NSWindow
+ #ifdef HAVE_TOUCHBAR_SUPPORT
+ 	<NSTouchBarDelegate>
+-
+-- (NSImage *)generateImage:(int)spriteId;
+ #endif
+ 
+ - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSUInteger)styleMask backing:(NSBackingStoreType)backingType defer:(BOOL)flag driver:(VideoDriver_Cocoa *)drv;
+diff --git a/src/video/cocoa/cocoa_wnd.mm b/src/video/cocoa/cocoa_wnd.mm
+index b204fb4400..355781d9ea 100644
+--- a/src/video/cocoa/cocoa_wnd.mm
++++ b/src/video/cocoa/cocoa_wnd.mm
+@@ -132,6 +132,37 @@ static std::vector<WChar> NSStringToUTF32(NSString *s)
+ 	return unicode_str;
+ }
+ 
++static void CGDataFreeCallback(void *, const void *data, size_t)
++{
++	delete[] (const uint32 *)data;
++}
++
++/**
++ * Render an OTTD sprite to a Cocoa image.
++ * @param sprite_id Sprite to make a NSImage from.
++ * @param zoom Zoom level to render the sprite in.
++ * @return Autorelease'd image or nullptr on any error.
++ */
++static NSImage *NSImageFromSprite(SpriteID sprite_id, ZoomLevel zoom)
++{
++	if (!SpriteExists(sprite_id)) return nullptr;
++
++	/* Fetch the sprite and create a new bitmap */
++	Dimension dim = GetSpriteSize(sprite_id, nullptr, zoom);
++	std::unique_ptr<uint32[]> buffer = DrawSpriteToRgbaBuffer(sprite_id, zoom);
++	if (!buffer) return nullptr; // failed to blit sprite or we're using an 8bpp blitter.
++
++	CFAutoRelease<CGDataProvider> data(CGDataProviderCreateWithData(nullptr, buffer.release(), dim.width * dim.height * 4, &CGDataFreeCallback));
++	if (!data) return nullptr;
++
++	CGBitmapInfo info = kCGImageAlphaFirst | kCGBitmapByteOrder32Host;
++	CFAutoRelease<CGColorSpaceRef> color_space(CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
++	CFAutoRelease<CGImage> bitmap(CGImageCreate(dim.width, dim.height, 8, 32, dim.width * 4, color_space.get(), info, data.get(), nullptr, false, kCGRenderingIntentDefault));
++	if (!bitmap) return nullptr;
++
++	return [ [ [ NSImage alloc ] initWithCGImage:bitmap.get() size:NSZeroSize ] autorelease ];
++}
++
+ 
+ /**
+  * The main class of the application, the application's delegate.
+@@ -433,48 +464,10 @@ void CocoaDialog(const char *title, const char *message, const char *buttonLabel
+ 	return bar;
+ }
+ 
+--(NSImage *)generateImage:(int)spriteId
+-{
+-	if (!SpriteExists(spriteId)) {
+-		return nullptr;
+-	}
+-
+-	/* Fetch the sprite and create a new bitmap */
+-	const Sprite *fullspr = GetSprite(spriteId, ST_NORMAL);
+-	const std::unique_ptr<uint32[]> buffer = DrawSpriteToRgbaBuffer(spriteId);
+-	if (!buffer) {
+-		return nullptr; // failed to blit sprite or we're using an 8bpp blitter.
+-	}
+-
+-	NSBitmapImageRep *bitmap = [ [ NSBitmapImageRep alloc ] initWithBitmapDataPlanes:nil pixelsWide:fullspr->width pixelsHigh:fullspr->height bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSCalibratedRGBColorSpace bytesPerRow:0 bitsPerPixel:0 ];
+-
+-	/* Copy the sprite to the NSBitmapImageRep image buffer */
+-	const Colour *src = (const Colour *)buffer.get();
+-	for (int y = 0; y < fullspr->height; y++) {
+-		for (int x = 0; x < fullspr->width; x++) {
+-			NSUInteger pixel[4];
+-			pixel[0] = src->r;
+-			pixel[1] = src->g;
+-			pixel[2] = src->b;
+-			pixel[3] = src->a;
+-			[ bitmap setPixel:pixel atX:x y:y ];
+-
+-			src += 1;
+-		}
+-	}
+-
+-	/* Finally, convert the NSBitmapImageRep we created to a NSimage we can put on the button and clean up. */
+-	NSImage *outImage = [ [ NSImage alloc ] initWithSize:NSMakeSize(fullspr->width, fullspr->height) ];
+-	[ outImage addRepresentation:bitmap ];
+-	[ bitmap release ];
+-
+-	return outImage;
+-}
+-
+ - (nullable NSTouchBarItem *)touchBar:(NSTouchBar *)touchBar makeItemForIdentifier:(NSTouchBarItemIdentifier)identifier
+ {
+ 	NSNumber *num = touchBarButtonSprites[identifier];
+-	NSImage *image = [ self generateImage:num.unsignedIntValue ];
++	NSImage *image = NSImageFromSprite(num.unsignedIntValue, _settings_client.gui.zoom_min);
+ 
+ 	NSButton *button;
+ 	if (image != nil) {
+-- 
+2.55.0
+

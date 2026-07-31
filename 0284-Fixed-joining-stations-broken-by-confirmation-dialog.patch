@@ -1,0 +1,121 @@
+From a724419cc9d871a5cc87bfd0d09feaabca2100b7 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Wed, 18 May 2016 09:37:38 +0300
+Subject: [PATCH 0284/1053] Fixed joining stations, broken by confirmation
+ dialog
+
+---
+ src/airport_gui.cpp | 7 +++++--
+ src/dock_gui.cpp    | 2 ++
+ src/rail_gui.cpp    | 4 +++-
+ src/road_gui.cpp    | 3 ++-
+ src/window.cpp      | 3 ++-
+ 5 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/src/airport_gui.cpp b/src/airport_gui.cpp
+index 788260657c..14442408ce 100644
+--- a/src/airport_gui.cpp
++++ b/src/airport_gui.cpp
+@@ -29,6 +29,7 @@
+ #include "vehicle_func.h"
+ #include "gui.h"
+ #include "command_func.h"
++#include "build_confirmation_func.h"
+ 
+ #include "widgets/airport_widget.h"
+ 
+@@ -157,8 +158,10 @@ struct BuildAirToolbarWindow : Window {
+ 	{
+ 		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+-		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_AIR);
+-		DeleteWindowById(WC_SELECT_STATION, 0);
++		if (!ConfirmationWindowShown()) {
++			DeleteWindowById(WC_BUILD_STATION, TRANSPORT_AIR);
++			DeleteWindowById(WC_SELECT_STATION, 0);
++		}
+ 		ResetObjectToPlace();
+ 	}
+ 
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index 4b8928f9b1..9ef22f425a 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -27,6 +27,7 @@
+ #include "hotkeys.h"
+ #include "gui.h"
+ #include "zoom_func.h"
++#include "build_confirmation_func.h"
+ 
+ #include "widgets/dock_widget.h"
+ 
+@@ -287,6 +288,7 @@ struct BuildDocksToolbarWindow : Window {
+ 		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 
++		if (ConfirmationWindowShown()) return;
+ 		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_WATER);
+ 		DeleteWindowById(WC_BUILD_DEPOT, TRANSPORT_WATER);
+ 		DeleteWindowById(WC_SELECT_STATION, 0);
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index a5f3f1bc20..3422cbcee0 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -771,12 +771,13 @@ struct BuildRailToolbarWindow : Window {
+ 		this->DisableWidget(WID_RAT_REMOVE);
+ 		this->SetWidgetDirty(WID_RAT_REMOVE);
+ 
++		if (ConfirmationWindowShown()) return;
+ 		DeleteWindowById(WC_BUILD_SIGNAL, TRANSPORT_RAIL);
+ 		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_RAIL);
+ 		DeleteWindowById(WC_BUILD_DEPOT, TRANSPORT_RAIL);
+ 		DeleteWindowById(WC_BUILD_WAYPOINT, TRANSPORT_RAIL);
+ 		DeleteWindowById(WC_SELECT_STATION, 0);
+-		if (!ConfirmationWindowShown()) DeleteWindowByClass(WC_BUILD_BRIDGE);
++		DeleteWindowByClass(WC_BUILD_BRIDGE);
+ 	}
+ 
+ 	virtual void SelectLastTool()
+@@ -934,6 +935,7 @@ static void HandleStationPlacement(TileIndex start, TileIndex end)
+ 	uint32 p2 = _railstation.station_class | _railstation.station_type << 8 | INVALID_STATION << 16;
+ 
+ 	CommandContainer cmdcont = { ta.tile, p1, p2, CMD_BUILD_RAIL_STATION | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_STATION), CcStation, "" };
++	printf("Rail station ctrl pressed %d\n", _ctrl_pressed);
+ 	ShowSelectStationIfNeeded(cmdcont, ta);
+ }
+ 
+diff --git a/src/road_gui.cpp b/src/road_gui.cpp
+index 77617de1ff..8812b34368 100644
+--- a/src/road_gui.cpp
++++ b/src/road_gui.cpp
+@@ -547,11 +547,12 @@ struct BuildRoadToolbarWindow : Window {
+ 		this->SetWidgetDirty(WID_ROT_REMOVE);
+ 		this->SetWidgetDirty(WID_ROT_ONE_WAY);
+ 
++		if (ConfirmationWindowShown()) return;
+ 		DeleteWindowById(WC_BUS_STATION, TRANSPORT_ROAD);
+ 		DeleteWindowById(WC_TRUCK_STATION, TRANSPORT_ROAD);
+ 		DeleteWindowById(WC_BUILD_DEPOT, TRANSPORT_ROAD);
+ 		DeleteWindowById(WC_SELECT_STATION, 0);
+-		if (!ConfirmationWindowShown()) DeleteWindowByClass(WC_BUILD_BRIDGE);
++		DeleteWindowByClass(WC_BUILD_BRIDGE);
+ 	}
+ 
+ 	virtual void SelectLastTool()
+diff --git a/src/window.cpp b/src/window.cpp
+index 46935e7a31..6eb74312da 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1443,7 +1443,8 @@ void Window::InitializeData(WindowNumber window_number)
+ 	if (this->window_class != WC_BUILD_CONFIRMATION &&
+ 		this->window_class != WC_TOOLTIPS &&
+ 		this->window_class != WC_NEWS_WINDOW &&
+-		this->window_class != WC_BUILD_BRIDGE) {
++		this->window_class != WC_BUILD_BRIDGE &&
++		this->window_class != WC_SELECT_STATION) {
+ 		HideBuildConfirmationWindow();
+ 	}
+ 
+-- 
+2.55.0
+

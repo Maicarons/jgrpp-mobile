@@ -1,0 +1,44 @@
+From f7b1a0abd32bc46a648ee2b225b3f5bc6ca90acd Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 16 May 2016 20:22:13 +0300
+Subject: [PATCH 0279/1053] Show station information in confirmation mode only
+ if coverage area highlight is enabled, it will show incorrect info otherwise
+
+---
+ src/build_confirmation_gui.cpp | 4 +++-
+ src/settings_gui.cpp           | 4 ++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 3ad2109d12..4c98ff9fc5 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -222,7 +222,9 @@ void ShowBuildConfirmationWindow()
+ 	w->SetDirty();
+ 	SetDirtyBlocks(0, 0, _screen.width, _screen.height); // I don't know what does this do, but it looks important
+ 
+-	StationBuildInfoWindow::show();
++	if (_settings_client.gui.station_show_coverage) {
++		StationBuildInfoWindow::show();
++	}
+ }
+ 
+ /**
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 58325f6733..d99aeb46f1 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -295,8 +295,8 @@ struct GameOptionsWindow : Window {
+ 				}
+ 				break;
+ 
+-			case WID_GO_BUTTON_SIZE_DROPDOWN: // Setup screenshot format dropdown
+-			case WID_GO_TEXT_SIZE_DROPDOWN: // Setup screenshot format dropdown
++			case WID_GO_BUTTON_SIZE_DROPDOWN: // Dropdowns for size of all GUI elements and fonts
++			case WID_GO_TEXT_SIZE_DROPDOWN:
+ 				list = new DropDownList();
+ 				*selected_index = (widget == WID_GO_BUTTON_SIZE_DROPDOWN) ?
+ 									_settings_client.gui.min_button :
+-- 
+2.55.0
+

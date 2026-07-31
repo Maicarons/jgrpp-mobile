@@ -1,0 +1,1098 @@
+From d0cfa3454fb0c13545abb99c273896abf615803d Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Fri, 9 May 2025 17:27:17 +0100
+Subject: [PATCH 0929/1053] Bring it to compilable state after merge
+
+---
+ src/autoreplace_gui.cpp                     |   7 +-
+ src/build_confirmation_gui.cpp              |  62 ++++++-----
+ src/console_gui.cpp                         |   6 +-
+ src/dock_gui.cpp                            |   2 +-
+ src/fios_gui.cpp                            |   2 +-
+ src/fontcache.cpp                           |   2 +-
+ src/genworld_gui.cpp                        |  36 ++-----
+ src/help_gui.cpp                            |  12 +--
+ src/newgrf_debug_gui.cpp                    |   1 -
+ src/order_gui.cpp                           |   1 -
+ src/picker_gui.cpp                          |   2 +-
+ src/rail_gui.cpp                            |   2 +-
+ src/road_gui.cpp                            |  32 +-----
+ src/settings_gui.cpp                        |  48 ++++-----
+ src/station_gui.cpp                         |   6 --
+ src/statusbar_gui.cpp                       |   3 +-
+ src/table/settings/gui_settings.ini         |  12 +--
+ src/table/settings/misc_settings.ini        |  24 -----
+ src/table/settings/old_gameopt_settings.ini |   2 +-
+ src/textfile_gui.cpp                        |   1 -
+ src/toolbar_gui.cpp                         |  46 ++++----
+ src/viewport.cpp                            |   2 +-
+ src/widget.cpp                              | 110 +++++++++-----------
+ src/widget_type.h                           |   6 +-
+ src/window.cpp                              |  16 +--
+ 25 files changed, 174 insertions(+), 269 deletions(-)
+
+diff --git a/src/autoreplace_gui.cpp b/src/autoreplace_gui.cpp
+index a0fe4ef14d..4d8bff2093 100644
+--- a/src/autoreplace_gui.cpp
++++ b/src/autoreplace_gui.cpp
+@@ -724,12 +724,7 @@ static constexpr NWidgetPart _nested_replace_rail_vehicle_widgets[] = {
+ 				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_RAIL_TYPE_DROPDOWN), SetMinimalSize(136, 12), SetToolTip(STR_REPLACE_RAILTYPE_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
+ 				NWidget(WWT_DROPDOWN, COLOUR_GREY, WID_RV_TRAIN_ENGINEWAGON_DROPDOWN), SetToolTip(STR_REPLACE_ENGINE_WAGON_SELECT_TOOLTIP),
+ 			EndContainer(),
+-			NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_RV_TRAIN_WAGONREMOVE_TOGGLE), SetMinimalSize(138, 12), SetDataTip(STR_REPLACE_REMOVE_WAGON, STR_REPLACE_REMOVE_WAGON_HELP), SetFill(1, 0), SetResize(1, 0),
+-			NWidget(NWID_HORIZONTAL),
+-				NWidget(WWT_MATRIX, COLOUR_GREY, WID_RV_LEFT_MATRIX), SetMinimalSize(216, 0), SetFill(1, 1), SetMatrixDataTip(1, 0, STR_REPLACE_HELP_LEFT_ARRAY), SetResize(1, 1), SetScrollbar(WID_RV_LEFT_SCROLLBAR),
+-				NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_RV_LEFT_SCROLLBAR),
+-			EndContainer(),
+-			NWidget(WWT_PANEL, COLOUR_GREY, WID_RV_LEFT_DETAILS), SetMinimalSize(240, 122), SetResize(1, 0), EndContainer(),
++			NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0), EndContainer(),
+ 		EndContainer(),
+ 		NWidget(NWID_VERTICAL),
+ 			NWidget(NWID_HORIZONTAL),
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index ce3b9b030a..18685ed81a 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -36,10 +36,10 @@ static const NWidgetPart _nested_build_info_widgets[] = {
+ };
+ 
+ static WindowDesc _build_info_desc(
+-  WDP_MANUAL, nullptr, 0, 0, // Coordinates and sizes are not used,
++	WDP_MANUAL, "", 0, 0, // Coordinates and sizes are not used,
+ 	WC_TOOLTIPS, WC_NONE,
+-	WDF_NO_FOCUS,
+-	std::begin(_nested_build_info_widgets), std::end(_nested_build_info_widgets)
++	WindowDefaultFlag::NoFocus,
++	_nested_build_info_widgets
+ );
+ 
+ /** Window for displaying accepted goods for a station. */
+@@ -60,16 +60,16 @@ struct BuildInfoWindow : public Window
+ 		new BuildInfoWindow(station, sct);
+ 	}
+ 
+-	BuildInfoWindow(bool station, StationCoverageType sct) : Window(&_build_info_desc)
++	BuildInfoWindow(bool station, StationCoverageType sct) : Window(_build_info_desc)
+ 	{
+ 		this->station = station;
+ 		this->sct = sct;
+ 		this->InitNested();
+ 
+-		CLRBITS(this->flags, WF_WHITE_BORDER);
++		this->flags.Reset(WindowFlag::WhiteBorder);
+ 	}
+ 
+-	Point OnInitialPosition(int16_t sm_width, int16_t sm_height, int window_number) override
++	Point OnInitialPosition(int16_t sm_width, [[maybe_unused]] int16_t sm_height, [[maybe_unused]] int window_number) override
+ 	{
+ 		Point pt;
+ 		pt.y = GetMainViewTop();
+@@ -77,36 +77,34 @@ struct BuildInfoWindow : public Window
+ 		return pt;
+ 	}
+ 
+-	void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize) override
++	void UpdateWidgetSize([[maybe_unused]] int widget, Dimension &size, [[maybe_unused]] const Dimension &padding, [[maybe_unused]] Dimension &fill, [[maybe_unused]] Dimension &resize) override
+ 	{
+-		size->width  = GetStringBoundingBox(STR_STATION_BUILD_COVERAGE_AREA_TITLE).width * 2.5;
+-		size->height = GetStringHeight(STR_STATION_BUILD_COVERAGE_AREA_TITLE, size->width) * (this->station ? 3 : 1);
++		size.width  = GetStringBoundingBox(STR_STATION_BUILD_COVERAGE_AREA_TITLE).width * 2.5;
++		size.height = GetStringHeight(STR_STATION_BUILD_COVERAGE_AREA_TITLE, size.width) * (this->station ? 3 : 1);
+ 
+ 		/* Increase slightly to have some space around the box. */
+-		size->width  += 2 + WidgetDimensions::scaled.framerect.Horizontal();
+-		size->height += 6 + WidgetDimensions::scaled.framerect.Vertical();
++		size.width  += 2 + WidgetDimensions::scaled.framerect.Horizontal();
++		size.height += 6 + WidgetDimensions::scaled.framerect.Vertical();
+ 	}
+ 
+-	void DrawWidget(const Rect &r, int widget) const override
++	void DrawWidget(const Rect &r, [[maybe_unused]] int widget) const override
+ 	{
+ 		/* There is only one widget. */
+-		DrawFrameRect(r.left, r.top, r.right, r.bottom, COLOUR_GREY, FR_NONE);
+-    Rect tr = r.Shrink(WidgetDimensions::scaled.frametext);
++		DrawFrameRect(r.left, r.top, r.right, r.bottom, COLOUR_GREY, FrameFlags{});
++		Rect tr = r.Shrink(WidgetDimensions::scaled.frametext);
+ 
+ 		Money cost = BuildInfoWindow::cost;
+-		StringID msg = STR_MESSAGE_ESTIMATED_COST;
+-		SetDParam(0, cost);
+ 		if (cost < 0) {
+-			msg = STR_MESSAGE_ESTIMATED_INCOME;
+-			SetDParam(0, -cost);
++			tr.top = DrawStringMultiLine(tr, GetString(STR_MESSAGE_ESTIMATED_INCOME, -cost));
++		} else {
++			tr.top = DrawStringMultiLine(tr, GetString(STR_MESSAGE_ESTIMATED_COST, cost));
+ 		}
+-		tr.top = DrawStringMultiLine(tr, msg);
+ 
+ 		if (!this->station) return;
+ 
+-		tr.top = DrawStationCoverageAreaText(tr.left, tr.right, tr.top, sct, _thd.outersize.x / TILE_SIZE / 2, false);
++		tr.top = DrawStationCoverageAreaText(tr, sct, _thd.outersize.x / TILE_SIZE / 2, false);
+ 		if (top - r.top <= GetStringHeight(STR_STATION_BUILD_COVERAGE_AREA_TITLE, r.right - r.left) * 1.5) {
+-			DrawStationCoverageAreaText(tr.left, tr.right, tr.top, sct, _thd.outersize.x / TILE_SIZE / 2, true);
++			DrawStationCoverageAreaText(tr, sct, _thd.outersize.x / TILE_SIZE / 2, true);
+ 		}
+ 	}
+ };
+@@ -122,7 +120,7 @@ struct BuildConfirmationWindow : Window {
+ 	Point selstart;      ///< The selection start on the viewport.
+ 	Point selend;        ///< The selection end on the viewport.
+ 
+-	BuildConfirmationWindow(WindowDesc *desc) : Window(desc)
++	BuildConfirmationWindow(WindowDesc &desc) : Window(desc)
+ 	{
+ 		// Save tile selection points, they will be reset by subsequent code, and we must keep them
+ 		selstart = _thd.selstart;
+@@ -137,8 +135,8 @@ struct BuildConfirmationWindow : Window {
+ 		pt.x = w->viewport->scrollpos_x + ScaleByZoom(_cursor.pos.x - nvp->current_x / 2, w->viewport->zoom);
+ 		pt.y = w->viewport->scrollpos_y + ScaleByZoom(_cursor.pos.y - nvp->current_y / 4, w->viewport->zoom);
+ 
+-		nvp->InitializeViewport(this, 0, w->viewport->zoom);
+-		nvp->disp_flags |= ND_SHADE_DIMMED;
++		nvp->InitializeViewport(this, TileIndex{}, w->viewport->zoom);
++		nvp->disp_flags | NWidgetDisplayFlag::ShadeDimmed;
+ 
+ 		this->viewport->scrollpos_x = pt.x;
+ 		this->viewport->scrollpos_y = pt.y;
+@@ -185,12 +183,12 @@ struct BuildConfirmationWindow : Window {
+ 		HideBuildConfirmationWindow(); // this == NULL after this call
+ 	}
+ 
+-	void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize) override
++	void UpdateWidgetSize(int widget, Dimension &size, const Dimension &padding, Dimension &fill, Dimension &resize) override
+ 	{
+ 		switch (widget) {
+ 			case WID_BC_OK:
+-				size->width = GetMinButtonSize() * 2;
+-				size->height = GetMinButtonSize() * 3;
++				size.width = GetMinButtonSize() * 2;
++				size.height = GetMinButtonSize() * 3;
+ 				break;
+ 		}
+ 	}
+@@ -205,13 +203,13 @@ struct BuildConfirmationWindow : Window {
+ 
+ 	void DrawButtonFrame(int x, int y, int w, int h, int str)
+ 	{
+-		DrawFrameRect(x, y, x + w, y + h, COLOUR_GREY, FR_BORDERONLY);
++		DrawFrameRect(x, y, x + w, y + h, COLOUR_GREY, FrameFlag::BorderOnly);
+ 		Dimension d = GetStringBoundingBox(str);
+ 		DrawFrameRect(x + w / 2 - d.width / 2 - 1,
+ 						y + h / 2 - d.height / 2 - 2,
+ 						x + w / 2 + d.width / 2 + 1,
+ 						y + h / 2 - d.height / 2 + d.height,
+-						COLOUR_GREY, FR_NONE);
++						COLOUR_GREY, FrameFlags{});
+ 		DrawString(x, x + w, y + h / 2 - d.height / 2 - 2, str, TC_FROMSTRING, SA_HOR_CENTER);
+ 	}
+ };
+@@ -228,8 +226,8 @@ static const NWidgetPart _nested_build_confirmation_widgets[] = {
+ static WindowDesc _build_confirmation_desc(
+ 	WDP_MANUAL, "build_confirmation", 0, 0,
+ 	WC_BUILD_CONFIRMATION, WC_NONE,
+-	0,
+-	std::begin(_nested_build_confirmation_widgets), std::end(_nested_build_confirmation_widgets)
++	WindowDefaultFlags{},
++	_nested_build_confirmation_widgets
+ );
+ 
+ /**
+@@ -246,7 +244,7 @@ void ShowBuildConfirmationWindow()
+ 		return;
+ 	}
+ 
+-	BuildConfirmationWindow *w = new BuildConfirmationWindow(&_build_confirmation_desc);
++	BuildConfirmationWindow *w = new BuildConfirmationWindow(_build_confirmation_desc);
+ 
+ 	int old_left = w->left;
+ 	int old_top = w->top;
+diff --git a/src/console_gui.cpp b/src/console_gui.cpp
+index a0d5a415ff..e500463d60 100644
+--- a/src/console_gui.cpp
++++ b/src/console_gui.cpp
+@@ -224,13 +224,13 @@ struct IConsoleWindow : Window
+ 		}
+ 	}
+ 
+-	void OnQueryTextFinished(char *str) override
++	void OnQueryTextFinished(std::optional<std::string> str) override
+ 	{
+ 		_focused_window = this;
+ 
+-		if (str == NULL) return;
++		if (!str) return;
+ 
+-		_iconsole_cmdline.Assign(str);
++		_iconsole_cmdline.Assign(str.value());
+ 		this->OnKeyPress(0, WKC_RETURN);
+ 	}
+ 
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index af6ba7ccbe..18119115b6 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -271,7 +271,7 @@ struct BuildDocksToolbarWindow : Window {
+ 				    bool adjacent = _ctrl_pressed;
+ 				    auto proc = [=](bool test, StationID to_join) -> bool {
+ 					    if (test) {
+-						    return Command<CMD_BUILD_DOCK>::Do(CommandFlagsToDCFlags(GetCommandFlags<CMD_BUILD_DOCK>()), start_tile, StationID::Invalid, adjacent).Succeeded();
++						    return Command<CMD_BUILD_DOCK>::Do(CommandFlagsToDCFlags(GetCommandFlags<CMD_BUILD_DOCK>()), start_tile, StationID::Invalid(), adjacent).Succeeded();
+ 					    } else {
+ 						    return Command<CMD_BUILD_DOCK>::Post(STR_ERROR_CAN_T_BUILD_DOCK_HERE, CcBuildDocks, start_tile, to_join, adjacent);
+ 					    }
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index aab3761b19..cf28752b18 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -126,7 +126,7 @@ static constexpr NWidgetPart _nested_load_dialog_widgets[] = {
+ 				EndContainer(),
+ 			EndContainer(),
+ 			NWidget(NWID_HORIZONTAL),
+-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SL_LOAD_NETWORK_BUTTON), SetDataTip(STR_SAVELOAD_LOAD_NETWORK_BUTTON, STR_SAVELOAD_LOAD_NETWORK_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
++				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SL_LOAD_NETWORK_BUTTON), SetStringTip(STR_SAVELOAD_LOAD_NETWORK_BUTTON, STR_SAVELOAD_LOAD_NETWORK_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
+ 				NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+ 			EndContainer(),
+ 		EndContainer(),
+diff --git a/src/fontcache.cpp b/src/fontcache.cpp
+index b0126c6d21..ccc019db98 100644
+--- a/src/fontcache.cpp
++++ b/src/fontcache.cpp
+@@ -139,7 +139,7 @@ void SetFont(FontSize fontsize, const std::string &font, uint size)
+ void ResizeFont(FontSize fontsize, uint size)
+ {
+ 	FontCacheSubSetting *setting = GetFontCacheSubSetting(fontsize);
+-	SetFont(fontsize, setting->font, size, setting->aa);
++	SetFont(fontsize, setting->font, size);
+ }
+ 
+ #ifdef WITH_FREETYPE
+diff --git a/src/genworld_gui.cpp b/src/genworld_gui.cpp
+index 63ad9a8caa..7d0eec9b04 100644
+--- a/src/genworld_gui.cpp
++++ b/src/genworld_gui.cpp
+@@ -467,32 +467,16 @@ struct GenerateLandscapeWindow : public Window {
+ 				}
+ 				return GetString(_sea_lakes[_settings_newgame.difficulty.quantity_sea_lakes]);
+ 
+-			case WID_GL_HEIGHTMAP_NAME_TEXT: SetDParamStr(0, this->name); break;
+-			case WID_GL_RIVER_PULLDOWN:      SetDParam(0, _rivers[_settings_newgame.game_creation.amount_of_rivers]); break;
+-			case WID_GL_SMOOTHNESS_PULLDOWN: SetDParam(0, _smoothness[_settings_newgame.game_creation.tgen_smoothness]); break;
+-			case WID_GL_VARIETY_PULLDOWN:    SetDParam(0, _variety[_settings_newgame.game_creation.variety]); break;
+-			case WID_GL_BORDERS_RANDOM:      SetDParam(0, (_settings_newgame.game_creation.water_borders == BORDERS_RANDOM) ? STR_MAPGEN_BORDER_RANDOMIZE : STR_MAPGEN_BORDER_MANUAL); break;
+-			case WID_GL_WATER_NE: {
+-				std::string param = fmt::format("{}: {}", GetString(STR_MAPGEN_NORTHEAST), GetString((_settings_newgame.game_creation.water_borders == BORDERS_RANDOM) ? STR_MAPGEN_BORDER_RANDOM : HasBit(_settings_newgame.game_creation.water_borders, BORDER_NE) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM));
+-				SetDParamStr(0, param);
+-				break;
+-			}
+-			case WID_GL_WATER_NW: {
+-				std::string param = fmt::format("{}: {}", GetString(STR_MAPGEN_NORTHWEST), GetString((_settings_newgame.game_creation.water_borders == BORDERS_RANDOM) ? STR_MAPGEN_BORDER_RANDOM : HasBit(_settings_newgame.game_creation.water_borders, BORDER_NW) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM));
+-				SetDParamStr(0, param);
+-				break;
+-			}
+-			case WID_GL_WATER_SE: {
+-				std::string param = fmt::format("{}: {}", GetString(STR_MAPGEN_SOUTHEAST), GetString((_settings_newgame.game_creation.water_borders == BORDERS_RANDOM) ? STR_MAPGEN_BORDER_RANDOM : HasBit(_settings_newgame.game_creation.water_borders, BORDER_SE) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM));
+-				SetDParamStr(0, param);
+-				break;
+-			}
+-			case WID_GL_WATER_SW: {
+-				std::string param = fmt::format("{}: {}", GetString(STR_MAPGEN_SOUTHWEST), GetString((_settings_newgame.game_creation.water_borders == BORDERS_RANDOM) ? STR_MAPGEN_BORDER_RANDOM : HasBit(_settings_newgame.game_creation.water_borders, BORDER_SW) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM));
+-				SetDParamStr(0, param);
+-				break;
+-			}
+-			case WID_GL_HEIGHTMAP_ROTATION_PULLDOWN: SetDParam(0, _rotation[_settings_newgame.game_creation.heightmap_rotation]); break;
++			case WID_GL_HEIGHTMAP_NAME_TEXT: return this->name;
++			case WID_GL_RIVER_PULLDOWN:      return GetString(_rivers[_settings_newgame.game_creation.amount_of_rivers]);
++			case WID_GL_SMOOTHNESS_PULLDOWN: return GetString(_smoothness[_settings_newgame.game_creation.tgen_smoothness]);
++			case WID_GL_VARIETY_PULLDOWN:    return GetString(_variety[_settings_newgame.game_creation.variety]);
++			case WID_GL_BORDERS_RANDOM:      return GetString((_settings_newgame.game_creation.water_borders == BorderFlag::Random) ? STR_MAPGEN_BORDER_RANDOMIZE : STR_MAPGEN_BORDER_MANUAL);
++			case WID_GL_WATER_NE: return GetString((_settings_newgame.game_creation.water_borders == BorderFlag::Random) ? STR_MAPGEN_BORDER_RANDOM : _settings_newgame.game_creation.water_borders.Test(BorderFlag::NorthEast) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM);
++			case WID_GL_WATER_NW: return GetString((_settings_newgame.game_creation.water_borders == BorderFlag::Random) ? STR_MAPGEN_BORDER_RANDOM : _settings_newgame.game_creation.water_borders.Test(BorderFlag::NorthWest) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM);
++			case WID_GL_WATER_SE: return GetString((_settings_newgame.game_creation.water_borders == BorderFlag::Random) ? STR_MAPGEN_BORDER_RANDOM : _settings_newgame.game_creation.water_borders.Test(BorderFlag::SouthEast) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM);
++			case WID_GL_WATER_SW: return GetString((_settings_newgame.game_creation.water_borders == BorderFlag::Random) ? STR_MAPGEN_BORDER_RANDOM : _settings_newgame.game_creation.water_borders.Test(BorderFlag::SouthWest) ? STR_MAPGEN_BORDER_WATER : STR_MAPGEN_BORDER_FREEFORM);
++			case WID_GL_HEIGHTMAP_ROTATION_PULLDOWN: return GetString(_rotation[_settings_newgame.game_creation.heightmap_rotation]);
+ 
+ 			case WID_GL_HEIGHTMAP_SIZE_TEXT:
+ 				if (_settings_newgame.game_creation.heightmap_rotation == HM_CLOCKWISE) {
+diff --git a/src/help_gui.cpp b/src/help_gui.cpp
+index 73b4dc69f1..9d15595202 100644
+--- a/src/help_gui.cpp
++++ b/src/help_gui.cpp
+@@ -250,12 +250,12 @@ static constexpr NWidgetPart _nested_helpwin_widgets[] = {
+ 				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_FONTS), SetStringTip(STR_HELP_WINDOW_FONTS), SetMinimalSize(128, 12), SetFill(1, 0),
+ 			EndContainer(),
+ 
+-			NWidget(WWT_FRAME, COLOUR_DARK_GREEN), SetDataTip(STR_TUTORIAL_WINDOW_TITLE, STR_TUTORIAL_WINDOW_TOOLTIP),
+-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_BUS), SetDataTip(STR_TUTORIAL_ROADS_AND_STATIONS, STR_TUTORIAL_ROADS_AND_STATIONS), SetMinimalSize(128, 12), SetFill(1, 0),
+-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_TRAIN), SetDataTip(STR_TUTORIAL_RAILWAYS, STR_TUTORIAL_RAILWAYS), SetMinimalSize(128, 12), SetFill(1, 0),
+-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_TRUCK),SetDataTip(STR_TUTORIAL_ROAD_VEHICLES, STR_TUTORIAL_ROAD_VEHICLES), SetMinimalSize(128, 12), SetFill(1, 0),
+-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_SHIP), SetDataTip(STR_TUTORIAL_SHIPS, STR_TUTORIAL_SHIPS), SetMinimalSize(128, 12), SetFill(1, 0),
+-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_FACILALL), SetDataTip(STR_TUTORIAL_CARGO, STR_TUTORIAL_CARGO), SetMinimalSize(128, 12), SetFill(1, 0),
++			NWidget(WWT_FRAME, COLOUR_DARK_GREEN), SetStringTip(STR_TUTORIAL_WINDOW_TITLE, STR_TUTORIAL_WINDOW_TOOLTIP),
++				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_BUS), SetStringTip(STR_TUTORIAL_ROADS_AND_STATIONS, STR_TUTORIAL_ROADS_AND_STATIONS), SetMinimalSize(128, 12), SetFill(1, 0),
++				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_TRAIN), SetStringTip(STR_TUTORIAL_RAILWAYS, STR_TUTORIAL_RAILWAYS), SetMinimalSize(128, 12), SetFill(1, 0),
++				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_TRUCK),SetStringTip(STR_TUTORIAL_ROAD_VEHICLES, STR_TUTORIAL_ROAD_VEHICLES), SetMinimalSize(128, 12), SetFill(1, 0),
++				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_SHIP), SetStringTip(STR_TUTORIAL_SHIPS, STR_TUTORIAL_SHIPS), SetMinimalSize(128, 12), SetFill(1, 0),
++				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_HW_FACILALL), SetStringTip(STR_TUTORIAL_CARGO, STR_TUTORIAL_CARGO), SetMinimalSize(128, 12), SetFill(1, 0),
+ 			EndContainer(),
+ 		EndContainer(),
+ 	EndContainer(),
+diff --git a/src/newgrf_debug_gui.cpp b/src/newgrf_debug_gui.cpp
+index e4901080a9..40fabd2e0c 100644
+--- a/src/newgrf_debug_gui.cpp
++++ b/src/newgrf_debug_gui.cpp
+@@ -673,7 +673,6 @@ static constexpr NWidgetPart _nested_newgrf_inspect_widgets[] = {
+ 	EndContainer(),
+ 	NWidget(NWID_HORIZONTAL),
+ 		NWidget(WWT_PANEL, COLOUR_GREY, WID_NGRFI_MAINPANEL), SetMinimalSize(300, 0), SetScrollbar(WID_NGRFI_SCROLLBAR), EndContainer(),
+-		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_NGRFI_PARENT), SetDataTip(STR_NEWGRF_INSPECT_PARENT_BUTTON, STR_NEWGRF_INSPECT_PARENT_TOOLTIP),
+ 		NWidget(NWID_VERTICAL),
+ 			NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_NGRFI_SCROLLBAR),
+ 			NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+diff --git a/src/order_gui.cpp b/src/order_gui.cpp
+index 8a27736e5d..a1c703c73d 100644
+--- a/src/order_gui.cpp
++++ b/src/order_gui.cpp
+@@ -1726,7 +1726,6 @@ static constexpr NWidgetPart _nested_orders_widgets[] = {
+ 
+ 	/* Second button row. */
+ 	NWidget(NWID_HORIZONTAL),
+-		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_O_TIMETABLE_VIEW), SetMinimalSize(61, 14), SetDataTip(STR_ORDERS_TIMETABLE_VIEW, STR_ORDERS_TIMETABLE_VIEW_TOOLTIP),
+ 		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_O_SKIP), SetMinimalSize(124, 12), SetFill(1, 0),
+ 											SetStringTip(STR_ORDERS_SKIP_BUTTON, STR_ORDERS_SKIP_TOOLTIP), SetResize(1, 0),
+ 		NWidget(NWID_SELECTION, INVALID_COLOUR, WID_O_SEL_BOTTOM_MIDDLE),
+diff --git a/src/picker_gui.cpp b/src/picker_gui.cpp
+index e2a116c6ff..58d2d91c31 100644
+--- a/src/picker_gui.cpp
++++ b/src/picker_gui.cpp
+@@ -217,7 +217,7 @@ void PickerWindow::ConstructWindow()
+ 		this->GetWidget<NWidgetCore>(WID_PW_TYPE_ITEM)->SetToolTip(this->callbacks.GetTypeTooltip());
+ 
+ 		auto *matrix = this->GetWidget<NWidgetMatrix>(WID_PW_TYPE_MATRIX);
+-		matrix->SetScrollbar(this->GetScrollbar(WID_PW_TYPE_SCROLL));
++		matrix->SetScrollbar(this->GetScrollbar(WID_PW_TYPE_SCROLL), WID_PW_TYPE_SCROLL);
+ 
+ 		this->querystrings[WID_PW_TYPE_FILTER] = &this->type_editbox;
+ 	} else {
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index d68e2c1a76..fc1e068293 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -772,7 +772,7 @@ struct BuildRailToolbarWindow : Window {
+ 
+ 		                        auto proc = [=](bool test, StationID to_join) -> bool {
+ 			                        if (test) {
+-				                        return Command<CMD_BUILD_RAIL_STATION>::Do(CommandFlagsToDCFlags(GetCommandFlags<CMD_BUILD_RAIL_STATION>()), end_tile, rt, params.axis, numtracks, platlength, params.sel_class, params.sel_type, StationID::Invalid, adjacent).Succeeded();
++				                        return Command<CMD_BUILD_RAIL_STATION>::Do(CommandFlagsToDCFlags(GetCommandFlags<CMD_BUILD_RAIL_STATION>()), end_tile, rt, params.axis, numtracks, platlength, params.sel_class, params.sel_type, StationID::Invalid(), adjacent).Succeeded();
+ 			                        } else {
+ 				                        return Command<CMD_BUILD_RAIL_STATION>::Post(STR_ERROR_CAN_T_BUILD_RAILROAD_STATION, CcStation, end_tile, rt, params.axis, numtracks, platlength, params.sel_class, params.sel_type, to_join, adjacent);
+ 			                        }
+diff --git a/src/road_gui.cpp b/src/road_gui.cpp
+index 3717d8e565..373b96ecb8 100644
+--- a/src/road_gui.cpp
++++ b/src/road_gui.cpp
+@@ -1371,37 +1371,7 @@ public:
+ 		this->LowerWidget(WID_BROS_STATION_NE + _roadstop_gui.orientation);
+ 		this->LowerWidget(WID_BROS_LT_OFF + _settings_client.gui.station_show_coverage);
+ 
+-		this->window_class = (rs == ROADSTOP_BUS) ? WC_BUS_STATION : WC_TRUCK_STATION;
+-		if (!newstops || _roadstop_gui_settings.roadstop_class >= (int)RoadStopClass::GetClassCount()) {
+-			/* There's no new stops available or the list has reduced in size.
+-			 * Now, set the default road stops as selected. */
+-			_roadstop_gui_settings.roadstop_class = ROADSTOP_CLASS_DFLT;
+-			_roadstop_gui_settings.roadstop_type = 0;
+-		}
+-		if (newstops) {
+-			/* The currently selected class doesn't have any stops for this RoadStopType, reset the selection. */
+-			if (!GetIfClassHasNewStopsByType(RoadStopClass::Get(_roadstop_gui_settings.roadstop_class), rs, _cur_roadtype)) {
+-				_roadstop_gui_settings.roadstop_class = ROADSTOP_CLASS_DFLT;
+-				_roadstop_gui_settings.roadstop_type = 0;
+-			}
+-			_roadstop_gui_settings.roadstop_count = RoadStopClass::Get(_roadstop_gui_settings.roadstop_class)->GetSpecCount();
+-			_roadstop_gui_settings.roadstop_type = std::min((int)_roadstop_gui_settings.roadstop_type, _roadstop_gui_settings.roadstop_count - 1);
+-
+-			/* Reset back to default class if the previously selected class is not available for this road stop type. */
+-			if (!GetIfClassHasNewStopsByType(RoadStopClass::Get(_roadstop_gui_settings.roadstop_class), roadStopType, _cur_roadtype)) {
+-				_roadstop_gui_settings.roadstop_class = ROADSTOP_CLASS_DFLT;
+-			}
+-
+-			this->SelectFirstAvailableTypeIfUnavailable();
+-
+-			NWidgetMatrix *matrix = this->GetWidget<NWidgetMatrix>(WID_BROS_MATRIX);
+-			matrix->SetScrollbar(this->vscrollMatrix);
+-			matrix->SetCount(_roadstop_gui_settings.roadstop_count);
+-			matrix->SetClicked(_roadstop_gui_settings.roadstop_type);
+-
+-			this->EnsureSelectedClassIsVisible();
+-			this->CheckOrientationValid();
+-		}
++		this->window_class = (rs == RoadStopType::Bus) ? WC_BUS_STATION : WC_TRUCK_STATION;
+ 	}
+ 
+ 	void Close([[maybe_unused]] int data = 0) override
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 090a73a0c3..0a72a457d4 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -531,7 +531,7 @@ struct GameOptionsWindow : Window {
+ 			case WID_GO_SMALL_FONT_VALUE:
+ 			case WID_GO_LARGE_FONT_VALUE:
+ 			case WID_GO_MONO_FONT_VALUE: {
+-				return this->font_sizes[static_cast<FontSize>(Clamp(widget - WID_GO_NORMAL_FONT_VALUE, FS_BEGIN, FS_END))];
++				return GetString(STR_JUST_INT, this->font_sizes[static_cast<FontSize>(Clamp(widget - WID_GO_NORMAL_FONT_VALUE, FS_BEGIN, FS_END))]);
+ 			}
+ 			case WID_GO_LANG_DROPDOWN:         return _current_language->own_name;
+ 			case WID_GO_BASE_GRF_DROPDOWN:     return GetListLabel(BaseGraphics::GetUsedSet());
+@@ -581,7 +581,7 @@ struct GameOptionsWindow : Window {
+ 				break;
+ 
+ 			case WID_GO_GUI_BUTTON_RATIO:
+-				DrawSliderWidget(r, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, this->button_ratio, _scale_labels);
++				DrawSliderWidget(r, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, SCALE_NMARKS, this->button_ratio, ScaleMarkFunc);
+ 				break;
+ 
+ 			case WID_GO_VIDEO_DRIVER_INFO:
+@@ -832,8 +832,7 @@ struct GameOptionsWindow : Window {
+ 				int index = Clamp(widget - WID_GO_NORMAL_FONT_VALUE, FS_BEGIN, FS_END);
+ 				this->query_widget = widget;
+ 				FontSize fs = static_cast<FontSize>(index);
+-				SetDParam(0, this->font_sizes[fs]);
+-				ShowQueryString(STR_JUST_INT, STR_GAME_OPTIONS_FONT_NORMAL + index, 3, this, CS_NUMERAL, QSF_NONE);
++				ShowQueryString(GetString(STR_JUST_INT, this->font_sizes[fs]), STR_GAME_OPTIONS_FONT_NORMAL + index, 3, this, CS_NUMERAL, QueryStringFlags{});
+ 				break;
+ 			}
+ 
+@@ -863,8 +862,7 @@ struct GameOptionsWindow : Window {
+ 				break;
+ 
+ 			case WID_GO_GUI_BUTTON_RATIO:
+-				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, this->button_ratio)) {
+-					if (!_ctrl_pressed) this->button_ratio = ((this->button_ratio + 12) / 25) * 25;
++				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, _ctrl_pressed ? 0 : SCALE_NMARKS, this->button_ratio)) {
+ 					this->SetWidgetDirty(widget);
+ 				}
+ 
+@@ -965,12 +963,12 @@ struct GameOptionsWindow : Window {
+ 		}
+ 	}
+ 
+-	void OnQueryTextFinished(char *str) override
++	void OnQueryTextFinished(std::optional<std::string> str) override
+ 	{
+-		if (str == nullptr) return;
++		if (!str) return;
+ 
+ 		int index = Clamp(this->query_widget -  WID_GO_NORMAL_FONT_VALUE, FS_BEGIN, FS_END);
+-		this->font_sizes[index] = Clamp(atoi(str), 0, 200);
++		this->font_sizes[index] = Clamp(atoi(str->c_str()), 0, 200);
+ 	}
+ 
+ 
+@@ -1189,28 +1187,28 @@ static constexpr NWidgetPart _nested_game_options_widgets[] = {
+ 						EndContainer(),
+ #endif /* HAS_TRUETYPE_FONT */
+ 				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_NORMAL), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_FONT_NORMAL, STR_NULL),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_NORMAL_FONT_L), SetDataTip(AWV_DECREASE, STR_NULL),
+-					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_NORMAL_FONT_VALUE), SetDataTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_NORMAL_FONT_R), SetDataTip(AWV_INCREASE, STR_NULL),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_NORMAL), SetMinimalSize(0, 12), SetFill(1, 0), SetStringTip(STR_GAME_OPTIONS_FONT_NORMAL, STR_NULL),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_NORMAL_FONT_L), SetStringTip(AWV_DECREASE, STR_NULL),
++					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_NORMAL_FONT_VALUE), SetStringTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_NORMAL_FONT_R), SetStringTip(AWV_INCREASE, STR_NULL),
+ 				EndContainer(),
+ 				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_SMALL), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_FONT_SMALL, STR_NULL),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_SMALL_FONT_L), SetDataTip(AWV_DECREASE, STR_NULL),
+-					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_SMALL_FONT_VALUE), SetDataTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_SMALL_FONT_R), SetDataTip(AWV_INCREASE, STR_NULL),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_SMALL), SetMinimalSize(0, 12), SetFill(1, 0), SetStringTip(STR_GAME_OPTIONS_FONT_SMALL, STR_NULL),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_SMALL_FONT_L), SetStringTip(AWV_DECREASE, STR_NULL),
++					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_SMALL_FONT_VALUE), SetStringTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_SMALL_FONT_R), SetStringTip(AWV_INCREASE, STR_NULL),
+ 				EndContainer(),
+ 				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_LARGE), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_FONT_LARGE, STR_NULL),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_LARGE_FONT_L), SetDataTip(AWV_DECREASE, STR_NULL),
+-					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_LARGE_FONT_VALUE), SetDataTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_LARGE_FONT_R), SetDataTip(AWV_INCREASE, STR_NULL),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_LARGE), SetMinimalSize(0, 12), SetFill(1, 0), SetStringTip(STR_GAME_OPTIONS_FONT_LARGE, STR_NULL),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_LARGE_FONT_L), SetStringTip(AWV_DECREASE, STR_NULL),
++					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_LARGE_FONT_VALUE), SetStringTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_LARGE_FONT_R), SetStringTip(AWV_INCREASE, STR_NULL),
+ 				EndContainer(),
+ 				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_MONO), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_FONT_MONO, STR_NULL),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_MONO_FONT_L), SetDataTip(AWV_DECREASE, STR_NULL),
+-					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_MONO_FONT_VALUE), SetDataTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
+-					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_MONO_FONT_R), SetDataTip(AWV_INCREASE, STR_NULL),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetTextStyle(TC_BLACK, FS_MONO), SetMinimalSize(0, 12), SetFill(1, 0), SetStringTip(STR_GAME_OPTIONS_FONT_MONO, STR_NULL),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_MONO_FONT_L), SetStringTip(AWV_DECREASE, STR_NULL),
++					NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_GO_MONO_FONT_VALUE), SetStringTip(STR_JUST_INT, STR_NULL), SetTextStyle(TC_WHITE),
++					NWidget(WWT_PUSHARROWBTN, COLOUR_GREY, WID_GO_MONO_FONT_R), SetStringTip(AWV_INCREASE, STR_NULL),
+ 				EndContainer(),
+ 			EndContainer(),
+ 
+diff --git a/src/station_gui.cpp b/src/station_gui.cpp
+index fa945ddf0e..160f1d1eb1 100644
+--- a/src/station_gui.cpp
++++ b/src/station_gui.cpp
+@@ -1440,12 +1440,6 @@ struct StationViewWindow : public Window {
+ 					fill.width = 0;
+ 				}
+ 				break;
+-
+-			case WID_SV_SORT_ORDER:
+-			case WID_SV_GROUP:
+-				*size = maxdim(GetStringBoundingBox(STR_BUTTON_SORT_BY), GetStringBoundingBox(STR_STATION_VIEW_GROUP));
+-				size->width += padding.width;
+-				break;
+ 		}
+ 	}
+ 
+diff --git a/src/statusbar_gui.cpp b/src/statusbar_gui.cpp
+index 27071b7ee9..615037c705 100644
+--- a/src/statusbar_gui.cpp
++++ b/src/statusbar_gui.cpp
+@@ -100,8 +100,7 @@ struct StatusBarWindow : Window {
+ 				d = maxdim(d, GetStringBoundingBox(STR_STATUSBAR_PAUSED));
+ 
+ 				if (Company::IsValidID(_local_company)) {
+-					SetDParam(0, _local_company);
+-					d = maxdim(d, GetStringBoundingBox(STR_STATUSBAR_COMPANY_NAME));
++					d = maxdim(d, GetStringBoundingBox(GetString(STR_STATUSBAR_COMPANY_NAME, _local_company)));
+ 				}
+ 				break;
+ 
+diff --git a/src/table/settings/gui_settings.ini b/src/table/settings/gui_settings.ini
+index e4b668118d..5473044c90 100644
+--- a/src/table/settings/gui_settings.ini
++++ b/src/table/settings/gui_settings.ini
+@@ -234,7 +234,7 @@ cat      = SC_BASIC
+ 
+ [SDTC_BOOL]
+ var      = gui.vertical_toolbar
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = true
+ str      = STR_CONFIG_SETTING_VERTICAL_TOOLBAR
+ strhelp  = STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT
+@@ -243,7 +243,7 @@ cat      = SC_BASIC
+ 
+ [SDTC_BOOL]
+ var      = gui.compact_vertical_toolbar
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = true
+ str      = STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR
+ strhelp  = STR_CONFIG_SETTING_COMPACT_VERTICAL_TOOLBAR_HELPTEXT
+@@ -251,7 +251,7 @@ cat      = SC_BASIC
+ 
+ [SDTC_BOOL]
+ var      = gui.build_confirmation
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = true
+ str      = STR_CONFIG_SETTING_BUILD_CONFIRMATION
+ strhelp  = STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT
+@@ -259,7 +259,7 @@ cat      = SC_BASIC
+ 
+ [SDTC_BOOL]
+ var      = gui.windows_titlebars
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = false
+ str      = STR_CONFIG_SETTING_WINDOWS_TITLEBARS
+ strhelp  = STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT
+@@ -267,7 +267,7 @@ cat      = SC_BASIC
+ 
+ [SDTC_BOOL]
+ var      = gui.draw_mouse_cursor
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = true
+ str      = STR_CONFIG_SETTING_MOUSE_CURSOR
+ strhelp  = STR_CONFIG_SETTING_MOUSE_CURSOR_HELPTEXT
+@@ -275,7 +275,7 @@ cat      = SC_BASIC
+ 
+ [SDTC_BOOL]
+ var      = gui.windows_decorations
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = true
+ str      = STR_CONFIG_SETTING_WINDOWS_DECORATIONS
+ strhelp  = STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT
+diff --git a/src/table/settings/misc_settings.ini b/src/table/settings/misc_settings.ini
+index 4e862d8fea..0bc811c9cf 100644
+--- a/src/table/settings/misc_settings.ini
++++ b/src/table/settings/misc_settings.ini
+@@ -247,30 +247,6 @@ def      = 12
+ min      = 0
+ max      = 72
+ 
+-[SDTG_BOOL]
+-ifdef    = HAS_TRUETYPE_FONT
+-name     = ""small_aa""
+-var      = _fcsettings.small.aa
+-def      = true
+-
+-[SDTG_BOOL]
+-ifdef    = HAS_TRUETYPE_FONT
+-name     = ""medium_aa""
+-var      = _fcsettings.medium.aa
+-def      = true
+-
+-[SDTG_BOOL]
+-ifdef    = HAS_TRUETYPE_FONT
+-name     = ""large_aa""
+-var      = _fcsettings.large.aa
+-def      = true
+-
+-[SDTG_BOOL]
+-ifdef    = HAS_TRUETYPE_FONT
+-name     = ""mono_aa""
+-var      = _fcsettings.mono.aa
+-def      = true
+-
+ [SDTG_VAR]
+ name     = ""min_button_size""
+ type     = SLE_UINT
+diff --git a/src/table/settings/old_gameopt_settings.ini b/src/table/settings/old_gameopt_settings.ini
+index 467f045ea9..0b0846df51 100644
+--- a/src/table/settings/old_gameopt_settings.ini
++++ b/src/table/settings/old_gameopt_settings.ini
+@@ -151,7 +151,7 @@ to       = SLV_22
+ [SDTC_OMANY]
+ var      = gui.save_to_network
+ type     = SLE_UINT8
+-flags    = SF_NOT_IN_SAVE | SF_NO_NETWORK_SYNC
++flags    = SettingFlag::NotInSave, SettingFlag::NoNetworkSync
+ def      = 2
+ max      = 2
+ full     = _save_to_network
+diff --git a/src/textfile_gui.cpp b/src/textfile_gui.cpp
+index fa25214946..0ac1f3a3da 100644
+--- a/src/textfile_gui.cpp
++++ b/src/textfile_gui.cpp
+@@ -70,7 +70,6 @@ static constexpr NWidgetPart _nested_textfile_widgets[] = {
+ 		EndContainer(),
+ 	EndContainer(),
+ 	NWidget(NWID_HORIZONTAL),
+-		NWidget(WWT_TEXTBTN, COLOUR_MAUVE, WID_TF_WRAPTEXT), SetDataTip(STR_TEXTFILE_WRAP_TEXT, STR_TEXTFILE_WRAP_TEXT_TOOLTIP),
+ 		NWidget(NWID_HSCROLLBAR, COLOUR_MAUVE, WID_TF_HSCROLLBAR),
+ 		NWidget(WWT_RESIZEBOX, COLOUR_MAUVE),
+ 	EndContainer(),
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index a8e4bb5671..928277caa7 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -179,7 +179,7 @@ static void PopupMainCompanyToolbMenu(Window *w, WidgetID widget, CompanyMask gr
+ 				list.push_back(MakeDropDownListStringItem(STR_NETWORK_COMPANY_LIST_SPECTATE, CTMN_SPECTATE));
+ 			}
+ 
+-			list.emplace_back(new DropDownListStringItem(STR_NETWORK_CHAT_ALL_CAPTION, CTMN_SPEAK_ALL, false));
++			list.emplace_back(MakeDropDownListStringItem(STR_NETWORK_CHAT_ALL_CAPTION, CTMN_SPEAK_ALL));
+ 			break;
+ 
+ 		case WID_TN_STORY:
+@@ -929,8 +929,8 @@ static CallBackFunction ToolbarBuildRailClick(Window *w)
+ 			elem->result += MENU_IDX_TRAM;
+ 			list.emplace_back(elem);
+ 		}
+-		list.emplace_back(new DropDownListIconItem(SPR_IMG_BUILDWATER, PAL_NONE, STR_WATERWAYS_MENU_WATERWAYS_CONSTRUCTION, MENU_IDX_WATER, false));
+-		list.emplace_back(new DropDownListIconItem(SPR_IMG_BUILDAIR, PAL_NONE, STR_AIRCRAFT_MENU_AIRPORT_CONSTRUCTION, MENU_IDX_AIR, false));
++		list.emplace_back(MakeDropDownListIconItem(SPR_IMG_BUILDWATER, PAL_NONE, STR_WATERWAYS_MENU_WATERWAYS_CONSTRUCTION, MENU_IDX_WATER));
++		list.emplace_back(MakeDropDownListIconItem(SPR_IMG_BUILDAIR, PAL_NONE, STR_AIRCRAFT_MENU_AIRPORT_CONSTRUCTION, MENU_IDX_AIR));
+ 	}
+ 	ShowDropDownList(w, std::move(list), _last_built_railtype, WID_TN_RAILS, false);
+ 	if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+@@ -1548,11 +1548,11 @@ public:
+ 		--nbuttons;
+ 
+ 		if (type == NWID_HORIZONTAL) {
+-			w->window_desc->pref_width = nbuttons * this->smallest_x;
++			w->window_desc.pref_width = nbuttons * this->smallest_x;
+ 		} else {
+ 			uint given_width, arrangable_count, button_count, spacer_count;
+ 			const WidgetID *arrangement = GetButtonArrangement(given_width, arrangable_count, button_count, spacer_count);
+-			w->window_desc->pref_height = arrangable_count * this->smallest_y;
++			w->window_desc.pref_height = arrangable_count * this->smallest_y;
+ 		}
+ 
+ 		/* Allow space for all buttons, and include spacers at quarter the width of buttons. */
+@@ -2966,13 +2966,13 @@ static std::unique_ptr<NWidgetBase> MakeMainToolbar()
+ 		hor->Add(std::move(leaf));
+ 	}
+ 
+-	auto spacer= std::make_unique<NWidgetSpacer>(0, 0);
++	auto spacer = std::make_unique<NWidgetSpacer>(0, 0);
+ 	spacer->SetMinimalSize(20, 20);
+-	auto ctrl_btn = std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP);
++	auto ctrl_btn = std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, WidgetData{ .string = STR_TABLET_CTRL }, STR_TABLET_CTRL_TOOLTIP);
+ 	ctrl_btn->SetMinimalSize(20, 20);
+-	auto shift_btn = std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP);
++	auto shift_btn = std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, WidgetData{ .string = STR_TABLET_SHIFT }, STR_TABLET_SHIFT_TOOLTIP);
+ 	shift_btn->SetMinimalSize(20, 20);
+-	auto close_btn = std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP);
++	auto close_btn = std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, WidgetData{ .string = STR_TABLET_CLOSE }, STR_TABLET_CLOSE_TOOLTIP);
+ 	close_btn->SetMinimalSize(20, 20);
+ 
+ 	hor->Add(std::move(spacer));
+@@ -2998,15 +2998,15 @@ static std::unique_ptr<NWidgetBase> MakeVerticalLeftToolbar()
+ {
+ 	auto tb = std::make_unique<NWidgetVerticalToolbarContainer>(NWidgetVerticalToolbarContainer::Side::LEFT);
+ 	for (uint i = 0; i <= WID_TN_SWITCH_BAR; i++) {
+-		auto leaf = std::make_unique<NWidgetLeaf>(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, toolbar_button_sprites[i], STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i);
++		auto leaf = std::make_unique<NWidgetLeaf>(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, WidgetData{.sprite = toolbar_button_sprites[i]}, STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i);
+ 		leaf->SetMinimalSize(20, 20);
+ 		tb->Add(std::move(leaf));
+ 	}
+ 
+ 	std::array<std::unique_ptr<NWidgetLeaf>, 3> rem = {
+-		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP),
+-		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP),
+-		std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP)
++		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, WidgetData{ .string = STR_TABLET_CTRL }, STR_TABLET_CTRL_TOOLTIP),
++		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, WidgetData{ .string = STR_TABLET_SHIFT }, STR_TABLET_SHIFT_TOOLTIP),
++		std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, WidgetData{ .string = STR_TABLET_CLOSE }, STR_TABLET_CLOSE_TOOLTIP)
+ 	};
+ 
+ 	for (auto&& leaf: rem) {
+@@ -3021,11 +3021,11 @@ static const NWidgetPart _nested_toolbar_vertical_left_widgets[] = {
+ 	NWidgetFunction(MakeVerticalLeftToolbar),
+ };
+ 
+-static WindowDesc _toolb_vertical_left_desc(__FILE__, __LINE__,
++static WindowDesc _toolb_vertical_left_desc(
+ 	WDP_MANUAL, nullptr, 0, 0,
+ 	WC_MAIN_TOOLBAR, WC_NONE,
+-	WDF_NO_FOCUS | WDF_NO_CLOSE,
+-	std::begin(_nested_toolbar_vertical_left_widgets), std::end(_nested_toolbar_vertical_left_widgets),
++	{WindowDefaultFlag::NoFocus, WindowDefaultFlag::NoClose},
++	_nested_toolbar_vertical_left_widgets,
+ 	&MainToolbarWindow::hotkeys
+ );
+ 
+@@ -3033,15 +3033,15 @@ static std::unique_ptr<NWidgetBase> MakeVerticalRightToolbar()
+ {
+ 	auto tb = std::make_unique<NWidgetVerticalToolbarContainer>(NWidgetVerticalToolbarContainer::Side::RIGHT);
+ 	for (uint i = 0; i <= WID_TN_SWITCH_BAR; i++) {
+-		auto leaf = std::make_unique<NWidgetLeaf>(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, toolbar_button_sprites[i], STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i);
++		auto leaf = std::make_unique<NWidgetLeaf>(i == WID_TN_SAVE ? WWT_IMGBTN_2 : WWT_IMGBTN, COLOUR_GREY, i, WidgetData{.sprite = toolbar_button_sprites[i]}, STR_TOOLBAR_TOOLTIP_PAUSE_GAME + i);
+ 		leaf->SetMinimalSize(20, 20);
+ 		tb->Add(std::move(leaf));
+ 	}
+ 
+ 	std::array<std::unique_ptr<NWidgetLeaf>, 3> rem = {
+-		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, STR_TABLET_CTRL, STR_TABLET_CTRL_TOOLTIP),
+-		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, STR_TABLET_SHIFT, STR_TABLET_SHIFT_TOOLTIP),
+-		std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, STR_TABLET_CLOSE, STR_TABLET_CLOSE_TOOLTIP)
++		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_CTRL, WidgetData{.string = STR_TABLET_CTRL}, STR_TABLET_CTRL_TOOLTIP),
++		std::make_unique<NWidgetLeaf>(WWT_TEXTBTN, COLOUR_GREY, WID_TN_SHIFT, WidgetData{.string = STR_TABLET_SHIFT}, STR_TABLET_SHIFT_TOOLTIP),
++		std::make_unique<NWidgetLeaf>(WWT_PUSHTXTBTN, COLOUR_GREY, WID_TN_DELETE, WidgetData{.string = STR_TABLET_CLOSE}, STR_TABLET_CLOSE_TOOLTIP)
+ 	};
+ 
+ 	for (auto&& leaf: rem) {
+@@ -3056,11 +3056,11 @@ static const NWidgetPart _nested_toolbar_vertical_right_widgets[] = {
+ 	NWidgetFunction(MakeVerticalRightToolbar),
+ };
+ 
+-static WindowDesc _toolb_vertical_right_desc(__FILE__, __LINE__,
++static WindowDesc _toolb_vertical_right_desc(
+ 	WDP_MANUAL, nullptr, 0, 0,
+ 	WC_MAIN_TOOLBAR_RIGHT, WC_NONE,
+-	WDF_NO_FOCUS | WDF_NO_CLOSE,
+-	std::begin(_nested_toolbar_vertical_right_widgets), std::end(_nested_toolbar_vertical_right_widgets),
++	{WindowDefaultFlag::NoFocus, WindowDefaultFlag::NoClose},
++	_nested_toolbar_vertical_right_widgets,
+ 	&MainToolbarWindow::hotkeys
+ );
+ 
+diff --git a/src/viewport.cpp b/src/viewport.cpp
+index 923660a6dc..025af8aaa8 100644
+--- a/src/viewport.cpp
++++ b/src/viewport.cpp
+@@ -2474,7 +2474,7 @@ bool HandleViewportClicked(const Viewport &vp, int x, int y)
+ 	return false;
+ }
+ 
+-bool HandleViewportMouseUp(const Viewport *vp, int x, int y)
++bool HandleViewportMouseUp(const Viewport &vp, int x, int y)
+ {
+ 	if (_move_pressed) return false;
+ 
+diff --git a/src/widget.cpp b/src/widget.cpp
+index 6eb266bb6f..89ec79d0a0 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -216,7 +216,7 @@ static void ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, in
+ 	}
+ 
+ 	if (_scrollbar_finger_drag) {
+-		w->mouse_capture_widget = sb->index;
++		w->mouse_capture_widget = sb->GetIndex();
+ 		_cursorpos_drag_start.x = x;
+ 		_cursorpos_drag_start.y = y;
+ 		_scrollbar_size = std::max(1, (int) sb->current_y * sb->GetCount() / sb->GetCapacity());
+@@ -789,7 +789,7 @@ void Window::DrawWidgets() const
+ 	}
+ 
+ 	/* Dim the window if it's about to close */
+-	if ((this->flags & WF_DRAGGING) && !_settings_client.gui.windows_titlebars && GetWindowDraggedOffScreen(this)) {
++	if (this->flags.Test(WindowFlag::Dragging) && !_settings_client.gui.windows_titlebars && GetWindowDraggedOffScreen(this)) {
+ 		GfxFillRect(2, 2, this->width - 3, this->height - 3, PALETTE_TO_TRANSPARENT, FILLRECT_RECOLOUR);
+ 	}
+ }
+@@ -2225,7 +2225,7 @@ void NWidgetMatrix::SetCount(int count)
+  * Assign a scrollbar to this matrix.
+  * @param sb The scrollbar to assign to us.
+  */
+-void NWidgetMatrix::SetScrollbar(Scrollbar *sb, int index)
++void NWidgetMatrix::SetScrollbar(Scrollbar *sb, WidgetID index)
+ {
+ 	this->sb = sb;
+ 	this->sb_index = index;
+@@ -2236,11 +2236,12 @@ Scrollbar *NWidgetMatrix::GetScrollbar()
+ 	return this->sb;
+ }
+ 
+-int NWidgetMatrix::GetScrollbarWidget()
++WidgetID NWidgetMatrix::GetScrollbarWidget()
+ {
+ 	return this->sb_index;
+ }
+ 
++
+ /**
+  * Get current element.
+  * @returns index of current element.
+@@ -3169,9 +3170,6 @@ void NWidgetLeaf::SetupSmallestSize(Window *w)
+ 				}
+ 				size = maxdim(size, NWidgetLeaf::resizebox_dimension);
+ 				break;
+-			}
+-				size = maxdim(size, NWidgetLeaf::resizebox_dimension);
+-				break;
+ 			}
+ 			case WWT_EDITBOX: {
+ 				Dimension sprite_size = GetScaledSpriteSize(_current_text_dir == TD_RTL ? SPR_IMG_DELETE_RIGHT : SPR_IMG_DELETE_LEFT);
+@@ -3215,51 +3213,48 @@ void NWidgetLeaf::SetupSmallestSize(Window *w)
+ 				size = maxdim(size, NWidgetLeaf::closebox_dimension);
+ 				break;
+ 			}
+-			size = maxdim(size, NWidgetLeaf::closebox_dimension);
+-			break;
+-		}
+-		case WWT_TEXTBTN:
+-		case WWT_PUSHTXTBTN:
+-		case WWT_TEXTBTN_2: {
+-			padding = {WidgetDimensions::scaled.framerect.Horizontal(), WidgetDimensions::scaled.framerect.Vertical()};
+-			Dimension d2 = GetStringBoundingBox(GetStringForWidget(w, this), this->text_size);
+-			d2.width += padding.width;
+-			d2.height += padding.height;
+-			size = maxdim(size, d2);
+-			break;
+-		}
+-		case WWT_LABEL:
+-		case WWT_TEXT: {
+-			size = maxdim(size, GetStringBoundingBox(GetStringForWidget(w, this), this->text_size));
+-			break;
+-		}
+-		case WWT_CAPTION: {
+-			padding = {WidgetDimensions::scaled.captiontext.Horizontal(), WidgetDimensions::scaled.captiontext.Vertical()};
+-			Dimension d2 = GetStringBoundingBox(GetStringForWidget(w, this), this->text_size);
+-			d2.width += padding.width;
+-			d2.height += padding.height;
+-			size = maxdim(size, d2);
+-			break;
+-		}
+-		case WWT_DROPDOWN:
+-		case NWID_BUTTON_DROPDOWN:
+-		case NWID_PUSHBUTTON_DROPDOWN: {
+-			if (NWidgetLeaf::dropdown_dimension.width == 0) {
+-				NWidgetLeaf::dropdown_dimension = GetScaledSpriteSize(SPR_ARROW_DOWN);
+-				NWidgetLeaf::dropdown_dimension.width += WidgetDimensions::scaled.vscrollbar.Horizontal();
+-				NWidgetLeaf::dropdown_dimension.height += WidgetDimensions::scaled.vscrollbar.Vertical();
++			case WWT_TEXTBTN:
++			case WWT_PUSHTXTBTN:
++			case WWT_TEXTBTN_2: {
++				padding = {WidgetDimensions::scaled.framerect.Horizontal(), WidgetDimensions::scaled.framerect.Vertical()};
++				Dimension d2 = GetStringBoundingBox(GetStringForWidget(w, this), this->text_size);
++				d2.width += padding.width;
++				d2.height += padding.height;
++				size = maxdim(size, d2);
++				break;
+ 			}
+-			padding = {WidgetDimensions::scaled.dropdowntext.Horizontal() + NWidgetLeaf::dropdown_dimension.width + WidgetDimensions::scaled.fullbevel.Horizontal(), WidgetDimensions::scaled.dropdowntext.Vertical()};
+-			Dimension d2 = GetStringBoundingBox(GetStringForWidget(w, this), this->text_size);
+-			d2.width += padding.width;
+-			d2.height = std::max(d2.height + padding.height, NWidgetLeaf::dropdown_dimension.height);
+-			size = maxdim(size, d2);
+-			break;
++			case WWT_LABEL:
++			case WWT_TEXT: {
++				size = maxdim(size, GetStringBoundingBox(GetStringForWidget(w, this), this->text_size));
++				break;
++			}
++			case WWT_CAPTION: {
++				padding = {WidgetDimensions::scaled.captiontext.Horizontal(), WidgetDimensions::scaled.captiontext.Vertical()};
++				Dimension d2 = GetStringBoundingBox(GetStringForWidget(w, this), this->text_size);
++				d2.width += padding.width;
++				d2.height += padding.height;
++				size = maxdim(size, d2);
++				break;
++			}
++			case WWT_DROPDOWN:
++			case NWID_BUTTON_DROPDOWN:
++			case NWID_PUSHBUTTON_DROPDOWN: {
++				if (NWidgetLeaf::dropdown_dimension.width == 0) {
++					NWidgetLeaf::dropdown_dimension = GetScaledSpriteSize(SPR_ARROW_DOWN);
++					NWidgetLeaf::dropdown_dimension.width += WidgetDimensions::scaled.vscrollbar.Horizontal();
++					NWidgetLeaf::dropdown_dimension.height += WidgetDimensions::scaled.vscrollbar.Vertical();
++				}
++				padding = {WidgetDimensions::scaled.dropdowntext.Horizontal() + NWidgetLeaf::dropdown_dimension.width + WidgetDimensions::scaled.fullbevel.Horizontal(), WidgetDimensions::scaled.dropdowntext.Vertical()};
++				Dimension d2 = GetStringBoundingBox(GetStringForWidget(w, this), this->text_size);
++				d2.width += padding.width;
++				d2.height = std::max(d2.height + padding.height, NWidgetLeaf::dropdown_dimension.height);
++				size = maxdim(size, d2);
++				break;
++			}
++			default:
++				NOT_REACHED();
+ 		}
+-		default:
+-			NOT_REACHED();
+ 	}
+-}
+ 
+ 	if (this->index >= 0) w->UpdateWidgetSize(this->index, size, padding, fill, resize);
+ 
+@@ -3361,7 +3356,6 @@ void NWidgetLeaf::Draw(const Window *w)
+ 		case WWT_STICKYBOX:
+ 			DrawStickyBox(r, this->colour, w->flags.Test(WindowFlag::Sticky));
+ 			break;
+-		}
+ 
+ 		case WWT_DEFSIZEBOX:
+ 			DrawImageButtons(r, WWT_DEFSIZEBOX, this->colour, clicked, SPR_WINDOW_DEFSIZE, SA_CENTER);
+@@ -3494,14 +3488,14 @@ void ApplyNWidgetPartAttribute(const NWidgetPart &nwid, NWidgetBase *dest)
+ 			dest->SetPadding(nwid.u.padding);
+ 			break;
+ 
+-			case WPT_SIZINGTYPE: {
+-				NWidgetResizeBase *nwrb = dynamic_cast<NWidgetResizeBase *>(dest.get());
+-				if (nwrb == nullptr)  [[unlikely]] throw std::runtime_error("WPT_SIZINGTYPE requires NWidgetResizeBase");
+-				assert(nwid_begin->u.sizing_type < NWST_END);
+-				nwrb->sizing_type = nwid_begin->u.sizing_type;
+-				nwrb->SetMinimalSize(0, 0);
+-				break;
+-			}
++		case WPT_SIZINGTYPE: {
++			NWidgetResizeBase *nwrb = dynamic_cast<NWidgetResizeBase *>(dest);
++			if (nwrb == nullptr)  [[unlikely]] throw std::runtime_error("WPT_SIZINGTYPE requires NWidgetResizeBase");
++			assert(nwid.u.sizing_type < NWST_END);
++			nwrb->sizing_type = nwid.u.sizing_type;
++			nwrb->SetMinimalSize(0, 0);
++			break;
++		}
+ 
+ 		case WPT_PIPSPACE: {
+ 			NWidgetPIPContainer *nwc = dynamic_cast<NWidgetPIPContainer *>(dest);
+diff --git a/src/widget_type.h b/src/widget_type.h
+index 5b726174da..fdfa8bb69f 100644
+--- a/src/widget_type.h
++++ b/src/widget_type.h
+@@ -621,9 +621,9 @@ public:
+ 
+ 	void SetClicked(int clicked);
+ 	void SetCount(int count);
+-	void SetScrollbar(Scrollbar *sb, int index);
++	void SetScrollbar(Scrollbar *sb, WidgetID index);
++	WidgetID GetScrollbarWidget();
+ 	Scrollbar *GetScrollbar();
+-	int GetScrollbarWidget();
+ 	int GetCurrentElement() const;
+ 
+ 	void SetupSmallestSize(Window *w) override;
+@@ -634,12 +634,12 @@ public:
+ 	void Draw(const Window *w) override;
+ protected:
+ 	const WidgetID index = -1; ///< If non-negative, index in the #Window::widget_lookup.
++	WidgetID sb_index = -1; ///< The scrollbar widget index.
+ 	Colours colour{}; ///< Colour of this widget.
+ 	int clicked = -1; ///< The currently clicked element.
+ 	int count = -1; ///< Amount of valid elements.
+ 	int current_element = 0; ///< The element currently being processed.
+ 	Scrollbar *sb = nullptr;  ///< The scrollbar we're associated with.
+-	int sb_index = 0;   ///< The scrollbar widget index.
+ private:
+ 	int widget_w = 0; ///< The width of the child widget including inter spacing.
+ 	int widget_h = 0; ///< The height of the child widget including inter spacing.
+diff --git a/src/window.cpp b/src/window.cpp
+index f313f35e9f..b789e04825 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -2004,8 +2004,8 @@ static void HandleMouseDragNoTitlebars()
+ 				NWidgetScrollbar *scroll = NULL;
+ 				if (widget && widget->type == WWT_MATRIX) {
+ 					NWidgetLeaf *list = _focused_window->GetWidget<NWidgetLeaf>(widgetId);
+-					if (list && list->scrollbar_index >= 0) {
+-						scroll = _focused_window->GetWidget<NWidgetScrollbar>(list->scrollbar_index);
++					if (list && list->GetScrollbarIndex() >= 0) {
++						scroll = _focused_window->GetWidget<NWidgetScrollbar>(list->GetScrollbarIndex());
+ 					}
+ 				}
+ 				if (widget && widget->type == NWID_MATRIX) {
+@@ -2378,9 +2378,9 @@ static EventState HandleWindowDragging()
+ 
+ 			w->SetDirty();
+ 			if (GetWindowDraggedOffScreen(w)) {
+-				GuiShowTooltips(w, STR_TOOLTIP_CLOSE_WINDOW, TCC_NONE);
++				GuiShowTooltips(w, GetEncodedString(STR_TOOLTIP_CLOSE_WINDOW), TCC_NONE);
+ 			} else {
+-				GuiShowTooltips(w, STR_NULL, TCC_NONE); // Hide tooltip
++				GuiShowTooltips(w, GetEncodedString(STR_NULL), TCC_NONE); // Hide tooltip
+ 			}
+ 
+ 			return ES_HANDLED;
+@@ -3094,7 +3094,7 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 
+ 			case MC_LEFT_UP:
+ 				if (!_left_button_dragged && mouse_down_on_viewport) {
+-					HandleViewportMouseUp(vp, x, y);
++					HandleViewportMouseUp(*vp, x, y);
+ 					MoveAllHiddenWindowsBackToScreen();
+ 				} else if (_left_button_dragged && mouse_down_on_viewport) {
+ 					BuildConfirmationWindowProcessViewportClick();
+@@ -3117,7 +3117,7 @@ static void MouseLoop(MouseClick click, int mousewheel)
+ 				break;
+ 		}
+ 	}
+-	if (vp == nullptr || (w->flags & WF_DISABLE_VP_SCROLL)) {
++	if (vp == nullptr || w->flags.Test(WindowFlag::DisableVpScroll)) {
+ 		switch (click) {
+ 			case MC_LEFT_UP:
+ 				DispatchLeftButtonUpEvent(w, x - w->left, y - w->top);
+@@ -3590,7 +3590,7 @@ void CloseConstructionWindows()
+ {
+ 	/* Note: the container remains stable, even when deleting windows. */
+ 	for (Window *w : Window::Iterate()) {
+-		if (w->window_desc->flags & WDF_CONSTRUCTION) {
++		if (w->window_desc.flags.Test(WindowDefaultFlag::Construction)) {
+ 			w->Close();
+ 		}
+ 	}
+@@ -3608,7 +3608,7 @@ void CloseToolbarLinkedWindows()
+ 
+ 	/* Note: the container remains stable, even when deleting windows. */
+ 	for (Window *w : Window::Iterate()) {
+-		if (w->window_desc->default_pos == WDP_ALIGN_TOOLBAR) {
++		if (w->window_desc.default_pos == WDP_ALIGN_TOOLBAR) {
+ 			w->Close();
+ 		}
+ 	}
+-- 
+2.55.0
+

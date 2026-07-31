@@ -1,0 +1,34 @@
+From fb331f0d7f70e7121fb0062b1b94c8e15f2e204e Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Tue, 14 Mar 2023 23:18:07 +0000
+Subject: [PATCH 0887/1053] fix: prevent graph's drodown from insta closing
+
+---
+ src/toolbar_gui.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index 17c8ce1a50..67d0ad2e21 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -677,7 +677,7 @@ static CallBackFunction ToolbarGraphsClick(Window *w)
+ 
+ 	if (_toolbar_mode != TB_NORMAL) AddDropDownLeagueTableOptions(list);
+ 
+-	ShowDropDownList(w, std::move(list), GRMN_OPERATING_PROFIT_GRAPH, WID_TN_GRAPHS, 140, true);
++	ShowDropDownList(w, std::move(list), GRMN_OPERATING_PROFIT_GRAPH, WID_TN_GRAPHS, 140, true, false);
+ 	if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+ 
+ 	return CBF_NONE;
+@@ -690,7 +690,7 @@ static CallBackFunction ToolbarLeagueClick(Window *w)
+ 	AddDropDownLeagueTableOptions(list);
+ 
+ 	int selected = list[0]->result;
+-	ShowDropDownList(w, std::move(list), selected, WID_TN_LEAGUE, 140, true);
++	ShowDropDownList(w, std::move(list), selected, WID_TN_LEAGUE, 140, true, false);
+ 	if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+ 
+ 	return CBF_NONE;
+-- 
+2.55.0
+

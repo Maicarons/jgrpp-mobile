@@ -1,0 +1,1153 @@
+From 9daec1cb3023c4a3bfe85dcbae950d22bd4ac127 Mon Sep 17 00:00:00 2001
+From: Michael Lutz <michi@icosahedron.de>
+Date: Sat, 4 Feb 2023 21:50:55 +0100
+Subject: [PATCH 0876/1053] Update: Backport language changes
+
+---
+ src/lang/afrikaans.txt            |  1 +
+ src/lang/arabic_egypt.txt         |  1 +
+ src/lang/basque.txt               |  1 +
+ src/lang/belarusian.txt           |  1 +
+ src/lang/brazilian_portuguese.txt | 13 +++++++---
+ src/lang/bulgarian.txt            |  1 +
+ src/lang/catalan.txt              |  7 ++++++
+ src/lang/chuvash.txt              |  1 +
+ src/lang/croatian.txt             |  1 +
+ src/lang/czech.txt                |  1 +
+ src/lang/danish.txt               |  1 +
+ src/lang/dutch.txt                |  3 +++
+ src/lang/english_AU.txt           |  1 +
+ src/lang/english_US.txt           |  3 +++
+ src/lang/esperanto.txt            |  1 +
+ src/lang/estonian.txt             |  1 +
+ src/lang/faroese.txt              |  1 +
+ src/lang/finnish.txt              |  3 +++
+ src/lang/french.txt               |  1 +
+ src/lang/frisian.txt              |  1 +
+ src/lang/gaelic.txt               |  1 +
+ src/lang/galician.txt             |  1 +
+ src/lang/german.txt               |  1 +
+ src/lang/greek.txt                |  1 +
+ src/lang/hebrew.txt               |  7 ++++++
+ src/lang/hindi.txt                |  1 +
+ src/lang/hungarian.txt            |  1 +
+ src/lang/icelandic.txt            |  1 +
+ src/lang/ido.txt                  |  1 +
+ src/lang/indonesian.txt           |  1 +
+ src/lang/irish.txt                |  1 +
+ src/lang/italian.txt              |  1 +
+ src/lang/japanese.txt             |  1 +
+ src/lang/korean.txt               |  3 +++
+ src/lang/latin.txt                |  1 +
+ src/lang/latvian.txt              |  1 +
+ src/lang/lithuanian.txt           |  1 +
+ src/lang/luxembourgish.txt        | 41 +++++++++++++++++--------------
+ src/lang/macedonian.txt           |  1 +
+ src/lang/malay.txt                |  1 +
+ src/lang/maltese.txt              |  1 +
+ src/lang/marathi.txt              |  1 +
+ src/lang/norwegian_bokmal.txt     |  1 +
+ src/lang/norwegian_nynorsk.txt    |  1 +
+ src/lang/persian.txt              |  1 +
+ src/lang/polish.txt               |  1 +
+ src/lang/portuguese.txt           |  3 +++
+ src/lang/romanian.txt             |  1 +
+ src/lang/russian.txt              |  1 +
+ src/lang/serbian.txt              |  1 +
+ src/lang/simplified_chinese.txt   |  1 +
+ src/lang/slovak.txt               | 17 ++++++++-----
+ src/lang/slovenian.txt            |  1 +
+ src/lang/spanish.txt              |  3 +++
+ src/lang/spanish_MX.txt           |  1 +
+ src/lang/swedish.txt              |  1 +
+ src/lang/tamil.txt                |  1 +
+ src/lang/thai.txt                 |  1 +
+ src/lang/traditional_chinese.txt  | 15 +++++++----
+ src/lang/turkish.txt              | 11 ++++++---
+ src/lang/ukrainian.txt            |  1 +
+ src/lang/urdu.txt                 |  1 +
+ src/lang/vietnamese.txt           |  1 +
+ src/lang/welsh.txt                |  1 +
+ 64 files changed, 144 insertions(+), 36 deletions(-)
+
+diff --git a/src/lang/afrikaans.txt b/src/lang/afrikaans.txt
+index f0774a3a43..7552ad8d1b 100644
+--- a/src/lang/afrikaans.txt
++++ b/src/lang/afrikaans.txt
+@@ -1145,6 +1145,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Regs
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimum aanvanklike lening: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maksimum bedrag wat 'n maatskappy kan leen (sonder die inagneming van inflasie)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rentekoers: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Lening rentekoers: beheer ook inflasie indien aangeskakel
+diff --git a/src/lang/arabic_egypt.txt b/src/lang/arabic_egypt.txt
+index 399ce8acd3..638c2eac5e 100644
+--- a/src/lang/arabic_egypt.txt
++++ b/src/lang/arabic_egypt.txt
+@@ -1133,6 +1133,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_LEFT                          :يسار
+ STR_CONFIG_SETTING_HORIZONTAL_POS_CENTER                        :متوسط
+ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :يمين
+ 
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :سعر الفائدة على القرض يتحكم أيضًا في التضخم ، إذا تم تمكينه
+ 
+diff --git a/src/lang/basque.txt b/src/lang/basque.txt
+index a838a157bb..31cc5a5d62 100644
+--- a/src/lang/basque.txt
++++ b/src/lang/basque.txt
+@@ -1108,6 +1108,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Eskuina
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Gehienezko mailegua joko hasieran: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Konpainiek eskatu dezaketen gehienezko mailegua(inflazioa kontua hartu gabe)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Interes tasa: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Maileguen interes tasa; inflazioa ere kontrolatuko du, gaitzen bada
+diff --git a/src/lang/belarusian.txt b/src/lang/belarusian.txt
+index 94d219d0b9..2f8e68ba04 100644
+--- a/src/lang/belarusian.txt
++++ b/src/lang/belarusian.txt
+@@ -1456,6 +1456,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :правару
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Максымальная сума пазыкі: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Максымальная сума пазыкі для кампаніі (без уліку інфляцыі)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Адсоткавая стаўка: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Адсоткавая стаўка па пазыках; таксама кантралюе інфляцыю, калі тая ўключана
+diff --git a/src/lang/brazilian_portuguese.txt b/src/lang/brazilian_portuguese.txt
+index 091192f9e8..bef0c34c4b 100644
+--- a/src/lang/brazilian_portuguese.txt
++++ b/src/lang/brazilian_portuguese.txt
+@@ -1207,6 +1207,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Direita
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Empréstimo Inicial Máximo: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Quantia máxima a ser emprestada para uma companhia (sem levar em conta a inflação)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Taxa de Juros: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Juros de empréstimo; também controla inflação, se ativado
+@@ -1926,13 +1927,13 @@ STR_CONFIG_SETTING_LINKGRAPH_TIME                               :Demore {STRING}
+ STR_CONFIG_SETTING_LINKGRAPH_TIME_HELPTEXT                      :Tempo tomado para cada recálculo de um componente de um gráfico. Quando um recálculo começa, um processo é criado e é executado por esse número de dias. Quanto menos dias você define, maior a chance do processo não terminar quando era para ter terminado. Nesse caso, o jogo irá parar até ele terminar ("lag"). Quanto maior você definir isso, mais tempo leva para a distribuição ser atualizada quando as rotas mudarem.
+ 
+ STR_CONFIG_SETTING_DISTRIBUTION_PAX                             :Modo de distribuição para passageiros: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"simétrico" significa que aproximadamente a mesma quantidade de passageiros será enviada da estação A para a estação B assim como de B para A. "assimétrico" significa que a quantidade de passageiros enviada em ambas as direções será arbitrária. "manual" significa que não haverá distribuição automática.
++STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"Simétrico" significa que aproximadamente o mesmo número de passageiros irá de uma estação A para uma estação B como de B para A. "Assimétrico" significa que um número arbitrário de passageiros pode ir em qualquer direção. "Manual" significa que não haverá distribuição automática para os passageiros.
+ STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :Modo de distribuição para correios: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"simétrico" significa que aproximadamente a mesma quantidade de correio será enviada da estação A para a estação B assim como de B para A. "assimétrico" significa que a quantidade de correio enviada em ambas as direções será arbitrária. "manual" significa que não haverá distribuição automática.
++STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"Simétrico" significa que aproximadamente a mesma quantidade de correspondência será enviada de uma estação A para uma estação B como de B para A. "Assimétrica" significa que quantidades arbitrárias de correspondência podem ser enviadas em qualquer direção. "Manual" significa que nenhuma distribuição automática ocorrerá por correio.
+ STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED                        :Modo de distribuição para classe BLINDADOS de carga: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :A classe BLINDADO indica objetos de valor no clima temperado, diamantes no subtropical ou ouro no subártico. NewGRF's podem mudar isso. "simétrico" significa que aproximadamente a mesma quantidade de carga será enviada da estação A para a estação B assim como de B para A. "assimétrico" significa que quantidades de carga arbitrárias serão enviadas em ambas as direções. "manual" significa que não haverá distribuição automática. Para objetos de valor, sugere-se usar "assimétrico" ou "manual" para subártico, já que bancos não enviam ouro de volta a minas. Para temperado e subtropical você pode selecionar "simétrico", já que bancos trocam objetos de valor entre si.
++STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :A classe de carga BLINDADA contém objetos de valor em clima temperado, diamantes em clima subtropical ou ouro em clima subártico. NewGRFs podem mudar isso. "Simétrica" significa que aproximadamente a mesma quantidade dessa carga será enviada de uma estação A para uma estação B como de B para A. "Assimétrica" significa que quantidades arbitrárias dessa carga podem ser enviadas em qualquer direção. "Manual" significa que não haverá distribuição automática para aquela carga. Recomenda-se definir isso como assimétrico ou manual ao jogar subártico ou subtropical, pois os bancos só recebem carga nesses climas. Para temperado, você também pode escolher simétrico, pois os bancos enviarão objetos de valor de volta ao banco de origem.
+ STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :Modo de distribuição para outras classes de carga: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"assimétrico" significa que quantidades de carga arbitrárias serão enviadas em ambas as direções. "manual" significa que não haverá distribuição automática. Você provavelmente irá querer usar "assimétrico" ou "manual".
++STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"Assimétrico" significa que quantidades arbitrárias de carga podem ser enviadas em qualquer direção. "Manual" significa que não haverá distribuição automática dessas cargas.
+ ###length 3
+ STR_CONFIG_SETTING_DISTRIBUTION_MANUAL                          :manual
+ STR_CONFIG_SETTING_DISTRIBUTION_ASYMMETRIC                      :assimétrico
+@@ -2699,6 +2700,10 @@ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Aumentar
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}Selecionar Ponte Ferroviária
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}Selecionar Ponte Rodoviária
+ STR_SELECT_BRIDGE_SELECTION_TOOLTIP                             :{BLACK}Seleção de ponte - clique na ponte desejada para construir
++STR_SELECT_BRIDGE_INFO_NAME                                     :{GOLD}{STRING}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED                           :{GOLD}{STRING},{} {VELOCITY}
++STR_SELECT_BRIDGE_INFO_NAME_COST                                :{GOLD}{0:STRING},{} {WHITE}{2:CURRENCY_LONG}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED_COST                      :{GOLD}{STRING},{} {VELOCITY} {WHITE}{CURRENCY_LONG}
+ STR_BRIDGE_NAME_SUSPENSION_STEEL                                :Suspensa, Aço
+ STR_BRIDGE_NAME_GIRDER_STEEL                                    :Vigas, Aço
+ STR_BRIDGE_NAME_CANTILEVER_STEEL                                :Cantilever, Aço
+diff --git a/src/lang/bulgarian.txt b/src/lang/bulgarian.txt
+index f7cd9baaaa..37f7d03086 100644
+--- a/src/lang/bulgarian.txt
++++ b/src/lang/bulgarian.txt
+@@ -1128,6 +1128,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :дясно
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Максимален начален заем: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Максимално количество заем за компания (без отчитане на инфлацията)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Лихвен процент: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Лихвен процент на заемите; също така контролира инфлацията ако е разрешена
+diff --git a/src/lang/catalan.txt b/src/lang/catalan.txt
+index f64d59d939..58f83073be 100644
+--- a/src/lang/catalan.txt
++++ b/src/lang/catalan.txt
+@@ -1207,6 +1207,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Dreta
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Préstec inicial màxim: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Quantitat màxima del préstec que pot demanar una companyia (sense tenir en compte la inflació)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :Sense préstec {RED}Fa falta un script de partida que doni els fons inicials
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Taxa d'interès: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Tipus d'interès dels préstecs; també controla la inflació, si està activada
+@@ -2699,6 +2702,10 @@ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Augmenta
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}Selecciona Pont de Tren
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}Selecciona Pont de Carretera
+ STR_SELECT_BRIDGE_SELECTION_TOOLTIP                             :{BLACK}Selecció de pont - clica sobre el pont triat per construir-lo
++STR_SELECT_BRIDGE_INFO_NAME                                     :{GOLD}{STRING}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED                           :{GOLD}{STRING},{} {VELOCITY}
++STR_SELECT_BRIDGE_INFO_NAME_COST                                :{GOLD}{0:STRING},{} {WHITE}{2:CURRENCY_LONG}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED_COST                      :{GOLD}{STRING},{} {VELOCITY} {WHITE}{CURRENCY_LONG}
+ STR_BRIDGE_NAME_SUSPENSION_STEEL                                :Pont penjant d'acer
+ STR_BRIDGE_NAME_GIRDER_STEEL                                    :Pont biga d'acer
+ STR_BRIDGE_NAME_CANTILEVER_STEEL                                :Pont en mènsula d'acer
+diff --git a/src/lang/chuvash.txt b/src/lang/chuvash.txt
+index 2ccafddfaf..1f18546230 100644
+--- a/src/lang/chuvash.txt
++++ b/src/lang/chuvash.txt
+@@ -578,6 +578,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_LEFT                          :Сулахай
+ STR_CONFIG_SETTING_HORIZONTAL_POS_CENTER                        :Варринче
+ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Сылтӑмра
+ 
++###setting-zero-is-special
+ 
+ 
+ 
+diff --git a/src/lang/croatian.txt b/src/lang/croatian.txt
+index 52fc39c679..50c23b4d76 100644
+--- a/src/lang/croatian.txt
++++ b/src/lang/croatian.txt
+@@ -1248,6 +1248,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Desno
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Najveći početni zajam: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Najveći iznos koji tvrtka može pozajmiti (ne uzimajući inflaciju u obzir)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Kamatna stopa: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Kamatna stopa zajmova; također kontrolira i inflaciju ako je uključena
+diff --git a/src/lang/czech.txt b/src/lang/czech.txt
+index 3b0afa8fa1..7606424f00 100644
+--- a/src/lang/czech.txt
++++ b/src/lang/czech.txt
+@@ -1293,6 +1293,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :vpravo
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximální půjčka: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Jak moc si může společnost půjčit (bez ohledu na inflaci)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Výše úroků: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Výše úroků z půjček; rovněž ovlivňuje inflaci, pokud je zapnuta
+diff --git a/src/lang/danish.txt b/src/lang/danish.txt
+index 6cb6bf0fa9..0f1b45981d 100644
+--- a/src/lang/danish.txt
++++ b/src/lang/danish.txt
+@@ -1182,6 +1182,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Højre
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimum startlån: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maksimumbeløb et selskab kan låne (uden at tage inflation i betragtning)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Lånerente: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Lånerente; kontrollerer også inflationen hvis aktiveret
+diff --git a/src/lang/dutch.txt b/src/lang/dutch.txt
+index e530b4ce0a..b7167ee8bf 100644
+--- a/src/lang/dutch.txt
++++ b/src/lang/dutch.txt
+@@ -1206,6 +1206,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Rechts
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximale beginlening: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximaal bedrag dat een bedrijf kan lenen (zonder rekening te houden met de inflatie)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :Geen lening {RED}Spelscript vereist voor aanvankelijk saldo
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rente van lening: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Percentage rente op lening; bepaald ook het inflatiecijfer wanneer ingeschakeld
+diff --git a/src/lang/english_AU.txt b/src/lang/english_AU.txt
+index 5383131863..fc66c0f53e 100644
+--- a/src/lang/english_AU.txt
++++ b/src/lang/english_AU.txt
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Right
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximum initial loan: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximum amount a company can loan (without taking inflation into account)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Interest rate: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Loan interest rate; also controls inflation, if enabled
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index ab84d3c219..a6a263b870 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -1206,6 +1206,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Right
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximum initial loan: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximum amount a company can loan (without taking inflation into account)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :No loan {RED}Requires Game Script to provide initial funds
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Interest rate: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Loan interest rate; also controls inflation, if enabled
+diff --git a/src/lang/esperanto.txt b/src/lang/esperanto.txt
+index 260913d5e9..01cc98093f 100644
+--- a/src/lang/esperanto.txt
++++ b/src/lang/esperanto.txt
+@@ -1090,6 +1090,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_CENTER                        :Centre
+ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Dekstre
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimuma komenca prunto: {STRING}
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rentumtarifoj: {STRING}
+ 
+diff --git a/src/lang/estonian.txt b/src/lang/estonian.txt
+index 3d2fd978bb..eedadeb39a 100644
+--- a/src/lang/estonian.txt
++++ b/src/lang/estonian.txt
+@@ -1231,6 +1231,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Paremal
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Stardilaenu ülempiirang: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Suurim summa, mida ettevõte saab laenata (arvestamata inflatsiooni)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Intressimäär: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Laenu intressimäär; ühtlasi juhib inflatsiooni, kui inflatsioon on aktiveeritud
+diff --git a/src/lang/faroese.txt b/src/lang/faroese.txt
+index e6c6416587..90baa5d939 100644
+--- a/src/lang/faroese.txt
++++ b/src/lang/faroese.txt
+@@ -1087,6 +1087,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Høgra
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Hægst loyvda byrjunar lán: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Mest loyvda upphæddin ein fyritøka kann lána (uttan at taka virðisminkan til eftirtektar)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rentu stigi: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Rentustigi á láni, stýrir eisini virðisminkan um hon er sligin til
+diff --git a/src/lang/finnish.txt b/src/lang/finnish.txt
+index 1769a9736f..002f6bbe57 100644
+--- a/src/lang/finnish.txt
++++ b/src/lang/finnish.txt
+@@ -1206,6 +1206,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :oikealla
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Suurin mahdollinen laina alussa: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Suurin mahdollinen yhtiön ottama laina (ottamatta huomioon inflaatiota)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :Ei lainaa {RED}Vaatii peliskriptin, joka tarjoaa alkupääoman
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Korko: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Lainan korko; ohjaa myös inflaatiota mikäli käytössä
+diff --git a/src/lang/french.txt b/src/lang/french.txt
+index 120ef78a4f..12994d619d 100644
+--- a/src/lang/french.txt
++++ b/src/lang/french.txt
+@@ -1207,6 +1207,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :À droite
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Emprunt initial maximum{NBSP}: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Montant maximum qu'une compagnie peut emprunter (sans tenir compte de l'inflation)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Taux d'intérêt{NBSP}: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Taux d’intérêt de l'emprunt{NBSP}; contrôle également l'inflation si activé
+diff --git a/src/lang/frisian.txt b/src/lang/frisian.txt
+index 9a0004066b..ced38c5254 100644
+--- a/src/lang/frisian.txt
++++ b/src/lang/frisian.txt
+@@ -1145,6 +1145,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Rjochts
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimale startersliening: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maksimale bedrach hokker troch in bedriuw lient wurde kin (sûnder acht te slaan op de ynflaasje)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rinte: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Rinte op liening; behearsket ek ynflaasje at dizze oan stiet
+diff --git a/src/lang/gaelic.txt b/src/lang/gaelic.txt
+index 5045aeabb3..5558812c31 100644
+--- a/src/lang/gaelic.txt
++++ b/src/lang/gaelic.txt
+@@ -1329,6 +1329,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Ris an taobh de
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Iasad tòiseachaidh as motha: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :An t-airgead as motha as urrainn dha chompanaidh fhaighinn mar iasad (a' fàgail an atmhorachd dhan darna taobh)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Luach-rèidh: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Luach-rèidh iasaid; stiùiridh seo an atmhorachd cuideachd ma tha e an comas
+diff --git a/src/lang/galician.txt b/src/lang/galician.txt
+index 3d4426d5fb..5cb658df41 100644
+--- a/src/lang/galician.txt
++++ b/src/lang/galician.txt
+@@ -1207,6 +1207,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Dereita
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Crédito máximo inicial: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Cantidade máxima de cartos que unha compañía pode pedir (sen ter en conta a inflación)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Taxa de interés: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :A taxa de interés do préstamo; controla tamén a inflación, se está activada
+diff --git a/src/lang/german.txt b/src/lang/german.txt
+index a486af8d59..d4613ab236 100644
+--- a/src/lang/german.txt
++++ b/src/lang/german.txt
+@@ -1207,6 +1207,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Rechts
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Kreditlimit bei Spielbeginn: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximaler Kredit für eine Firma (ohne Berücksichtigung der Inflation)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Zinssatz: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Zinssatz für Kredite; beeinflusst auch die Inflation, falls aktiv
+diff --git a/src/lang/greek.txt b/src/lang/greek.txt
+index c33bb63e3e..56a7e147fb 100644
+--- a/src/lang/greek.txt
++++ b/src/lang/greek.txt
+@@ -1312,6 +1312,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Δεξιά
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Μέγιστο αρχικό δάνειο: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Μέγιστο ποσό που μπορεί να δανειστεί μία εταιρία (χωρίς να λαμβάνεται υπόψη ο πληθωρισμός)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Επιτόκιο: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Επιτόκιο δανείων· επίσης ελέγχεται ο πληθωρισμός αν είναι ενεργοποιημένος
+diff --git a/src/lang/hebrew.txt b/src/lang/hebrew.txt
+index fc09fe9133..34a26b8499 100644
+--- a/src/lang/hebrew.txt
++++ b/src/lang/hebrew.txt
+@@ -960,6 +960,7 @@ STR_GAME_OPTIONS_AUTOSAVE_DROPDOWN_EVERY_12_MONTHS              :כל 12 חוד
+ 
+ STR_GAME_OPTIONS_LANGUAGE                                       :{BLACK}שפה
+ STR_GAME_OPTIONS_LANGUAGE_TOOLTIP                               :{BLACK}בחר את שפת הממשק
++STR_GAME_OPTIONS_LANGUAGE_PERCENTAGE                            :{STRING} ({NUM}% הסתיים)
+ 
+ STR_GAME_OPTIONS_FULLSCREEN                                     :{BLACK}מסך מלא
+ STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :{BLACK}סמן תיבה זו כדי לשחק OpenTTD על כל המסך
+@@ -1157,6 +1158,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :ימין
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :סכום הלוואה ראשוני: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :סכום מירבי שחברה יכולה ללוות (מבלי לקחת בחשבון אינפלציה)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :ריבית: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :ריבית עבור הלוואות; שולטת גם באינפלציה אם זו מאופשרות
+@@ -1701,6 +1703,7 @@ STR_CONFIG_SETTING_COLOURED_NEWS_YEAR                           :{STRING} :הצ
+ STR_CONFIG_SETTING_COLOURED_NEWS_YEAR_HELPTEXT                  :השנה בה הודעות העיתונות מודפסות בצבע. לפני שנה זו הן מודפסות בשחור-לבן.
+ STR_CONFIG_SETTING_STARTING_YEAR                                :{STRING} :שנת התחלה
+ 
++STR_CONFIG_SETTING_ENDING_YEAR                                  :ניקוד סוף שנה: {STRING}
+ ###setting-zero-is-special
+ STR_CONFIG_SETTING_ENDING_YEAR_ZERO                             :לעולם לא
+ 
+@@ -1711,6 +1714,7 @@ STR_CONFIG_SETTING_ECONOMY_TYPE_ORIGINAL                        :מקורי
+ STR_CONFIG_SETTING_ALLOW_SHARES                                 :אפשר קניית מניות מחברות אחרות: {STRING}
+ STR_CONFIG_SETTING_ALLOW_SHARES_HELPTEXT                        :כאשר מאופשר, מתיר קנייה ומכירה של מניות של חברות. מניות יהיו זמינות רק עבור חברות המגיעות לגיל מסוים
+ 
++STR_CONFIG_SETTING_MIN_YEARS_FOR_SHARES                         :גיל מינימלי לחברה לסחור במניותיה: {STRING}
+ 
+ STR_CONFIG_SETTING_FEEDER_PAYMENT_SHARE                         :אחוז הרווח מקטע נסיעה לתשלום במערכות הזנה: {STRING}
+ STR_CONFIG_SETTING_FEEDER_PAYMENT_SHARE_HELPTEXT                :אחוז הרווח הניתן לקטעי ביניים במערכות הזנה, דבר הנותן שליטה מוגברת על ההכנסות
+@@ -1763,6 +1767,7 @@ STR_CONFIG_SETTING_TOWN_CARGOGENMODE_BITCOUNT                   :לינארי
+ STR_CONFIG_SETTING_EXTRA_TREE_PLACEMENT                         :מיקום עצים במהלך המשחק: {STRING}
+ STR_CONFIG_SETTING_EXTRA_TREE_PLACEMENT_HELPTEXT                :שלוט בהופעה אקראית של עצים במהלך המשחק. זה עלול להשפיע על תעשיות המסתמכות על צמיחת עצים, לדוגמא מנסרות
+ ###length 4
++STR_CONFIG_SETTING_EXTRA_TREE_PLACEMENT_SPREAD_ALL              :גדל ומתפשט בכל מקום
+ STR_CONFIG_SETTING_EXTRA_TREE_PLACEMENT_NO_GROWTH_NO_SPREAD     :אל תגדל, אל תתפשט  {RED}(שובר מנסרות)
+ 
+ STR_CONFIG_SETTING_TOOLBAR_POS                                  :{STRING} :מיקום הסרגל העיקרי
+@@ -2143,6 +2148,7 @@ STR_NETWORK_SERVER_LIST_GAMESCRIPT                              :{SILVER}סקר
+ STR_NETWORK_SERVER_LIST_PASSWORD                                :{SILVER}מוגן בסיסמה!
+ STR_NETWORK_SERVER_LIST_SERVER_OFFLINE                          :{SILVER}שרת מנותק
+ STR_NETWORK_SERVER_LIST_SERVER_FULL                             :{SILVER}שרת מלא
++STR_NETWORK_SERVER_LIST_SERVER_TOO_OLD                          :{SILVER}השרת ישן מדי
+ STR_NETWORK_SERVER_LIST_VERSION_MISMATCH                        :{SILVER}גרסה לא תואמת
+ STR_NETWORK_SERVER_LIST_GRF_MISMATCH                            :{SILVER}אי התאמת קבצים גרפיים
+ 
+@@ -4319,6 +4325,7 @@ STR_AI_LIST_CANCEL                                              :{BLACK}בטל
+ STR_AI_LIST_CANCEL_TOOLTIP                                      :{BLACK}אל תשנה את התסריט
+ 
+ STR_SCREENSHOT_CAPTION                                          :{WHITE}צלם מסך
++STR_SCREENSHOT_SCREENSHOT                                       :תמונת מסך רגילה
+ STR_SCREENSHOT_DEFAULTZOOM_SCREENSHOT                           :{BLACK}זום ברירת מחדל לצילום מסך
+ STR_SCREENSHOT_WORLD_SCREENSHOT                                 :{BLACK}צילום מסך של כל המפה
+ 
+diff --git a/src/lang/hindi.txt b/src/lang/hindi.txt
+index b2f124e3b2..7d78dd3402 100644
+--- a/src/lang/hindi.txt
++++ b/src/lang/hindi.txt
+@@ -340,6 +340,7 @@ STR_CONFIG_SETTING_COMPANIES_OFF                                :बन्द
+ 
+ ###length 3
+ 
++###setting-zero-is-special
+ 
+ 
+ 
+diff --git a/src/lang/hungarian.txt b/src/lang/hungarian.txt
+index b1e07169c1..9f83562a0e 100644
+--- a/src/lang/hungarian.txt
++++ b/src/lang/hungarian.txt
+@@ -1270,6 +1270,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Jobbra
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximális kezdeti hitelkeret: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximálisan kölcsönözhető összeg (az inflációtól eltekintve)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Kamatláb: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Banki hitel kamat; inflációt is szabályozza, ha be van kapcsolva
+diff --git a/src/lang/icelandic.txt b/src/lang/icelandic.txt
+index da4287008e..bb933b2a27 100644
+--- a/src/lang/icelandic.txt
++++ b/src/lang/icelandic.txt
+@@ -1086,6 +1086,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Hægri
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Hámarkslán: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Hámarks upphæð sem fyrirtæki getur fengið lánað (ekki er gert ráð fyrir verðbólgu)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Vextir: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Vextir á lánum, stjórnar einnig verðbólgu, ef hún er virk
+diff --git a/src/lang/ido.txt b/src/lang/ido.txt
+index 090010e89e..3cc90bdcb2 100644
+--- a/src/lang/ido.txt
++++ b/src/lang/ido.txt
+@@ -552,6 +552,7 @@ STR_CONFIG_SETTING_NONE                                         :Nulo
+ 
+ ###length 3
+ 
++###setting-zero-is-special
+ 
+ 
+ 
+diff --git a/src/lang/indonesian.txt b/src/lang/indonesian.txt
+index ef7c707e6d..e0d0173f02 100644
+--- a/src/lang/indonesian.txt
++++ b/src/lang/indonesian.txt
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Kanan
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimum pinjaman awal: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Jumlah maksimum yang dapat dipinjam (tanpa menghitung inflasi)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Bunga pinjaman: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Bunga pinjaman; juga mengendalikan inflasi jika dinyalakan
+diff --git a/src/lang/irish.txt b/src/lang/irish.txt
+index 787a4bed74..7596b4ef1f 100644
+--- a/src/lang/irish.txt
++++ b/src/lang/irish.txt
+@@ -1182,6 +1182,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Ar dheis
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Iasacht tosaigh uasta: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Uasmhéid is féidir le cuideachta a chur ar iasacht (gan boilsciú a chur san áireamh)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Ráta úis: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Ráta úis ar iasachtaí; rialaíonn sé seo boilsciú freisin, má tá sé cumasaithe
+diff --git a/src/lang/italian.txt b/src/lang/italian.txt
+index 8b79f32550..89dd15763c 100644
+--- a/src/lang/italian.txt
++++ b/src/lang/italian.txt
+@@ -1241,6 +1241,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Destra
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Prestito massimo iniziale: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Ammontare massimo di denaro che una compagnia può chiedere in prestito (senza tenere conto dell'inflazione).
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Tasso d'interesse: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Tasso d'interesse sul prestito; controlla anche l'abilitazione dell'inflazione.
+diff --git a/src/lang/japanese.txt b/src/lang/japanese.txt
+index 84ca55b82f..446a818e7c 100644
+--- a/src/lang/japanese.txt
++++ b/src/lang/japanese.txt
+@@ -1197,6 +1197,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :右
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :初期の借入最大額: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :初期の借入限度額を設定します (インフレは考慮されません)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :金利: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :借入利率を設定します (インフレ設定を有効にしたときのインフレ率にも影響します)
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index 37a0ace6b0..c1f54f152d 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -1207,6 +1207,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :오른쪽
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :최대 초기 대출금: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :한 회사가 최대한 빌릴 수 있는 대출금의 양을 조절할 수 있습니다. (여기서 설정한 값은 인플레이션에 의한 효과를 적용하지 않은 값입니다.)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :대출 불가 {RED}초기 자금을 제공하려면 게임 스크립트가 필요합니다
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :대출 금리: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :대출 금리입니다. 인플레이션 설정이 켜져있는 경우 인플레이션의 영향을 받습니다.
+diff --git a/src/lang/latin.txt b/src/lang/latin.txt
+index fa536cc419..cbce0410bc 100644
+--- a/src/lang/latin.txt
++++ b/src/lang/latin.txt
+@@ -1321,6 +1321,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Dextro
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Creditum maximum in initio: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Copia crediti maxima (sine inflatione)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Proportio faenoris: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Proportio faenoris creditorum; etiam inflationem afficit, si inflatio adest
+diff --git a/src/lang/latvian.txt b/src/lang/latvian.txt
+index 77d4f68be7..3abb18d36a 100644
+--- a/src/lang/latvian.txt
++++ b/src/lang/latvian.txt
+@@ -1208,6 +1208,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :pa labi
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimālais sākotnējais aizdevums: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maksimālais aizdevuma daudzums, ko uzņēmums var izsniegt (neskaitot inflāciju)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Procentu likme: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Aizdevumu procentu likme; ja ieslēgts, ietekmē arī inflāciju
+diff --git a/src/lang/lithuanian.txt b/src/lang/lithuanian.txt
+index 4c92d84fa4..0ddbf66b47 100644
+--- a/src/lang/lithuanian.txt
++++ b/src/lang/lithuanian.txt
+@@ -1399,6 +1399,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Dešinėje
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Didžiausia pradinė paskola: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Didžiausia paskola, kokią kompanija gali gauti iš banko (neatsižvelgiant į infliaciją)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Palūkanų norma: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Paskolos palūkanų norma. Taip pat įtakoja infliaciją (jei ji įgalinta)
+diff --git a/src/lang/luxembourgish.txt b/src/lang/luxembourgish.txt
+index 605cbcbb3f..d314e566a0 100644
+--- a/src/lang/luxembourgish.txt
++++ b/src/lang/luxembourgish.txt
+@@ -386,7 +386,7 @@ STR_SCENEDIT_TOOLBAR_TOWN_GENERATION                            :{BLACK}Stieders
+ STR_SCENEDIT_TOOLBAR_INDUSTRY_GENERATION                        :{BLACK}Industrieerstellung
+ STR_SCENEDIT_TOOLBAR_ROAD_CONSTRUCTION                          :{BLACK}Stroossebau
+ STR_SCENEDIT_TOOLBAR_TRAM_CONSTRUCTION                          :{BLACK}Tramkonstruktioun
+-STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}Beem planzen. Shift wiesselt tëscht bauen/ongeféier Käschten uweisen
++STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}Beem planzen. Ctrl wielt d'Land diagonal. Shift wiesselt tëscht bauen/ongeféier Käschten uweisen
+ STR_SCENEDIT_TOOLBAR_PLACE_SIGN                                 :{BLACK}Schëld opstellen
+ STR_SCENEDIT_TOOLBAR_PLACE_OBJECT                               :{BLACK}Objet plazéiren. Ctrl wiel d'Areal diagonal aus. Shift wiesselt tëscht bauen/ongeféier Käschten uweisen
+ 
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Riets
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximalen Ufanksloun: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximalwäert den eng Firma kann léinen (ouni Inflatioun matzerechnen)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Zënssaz: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Zënssaz; kontrolléiert och d'Inflatioun wann ugeschalt
+@@ -1919,31 +1920,31 @@ STR_CONFIG_SETTING_LARGER_TOWNS_DISABLED                        :Keng
+ STR_CONFIG_SETTING_CITY_SIZE_MULTIPLIER                         :Ufangs-Gréisst vu Stied multiplizéiren mat: {STRING}
+ STR_CONFIG_SETTING_CITY_SIZE_MULTIPLIER_HELPTEXT                :Duerchschnëttsgréisst vu Stied an Proportioun zu normalen Dierfer um Spillstart
+ 
+-STR_CONFIG_SETTING_LINKGRAPH_INTERVAL                           :Aktualiséier d'Distributiounsgrafik all {STRING}{NBSP}D{P 0:2 ag eeg}
+-STR_CONFIG_SETTING_LINKGRAPH_INTERVAL_HELPTEXT                  :Zäit tëscht nofolgenden Neiberechnungen vun der Linkgrafik. All Neiberechnung rechent d'Pläng fir eng Komponent vun der Grafik. Dat heescht dass en Wert X fir dës Astellung net all X Deeg aktualiséiert gëtt. Nëmmen een Komponent gëtt aktualiséiert. Wat méi kuerz gesat, wat méi CPU Rechenzäit gebraucht gëtt. Wat se méi laang gesat gëtt, wat méi Zäit vergeet bis Wuerendistributioun op enger neier Route gestart gëtt.
+-STR_CONFIG_SETTING_LINKGRAPH_TIME                               :Benotz {STRING}{NBSP}D{P 0:2 ag eeg} fir d'Neiberechnung vum Distributiounsgraf
+-STR_CONFIG_SETTING_LINKGRAPH_TIME_HELPTEXT                      :Zäit déi gebraucht gëtt fir all Neiberechnung vun enger Linkgrafikkomponent. Wann eng Neiberechnung ufenkt, gëtt en Thread erstallt dee fir dës Unzuel un Deeg leeft. Wann de Wäert ze kleng ass, kann den Thread net an der gewënschter Zäit faerdeg ginn an et kënnt zu engem Lag. Wann de Wäert méi héich gesat gëtt, brauch d'Distributioun méi lang fir erneiert ze ginn wann eng Streck ännert
+-
+-STR_CONFIG_SETTING_DISTRIBUTION_PAX                             :Distributiounsmodus fir Passagéier: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"symmetresch" heescht, dass ongeféier d'selwecht vill Passagéier vun A op B wéi vu B op A geschéckt ginn. "asymmetresch" heescht, dass eng arbiträr Unzuel u Wueren an d'jeweileg Richtung geschéckt ginn. "manuell" heescht dass keng automatësch Distributioun stattfënnt fir Passagéier
+-STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :Distributiounsmodus fir Post: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"symmetresch" heescht, dass ongeféier d'selwecht vill vun A op B wéi vu B op A geschéckt ginn. "asymmetresch" heescht, dass eng arbiträr Unzuel u Wueren an d'jeweileg Richtung geschéckt ginn. "manuell" heescht dass keng automatësch Distributioun stattfënnt fir Post
+-STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED                        :Distributiounsmodus fir d'GEPANZERT Wuereklass: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :D'GEPANZERT Wuereklass huet Wäertsaachen am geméissegte Klima, Diamanten am Sub-Tropenklima an Gold am sub-arktësche Klima. NewGRFen kënnen dat änneren. "Symmetrësch" heescht, dass ongeféier d'selwecht vill vun A op B wéi vu B op A geschéckt ginn. "asymmetrësch" heescht, dass eng arbiträr Unzuel u Wueren an d'jeweileg Richtung geschéckt ginn. "manuell" heescht dass keng automatësch Distributioun stattfënnt. Et gëtt emfuelen dëst op asymmetrësch oder manuell ze loossen wann ee sub-arktësch spillt, well Banken kee Gold zréck an d’Minen liwweren. Fir geméissegt Klima an sub-tropësch Klima kann eng Bank mat der anerer Wäertsachen zeréckschécken.
+-STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :Distributiounsmodus fir aner Wuerenklassen: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"asymmetresch" heescht dass eng beléiweg Unzuel un Wueren an béid Richtungen verschéckt ginn. "manuell" heescht dass keng automatësch Distributioun stattfënnt. Meeschtens gëtt "asymmetresch" oder manuell gewielt.
++STR_CONFIG_SETTING_LINKGRAPH_INTERVAL                           :Aktualiséier d'Verdeelungsgrafik all {STRING}{NBSP}D{P 0:2 ag eeg}
++STR_CONFIG_SETTING_LINKGRAPH_INTERVAL_HELPTEXT                  :Zäit tëscht nofolgenden Neiberechnungen vun der Linkgrafik. All Neiberechnung rechent d'Pläng fir eng Komponent vun der Grafik. Dat heescht, dass en Wert X fir dës Astellung net all X Deeg aktualiséiert gëtt. Nëmmen een Komponent gëtt aktualiséiert. Wat méi kuerz gesat, wat méi CPU Rechenzäit gebraucht gëtt. Wat se méi laang gesat gëtt, wat méi Zäit vergeet bis Wuereverdeelung op enger neier Route gestart gëtt.
++STR_CONFIG_SETTING_LINKGRAPH_TIME                               :Benotz {STRING}{NBSP}D{P 0:2 ag eeg} fir d'Neiberechnung vum Verdeelungsgraf
++STR_CONFIG_SETTING_LINKGRAPH_TIME_HELPTEXT                      :Zäit déi gebraucht gëtt fir all Neiberechnung vun enger Linkgrafikkomponent. Wann eng Neiberechnung ufenkt, gëtt en Thread erstallt dee fir dës Unzuel un Deeg leeft. Wann de Wäert ze kleng ass, kann den Thread net an der gewënschter Zäit faerdeg ginn an et kënnt zu engem Lag. Wann de Wäert méi héich gesat gëtt, brauch d'Verdeelung méi lang fir erneiert ze ginn wann eng Streck ännert
++
++STR_CONFIG_SETTING_DISTRIBUTION_PAX                             :Verdeelungsmodus fir Passagéier: {STRING}
++STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"Symmetresch" heescht, dass ongeféier d'selwecht vill Passagéier vun A op B wéi vu B op A geschéckt ginn. "Asymmetresch" heescht, dass eng arbiträr Unzuel u Wueren an d'jeweileg Richtung geschéckt ginn. "Manuell" heescht dass keng automatësch Verdeelung stattfënnt fir Passagéier
++STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :Verdeelungsmodus fir Post: {STRING}
++STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"Symmetresch" heescht, dass ongeféier d'selwecht vill vun A op B wéi vu B op A geschéckt ginn. "Asymmetresch" heescht, dass eng arbiträr Unzuel u Wueren an d'jeweileg Richtung geschéckt ginn. "Manuell" heescht dass keng automatësch Verdeelung stattfënnt fir Post
++STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED                        :Verdeelungsmodus fir d'GEPANZERT Wuereklass: {STRING}
++STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :D'GEPANZERT Wuereklass huet Wäertsaachen am geméissegte Klima, Diamanten am Sub-Tropenklima an Gold am sub-arktësche Klima. NewGRFen kënnen dat änneren. "Symmetrësch" heescht, dass ongeféier d'selwecht vill vun A op B wéi vu B op A geschéckt ginn. "Asymmetrësch" heescht, dass eng arbiträr Unzuel u Wueren an d'jeweileg Richtung geschéckt ginn. "Manuell" heescht dass keng automatësch Verdeelung stattfënnt. Et gëtt emfuelen dëst op asymmetrësch oder manuell ze loossen wann ee sub-arktësch spillt, well Banken kee Gold zréck an d’Minen liwweren. Fir geméissegt Klima an sub-tropësch Klima kann eng Bank mat der anerer Wäertsachen zeréckschécken.
++STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :Verdeelungsmodus fir aner Wuereklassen: {STRING}
++STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"Asymmetresch" heescht dass eng beléiweg Unzuel un Wueren an béid Richtungen verschéckt ginn. "Manuell" heescht dass keng automatësch Verdeelung stattfënnt.
+ ###length 3
+ STR_CONFIG_SETTING_DISTRIBUTION_MANUAL                          :manuell
+ STR_CONFIG_SETTING_DISTRIBUTION_ASYMMETRIC                      :asymmetresch
+ STR_CONFIG_SETTING_DISTRIBUTION_SYMMETRIC                       :symmetresch
+ 
+-STR_CONFIG_SETTING_LINKGRAPH_ACCURACY                           :Distributiounsgenauegkeet: {STRING}
+-STR_CONFIG_SETTING_LINKGRAPH_ACCURACY_HELPTEXT                  :Wat de Wäert méi héich ass, wat méi CPU benotzt gëtt fir d'Linkgrafik ze zeechnen. Wann ze héich gesat, kann et zu Lags kommen. Ze niddreg gesat kann d'Distributioun ongenau ginn an d'Wueren net sou verdeelt ginn wéi geduet
++STR_CONFIG_SETTING_LINKGRAPH_ACCURACY                           :Verdeelungsgenauegkeet: {STRING}
++STR_CONFIG_SETTING_LINKGRAPH_ACCURACY_HELPTEXT                  :Wat de Wäert méi héich ass, wat méi CPU benotzt gëtt fir d'Linkgrafik ze zeechnen. Wann ze héich gesat, kann et zu Lags kommen. Ze niddreg gesat kann d'Verdeelung ongenau ginn an d'Wueren net sou verdeelt ginn wéi geduet
+ 
+ STR_CONFIG_SETTING_DEMAND_DISTANCE                              :Afloss vun der Distanz op d'Nofro: {STRING}
+ STR_CONFIG_SETTING_DEMAND_DISTANCE_HELPTEXT                     :Wann's de en méi héije Wäert wéi 0 wiels, huet d'Differenz tëscht 2 Statiounen A an B en Afloss dorop wéivill Wueren geschéckt ginn. Wat B méi wäit ewech vun A ass, wat manner Wueren geschéckt ginn. Wat de Wäert méi héich gesat gëtt, wat manner Wueren op eng Statioun wait ewech an méi Wueren op eng Statioun méi no geschéckt ginn.
+ STR_CONFIG_SETTING_DEMAND_SIZE                                  :Unzuel vun zeréckgeschéckte Wueren fir de symmetreschen Modus: {STRING}
+-STR_CONFIG_SETTING_DEMAND_SIZE_HELPTEXT                         :Wann een dëst op manner wéi 100% setzt, gëtt déi symmetresch Distributioun méi wéi eng asymmetrësch behandelt. Manner Wueren ginn zeréckgeschéckt wann en bestëmmten Wäert op eng Statioun geschéckt gouf. Bei 0% verhält sech d'symmetresch Distributioun wéi eng asymmetresch
++STR_CONFIG_SETTING_DEMAND_SIZE_HELPTEXT                         :Wann een dëst op manner wéi 100% setzt, gëtt déi symmetresch Verdeelung méi wéi eng asymmetrësch behandelt. Manner Wueren ginn zeréckgeschéckt wann en bestëmmten Wäert op eng Statioun geschéckt gouf. Bei 0% verhält sech d'symmetresch Verdeelung wéi eng asymmetresch
+ 
+ STR_CONFIG_SETTING_SHORT_PATH_SATURATION                        :Sättegung vu kuerzen Weeër befier grouss Weeër benotzt ginn: {STRING}
+ STR_CONFIG_SETTING_SHORT_PATH_SATURATION_HELPTEXT               :Oft gëtt et e puer Weeër tëscht zwou Statiounen. Cargodist siedegt fir d'éischt de kierzten, dann den zweetkierzten a.s.w. Siedegung gëtt bestemmt durch Kapazitéit an geplangten Notzung. Wann all Wee gesiedegt ass, an nach emmer eng Nofro do ass, ginn all d'Weeër iwwersiedegt, mat Präferenz déi mat grousser Kapazitéit. Gréissten Deel vun der Zäit rechent den Algorithmus d'Kapazitéit allerdéngs net richteg. Des Astellung erlabt engem en Prozentsaz ze bestëmmen fir den éischten Wee befier en zweeten Wee benotzt gëtt. Setz en enner 100% fir iwwerfëllten Statiounen ze vermeide wann d'Kapazitéit iwwerschat gouf.
+@@ -2698,6 +2699,10 @@ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Setzt Si
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}Zuchbréck auswielen
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}Stroossebréck auswielen
+ STR_SELECT_BRIDGE_SELECTION_TOOLTIP                             :{BLACK}Bréckenauswiel - Wiel deng Bréck aus
++STR_SELECT_BRIDGE_INFO_NAME                                     :{GOLD}{STRING}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED                           :{GOLD}{STRING},{} {VELOCITY}
++STR_SELECT_BRIDGE_INFO_NAME_COST                                :{GOLD}{0:STRING},{} {WHITE}{2:CURRENCY_LONG}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED_COST                      :{GOLD}{STRING},{} {VELOCITY} {WHITE}{CURRENCY_LONG}
+ STR_BRIDGE_NAME_SUSPENSION_STEEL                                :Stolen Hängebréck
+ STR_BRIDGE_NAME_GIRDER_STEEL                                    :Stoldréier Bréck
+ STR_BRIDGE_NAME_CANTILEVER_STEEL                                :Fräidroend Stolbréck
+@@ -2817,7 +2822,7 @@ STR_OBJECT_CLASS_TRNS                                           :Antennen
+ STR_PLANT_TREE_CAPTION                                          :{WHITE}Beem
+ STR_PLANT_TREE_TOOLTIP                                          :{BLACK}Wielt de Baamtyp. Wann d'Feld schons e Baam huet, ginn méi Beem vu verschiddenen Arten gesat
+ STR_TREES_RANDOM_TYPE                                           :{BLACK}Zoufälleg Beem
+-STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}Zoufälleg Beem planzen. Shift wiesselt tëscht bauen an ongeféier Käschten uweisen
++STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}Zoufälleg Type vu Beem planzen. Ctrl wielt d'Land diagonal. Shift wiesselt tëscht bauen an ongeféier Käschten uweisen
+ STR_TREES_RANDOM_TREES_BUTTON                                   :{BLACK}Zoufälleg Beem
+ STR_TREES_RANDOM_TREES_TOOLTIP                                  :{BLACK}Beem zoufälleg iwwert d'Landschaft setzen
+ STR_TREES_MODE_NORMAL_BUTTON                                    :{BLACK}Normal
+diff --git a/src/lang/macedonian.txt b/src/lang/macedonian.txt
+index ec794d034b..27b403ce2e 100644
+--- a/src/lang/macedonian.txt
++++ b/src/lang/macedonian.txt
+@@ -859,6 +859,7 @@ STR_CONFIG_SETTING_REALISTIC                                    :Реален
+ 
+ ###length 3
+ 
++###setting-zero-is-special
+ 
+ 
+ 
+diff --git a/src/lang/malay.txt b/src/lang/malay.txt
+index a371574e43..e094fcc182 100644
+--- a/src/lang/malay.txt
++++ b/src/lang/malay.txt
+@@ -1088,6 +1088,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Kanan
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimum pinjaman permulaan: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Rantaian industri
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Kadar faedah: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Kadar faedah pinjaman; juga mengawal inflasi, jika dibolehkan
+diff --git a/src/lang/maltese.txt b/src/lang/maltese.txt
+index 3518e7c8dd..5765868414 100644
+--- a/src/lang/maltese.txt
++++ b/src/lang/maltese.txt
+@@ -466,6 +466,7 @@ STR_GAME_OPTIONS_RESOLUTION_OTHER                               :oħrajn
+ 
+ ###length 3
+ 
++###setting-zero-is-special
+ 
+ 
+ STR_CONFIG_SETTING_RUNNING_COSTS_HELPTEXT                       :Stabbilixxi l-kosti għal manutenzjoni u servizzi fuq vetturi u infrastruttura
+diff --git a/src/lang/marathi.txt b/src/lang/marathi.txt
+index 1021a16b71..ff2c89b235 100644
+--- a/src/lang/marathi.txt
++++ b/src/lang/marathi.txt
+@@ -796,6 +796,7 @@ STR_CONFIG_SETTING_REALISTIC                                    :खरेखु
+ 
+ ###length 3
+ 
++###setting-zero-is-special
+ 
+ 
+ 
+diff --git a/src/lang/norwegian_bokmal.txt b/src/lang/norwegian_bokmal.txt
+index d85a359fd3..3d76332982 100644
+--- a/src/lang/norwegian_bokmal.txt
++++ b/src/lang/norwegian_bokmal.txt
+@@ -1188,6 +1188,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Høyre
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimalt innledende lån: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Det maksimale beløp et selskap kan låne (uten å ta inflasjon i betraktning)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Lånerente: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Lånerente; kontrollerer også inflasjonen, hvis aktivert
+diff --git a/src/lang/norwegian_nynorsk.txt b/src/lang/norwegian_nynorsk.txt
+index 020524a190..5510cd22be 100644
+--- a/src/lang/norwegian_nynorsk.txt
++++ b/src/lang/norwegian_nynorsk.txt
+@@ -1126,6 +1126,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Høgre
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksimalt startlån: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maksimalt lån eit firma kan ta opp (utan å reikne med inflasjon)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rente: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Lånerente; kontrollerar óg mogleg inflasjon
+diff --git a/src/lang/persian.txt b/src/lang/persian.txt
+index faf1d09f35..8667d75995 100644
+--- a/src/lang/persian.txt
++++ b/src/lang/persian.txt
+@@ -1105,6 +1105,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_CENTER                        :مرکز
+ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :راست
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :حداکثر اعتبار اولیه: {STRING}
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :نرخ سود: {STRING}
+ 
+diff --git a/src/lang/polish.txt b/src/lang/polish.txt
+index bc67ae3bbe..beaa56ba63 100644
+--- a/src/lang/polish.txt
++++ b/src/lang/polish.txt
+@@ -1586,6 +1586,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :z prawej strony
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maksymalna wysokość początkowej pożyczki: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maksymalna wysokość pożyczki, jaką firma może zaciągnąć (bez uwzględnienia inflacji)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Oprocentowanie: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Oprocentowanie pożyczki; kontroluje też inflację, jeśli jest włączona
+diff --git a/src/lang/portuguese.txt b/src/lang/portuguese.txt
+index cdaed596ef..26ffbde21c 100644
+--- a/src/lang/portuguese.txt
++++ b/src/lang/portuguese.txt
+@@ -1207,6 +1207,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Direita
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Valor máximo do empréstimo inicial: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Quantia máxima que uma companhia pode pedir (sem ter em conta a inflação)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :Sem empréstimo {RED}Requer Script de Jogo para fornecer fundos iniciais
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Taxa de juro: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Taxa de juro do empréstimo; também controla a inflação, se ativo
+diff --git a/src/lang/romanian.txt b/src/lang/romanian.txt
+index f5b3eba994..7f7a33bfde 100644
+--- a/src/lang/romanian.txt
++++ b/src/lang/romanian.txt
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :dreapta
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Valoarea maximă a împrumutului initial: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Valoarea maximă pe care o companie o poate împrumuta (fără a ține cont de inflație)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Rata dobânzii: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Rata dobânzii; de asemenea controlează inflația dacă este activată
+diff --git a/src/lang/russian.txt b/src/lang/russian.txt
+index fb23f546d1..d2c76a0fb5 100644
+--- a/src/lang/russian.txt
++++ b/src/lang/russian.txt
+@@ -1357,6 +1357,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :справа
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Максимальная сумма кредита: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Максимальная сумма кредита для компании (без учета инфляции)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Процентная ставка: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Процентная ставка по кредитам; также устанавливает уровень инфляции, если та включена.
+diff --git a/src/lang/serbian.txt b/src/lang/serbian.txt
+index 76118b7f5d..5175110e7d 100644
+--- a/src/lang/serbian.txt
++++ b/src/lang/serbian.txt
+@@ -1401,6 +1401,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Desno
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Najveći zajam na početku: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Najveći iznos koji preduzeće može da pozajmi (ne uzimajući u obzir inflaciju)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Kamatna stopa: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Kamatna stopa na zajam; ako je omogućena, kontroliše inflaciju
+diff --git a/src/lang/simplified_chinese.txt b/src/lang/simplified_chinese.txt
+index 0d669d6e2d..7c8cdf5ca4 100644
+--- a/src/lang/simplified_chinese.txt
++++ b/src/lang/simplified_chinese.txt
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :右侧
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :最大初始贷款: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :公司最大贷款额（不考虑通货膨胀的影响）
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :贷款利率: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :贷款利率；如果通货膨胀启用，将同时影响通货膨胀率。
+diff --git a/src/lang/slovak.txt b/src/lang/slovak.txt
+index 0609847b62..ac1f5d6bf9 100644
+--- a/src/lang/slovak.txt
++++ b/src/lang/slovak.txt
+@@ -450,7 +450,7 @@ STR_SCENEDIT_TOOLBAR_TOWN_GENERATION                            :{BLACK}Generova
+ STR_SCENEDIT_TOOLBAR_INDUSTRY_GENERATION                        :{BLACK}Generovanie priemyslu
+ STR_SCENEDIT_TOOLBAR_ROAD_CONSTRUCTION                          :{BLACK}Stavba cesty
+ STR_SCENEDIT_TOOLBAR_TRAM_CONSTRUCTION                          :{BLACK}Výstavba električkovej trate
+-STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}Sadiť stromy. Shift zobrazí odhadovanú cenu
++STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}Sadiť stromy. Ctrl označí oblasť diagonálne. Shift zobrazí odhadovanú cenu
+ STR_SCENEDIT_TOOLBAR_PLACE_SIGN                                 :{BLACK}Umiestniť popis
+ STR_SCENEDIT_TOOLBAR_PLACE_OBJECT                               :{BLACK}Umiestniť objekt. Ctrl označí oblasť diagonálne. Shift zobrazí odhadovanú cenu
+ 
+@@ -1274,6 +1274,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :vpravo
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximálny počiatočný úver: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximálna množstvo peňazí ktoré si môže spoločnosť požičať (bez inflácie)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Úroková sadzba: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Úroková sadzba úveru; kontroluje infláciu ak je povolená
+@@ -1993,13 +1994,13 @@ STR_CONFIG_SETTING_LINKGRAPH_TIME                               :Použiť {STRIN
+ STR_CONFIG_SETTING_LINKGRAPH_TIME_HELPTEXT                      :Čas potrebný pre každé prepočítanie grafu spojov. Pri štarte prepočtu je vytvorené vlákno, ktoré môže bežať uvedený počet dní. Čím menej nastavíte, tým je pravdepodobnejšie, že vlákno nestihne skončiť, kým je to možné. Potom sa hra na nejaký čas zasekne. Čím viac nastavíte, tým dlhšie trvá aktualizácia rozdelenia po zmene trasy.
+ 
+ STR_CONFIG_SETTING_DISTRIBUTION_PAX                             :Druh distribúcie pre cestujúcich: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"symetricky" znamená, že približne rovnaké množstvo pasažierov bude cestovať zo stanice A do stanice B ako z B do A. "asymetricky"znamená, že v oboch smeroch môže cestovať ľubovoľné množstvo pasažierov. "manuálne" znamená, že sa pre pasažierov nevykoná automatická distribúcia.
++STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"Symetricky" znamená, že približne rovnaké množstvo pasažierov bude cestovať zo stanice A do stanice B ako z B do A. "Asymetricky" znamená, že v oboch smeroch môže cestovať ľubovoľné množstvo pasažierov. "Manuálne" znamená, že sa pre pasažierov nevykoná automatická distribúcia.
+ STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :Druh distribúcie pre poštu: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"symetricky" znamená, že približne rovnaké množstvo pošty bude odoslané zo stanice A do stanice B ako z B do A. "asymetricky"znamená, že v oboch smeroch môže byť odoslané ľubovoľné množstvo pošty. "manuálne" znamená, že sa pre poštu nevykoná automatická distribúcia.
++STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"Symetricky" znamená, že približne rovnaké množstvo pošty bude odoslané zo stanice A do stanice B ako z B do A. "Asymetricky" znamená, že v oboch smeroch môže byť odoslané ľubovoľné množstvo pošty. "Manuálne" znamená, že sa pre poštu nevykoná automatická distribúcia.
+ STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED                        :Druh distribúcie pre náklad prevážaný obrnenými vozidlami: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :Náklad prevážaný obrnenými vozidlami sú cennosti v miernom, diamanty v subtropickom alebo zlato v subarktickom podnebí. NewGRF to môže zmeniť. "symetricky" znamená, že rovnaké množstvo nákladu bude odoslané zo stanice A do stanice B a naopak. "asymetricky" znamená, že v oboch smeroch môže byť odoslané ľubovoľné množstvo nákladu. "manuálne" znamená, že sa pre náklad nevykoná automatická distribúcia. Doporučuje sa nastaviť na "asymetricky" alebo "manuálne" pri hraní v subarktickom, pretože banky neodošlú žiadne zlato do zlatých baní. Pre mierne a subtropické si môžete vybrať aj "symetricky", pretože banky budú posielať cennosti späť do pôvodnej banky, ktorá ich odoslala.
++STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :Náklad prevážaný obrnenými vozidlami sú cennosti v miernom, diamanty v subtropickom alebo zlato v subarktickom podnebí. NewGRF to môže zmeniť. "Symetricky" znamená, že rovnaké množstvo nákladu bude odoslané zo stanice A do stanice B a naopak. "Asymetricky" znamená, že v oboch smeroch môže byť odoslané ľubovoľné množstvo nákladu. "Manuálne" znamená, že sa pre náklad nevykoná automatická distribúcia. Doporučuje sa nastaviť na "asymetricky" alebo "manuálne" pri hraní v subarktickom alebo subtropickom, pretože banky prijímajú náklad iba v týchto podnebiach. Pre mierne podnebie si môžete vybrať aj "symetricky", pretože banky budú posielať cennosti späť do pôvodnej banky, ktorá ich odoslala.
+ STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :Druh distribúcie pre ostatné druhy nákladu: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"asymetricky"znamená, že v oboch smeroch môže byť odoslané ľubovoľné množstvo nákladu. "manuálne" znamená, že sa pre náklad nevykoná automatická distribúcia.
++STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"Asymetricky" znamená, že v oboch smeroch môže byť odoslané ľubovoľné množstvo nákladu. "Manuálne" znamená, že sa pre náklad nevykoná automatická distribúcia.
+ ###length 3
+ STR_CONFIG_SETTING_DISTRIBUTION_MANUAL                          :manuálne
+ STR_CONFIG_SETTING_DISTRIBUTION_ASYMMETRIC                      :asymetricky
+@@ -2766,6 +2767,10 @@ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Zvýšit
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}Vyber železničný most
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}Vyber cestný most
+ STR_SELECT_BRIDGE_SELECTION_TOOLTIP                             :{BLACK}Výber mostu - pre postavanie zvoľ typ mostu
++STR_SELECT_BRIDGE_INFO_NAME                                     :{GOLD}{STRING}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED                           :{GOLD}{STRING},{} {VELOCITY}
++STR_SELECT_BRIDGE_INFO_NAME_COST                                :{GOLD}{0:STRING},{} {WHITE}{2:CURRENCY_LONG}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED_COST                      :{GOLD}{STRING},{} {VELOCITY} {WHITE}{CURRENCY_LONG}
+ STR_BRIDGE_NAME_SUSPENSION_STEEL                                :Závesný oceľový
+ STR_BRIDGE_NAME_GIRDER_STEEL                                    :Pilierový oceľový
+ STR_BRIDGE_NAME_CANTILEVER_STEEL                                :Visutý oceľový
+@@ -2885,7 +2890,7 @@ STR_OBJECT_CLASS_TRNS                                           :Vysielače
+ STR_PLANT_TREE_CAPTION                                          :{WHITE}Stromy
+ STR_PLANT_TREE_TOOLTIP                                          :{BLACK}Vybrať druh stromu na sadenie. Ak sa už strom na políčku nachádza, pridá sa viac stromov zmiešaných druhov nezávisle od vybraného druhu
+ STR_TREES_RANDOM_TYPE                                           :{BLACK}Náhodný druh stromov
+-STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}Umiestniť stromy náhodného druhu. Shift zobrazí odhadovanú cenu
++STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}Umiestniť stromy náhodného druhu. Ctrl označí oblasť diagonálne. Shift zobrazí odhadovanú cenu
+ STR_TREES_RANDOM_TREES_BUTTON                                   :{BLACK}Náhodné stromy
+ STR_TREES_RANDOM_TREES_TOOLTIP                                  :{BLACK}Zasadiť stromy náhodne po celej krajine
+ STR_TREES_MODE_NORMAL_BUTTON                                    :{BLACK}Normálne
+diff --git a/src/lang/slovenian.txt b/src/lang/slovenian.txt
+index 2ebc971575..a0b81d8a3d 100644
+--- a/src/lang/slovenian.txt
++++ b/src/lang/slovenian.txt
+@@ -1281,6 +1281,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Desno
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Najvišje začetno posojilo: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Najvišji znesek, ki si ga podjetje lahko izposodi (ni vključen izračun inflacije)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Obrestna mera: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Obrestna mera; kontrolira tudi inflacijo, če je omogočena.
+diff --git a/src/lang/spanish.txt b/src/lang/spanish.txt
+index 7359230398..66c33e6d46 100644
+--- a/src/lang/spanish.txt
++++ b/src/lang/spanish.txt
+@@ -1207,6 +1207,9 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Derecha
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Préstamo máximo inicial: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Cantidad máxima que una empresa puede recibir como préstamo (sin tener en cuenta la inflación)
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_VALUE                   :{CURRENCY_LONG}
++###setting-zero-is-special
++STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_DISABLED                :Sin préstamo {RED} Se necesita un script de juego para proporcionar fondos iniciales
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Porcentaje de interés: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Porcentaje de interés de los préstamos; también controla la inflación, en caso de que esté activada
+diff --git a/src/lang/spanish_MX.txt b/src/lang/spanish_MX.txt
+index 6ec82e8972..e85416fcb8 100644
+--- a/src/lang/spanish_MX.txt
++++ b/src/lang/spanish_MX.txt
+@@ -1207,6 +1207,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Derecha
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Máximo préstamo inicial: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Máxima cantidad que una empresa puede pedir prestada (sin tener en cuenta la inflación)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Porcentaje de interés: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Tasa de interés del préstamo; controla también la inflación, en caso de estar activada
+diff --git a/src/lang/swedish.txt b/src/lang/swedish.txt
+index f206aee8a7..40b33a7316 100644
+--- a/src/lang/swedish.txt
++++ b/src/lang/swedish.txt
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Höger
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Maximalt startlån: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Maximalt belopp ett företag kan låna (där inflationen inte tas med i beräkningen)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Räntenivå: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Räntenivå för lån; styr även inflationen om sådan är aktiverad
+diff --git a/src/lang/tamil.txt b/src/lang/tamil.txt
+index 34150d7fc9..34ca8f9f5d 100644
+--- a/src/lang/tamil.txt
++++ b/src/lang/tamil.txt
+@@ -1142,6 +1142,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :வலது
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :அதிகபட்ச ஆரம்ப கடன்: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :ஒரு நிறுவனத்தால் பெறமுடியும் கடன் (பணவீக்கத்தினைக் கணக்கில் எடுத்துக் கொள்ளாமல்)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :வட்டி: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :கடன் வட்டி;செயற்படுத்தினால் பணவீக்கத்தினையும் கட்டுப்படுத்தும்
+diff --git a/src/lang/thai.txt b/src/lang/thai.txt
+index 6038888f01..7c3fa16beb 100644
+--- a/src/lang/thai.txt
++++ b/src/lang/thai.txt
+@@ -1141,6 +1141,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :ขวา
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :เงินกู้เริ่มต้นสูงสุด: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :บริษัท สามารถกู้ยืมเงินจำนวนสูงสุด (โดยไม่คำนึงถึงอัตราเงินเฟ้อเข้าบัญชี)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :ดอกเบี้ย: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :อัตราดอกเบี้ยเงินกู้; มีผลกับอัตราเงินเฟ้อถ้าเปิดใช้งาน
+diff --git a/src/lang/traditional_chinese.txt b/src/lang/traditional_chinese.txt
+index 62cdabf8c3..094576a88d 100644
+--- a/src/lang/traditional_chinese.txt
++++ b/src/lang/traditional_chinese.txt
+@@ -257,7 +257,7 @@ STR_TOOLTIP_RESIZE                                              :{BLACK}點選
+ STR_TOOLTIP_TOGGLE_LARGE_SMALL_WINDOW                           :{BLACK}切換大／小視窗
+ STR_TOOLTIP_VSCROLL_BAR_SCROLLS_LIST                            :{BLACK}捲軸 - 上下捲動清單
+ STR_TOOLTIP_HSCROLL_BAR_SCROLLS_LIST                            :{BLACK}捲軸 - 左右捲動清單
+-STR_TOOLTIP_DEMOLISH_BUILDINGS_ETC                              :{BLACK}拆卸位於土地上的建築物等。按 Ctrl 以對角線選擇區域。Shift切換建築或顯示預估成本。
++STR_TOOLTIP_DEMOLISH_BUILDINGS_ETC                              :{BLACK}拆卸位於土地上的建築物等。按 Ctrl 以對角線選擇區域。按 Shift 可切換建築或顯示預估成本。
+ 
+ # Show engines button
+ ###length VEHICLE_TYPES
+@@ -386,7 +386,7 @@ STR_SCENEDIT_TOOLBAR_TOWN_GENERATION                            :{BLACK}產生
+ STR_SCENEDIT_TOOLBAR_INDUSTRY_GENERATION                        :{BLACK}產生工業
+ STR_SCENEDIT_TOOLBAR_ROAD_CONSTRUCTION                          :{BLACK}建造道路
+ STR_SCENEDIT_TOOLBAR_TRAM_CONSTRUCTION                          :{BLACK}鋪設電車軌
+-STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}植樹。按 Shift 可切換種植／顯示預估的種植費用
++STR_SCENEDIT_TOOLBAR_PLANT_TREES                                :{BLACK}植樹。按 Ctrl 以對角線選擇區域。按 Shift 可切換種植／顯示預估的種植費用
+ STR_SCENEDIT_TOOLBAR_PLACE_SIGN                                 :{BLACK}放置標誌
+ STR_SCENEDIT_TOOLBAR_PLACE_OBJECT                               :{BLACK}放置物件。按 Ctrl 以對角線選擇區域。按 Shift 可切換興建／顯示預估的興建費用。
+ 
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :靠右
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :最大貸款額：{STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :公司最多可借多少錢（此設定的值排除了通貨膨脹因素）。
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :息率：{STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :設定貸款息率。如啟用了通貨膨脹的設定，則此設定同時決定通脹率。
+@@ -1929,7 +1930,7 @@ STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :設使有交通
+ STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :郵件分配方式：{STRING}
+ STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :設使有交通路線連接甲、乙兩站。「對稱」指甲站往乙站的郵件數量與乙站往甲站的郵件數量大致相同。「不對稱」指任何一站往另一站的郵件數量皆由系統隨意決定。「手動」指系統不會自動分配郵件的目的地。
+ STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED                        :裝甲貨物分配方式：{STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :「裝甲貨物」包括溫帶場景的「貴重物品」、寒帶場景的「金塊」及亞熱帶場景的「鑽石」。使用 NewGRF 可能會改變以上設定。{} 設使有交通路線連接甲、乙兩站。「對稱」指甲站往乙站的郵件數量與乙站往甲站的裝甲貨物數量大致相同。「不對稱」指任何一站往另一站的裝甲貨物數量皆由系統隨意決定。「手動」指系統不會自動分配裝甲貨物的目的地。{} 建議在溫帶及亞熱帶場景應使用「對稱」，因為銀行會互相發送貴重物品或鑽石；而在寒帶場景應使用「不對稱」，因為銀行不會把金塊送回礦場。
++STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :「裝甲貨物」包括溫帶場景的「貴重物品」、寒帶場景的「金塊」及亞熱帶場景的「鑽石」。使用 NewGRF 可能會改變以上設定。設使有交通路線連接甲、乙兩站，則「對稱」指甲站往乙站的郵件數量與乙站往甲站的裝甲貨物數量大致相同；「不對稱」指任何一站往另一站的裝甲貨物數量皆由系統隨意決定；「手動」指系統不會自動分配裝甲貨物的目的地。建議在亞熱帶及寒帶場景中應使用「不對稱」或「手動」，因為銀行只會接收貨物。在溫帶場景中建議使用「對稱」，因為銀行之間會互相傳送貴重物品。
+ STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :其他貨物分配方式：{STRING}
+ STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :如設定此值為「不對稱」，則任何一站往另一站的貨物數量皆由系統隨意決定。如設定此值為「手動」，則系統不會自動分配貨物的目的地。
+ ###length 3
+@@ -2698,6 +2699,10 @@ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}增加 (
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}選擇鐵路橋樑
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}選擇道路橋樑
+ STR_SELECT_BRIDGE_SELECTION_TOOLTIP                             :{BLACK}選擇橋樑 - 點選想建的橋樑即可建造
++STR_SELECT_BRIDGE_INFO_NAME                                     :{GOLD}{STRING}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED                           :{GOLD}{STRING},{} {VELOCITY}
++STR_SELECT_BRIDGE_INFO_NAME_COST                                :{GOLD}{0:STRING},{} {WHITE}{2:CURRENCY_LONG}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED_COST                      :{GOLD}{STRING},{} {VELOCITY} {WHITE}{CURRENCY_LONG}
+ STR_BRIDGE_NAME_SUSPENSION_STEEL                                :吊橋，鋼製
+ STR_BRIDGE_NAME_GIRDER_STEEL                                    :桁橋，鋼製
+ STR_BRIDGE_NAME_CANTILEVER_STEEL                                :懸臂橋，鋼製
+@@ -2798,7 +2803,7 @@ STR_STATION_BUILD_NOISE                                         :{BLACK}產生
+ 
+ # Landscaping toolbar
+ STR_LANDSCAPING_TOOLBAR                                         :{WHITE}地形
+-STR_LANDSCAPING_TOOLTIP_LOWER_A_CORNER_OF_LAND                  :{BLACK}下降土地上的一角。以拖曳來下降第一個選定的角落並平面化選定的區域到新角落的高度。Ctrl 以對角線選定區域。Shift切換建造/顯示成本估算。
++STR_LANDSCAPING_TOOLTIP_LOWER_A_CORNER_OF_LAND                  :{BLACK}下降土地上的一角。以拖曳來下降第一個選定的角落並平面化選定的區域到新角落的高度。按 Ctrl 以對角線選定區域。按 Shift 可切換建造/顯示成本估算。
+ STR_LANDSCAPING_TOOLTIP_RAISE_A_CORNER_OF_LAND                  :{BLACK}上昇土地上的一角。以拖曳來上昇第一個選定的角落並平面化選定的區域到新角落的高度。按 Ctrl 以對角線選定區域。按 Shift 以切換建造/顯示成本估算。
+ STR_LANDSCAPING_LEVEL_LAND_TOOLTIP                              :{BLACK}將一片區域正平到首選高度。按 Ctrl 以對角線選擇區域。按 Shift 查看造價預算
+ STR_LANDSCAPING_TOOLTIP_PURCHASE_LAND                           :{BLACK}購買土地供將來使用。按 Ctrl 以對角線選擇區域。按 Shift 可切換購買／顯示預估的購買費用
+@@ -2817,7 +2822,7 @@ STR_OBJECT_CLASS_TRNS                                           :天線塔
+ STR_PLANT_TREE_CAPTION                                          :{WHITE}樹木
+ STR_PLANT_TREE_TOOLTIP                                          :{BLACK}選擇要種植的樹種。無論您選擇了甚麼樹種，如所點擊的方格本身已經有樹，遊戲會在該方格加上一棵隨機樹種的樹
+ STR_TREES_RANDOM_TYPE                                           :{BLACK}隨機種類樹木
+-STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}種植隨機種類樹木。按 Shift 可切換種植／顯示預估的種植費用
++STR_TREES_RANDOM_TYPE_TOOLTIP                                   :{BLACK}種植隨機種類樹木。按 Ctrl 以對角線選擇區域。按 Shift 可切換種植／顯示預估的種植費用。
+ STR_TREES_RANDOM_TREES_BUTTON                                   :{BLACK}隨機樹種
+ STR_TREES_RANDOM_TREES_TOOLTIP                                  :{BLACK}在場景中隨機植樹
+ STR_TREES_MODE_NORMAL_BUTTON                                    :{BLACK}正常
+diff --git a/src/lang/turkish.txt b/src/lang/turkish.txt
+index 719c21490a..0081733e44 100644
+--- a/src/lang/turkish.txt
++++ b/src/lang/turkish.txt
+@@ -1207,6 +1207,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Sağ
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :En yüsek açılış borcu: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Bir şirketin alabileceği en fazla borç (enflasyon hesaba katılmadan)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Faiz oranı: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Borç faiz oranı; eğer aktifse aynı zamanda enflasyonu da belirler
+@@ -1926,13 +1927,13 @@ STR_CONFIG_SETTING_LINKGRAPH_TIME                               :Dağıtım graf
+ STR_CONFIG_SETTING_LINKGRAPH_TIME_HELPTEXT                      :Bağlantı grafiğini oluşturan parçaların her tekrar hesaplaması için kullanılan zaman. Tekrar hesaplama başlatıldığında bu kadar gün sürecek bir işlem başlatılmış olur. Buraya daha kısa süreler girdikçe işlemin bitmesi gerekirken bitmemiş olma ihtimali artar. Ardından oyun ("lag") olana dek durur. Daha uzun süreler girdiğinizde güzergahlar değiştikçe dağıtımın güncellenmesi daha uzun sürer.
+ 
+ STR_CONFIG_SETTING_DISTRIBUTION_PAX                             :Yolcular için dağıtım kipi: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"simetrik" seçildiğinde A durağından B durağına taşınan ile B'den A'ya taşınan yolcu miktarı kabaca eşit olur. "asimetrik" seçildiğinde iki yönde de rastgele miktarda yolcu gönderilebilir. "el ile" seçildiğinde yolcular için otomatik dağıtım yapılmaz.
++STR_CONFIG_SETTING_DISTRIBUTION_PAX_HELPTEXT                    :"Simetrik" seçildiğinde A durağından B durağına taşınan ile B'den A'ya taşınan yolcu miktarı kabaca eşit olur. "Asimetrik" seçildiğinde iki yönde de rastgele miktarda yolcu gönderilebilir. "el ile" seçildiğinde yolcular için otomatik dağıtım yapılmaz.
+ STR_CONFIG_SETTING_DISTRIBUTION_MAIL                            :Posta için dağıtım kipi: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"simetrik" seçildiğinde A durağından B durağına gönderilen ile B'den A'ya gönderilen posta miktarı kabaca eşit olur. "asimetrik" seçildiğinde iki yönde de rastgele miktarda posta gönderilebilir. "el ile" seçildiğinde posta için otomatik dağıtım yapılmaz.
++STR_CONFIG_SETTING_DISTRIBUTION_MAIL_HELPTEXT                   :"Simetrik" seçildiğinde A durağından B durağına gönderilen ile B'den A'ya gönderilen posta miktarı kabaca eşit olur. "Asimetrik" seçildiğinde iki yönde de rastgele miktarda posta gönderilebilir. "El ile" seçildiğinde posta için otomatik dağıtım yapılmaz.
+ STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED                        :ZIRHLI kargo sınıfı için dağıtım kipi: {STRING}
+ STR_CONFIG_SETTING_DISTRIBUTION_ARMOURED_HELPTEXT               :ZIRHLI kargo sınıfı ılıman iklimde değerli mallar, yarı-tropik iklimde elmaslar, veya yarı-soğuk iklimde altın içerir. NewGRF dosyaları bunu değiştirebilir. "Simetrik" olarak ayarlandığında A durağından B durağına gönderilen kargo miktarı, B'den A'ya gönderilene kabaca eşit olur. "Asimetrik" ise herhangi bir yönde rastgele miktarda kargo gönderilebileceğini gösterir. "El ile" seçildiğinde o kargo için otomatik dağıtım yapılmaz. Yarı-soğuk iklimde oynarken bu değeri "asimetrik" veya "el ile" olarak ayarlamanız tavsiye edilir, çünkü bankalar altınları altın madenine geri göndermez. Ilıman ve yarı-tropik iklim için aynı zamanda "simetrik" seçebilirsiniz, zira bankalar değerli malların bir kısmını malların geldiği kaynak bankaya geri gönderir.
+ STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT                         :Diğer kargo sınıfları için dağılım kipi: {STRING}
+-STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"asimetrik", kargonun iki yönde de rastgele miktarda gönderileceğini gösterir. "el ile" seçildiği takdirde o kargolar için otomatik dağılım yapılmaz.
++STR_CONFIG_SETTING_DISTRIBUTION_DEFAULT_HELPTEXT                :"Asimetrik", kargonun iki yönde de rastgele miktarda gönderileceğini gösterir. "El ile" seçildiği takdirde o kargolar için otomatik dağılım yapılmaz.
+ ###length 3
+ STR_CONFIG_SETTING_DISTRIBUTION_MANUAL                          :el ile (manual)
+ STR_CONFIG_SETTING_DISTRIBUTION_ASYMMETRIC                      :asimetrik
+@@ -2699,6 +2700,10 @@ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Sinyal s
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}Tren Köprüsü Seç
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}Köprü Seç
+ STR_SELECT_BRIDGE_SELECTION_TOOLTIP                             :{BLACK}Köprü seçimi - tercih ettiğiniz köprüyü yapmak için tıklayın
++STR_SELECT_BRIDGE_INFO_NAME                                     :{GOLD}{STRING}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED                           :{GOLD}{STRING},{} {VELOCITY}
++STR_SELECT_BRIDGE_INFO_NAME_COST                                :{GOLD}{0:STRING},{} {WHITE}{2:CURRENCY_LONG}
++STR_SELECT_BRIDGE_INFO_NAME_MAX_SPEED_COST                      :{GOLD}{STRING},{} {VELOCITY} {WHITE}{CURRENCY_LONG}
+ STR_BRIDGE_NAME_SUSPENSION_STEEL                                :Çelik, Asma
+ STR_BRIDGE_NAME_GIRDER_STEEL                                    :Çelik, Kirişli
+ STR_BRIDGE_NAME_CANTILEVER_STEEL                                :Çelik, Ağ
+diff --git a/src/lang/ukrainian.txt b/src/lang/ukrainian.txt
+index 7344ae10c7..12ca4c98a1 100644
+--- a/src/lang/ukrainian.txt
++++ b/src/lang/ukrainian.txt
+@@ -1334,6 +1334,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :правору
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Максимальна сума позики: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Максимальна сума позики для компанії (без урахування інфляції)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Процентна ставка: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Процентна ставка за позиками; також контролює інфляцію, якщо вона увімкнена
+diff --git a/src/lang/urdu.txt b/src/lang/urdu.txt
+index 14f45e478e..3abf30218e 100644
+--- a/src/lang/urdu.txt
++++ b/src/lang/urdu.txt
+@@ -1057,6 +1057,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_LEFT                          :بائیں
+ STR_CONFIG_SETTING_HORIZONTAL_POS_CENTER                        :درمیان
+ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :دائیں
+ 
++###setting-zero-is-special
+ 
+ 
+ 
+diff --git a/src/lang/vietnamese.txt b/src/lang/vietnamese.txt
+index 23db03fbeb..ba2f226a2f 100644
+--- a/src/lang/vietnamese.txt
++++ b/src/lang/vietnamese.txt
+@@ -1206,6 +1206,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :Phải
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Khoảng vay khởi nghiệp tối đa: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Hạn mức tối đa một công ty có thể vay (không tính lạm phát)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Lãi suất vay: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Lãi xuất vay; ảnh hưởng tới cả lạm phát nếu bật tùy chọn đó
+diff --git a/src/lang/welsh.txt b/src/lang/welsh.txt
+index ce7f6d3aef..95577100cd 100644
+--- a/src/lang/welsh.txt
++++ b/src/lang/welsh.txt
+@@ -1128,6 +1128,7 @@ STR_CONFIG_SETTING_HORIZONTAL_POS_RIGHT                         :De
+ 
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN                         :Benthyciad agoriadol uchafsymol: {STRING}
+ STR_CONFIG_SETTING_MAXIMUM_INITIAL_LOAN_HELPTEXT                :Y swm uchaf y gall cwmni fenthyca (heb ustyried chwyddiant)
++###setting-zero-is-special
+ 
+ STR_CONFIG_SETTING_INTEREST_RATE                                :Cyfradd chwyddiant: {STRING}
+ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Cyfradd chwyddiant y benthyciad; hefyd chwyddiant yr economi os y galluogir
+-- 
+2.55.0
+

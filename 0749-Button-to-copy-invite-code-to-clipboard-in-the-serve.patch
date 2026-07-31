@@ -1,0 +1,94 @@
+From f21bf64f8f4d0e134a12a5bd86954db57b01b1ec Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 12 Dec 2021 02:12:12 +0200
+Subject: [PATCH 0749/1053] Button to copy invite code to clipboard in the
+ server options dialog
+
+---
+ src/lang/english.txt                | 1 +
+ src/network/network_coordinator.cpp | 2 --
+ src/network/network_gui.cpp         | 9 +++++++++
+ src/widgets/network_widget.h        | 1 +
+ 4 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index f0dc8c4b24..513a30ea7c 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -2367,6 +2367,7 @@ STR_NETWORK_CLIENT_LIST_SERVER_INVITE_CODE                      :{BLACK}Invite c
+ STR_NETWORK_CLIENT_LIST_SERVER_INVITE_CODE_TOOLTIP              :{BLACK}Invite code other players can use to join this server
+ STR_NETWORK_CLIENT_LIST_SERVER_CONNECTION_TYPE                  :{BLACK}Connection type
+ STR_NETWORK_CLIENT_LIST_SERVER_CONNECTION_TYPE_TOOLTIP          :{BLACK}Whether and how your server can be reached by others
++STR_NETWORK_CLIENT_LIST_SERVER_COPY_TO_CLIPBOARD                :{BLACK}Copy to clipboard
+ STR_NETWORK_CLIENT_LIST_PLAYER                                  :{BLACK}Player
+ STR_NETWORK_CLIENT_LIST_PLAYER_NAME                             :{BLACK}Name
+ STR_NETWORK_CLIENT_LIST_PLAYER_NAME_TOOLTIP                     :{BLACK}Your player name
+diff --git a/src/network/network_coordinator.cpp b/src/network/network_coordinator.cpp
+index 38fe20cd56..c3fa2b5ce5 100644
+--- a/src/network/network_coordinator.cpp
++++ b/src/network/network_coordinator.cpp
+@@ -13,7 +13,6 @@
+ #include "../rev.h"
+ #include "../settings_type.h"
+ #include "../strings_func.h"
+-#include "../video/video_driver.hpp"
+ #include "../window_func.h"
+ #include "../window_type.h"
+ #include "network.h"
+@@ -194,7 +193,6 @@ bool ClientNetworkCoordinatorSocketHandler::Receive_GC_REGISTER_ACK(Packet *p)
+ 	 * and _settings_client.network.server_invite_code contains the one we will
+ 	 * attempt to re-use when registering again. */
+ 	_network_server_invite_code = _settings_client.network.server_invite_code;
+-	VideoDriver::GetInstance()->SetClipboardContents(_network_server_invite_code);
+ 
+ 	SetWindowDirty(WC_CLIENT_LIST, 0);
+ 
+diff --git a/src/network/network_gui.cpp b/src/network/network_gui.cpp
+index 4792606de9..a3a578710e 100644
+--- a/src/network/network_gui.cpp
++++ b/src/network/network_gui.cpp
+@@ -30,6 +30,7 @@
+ #include "../company_func.h"
+ #include "../command_func.h"
+ #include "../core/geometry_func.hpp"
++#include "../video/video_driver.hpp"
+ #include "../genworld.h"
+ #include "../map_type.h"
+ #include "../guitimer_func.h"
+@@ -1319,6 +1320,10 @@ static const NWidgetPart _nested_client_list_widgets[] = {
+ 								NWidget(NWID_SPACER), SetMinimalSize(10, 0),
+ 								NWidget(WWT_TEXT, COLOUR_GREY, WID_CL_SERVER_INVITE_CODE), SetFill(1, 0), SetMinimalTextLines(1, 0), SetResize(1, 0), SetDataTip(STR_BLACK_RAW_STRING, STR_NETWORK_CLIENT_LIST_SERVER_INVITE_CODE_TOOLTIP), SetAlignment(SA_VERT_CENTER | SA_RIGHT),
+ 							EndContainer(),
++							NWidget(NWID_HORIZONTAL), SetPIP(0, 3, 0),
++								NWidget(NWID_SPACER), SetMinimalSize(10, 0), SetFill(1, 0), SetResize(1, 0),
++								NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_CL_SERVER_COPY_TO_CLIPBOARD), SetDataTip(STR_NETWORK_CLIENT_LIST_SERVER_COPY_TO_CLIPBOARD, STR_NETWORK_CLIENT_LIST_SERVER_COPY_TO_CLIPBOARD),
++							EndContainer(),
+ 							NWidget(NWID_HORIZONTAL), SetPIP(0, 3, 0),
+ 								NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalTextLines(1, 0), SetDataTip(STR_NETWORK_CLIENT_LIST_SERVER_CONNECTION_TYPE, STR_NULL),
+ 								NWidget(NWID_SPACER), SetMinimalSize(10, 0),
+@@ -1806,6 +1811,10 @@ public:
+ 				ShowQueryString(STR_JUST_RAW_STRING, STR_NETWORK_CLIENT_LIST_PLAYER_NAME_QUERY_CAPTION, NETWORK_CLIENT_NAME_LENGTH, this, CS_ALPHANUMERAL, QSF_LEN_IN_CHARS);
+ 				break;
+ 
++			case WID_CL_SERVER_COPY_TO_CLIPBOARD:
++				VideoDriver::GetInstance()->SetClipboardContents(_network_server_invite_code);
++				break;
++
+ 			case WID_CL_SERVER_VISIBILITY:
+ 				if (!_network_server) break;
+ 
+diff --git a/src/widgets/network_widget.h b/src/widgets/network_widget.h
+index f50bf04e93..faf457d070 100644
+--- a/src/widgets/network_widget.h
++++ b/src/widgets/network_widget.h
+@@ -83,6 +83,7 @@ enum ClientListWidgets {
+ 	WID_CL_SERVER_NAME_EDIT,           ///< Edit button for server name.
+ 	WID_CL_SERVER_VISIBILITY,          ///< Server visibility.
+ 	WID_CL_SERVER_INVITE_CODE,         ///< Invite code for this server.
++	WID_CL_SERVER_COPY_TO_CLIPBOARD,   ///< Copy invite code to clipboard.
+ 	WID_CL_SERVER_CONNECTION_TYPE,     ///< The type of connection the Game Coordinator detected for this server.
+ 	WID_CL_CLIENT_NAME,                ///< Client name.
+ 	WID_CL_CLIENT_NAME_EDIT,           ///< Edit button for client name.
+-- 
+2.55.0
+

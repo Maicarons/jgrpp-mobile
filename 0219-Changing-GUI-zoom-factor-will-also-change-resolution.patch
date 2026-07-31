@@ -1,0 +1,35 @@
+From d2a582fb9e74eb784f18a8dc1571e329f4338ab3 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 29 Apr 2015 21:09:36 +0300
+Subject: [PATCH 0219/1053] Changing GUI zoom factor will also change
+ resolution
+
+Conflicts:
+	src/settings_gui.cpp
+---
+ src/settings_gui.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 3e04e0b1d6..2263721c5a 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -570,8 +570,15 @@ struct GameOptionsWindow : Window {
+ 			case WID_GO_GUI_ZOOM_DROPDOWN:
+ 				GfxClearSpriteCache();
+ 				_gui_zoom = (ZoomLevel)(ZOOM_LVL_OUT_4X - index);
++				switch (_gui_zoom) {
++					case ZOOM_LVL_NORMAL: ChangeResInGame(854, 480); break;
++					case ZOOM_LVL_OUT_2X: ChangeResInGame(1280, 720); break;
++					case ZOOM_LVL_OUT_4X: ChangeResInGame(1920, 1080); break;
++					default: break;
++				}
+ 				UpdateCursorSize();
+ 				LoadStringWidthTable();
++				ReconstructUserInterface();
+ 				break;
+ 
+ 			case WID_GO_BASE_GRF_DROPDOWN:
+-- 
+2.55.0
+

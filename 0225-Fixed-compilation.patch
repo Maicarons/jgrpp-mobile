@@ -1,0 +1,25 @@
+From a0299ff713b5471b42803c4eb66c7182ba68edfe Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 4 Dec 2015 16:52:12 +0200
+Subject: [PATCH 0225/1053] Fixed compilation
+
+---
+ src/ini.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/ini.cpp b/src/ini.cpp
+index 905ebfacf8..c8ea89c1d2 100644
+--- a/src/ini.cpp
++++ b/src/ini.cpp
+@@ -15,7 +15,7 @@
+ #include "string_func.h"
+ #include "fileio_func.h"
+ 
+-#if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L) || (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500)
++#if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L) || (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500) || defined(__ANDROID__)
+ # include <unistd.h>
+ #endif
+ 
+-- 
+2.55.0
+

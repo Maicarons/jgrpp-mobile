@@ -1,0 +1,28 @@
+From 88fc329ad1a56efddd897013b8988352fb0dba27 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 26 Apr 2019 22:40:24 +0300
+Subject: [PATCH 0509/1053] Increased video resolutions list size to 100
+
+---
+ src/strings_type.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/strings_type.h b/src/strings_type.h
+index aa3ed788c3..9862196ece 100644
+--- a/src/strings_type.h
++++ b/src/strings_type.h
+@@ -93,9 +93,9 @@ enum SpecialStrings {
+ 	SPECSTR_LANGUAGE_START     = 0x7100,
+ 	SPECSTR_LANGUAGE_END       = SPECSTR_LANGUAGE_START + MAX_LANG - 1,
+ 
+-	/* reserve 32 strings for various screen resolutions */
++	/* reserve 100 strings for various screen resolutions */
+ 	SPECSTR_RESOLUTION_START   = SPECSTR_LANGUAGE_END + 1,
+-	SPECSTR_RESOLUTION_END     = SPECSTR_RESOLUTION_START + 0x1F,
++	SPECSTR_RESOLUTION_END     = SPECSTR_RESOLUTION_START + 99,
+ };
+ 
+ #endif /* STRINGS_TYPE_H */
+-- 
+2.55.0
+

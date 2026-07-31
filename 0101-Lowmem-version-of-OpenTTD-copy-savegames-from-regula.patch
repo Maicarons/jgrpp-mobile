@@ -1,0 +1,36 @@
+From c7ed03ded90a8d329d8cd9433e61bea3a46d668a Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 22 Mar 2014 23:28:07 +0200
+Subject: [PATCH 0101/1053] Lowmem version of OpenTTD - copy savegames from
+ regular OpenTTD on start
+
+---
+ src/fileio.cpp | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/src/fileio.cpp b/src/fileio.cpp
+index f88d8deeaf..5eff63027a 100644
+--- a/src/fileio.cpp
++++ b/src/fileio.cpp
+@@ -1304,6 +1304,18 @@ void DeterminePaths(const char *exe)
+ 		_searchpaths[SP_AUTODOWNLOAD_DIR] = NULL;
+ 	}
+ #endif /* ENABLE_NETWORK */
++
++#ifdef __ANDROID__
++	// Copy savegames from "full" OpenTTD to "lite" save directory
++	char curdir[PATH_MAX];
++	if (getcwd(curdir, sizeof(BUF)) && strstr(curdir, "org.openttd.sdl.lowmem")) {
++		// No, I won't implement file copying in C, shell script is just fine for this job
++		system("cd ../../org.openttd.sdl/files/.openttd/save && "
++				"for F in *.sav ; do ls \"../../../../org.openttd.sdl/files/.openttd/save/$F\" || "
++				"cat \"$F\" > \"../../../../org.openttd.sdl/files/.openttd/save/$F\" ; done");
++		chdir(curdir);
++	}
++#endif
+ }
+ 
+ /**
+-- 
+2.55.0
+

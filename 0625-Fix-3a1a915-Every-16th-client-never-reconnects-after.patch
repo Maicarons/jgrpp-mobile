@@ -1,0 +1,30 @@
+From 5e1164b093e25fd5cfa1696513b20fd826a02d9f Mon Sep 17 00:00:00 2001
+From: dP <dp@dpointer.org>
+Date: Wed, 3 Nov 2021 23:33:38 +0300
+Subject: [PATCH 0625/1053] Fix 3a1a915: Every 16th client never reconnects
+ after server restart
+
+---
+ src/network/network_client.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/network/network_client.cpp b/src/network/network_client.cpp
+index bc5f24ac38..f03601b39f 100644
+--- a/src/network/network_client.cpp
++++ b/src/network/network_client.cpp
+@@ -1055,9 +1055,9 @@ NetworkRecvStatus ClientNetworkGameSocketHandler::Receive_SERVER_NEWGAME(Packet
+ 	 * care about the server shutting down. */
+ 	if (this->status >= STATUS_JOIN) {
+ 		/* To throttle the reconnects a bit, every clients waits its
+-		 * Client ID modulo 16. This way reconnects should be spread
+-		 * out a bit. */
+-		_network_reconnect = _network_own_client_id % 16;
++		 * Client ID modulo 16 + 1 (value 0 means no reconnect).
++		 * This way reconnects should be spread out a bit. */
++		_network_reconnect = _network_own_client_id % 16 + 1;
+ 		ShowErrorMessage(STR_NETWORK_MESSAGE_SERVER_REBOOT, INVALID_STRING_ID, WL_CRITICAL);
+ 	}
+ 
+-- 
+2.55.0
+

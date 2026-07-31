@@ -1,0 +1,40 @@
+From 393d4da59e35c99aab60d7d381c57690ba978d1d Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 31 Mar 2017 22:30:07 +0300
+Subject: [PATCH 0373/1053] Fixed combobox popups not reaching the top of the
+ screen
+
+---
+ src/widgets/dropdown.cpp | 2 +-
+ todo.txt                 | 2 --
+ 2 files changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 4da3c3d69d..b0040cabf3 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -375,7 +375,7 @@ void ShowDropDownListAt(Window *w, const DropDownList *list, int selected, int b
+ 	int screen_bottom = GetMainViewBottom();
+ 	bool scroll = false;
+ 
+-	enum { DISPLAY_BORDER = 20, TOP_BORDER = 4 };
++	enum { DISPLAY_BORDER = 0, TOP_BORDER = 0 };
+ 
+ 	/* Check if the dropdown will fully fit below the widget */
+ 	if (top + height + DISPLAY_BORDER >= screen_bottom) {
+diff --git a/todo.txt b/todo.txt
+index be6704e5ed..b7a26e6891 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -9,8 +9,6 @@
+ 
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), and fix double-backspace bug in SDL.
+ 
+-- Combo box popup menu cannot reach top of the screen.
+-
+ - Draggable combo boxes.
+ 
+ - 'New game' dialog is broken again.
+-- 
+2.55.0
+

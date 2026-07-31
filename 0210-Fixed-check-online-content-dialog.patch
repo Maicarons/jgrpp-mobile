@@ -1,0 +1,46 @@
+From 2365e94acbccc34576215a4f4d220bc5acd79e94 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Tue, 14 Apr 2015 13:36:10 +0300
+Subject: [PATCH 0210/1053] Fixed 'check online content' dialog
+
+Conflicts:
+	src/network/network_content_gui.cpp
+---
+ src/network/network_content_gui.cpp | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/src/network/network_content_gui.cpp b/src/network/network_content_gui.cpp
+index cd6745b2c1..6b1b652ccc 100644
+--- a/src/network/network_content_gui.cpp
++++ b/src/network/network_content_gui.cpp
+@@ -24,6 +24,7 @@
+ #include "../core/geometry_func.hpp"
+ #include "../textfile_gui.h"
+ #include "../settings_type.h"
++#include "../settings_gui.h"
+ #include "network_content_gui.h"
+ 
+ 
+@@ -585,7 +586,7 @@ public:
+ 			}
+ 
+ 			case WID_NCL_MATRIX:
+-				resize->height = GetMinSizing(NWST_STEP, max(this->checkbox_size.height, (uint)FONT_HEIGHT_NORMAL) + WD_MATRIX_TOP + WD_MATRIX_BOTTOM);
++				resize->height = SETTING_BUTTON_HEIGHT;
+ 				size->height = 6 * resize->height;
+ 				break;
+ 		}
+@@ -639,8 +640,8 @@ public:
+ 		int line_height = max(this->checkbox_size.height, (uint)FONT_HEIGHT_NORMAL);
+ 
+ 		/* Fill the matrix with the information */
+-		int sprite_y_offset = WD_MATRIX_TOP + (line_height - this->checkbox_size.height) / 2 - 1;
+-		int text_y_offset = WD_MATRIX_TOP + (line_height - FONT_HEIGHT_NORMAL) / 2;
++		int sprite_y_offset = WD_MATRIX_TOP + (line_height - this->checkbox_size.height) / 2 - 1 + (this->resize.step_height - line_height) / 2;
++		int text_y_offset = WD_MATRIX_TOP + (line_height - FONT_HEIGHT_NORMAL) / 2 + (this->resize.step_height - line_height) / 2;
+ 		uint y = r.top;
+ 		int cnt = 0;
+ 		for (ConstContentIterator iter = this->content.Get(this->vscroll->GetPosition()); iter != this->content.End() && cnt < this->vscroll->GetCapacity(); iter++, cnt++) {
+-- 
+2.55.0
+

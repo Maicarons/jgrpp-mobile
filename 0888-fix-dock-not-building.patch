@@ -1,0 +1,25 @@
+From 123b4e0d8ce82e59931a7ee4f4d96d8fcd40e9e1 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sun, 9 Apr 2023 22:58:31 +0100
+Subject: [PATCH 0888/1053] fix: dock not building
+
+---
+ src/dock_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index 3572a075a6..39a386c85e 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -195,7 +195,7 @@ struct BuildDocksToolbarWindow : Window {
+ 	{
+ 		switch (this->last_clicked_widget) {
+ 			case WID_DT_CANAL: // Build canal button
+-				VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_CREATE_WATER);
++				VpStartPlaceSizing(tile, (_game_mode == GM_EDITOR) ? VPM_X_AND_Y : VPM_X_OR_Y, DDSP_CREATE_WATER);
+ 				break;
+ 
+ 			case WID_DT_LOCK: // Build lock button
+-- 
+2.55.0
+

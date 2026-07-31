@@ -1,0 +1,27 @@
+From 2fb4575f5fb237f3d42be99fa3147d94ad3e2794 Mon Sep 17 00:00:00 2001
+From: stormcone <48624099+stormcone@users.noreply.github.com>
+Date: Sun, 17 Mar 2019 21:28:37 +0100
+Subject: [PATCH 0465/1053] Fix f58fa80e: Wrong company performance rating when
+ money exceeds INT_MAX. (#7382)
+
+Company performance rating calculation does not take into account the companies' money when those exceeds INT_MAX.
+---
+ src/economy.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/economy.cpp b/src/economy.cpp
+index 898bc54478..32c6b85862 100644
+--- a/src/economy.cpp
++++ b/src/economy.cpp
+@@ -260,7 +260,7 @@ int UpdateCompanyRatingAndValue(Company *c, bool update)
+ 			/* Skip the total */
+ 			if (i == SCORE_TOTAL) continue;
+ 			/*  Check the score */
+-			s = Clamp(_score_part[owner][i], 0, _score_info[i].needed) * _score_info[i].score / _score_info[i].needed;
++			s = Clamp<int64>(_score_part[owner][i], 0, _score_info[i].needed) * _score_info[i].score / _score_info[i].needed;
+ 			score += s;
+ 			total_score += _score_info[i].score;
+ 		}
+-- 
+2.55.0
+

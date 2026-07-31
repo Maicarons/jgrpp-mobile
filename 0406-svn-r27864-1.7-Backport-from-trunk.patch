@@ -1,0 +1,143 @@
+From 55595420ab849d7db606191b43585bf9c4caa141 Mon Sep 17 00:00:00 2001
+From: frosch <frosch@openttd.org>
+Date: Wed, 3 May 2017 20:13:05 +0000
+Subject: [PATCH 0406/1053] (svn r27864) [1.7] -Backport from trunk: - Fix: Add
+ missing game script event for ships arriving at a station [FS#6560] (r27859,
+ r27858) - Fix: StringID truncation to 16 bits broke string remapping test
+ [FS#6555] (r27851) - Fix: Infinite loop in pathfinder when checking safe
+ waiting position from a waypoint [FS#5926] (r27846) - Fix: [YAPF] Consider
+ depot as destination before reversing path and applying penalty (r27843) -
+ Fix: Don't consider locks or ship depots as clear water when placing
+ industries (r27841) - Fix: Small news window's fake caption was not sized to
+ fit its text (r27838)
+
+---
+ src/industry_cmd.cpp                  | 2 +-
+ src/newgrf_text.cpp                   | 4 ++--
+ src/newgrf_text.h                     | 2 +-
+ src/news_gui.cpp                      | 9 +++++++++
+ src/pathfinder/yapf/yapf_costrail.hpp | 9 +++++++++
+ src/ship_cmd.cpp                      | 2 ++
+ 6 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/src/industry_cmd.cpp b/src/industry_cmd.cpp
+index 5971964fd7..8fea6953ae 100644
+--- a/src/industry_cmd.cpp
++++ b/src/industry_cmd.cpp
+@@ -1383,7 +1383,7 @@ static CommandCost CheckIfIndustryTilesAreFree(TileIndex tile, const IndustryTil
+ 		}
+ 
+ 		if (gfx == GFX_WATERTILE_SPECIALCHECK) {
+-			if (!IsTileType(cur_tile, MP_WATER) ||
++			if (!IsWaterTile(cur_tile) ||
+ 					!IsTileFlat(cur_tile)) {
+ 				return_cmd_error(STR_ERROR_SITE_UNSUITABLE);
+ 			}
+diff --git a/src/newgrf_text.cpp b/src/newgrf_text.cpp
+index e4b3c382b3..eb4b11c5e0 100644
+--- a/src/newgrf_text.cpp
++++ b/src/newgrf_text.cpp
+@@ -691,7 +691,7 @@ StringID AddGRFString(uint32 grfid, uint16 stringid, byte langid_to_add, bool ne
+ 	}
+ 	AddGRFTextToList(&_grf_text[id].textholder, newtext);
+ 
+-	grfmsg(3, "Added 0x%X: grfid %08X string 0x%X lang 0x%X string '%s'", id, grfid, stringid, newtext->langid, newtext->text);
++	grfmsg(3, "Added 0x%X: grfid %08X string 0x%X lang 0x%X string '%s' (%X)", id, grfid, stringid, newtext->langid, newtext->text, MakeStringID(TEXT_TAB_NEWGRF_START, id));
+ 
+ 	return MakeStringID(TEXT_TAB_NEWGRF_START, id);
+ }
+@@ -699,7 +699,7 @@ StringID AddGRFString(uint32 grfid, uint16 stringid, byte langid_to_add, bool ne
+ /**
+  * Returns the index for this stringid associated with its grfID
+  */
+-StringID GetGRFStringID(uint32 grfid, uint16 stringid)
++StringID GetGRFStringID(uint32 grfid, StringID stringid)
+ {
+ 	for (uint id = 0; id < _num_grf_texts; id++) {
+ 		if (_grf_text[id].grfid == grfid && _grf_text[id].stringid == stringid) {
+diff --git a/src/newgrf_text.h b/src/newgrf_text.h
+index 6587fc1fed..033967d307 100644
+--- a/src/newgrf_text.h
++++ b/src/newgrf_text.h
+@@ -21,7 +21,7 @@
+ static const WChar NFO_UTF8_IDENTIFIER = 0x00DE;
+ 
+ StringID AddGRFString(uint32 grfid, uint16 stringid, byte langid, bool new_scheme, bool allow_newlines, const char *text_to_add, StringID def_string);
+-StringID GetGRFStringID(uint32 grfid, uint16 stringid);
++StringID GetGRFStringID(uint32 grfid, StringID stringid);
+ const char *GetGRFStringFromGRFText(const struct GRFText *text);
+ const char *GetGRFStringPtr(uint16 stringid);
+ void CleanUpStrings();
+diff --git a/src/news_gui.cpp b/src/news_gui.cpp
+index df3b2bd2da..3f88f46f7b 100644
+--- a/src/news_gui.cpp
++++ b/src/news_gui.cpp
+@@ -313,6 +313,15 @@ struct NewsWindow : Window {
+ 	{
+ 		StringID str = STR_NULL;
+ 		switch (widget) {
++			case WID_N_CAPTION: {
++				/* Caption is not a real caption (so that the window cannot be moved)
++				 * thus it doesn't get the default sizing of a caption. */
++				Dimension d2 = GetStringBoundingBox(STR_NEWS_MESSAGE_CAPTION);
++				d2.height += WD_CAPTIONTEXT_TOP + WD_CAPTIONTEXT_BOTTOM;
++				*size = maxdim(*size, d2);
++				return;
++			}
++
+ 			case WID_N_MGR_FACE:
+ 				*size = maxdim(*size, GetSpriteSize(SPR_GRADIENT));
+ 				break;
+diff --git a/src/pathfinder/yapf/yapf_costrail.hpp b/src/pathfinder/yapf/yapf_costrail.hpp
+index 64cf963800..e66bf4e019 100644
+--- a/src/pathfinder/yapf/yapf_costrail.hpp
++++ b/src/pathfinder/yapf/yapf_costrail.hpp
+@@ -403,6 +403,8 @@ no_entry_cost: // jump here at the beginning if the node has no parent (it is th
+ 				/* Penalty for reversing in a depot. */
+ 				assert(IsRailDepot(cur.tile));
+ 				segment_cost += Yapf().PfGetSettings().rail_depot_reverse_penalty;
++
++			} else if (IsRailDepotTile(cur.tile)) {
+ 				/* We will end in this pass (depot is possible target) */
+ 				end_segment_reason |= ESRB_DEPOT;
+ 
+@@ -416,9 +418,16 @@ no_entry_cost: // jump here at the beginning if the node has no parent (it is th
+ 					CFollowTrackRail ft(v);
+ 					TileIndex t = cur.tile;
+ 					Trackdir td = cur.td;
++					/* Arbitrary maximum tiles to follow to avoid infinite loops. */
++					uint max_tiles = 20;
+ 					while (ft.Follow(t, td)) {
+ 						assert(t != ft.m_new_tile);
+ 						t = ft.m_new_tile;
++						if (t == cur.tile || --max_tiles == 0) {
++							/* We looped back on ourself or found another loop, bail out. */
++							td = INVALID_TRACKDIR;
++							break;
++						}
+ 						if (KillFirstBit(ft.m_new_td_bits) != TRACKDIR_BIT_NONE) {
+ 							/* We encountered a junction; it's going to be too complex to
+ 							 * handle this perfectly, so just bail out. There is no simple
+diff --git a/src/ship_cmd.cpp b/src/ship_cmd.cpp
+index 2a760e2ca7..67260644a8 100644
+--- a/src/ship_cmd.cpp
++++ b/src/ship_cmd.cpp
+@@ -28,6 +28,7 @@
+ #include "vehicle_func.h"
+ #include "sound_func.h"
+ #include "ai/ai.hpp"
++#include "game/game.hpp"
+ #include "pathfinder/opf/opf_ship.h"
+ #include "engine_base.h"
+ #include "company_base.h"
+@@ -426,6 +427,7 @@ static void ShipArrivesAt(const Vehicle *v, Station *st)
+ 			st->index
+ 		);
+ 		AI::NewEvent(v->owner, new ScriptEventStationFirstVehicle(st->index, v->index));
++		Game::NewEvent(new ScriptEventStationFirstVehicle(st->index, v->index));
+ 	}
+ }
+ 
+-- 
+2.55.0
+

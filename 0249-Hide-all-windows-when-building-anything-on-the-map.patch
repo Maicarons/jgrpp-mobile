@@ -1,0 +1,205 @@
+From ad5599aed80a6531caa7559da2787d3615675a5f Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 4 Apr 2016 23:04:39 +0300
+Subject: [PATCH 0249/1053] Hide all windows when building anything on the map
+
+---
+ src/airport_gui.cpp   | 6 +++---
+ src/dock_gui.cpp      | 3 +++
+ src/rail_gui.cpp      | 3 +++
+ src/road_gui.cpp      | 3 +++
+ src/terraform_gui.cpp | 6 ++++++
+ src/tree_gui.cpp      | 3 +++
+ 6 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/src/airport_gui.cpp b/src/airport_gui.cpp
+index 08726a4cb1..788260657c 100644
+--- a/src/airport_gui.cpp
++++ b/src/airport_gui.cpp
+@@ -120,7 +120,6 @@ struct BuildAirToolbarWindow : Window {
+ 		switch (this->last_user_action) {
+ 			case WID_AT_AIRPORT: {
+ 				VpStartPlaceSizing(tile, VPM_SINGLE_TILE, DDSP_BUILD_STATION);
+-				MoveAllWindowsOffScreen();
+ 				break;
+ 			}
+ 
+@@ -130,6 +129,7 @@ struct BuildAirToolbarWindow : Window {
+ 
+ 			default: NOT_REACHED();
+ 		}
++		MoveAllWindowsOffScreen();
+ 	}
+ 
+ 	virtual void OnPlaceDrag(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt)
+@@ -140,10 +140,10 @@ struct BuildAirToolbarWindow : Window {
+ 	virtual void OnPlaceMouseUp(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt, TileIndex start_tile, TileIndex end_tile)
+ 	{
+ 		if (pt.x == -1) return;
++		MoveAllHiddenWindowsBackToScreen();
+ 		switch (select_proc) {
+ 			case DDSP_BUILD_STATION:
+ 				assert(start_tile == end_tile);
+-				MoveAllHiddenWindowsBackToScreen();
+ 				PlaceAirport(end_tile);
+ 				break;
+ 			case DDSP_DEMOLISH_AREA:
+@@ -155,8 +155,8 @@ struct BuildAirToolbarWindow : Window {
+ 
+ 	virtual void OnPlaceObjectAbort()
+ 	{
++		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+-
+ 		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_AIR);
+ 		DeleteWindowById(WC_SELECT_STATION, 0);
+ 		ResetObjectToPlace();
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index d9b09afd31..f7ae4cfc3e 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -209,6 +209,7 @@ struct BuildDocksToolbarWindow : Window {
+ 
+ 			default: NOT_REACHED();
+ 		}
++		MoveAllWindowsOffScreen();
+ 	}
+ 
+ 	virtual void OnPlaceDrag(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt)
+@@ -277,11 +278,13 @@ struct BuildDocksToolbarWindow : Window {
+ 
+ 				default: break;
+ 			}
++			MoveAllHiddenWindowsBackToScreen();
+ 		}
+ 	}
+ 
+ 	virtual void OnPlaceObjectAbort()
+ 	{
++		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 
+ 		DeleteWindowById(WC_BUILD_STATION, TRANSPORT_WATER);
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index fa106cdb13..37000b162e 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -652,6 +652,7 @@ struct BuildRailToolbarWindow : Window {
+ 
+ 			default: NOT_REACHED();
+ 		}
++		MoveAllWindowsOffScreen();
+ 	}
+ 
+ 	virtual void OnPlaceDrag(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt)
+@@ -752,11 +753,13 @@ struct BuildRailToolbarWindow : Window {
+ 							CcRailDepot);
+ 					break;
+ 			}
++			MoveAllHiddenWindowsBackToScreen();
+ 		}
+ 	}
+ 
+ 	virtual void OnPlaceObjectAbort()
+ 	{
++		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 		this->DisableWidget(WID_RAT_REMOVE);
+ 		this->SetWidgetDirty(WID_RAT_REMOVE);
+diff --git a/src/road_gui.cpp b/src/road_gui.cpp
+index e55905ee33..6ddc1ba005 100644
+--- a/src/road_gui.cpp
++++ b/src/road_gui.cpp
+@@ -525,10 +525,12 @@ struct BuildRoadToolbarWindow : Window {
+ 
+ 			default: NOT_REACHED();
+ 		}
++		MoveAllWindowsOffScreen();
+ 	}
+ 
+ 	virtual void OnPlaceObjectAbort()
+ 	{
++		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 		this->SetWidgetsDisabledState(true,
+ 				WID_ROT_REMOVE,
+@@ -669,6 +671,7 @@ struct BuildRoadToolbarWindow : Window {
+ 						CMD_BUILD_ROAD_DEPOT | CMD_MSG(_road_type_infos[_cur_roadtype].err_depot), CcRoadDepot);
+ 				break;
+ 			}
++			MoveAllHiddenWindowsBackToScreen();
+ 		}
+ 	}
+ 
+diff --git a/src/terraform_gui.cpp b/src/terraform_gui.cpp
+index 563556e429..130bf6ae8d 100644
+--- a/src/terraform_gui.cpp
++++ b/src/terraform_gui.cpp
+@@ -222,18 +222,22 @@ struct TerraformToolbarWindow : Window {
+ 		switch (this->last_user_action) {
+ 			case WID_TT_LOWER_LAND: // Lower land button
+ 				VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_LOWER_AND_LEVEL_AREA);
++				MoveAllWindowsOffScreen();
+ 				break;
+ 
+ 			case WID_TT_RAISE_LAND: // Raise land button
+ 				VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_RAISE_AND_LEVEL_AREA);
++				MoveAllWindowsOffScreen();
+ 				break;
+ 
+ 			case WID_TT_LEVEL_LAND: // Level land button
+ 				VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_LEVEL_AREA);
++				MoveAllWindowsOffScreen();
+ 				break;
+ 
+ 			case WID_TT_DEMOLISH: // Demolish aka dynamite button
+ 				PlaceProc_DemolishArea(tile);
++				MoveAllWindowsOffScreen();
+ 				break;
+ 
+ 			case WID_TT_BUY_LAND: // Buy land button
+@@ -272,11 +276,13 @@ struct TerraformToolbarWindow : Window {
+ 					GUIPlaceProcDragXY(select_proc, start_tile, end_tile);
+ 					break;
+ 			}
++			MoveAllHiddenWindowsBackToScreen();
+ 		}
+ 	}
+ 
+ 	virtual void OnPlaceObjectAbort()
+ 	{
++		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 	}
+ 
+diff --git a/src/tree_gui.cpp b/src/tree_gui.cpp
+index e46ee027ac..e444745220 100644
+--- a/src/tree_gui.cpp
++++ b/src/tree_gui.cpp
+@@ -147,6 +147,7 @@ public:
+ 	virtual void OnPlaceObject(Point pt, TileIndex tile)
+ 	{
+ 		VpStartPlaceSizing(tile, VPM_X_AND_Y, DDSP_PLANT_TREES);
++		MoveAllWindowsOffScreen();
+ 	}
+ 
+ 	virtual void OnPlaceDrag(ViewportPlaceMethod select_method, ViewportDragDropSelectionProcess select_proc, Point pt)
+@@ -159,6 +160,7 @@ public:
+ 		if (pt.x != -1 && select_proc == DDSP_PLANT_TREES) {
+ 			DoCommandP(end_tile, this->tree_to_plant, start_tile,
+ 				CMD_PLANT_TREE | CMD_MSG(STR_ERROR_CAN_T_PLANT_TREE_HERE));
++			MoveAllHiddenWindowsBackToScreen();
+ 		}
+ 	}
+ 
+@@ -173,6 +175,7 @@ public:
+ 
+ 	virtual void OnPlaceObjectAbort()
+ 	{
++		MoveAllHiddenWindowsBackToScreen();
+ 		this->RaiseButtons();
+ 
+ 		ResetObjectToPlace();
+-- 
+2.55.0
+

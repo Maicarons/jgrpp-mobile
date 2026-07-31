@@ -1,0 +1,25 @@
+From 6d365b9cbaecf765c3e70a942d230330072bdf8f Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Feb 2022 01:03:17 +0200
+Subject: [PATCH 0798/1053] CI: cache is populated
+
+---
+ .github/workflows/ci-build.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index a6fee4650a..a30351d8d4 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -52,7 +52,7 @@ jobs:
+       run: |
+         mkdir -p release-wasm
+         cd os/emscripten
+-        ./emscripten-build.sh release `pwd`/../../release-wasm || true
++        ./emscripten-build.sh release `pwd`/../../release-wasm
+ 
+   linux:
+     name: Linux
+-- 
+2.55.0
+

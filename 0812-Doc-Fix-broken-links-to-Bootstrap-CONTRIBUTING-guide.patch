@@ -1,0 +1,24 @@
+From 29607d27fa5a53f9342047b6b1eaf9a930e65e47 Mon Sep 17 00:00:00 2001
+From: Tyler Trahan <tyler@tylertrahan.com>
+Date: Wed, 16 Feb 2022 10:20:09 -0700
+Subject: [PATCH 0812/1053] Doc: Fix broken links to Bootstrap CONTRIBUTING
+ guide and doc license
+
+---
+ CONTRIBUTING.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index b0c5b7ec30..f9ffdf98ce 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -265,5 +265,5 @@ If you would not like to accept this risk, please do either commit anonymously o
+ 
+ ### Attribution of this Contributing Guide
+ 
+-This contributing guide is adapted from [Bootstrap](https://github.com/twbs/bootstrap/blob/master/CONTRIBUTING.md) under the [Creative Commons Attribution 3.0 Unported License](https://github.com/twbs/bootstrap/blob/master/docs/LICENSE) terms for Bootstrap documentation.
++This contributing guide is adapted from [Bootstrap](https://github.com/twbs/bootstrap/blob/main/.github/CONTRIBUTING.md) under the [Creative Commons Attribution 3.0 Unported License](https://creativecommons.org/licenses/by/3.0/) terms for Bootstrap documentation.
+ The GDPR notice is adapted from [rsyslog](https://github.com/rsyslog/rsyslog/blob/master/CONTRIBUTING.md) under the [GNU General Public License](https://github.com/rsyslog/rsyslog/blob/master/COPYING).
+-- 
+2.55.0
+

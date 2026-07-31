@@ -1,0 +1,55 @@
+From cf413c4c8245b346f8d30b6ade03c26b8a9c66c1 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 2 Apr 2017 23:26:23 +0300
+Subject: [PATCH 0391/1053] Improved fast forward code a bit
+
+---
+ src/video/sdl_v.cpp | 14 +++-----------
+ todo.txt            |  2 --
+ 2 files changed, 3 insertions(+), 13 deletions(-)
+
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 374be67998..4d5d709b73 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -160,16 +160,6 @@ static void DrawSurfaceToScreen()
+ #else
+ 	if (n == 0) return;
+ #endif
+-	static int frameskip = 0;
+-
+-#ifdef __ANDROID__
+-	if (_fast_forward) {
+-		frameskip++;
+-		if (frameskip < 5)
+-			return;
+-		frameskip = 0;
+-	}
+-#endif
+ 
+ 	_num_dirty_rects = 0;
+ 	if (n > MAX_DIRTY_RECTS) {
+@@ -811,7 +801,9 @@ void VideoDriver_SDL::MainLoop()
+ 			 * except sleeping can't. */
+ 			if (_draw_mutex != NULL) _draw_mutex->EndCritical();
+ 
+-			GameLoop();
++			for (int i = (_fast_forward ? 5 : 1); i > 0; i--) {
++				GameLoop();
++			}
+ 
+ 			if (_draw_mutex != NULL) _draw_mutex->BeginCritical();
+ 
+diff --git a/todo.txt b/todo.txt
+index 9f3dcd5dbc..1a05a2f2f6 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -15,5 +15,3 @@
+ 
+ - Cannot scroll minimap.
+ 
+-- Screen not updated on mouse up.
+-
+-- 
+2.55.0
+

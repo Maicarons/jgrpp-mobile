@@ -1,0 +1,35 @@
+From a8525f38d7e6d94bce38fcdd0a359729ec45303b Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Wed, 3 Apr 2024 19:56:26 +0100
+Subject: [PATCH 0880/1053] fix: remove duplicated entries due to bad merge
+
+---
+ src/lang/norwegian_bokmal.txt | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/src/lang/norwegian_bokmal.txt b/src/lang/norwegian_bokmal.txt
+index 8406887fc5..4b8303e818 100644
+--- a/src/lang/norwegian_bokmal.txt
++++ b/src/lang/norwegian_bokmal.txt
+@@ -231,8 +231,6 @@ STR_UNITS_HEIGHT_SI                                             :{DECIMAL}{NBSP}
+ 
+ # Time units used in string control characters
+ 
+-STR_UNITS_POWER_SI_TO_WEIGHT_IMPERIAL                           :{DECIMAL}{NBSP}kW/t
+-
+ 
+ # Common window strings
+ STR_LIST_FILTER_TITLE                                           :{BLACK}Filterstreng:
+@@ -959,9 +957,6 @@ STR_GAME_OPTIONS_VIDEO_VSYNC_TOOLTIP                            :{BLACK}Merk av
+ 
+ 
+ 
+-STR_GAME_OPTIONS_GUI_SCALE_2X                                   :2x
+-STR_GAME_OPTIONS_GUI_SCALE_3X                                   :3x
+-
+ STR_GAME_OPTIONS_GUI_SCALE_2X                                   :2x
+ STR_GAME_OPTIONS_GUI_SCALE_3X                                   :3x
+ STR_GAME_OPTIONS_GUI_SCALE_4X                                   :4x
+-- 
+2.55.0
+

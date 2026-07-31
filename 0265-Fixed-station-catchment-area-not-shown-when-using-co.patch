@@ -1,0 +1,40 @@
+From 7da54512d1dde2e31bf26dd66964f5f7d19877dd Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 11 Apr 2016 01:03:50 +0300
+Subject: [PATCH 0265/1053] Fixed station catchment area not shown when using
+ confirmation dialog
+
+---
+ src/build_confirmation_gui.cpp | 3 +++
+ todo.txt                       | 4 ----
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index b111a152ee..2e5aca9630 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -185,5 +185,8 @@ bool BuildConfirmationWindowProcessViewportClick()
+ 	}
+ 
+ 	HideBuildConfirmationWindow();
++
++	_thd.new_outersize = _thd.outersize; // Revert station catchment area highlight, which is getting set to zero inside drawing funcs
++
+ 	return false;
+ }
+diff --git a/todo.txt b/todo.txt
+index b97c8bad5e..745939c084 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,8 +3,4 @@
+ 
+ - Multiplayer client list is too small again.
+ 
+-- Non-autorail rail building is broken with confirmation dialog enabled.
+-
+-- Station catchment area disappears after few clicks with confirmation dialog.
+-
+ - Minimap legend clicks wrong items after few usages.
+-- 
+2.55.0
+

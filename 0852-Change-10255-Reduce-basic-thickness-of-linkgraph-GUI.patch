@@ -1,0 +1,27 @@
+From 1cb459de3f413b4bf73a3575392f7c28226ccf1e Mon Sep 17 00:00:00 2001
+From: merni-ns <66267867+merni-ns@users.noreply.github.com>
+Date: Wed, 25 Jan 2023 23:36:19 +0530
+Subject: [PATCH 0852/1053] Change #10255: Reduce basic thickness of linkgraph
+ GUI lines (#10410)
+
+From 3px to 2px (multiplied by UI scale).
+---
+ src/main_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/main_gui.cpp b/src/main_gui.cpp
+index 33d3d5d311..50f14003ee 100644
+--- a/src/main_gui.cpp
++++ b/src/main_gui.cpp
+@@ -224,7 +224,7 @@ struct MainWindow : Window
+ 		NWidgetViewport *nvp = this->GetWidget<NWidgetViewport>(WID_M_VIEWPORT);
+ 		nvp->InitializeViewport(this, TileXY(32, 32), ScaleZoomGUI(ZOOM_LVL_VIEWPORT));
+ 
+-		this->viewport->overlay = new LinkGraphOverlay(this, WID_M_VIEWPORT, 0, 0, 3);
++		this->viewport->overlay = new LinkGraphOverlay(this, WID_M_VIEWPORT, 0, 0, 2);
+ 		this->refresh.SetInterval(LINKGRAPH_DELAY);
+ 	}
+ 
+-- 
+2.55.0
+

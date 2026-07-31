@@ -1,0 +1,39 @@
+From ed1e09edea3c3b29e38b68963f428e84f3254b5a Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 1 Jul 2016 21:30:28 +0300
+Subject: [PATCH 0290/1053] Updated version numbers
+
+---
+ .ottdrev       | 2 +-
+ src/rev.cpp.in | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index cf84e26f62..89af2c77e7 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-1.6.0	27532	0	1.6.0
++1.6.1	27609	0	1.6.1
+diff --git a/src/rev.cpp.in b/src/rev.cpp.in
+index 021297022a..5fce5427b3 100644
+--- a/src/rev.cpp.in
++++ b/src/rev.cpp.in
+@@ -1,4 +1,4 @@
+-/* $Id: rev.cpp.in 27532 2016-04-01 18:32:32Z frosch $ */
++/* $Id: rev.cpp.in 27609 2016-06-30 21:15:30Z frosch $ */
+ 
+ /*
+  * This file is part of OpenTTD.
+@@ -72,7 +72,7 @@ const byte _openttd_revision_modified = !!MODIFIED!!;
+  * final release will always have a lower version number than the released
+  * version, thus making comparisons on specific revisions easy.
+  */
+-const uint32 _openttd_newgrf_version = 1 << 28 | 6 << 24 | 0 << 20 | 1 << 19 | (!!REVISION!! & ((1 << 19) - 1));
++const uint32 _openttd_newgrf_version = 1 << 28 | 6 << 24 | 1 << 20 | 1 << 19 | (!!REVISION!! & ((1 << 19) - 1));
+ 
+ #ifdef __MORPHOS__
+ /**
+-- 
+2.55.0
+

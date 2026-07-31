@@ -1,0 +1,25 @@
+From e2deb1e4821a620480e989cb47d81e1b4029a611 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 7 Apr 2017 21:53:48 +0300
+Subject: [PATCH 0400/1053] Hide error message if user clicked 'Cancel' in
+ buiuld confirmation window
+
+---
+ src/build_confirmation_gui.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 07e9632116..18ef7ef741 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -175,6 +175,7 @@ struct BuildConfirmationWindow : Window {
+ 				} else {
+ 					ResetObjectToPlace();
+ 					DeleteWindowByClass(WC_BUILD_BRIDGE);
++					ClearErrorMessages();
+ 				}
+ 				break;
+ 		}
+-- 
+2.55.0
+

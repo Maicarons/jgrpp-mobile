@@ -1,0 +1,25 @@
+From 0996d2a9093c6735120ded5e5e020ab556105f16 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 2 Dec 2021 03:04:48 +0200
+Subject: [PATCH 0737/1053] Fixed a crash in Load dialog
+
+---
+ src/fios_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index 87325ebceb..960c2c5f3a 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -733,7 +733,7 @@ public:
+ 
+ 			case WID_SL_LOAD_NETWORK_BUTTON:
+ 				_file_to_saveload.cloud_load = true;
+-				delete this;
++				this->Close();
+ 				break;
+ 		}
+ 	}
+-- 
+2.55.0
+

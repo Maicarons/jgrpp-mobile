@@ -1,0 +1,38 @@
+From f6170ec7821a4110affdf406b9e5ff7e52a0719f Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Sun, 29 Jan 2023 17:09:10 +0000
+Subject: [PATCH 0872/1053] Fix: Water infrastructure accounting when building
+ docks
+
+---
+ src/station_cmd.cpp | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/src/station_cmd.cpp b/src/station_cmd.cpp
+index 01bcc68ed8..fd69a9899e 100644
+--- a/src/station_cmd.cpp
++++ b/src/station_cmd.cpp
+@@ -2535,14 +2535,17 @@ CommandCost CmdBuildDock(DoCommandFlag flags, TileIndex tile, StationID station_
+ 
+ 	if (flags & DC_EXEC) {
+ 		st->ship_station.Add(tile);
+-		st->ship_station.Add(tile + TileOffsByDiagDir(direction));
++		TileIndex flat_tile = tile + TileOffsByDiagDir(direction);
++		st->ship_station.Add(flat_tile);
+ 		st->AddFacility(FACIL_DOCK, tile);
+ 
+ 		st->rect.BeforeAddRect(dock_area.tile, dock_area.w, dock_area.h, StationRect::ADD_TRY);
+ 
+ 		/* If the water part of the dock is on a canal, update infrastructure counts.
+-		 * This is needed as we've unconditionally cleared that tile before. */
+-		if (wc == WATER_CLASS_CANAL) {
++		 * This is needed as we've cleared that tile before.
++		 * Clearing object tiles may result in water tiles which are already accounted for in the water infrastructure total.
++		 * See: MakeWaterKeepingClass() */
++		if (wc == WATER_CLASS_CANAL && !(HasTileWaterClass(flat_tile) && GetWaterClass(flat_tile) == WATER_CLASS_CANAL && IsTileOwner(flat_tile, _current_company))) {
+ 			Company::Get(st->owner)->infrastructure.water++;
+ 		}
+ 		Company::Get(st->owner)->infrastructure.station += 2;
+-- 
+2.55.0
+

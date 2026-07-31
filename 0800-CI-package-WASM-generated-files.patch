@@ -1,0 +1,30 @@
+From 30a3f6d796c4c5b5b7cd2c3cf82a60c3c67d874c Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Feb 2022 01:12:47 +0200
+Subject: [PATCH 0800/1053] CI: package WASM generated files
+
+---
+ .github/workflows/ci-build.yml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index a30351d8d4..2c7561423f 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -54,6 +54,13 @@ jobs:
+         cd os/emscripten
+         ./emscripten-build.sh release `pwd`/../../release-wasm
+ 
++    - name: Package
++      uses: actions/upload-artifact@v2
++      with:
++        name: openttd-wasm
++        path: release-wasm
++        retention-days: 5
++
+   linux:
+     name: Linux
+     if: ${{ false }}
+-- 
+2.55.0
+

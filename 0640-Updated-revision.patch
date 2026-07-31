@@ -1,0 +1,19 @@
+From 03a0fd0bd350fcb6b4e2647d06a3627c894a8fac Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 26 Apr 2021 00:11:47 +0300
+Subject: [PATCH 0640/1053] Updated revision
+
+---
+ .ottdrev | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index 0146c2daf8..20c6f71741 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-1.11.0	20210401	0	bd80ec7cff2f2186b133ea4bee431cb1a2f1fc95	1	1	2021
++1.11.1	20210418	0	0be22efffc3c14db08baf5e58c448b5d074f4427	1	1	2021
+-- 
+2.55.0
+

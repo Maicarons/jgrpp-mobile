@@ -1,0 +1,19 @@
+From ccb5a7da8e74979e1e0fb57d8c5fb83493e92ae5 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 3 Mar 2021 00:56:55 +0200
+Subject: [PATCH 0577/1053] Updated revision
+
+---
+ .ottdrev | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index 5ae0733bbb..b53c8db279 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-1.11.0-beta1	20210122	0	a252679a121a3e989ba76fae29007151fdac26a1	1	1	2021
++1.11.0-beta2	20210228	0	f30f4b68921544099e7278c0a9c57b9658a45a50	1	1	2021
+-- 
+2.55.0
+

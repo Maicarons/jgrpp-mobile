@@ -1,0 +1,42 @@
+From 6f9c0181c1692f22119cf09cfe45fc1bdaea96c4 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 16 Nov 2014 00:06:43 +0200
+Subject: [PATCH 0173/1053] Align all construction windows to the left, to make
+ more space at the center of the screen
+
+---
+ src/rail_gui.cpp | 2 +-
+ src/window.cpp   | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index c311de5516..1126a5f1db 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -1485,7 +1485,7 @@ static const NWidgetPart _nested_station_builder_widgets[] = {
+ 
+ /** High level window description of the station-build window (default & newGRF) */
+ static WindowDesc _station_builder_desc(
+-	WDP_AUTO, "build_station_rail", 350, 0,
++	WDP_AUTO, "build_station_rail", 0, 0,
+ 	WC_BUILD_STATION, WC_BUILD_TOOLBAR,
+ 	WDF_CONSTRUCTION,
+ 	_nested_station_builder_widgets, lengthof(_nested_station_builder_widgets)
+diff --git a/src/window.cpp b/src/window.cpp
+index 414c35f1b4..c288a000fb 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1727,7 +1727,9 @@ static Point LocalGetWindowPlacement(const WindowDesc *desc, int16 sm_width, int
+ 			pt.x = (_screen.width + 10 - default_width) - 20;
+ 		}
+ 		const Window *wt = FindWindowById(WC_MAIN_TOOLBAR_RIGHT, 0);
+-		if (wt && pt.x + default_width > _screen.width - wt->width) {
++		if (wt && (pt.x + default_width > _screen.width - wt->width ||
++			desc->parent_cls == WC_BUILD_TOOLBAR || desc->parent_cls == WC_SCEN_LAND_GEN)) {
++			// Move all build toolbar windows to the right, because all build toolbars are always at the right part of the screen
+ 			pt.x = _screen.width - wt->width - default_width;
+ 		}
+ 
+-- 
+2.55.0
+

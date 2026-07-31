@@ -1,0 +1,53 @@
+From 17dfc6e28aac5ad2290e849b03893a416be97b03 Mon Sep 17 00:00:00 2001
+From: Charles Pigott <charlespigott@googlemail.com>
+Date: Mon, 8 Nov 2021 08:23:17 +0000
+Subject: [PATCH 0634/1053] Doc: Prepare for 12.1 release
+
+---
+ CMakeLists.txt |  2 +-
+ changelog.txt  | 19 +++++++++++++++++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8c2057cee5..f75e4d8a55 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -5,7 +5,7 @@ if(NOT BINARY_NAME)
+ endif()
+ 
+ project(${BINARY_NAME}
+-    VERSION 12.0
++    VERSION 12.1
+ )
+ 
+ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+diff --git a/changelog.txt b/changelog.txt
+index 739911c26e..29514b27b7 100644
+--- a/changelog.txt
++++ b/changelog.txt
+@@ -1,3 +1,22 @@
++12.1 (2021-11-08)
++------------------------------------------------------------------------
++Feature: Button to toggle showing advanced signal types (#9617)
++Change: Don't show screenshot GUI in screenshots (#9674)
++Change: Suppress panning in intro game, while user is interacting with the GUI (#9645)
++Change: Draw rotor in cursor when dragging helicopters in depots (#9612)
++Fix: Invalid memory access when loading a currency NewGRF (#9675)
++Fix #9579: Object and HQ construction is Construction cost, not Property Maintenance (#9673)
++Fix #9669: Ships exiting a blocked depot/lock could exit in the wrong direction (#9672)
++Fix: Every 16th client never reconnects after server restart (#9666)
++Fix #9643: Screenshots were always written as BMP files (#9644)
++Fix #9630: Intro game could zoom in/out more than allowed by settings (#9633)
++Fix #9626: Incorrect loading of script saved data (#9629)
++Fix: Emergency crash save had the wrong NewGRF list saved in it (#9627)
++Fix #9595: Always use plural forms of cargo for subsidy strings (#9619)
++Fix #9614: Refresh rate dropdown was still active when vsync was enabled (#9618)
++Fix: Don't use 'server address' string in server list when displaying an invite code (#9615)
++
++
+ 12.0 (2021-10-17)
+ ------------------------------------------------------------------------
+ Add: [Network] Keep the refresh button in lowered state while refreshing (#9600)
+-- 
+2.55.0
+

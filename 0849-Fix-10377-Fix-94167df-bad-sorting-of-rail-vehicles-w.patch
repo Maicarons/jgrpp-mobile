@@ -1,0 +1,86 @@
+From f88766c9760c3852e07b7185b723f45641a1b5cd Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Thu, 19 Jan 2023 20:07:10 +0100
+Subject: [PATCH 0849/1053] Fix #10377, Fix 94167df: bad sorting of rail
+ vehicles when primary variant is missing
+
+---
+ src/build_vehicle_gui.cpp | 13 ++++---------
+ src/engine_gui.cpp        |  2 +-
+ src/engine_gui.h          |  2 +-
+ 3 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/src/build_vehicle_gui.cpp b/src/build_vehicle_gui.cpp
+index eb4860cd94..dbbb5dbde2 100644
+--- a/src/build_vehicle_gui.cpp
++++ b/src/build_vehicle_gui.cpp
+@@ -1333,8 +1333,7 @@ struct BuildVehicleWindow : Window {
+ 	{
+ 		std::vector<EngineID> variants;
+ 		EngineID sel_id = INVALID_ENGINE;
+-		int num_engines = 0;
+-		int num_wagons  = 0;
++		size_t num_engines = 0;
+ 
+ 		list.clear();
+ 
+@@ -1355,12 +1354,7 @@ struct BuildVehicleWindow : Window {
+ 
+ 			list.emplace_back(eid, e->info.variant_id, e->display_flags, 0);
+ 
+-			if (rvi->railveh_type != RAILVEH_WAGON) {
+-				num_engines++;
+-			} else {
+-				num_wagons++;
+-			}
+-
++			if (rvi->railveh_type != RAILVEH_WAGON) num_engines++;
+ 			if (e->info.variant_id != eid && e->info.variant_id != INVALID_ENGINE) variants.push_back(e->info.variant_id);
+ 			if (eid == this->sel_engine) sel_id = eid;
+ 		}
+@@ -1370,6 +1364,7 @@ struct BuildVehicleWindow : Window {
+ 			if (std::find(list.begin(), list.end(), variant) == list.end()) {
+ 				const Engine *e = Engine::Get(variant);
+ 				list.emplace_back(variant, e->info.variant_id, e->display_flags | EngineDisplayFlags::Shaded, 0);
++				if (e->u.rail.railveh_type != RAILVEH_WAGON) num_engines++;
+ 			}
+ 		}
+ 
+@@ -1387,7 +1382,7 @@ struct BuildVehicleWindow : Window {
+ 		EngList_SortPartial(&list, _engine_sort_functions[0][this->sort_criteria], 0, num_engines);
+ 
+ 		/* and finally sort wagons */
+-		EngList_SortPartial(&list, _engine_sort_functions[0][this->sort_criteria], num_engines, num_wagons);
++		EngList_SortPartial(&list, _engine_sort_functions[0][this->sort_criteria], num_engines, list.size() - num_engines);
+ 	}
+ 
+ 	/* Figure out what road vehicle EngineIDs to put in the list */
+diff --git a/src/engine_gui.cpp b/src/engine_gui.cpp
+index 452b9b6eaa..6bad2fb331 100644
+--- a/src/engine_gui.cpp
++++ b/src/engine_gui.cpp
+@@ -337,7 +337,7 @@ void EngList_Sort(GUIEngineList *el, EngList_SortTypeFunction compare)
+  * @param begin start of sorting
+  * @param num_items count of items to be sorted
+  */
+-void EngList_SortPartial(GUIEngineList *el, EngList_SortTypeFunction compare, uint begin, uint num_items)
++void EngList_SortPartial(GUIEngineList *el, EngList_SortTypeFunction compare, size_t begin, size_t num_items)
+ {
+ 	if (num_items < 2) return;
+ 	assert(begin < el->size());
+diff --git a/src/engine_gui.h b/src/engine_gui.h
+index 7a766bfc8a..87af6f3562 100644
+--- a/src/engine_gui.h
++++ b/src/engine_gui.h
+@@ -32,7 +32,7 @@ typedef GUIList<GUIEngineListItem, CargoID> GUIEngineList;
+ 
+ typedef bool EngList_SortTypeFunction(const GUIEngineListItem&, const GUIEngineListItem&); ///< argument type for #EngList_Sort.
+ void EngList_Sort(GUIEngineList *el, EngList_SortTypeFunction compare);
+-void EngList_SortPartial(GUIEngineList *el, EngList_SortTypeFunction compare, uint begin, uint num_items);
++void EngList_SortPartial(GUIEngineList *el, EngList_SortTypeFunction compare, size_t begin, size_t num_items);
+ 
+ StringID GetEngineCategoryName(EngineID engine);
+ StringID GetEngineInfoString(EngineID engine);
+-- 
+2.55.0
+

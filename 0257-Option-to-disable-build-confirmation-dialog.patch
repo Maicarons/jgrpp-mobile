@@ -1,0 +1,158 @@
+From 1601b873257a53623ec138f8161cce6eadd0519d Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 8 Apr 2016 17:50:09 +0300
+Subject: [PATCH 0257/1053] Option to disable build confirmation dialog
+
+---
+ src/build_confirmation_gui.cpp | 10 +++++++++-
+ src/lang/english.txt           |  2 ++
+ src/settings_gui.cpp           | 13 +++++++++++--
+ src/settings_type.h            |  1 +
+ src/table/settings.ini         |  8 ++++++++
+ src/widgets/settings_widget.h  |  1 +
+ todo.txt                       |  2 --
+ 7 files changed, 32 insertions(+), 5 deletions(-)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 35d1d8dbed..5a514a2d4d 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -19,6 +19,7 @@
+ #include "tilehighlight_func.h"
+ #include "viewport_func.h"
+ #include "zoom_func.h"
++#include "settings_type.h"
+ 
+ #include "widgets/build_confirmation_widget.h"
+ #include "build_confirmation_func.h"
+@@ -65,7 +66,7 @@ struct BuildConfirmationWindow : Window {
+ 	{
+ 		switch (widget) {
+ 			case WID_BC_OK:
+-				if (pt.y <= GetWidget<NWidgetViewport>(WID_BC_OK)->current_y / 2) {
++				if (pt.y <= (int)GetWidget<NWidgetViewport>(WID_BC_OK)->current_y / 2) {
+ 					ConfirmPlacingObject();
+ 					ToolbarSelectLastTool();
+ 				} else {
+@@ -128,6 +129,13 @@ static WindowDesc _build_confirmation_desc(
+ void ShowBuildConfirmationWindow()
+ {
+ 	HideBuildConfirmationWindow();
++
++	if (!_settings_client.gui.build_confirmation || _shift_pressed) {
++		ConfirmPlacingObject();
++		ToolbarSelectLastTool();
++		return;
++	}
++
+ 	BuildConfirmationWindow *w = new BuildConfirmationWindow(&_build_confirmation_desc);
+ 
+ 	int old_left = w->left;
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index fc221a60ba..24b5351816 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1218,6 +1218,8 @@ STR_CONFIG_SETTING_BUTTON_SIZE                                  :{BLACK}Button s
+ STR_CONFIG_SETTING_BUTTON_SIZE_TOOLTIP                          :{BLACK}Size of all user interface elements
+ STR_CONFIG_SETTING_FONT_SIZE                                    :{BLACK}Font size
+ STR_CONFIG_SETTING_FONT_SIZE_TOOLTIP                            :{BLACK}Size of all game fonts
++STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :{BLACK}Confirm actions
++STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :{BLACK}Show confirmation dialog when building roads and stations
+ STR_CONFIG_SETTING_SHOWFINANCES                                 :Show finances window at the end of the year: {STRING2}
+ STR_CONFIG_SETTING_SHOWFINANCES_HELPTEXT                        :If enabled, the finances window pops up at the end of each year to allow easy inspection of the financial status of the company
+ STR_CONFIG_SETTING_NONSTOP_BY_DEFAULT                           :New orders are 'non-stop' by default: {STRING2}
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index b9e7a94396..4be249c44e 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -476,6 +476,12 @@ struct GameOptionsWindow : Window {
+ 				ReconstructUserInterface();
+ 				break;
+ 
++			case WID_GO_BUILD_CONFIRMATION:
++				_settings_client.gui.build_confirmation = !_settings_client.gui.build_confirmation;
++				this->SetWidgetLoweredState(WID_GO_BUILD_CONFIRMATION, _settings_client.gui.build_confirmation);
++				this->SetDirty();
++				break;
++
+ 			default: {
+ 				int selected;
+ 				DropDownList *list = this->BuildDropDownList(widget, &selected);
+@@ -605,6 +611,7 @@ struct GameOptionsWindow : Window {
+ 		if (!gui_scope) return;
+ 		this->SetWidgetLoweredState(WID_GO_FULLSCREEN_BUTTON, _fullscreen);
+ 		this->SetWidgetLoweredState(WID_GO_VERTICAL_TOOLBAR, _settings_client.gui.vertical_toolbar);
++		this->SetWidgetLoweredState(WID_GO_BUILD_CONFIRMATION, _settings_client.gui.build_confirmation);
+ 
+ 		bool missing_files = BaseGraphics::GetUsedSet()->GetNumMissing() == 0;
+ 		this->GetWidget<NWidgetCore>(WID_GO_BASE_GRF_STATUS)->SetDataTip(missing_files ? STR_EMPTY : STR_GAME_OPTIONS_BASE_GRF_STATUS, STR_NULL);
+@@ -646,8 +653,10 @@ static const NWidgetPart _nested_game_options_widgets[] = {
+ 				EndContainer(),
+ 				NWidget(WWT_FRAME, COLOUR_GREY),
+ 					NWidget(NWID_HORIZONTAL),
+-						NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_VERTICAL_TOOLBAR, STR_NULL),
+-						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_VERTICAL_TOOLBAR), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT),
++						//NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_VERTICAL_TOOLBAR, STR_NULL),
++						//NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_VERTICAL_TOOLBAR), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT),
++						NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_BUILD_CONFIRMATION, STR_NULL),
++						NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_BUILD_CONFIRMATION), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT),
+ 					EndContainer(),
+ 				EndContainer(),
+ 			EndContainer(),
+diff --git a/src/settings_type.h b/src/settings_type.h
+index a02f067155..be4adf58bb 100644
+--- a/src/settings_type.h
++++ b/src/settings_type.h
+@@ -78,6 +78,7 @@ struct GUISettings {
+ 	uint8  order_review_system;              ///< perform order reviews on vehicles
+ 	bool   vehicle_income_warn;              ///< if a vehicle isn't generating income, show a warning
+ 	bool   vertical_toolbar;                 ///< main toolbar is split into two vertical toolbars
++	bool   build_confirmation;               ///< show confirmation dialog when building roads and stations
+ 	uint   min_button;                       ///< min size of most button widgets
+ 	uint   min_step;                         ///< min size of scrollbar/dropdown elements
+ 	bool   show_finances;                    ///< show finances at end of year
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index f82df7a343..617b990386 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2558,6 +2558,14 @@ strhelp  = STR_CONFIG_SETTING_VERTICAL_TOOLBAR_HELPTEXT
+ proc     = VerticalToolbarChanged
+ cat      = SC_BASIC
+ 
++[SDTC_BOOL]
++var      = gui.build_confirmation
++flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
++def      = true
++str      = STR_CONFIG_SETTING_BUILD_CONFIRMATION
++strhelp  = STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT
++cat      = SC_BASIC
++
+ [SDTC_BOOL]
+ var      = gui.show_finances
+ flags    = SLF_NOT_IN_SAVE | SLF_NO_NETWORK_SYNC
+diff --git a/src/widgets/settings_widget.h b/src/widgets/settings_widget.h
+index 9ebb514ab1..2bed4aeaf4 100644
+--- a/src/widgets/settings_widget.h
++++ b/src/widgets/settings_widget.h
+@@ -26,6 +26,7 @@ enum GameOptionsWidgets {
+ 	WID_GO_BUTTON_SIZE_DROPDOWN,   ///< Size of in-game UI elements, such as buttons.
+ 	WID_GO_TEXT_SIZE_DROPDOWN,     ///< Size of medium font, sizes of other fonts are derived from it.
+ 	WID_GO_VERTICAL_TOOLBAR,       ///< Enable vertical toolbar.
++	WID_GO_BUILD_CONFIRMATION,     ///< Enable build confirmation dialog.
+ 	WID_GO_GUI_ZOOM_DROPDOWN,      ///< Dropdown for the GUI zoom level.
+ 	WID_GO_BASE_GRF_DROPDOWN,      ///< Use to select a base GRF.
+ 	WID_GO_BASE_GRF_STATUS,        ///< Info about missing files etc.
+diff --git a/todo.txt b/todo.txt
+index 1f80e1ce21..1a5b163c55 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -3,6 +3,4 @@
+ 
+ - Subsidies list text too small.
+ 
+-- Hide all windows when building something, add Confirm/Cancel dialog.
+-
+ - Multiplayer client list is too small again.
+-- 
+2.55.0
+

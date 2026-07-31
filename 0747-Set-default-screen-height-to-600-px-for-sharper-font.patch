@@ -1,0 +1,26 @@
+From 320dc00056728b3d397b6a06c1a07fbff624fb9f Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 10 Dec 2021 22:46:51 +0200
+Subject: [PATCH 0747/1053] Set default screen height to 600 px for sharper
+ fonts
+
+---
+ src/table/settings/misc_settings.ini | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/table/settings/misc_settings.ini b/src/table/settings/misc_settings.ini
+index f375642a2a..03899d0123 100644
+--- a/src/table/settings/misc_settings.ini
++++ b/src/table/settings/misc_settings.ini
+@@ -155,7 +155,7 @@ name     = ""resolution""
+ type     = SLE_INT
+ length   = 2
+ var      = _cur_resolution
+-def      = ""1,480""
++def      = ""1,600""
+ cat      = SC_BASIC
+ 
+ [SDTG_SSTR]
+-- 
+2.55.0
+

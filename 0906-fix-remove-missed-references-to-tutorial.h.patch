@@ -1,0 +1,50 @@
+From ed0d50e43455f175b26942155c0a6d87be618387 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Wed, 10 Apr 2024 23:08:38 +0100
+Subject: [PATCH 0906/1053] fix: remove missed references to tutorial.h
+
+---
+ src/intro_gui.cpp   | 1 -
+ src/main_gui.cpp    | 1 -
+ src/toolbar_gui.cpp | 1 -
+ 3 files changed, 3 deletions(-)
+
+diff --git a/src/intro_gui.cpp b/src/intro_gui.cpp
+index 80d39ef157..e08de67a95 100644
+--- a/src/intro_gui.cpp
++++ b/src/intro_gui.cpp
+@@ -31,7 +31,6 @@
+ #include "rev.h"
+ #include "highscore.h"
+ #include "signs_base.h"
+-#include "tutorial_gui.h"
+ #include "viewport_func.h"
+ #include "vehicle_base.h"
+ #include <regex>
+diff --git a/src/main_gui.cpp b/src/main_gui.cpp
+index 42a27f03d3..7621f27094 100644
+--- a/src/main_gui.cpp
++++ b/src/main_gui.cpp
+@@ -32,7 +32,6 @@
+ #include "hotkeys.h"
+ #include "error.h"
+ #include "news_gui.h"
+-#include "tutorial_gui.h"
+ #include "gui.h"
+ #include "misc_cmd.h"
+ #include "timer/timer.h"
+diff --git a/src/toolbar_gui.cpp b/src/toolbar_gui.cpp
+index c302ad5b68..fe5889a0ce 100644
+--- a/src/toolbar_gui.cpp
++++ b/src/toolbar_gui.cpp
+@@ -49,7 +49,6 @@
+ #include "game/game.hpp"
+ #include "goal_base.h"
+ #include "story_base.h"
+-#include "tutorial_gui.h"
+ #include "toolbar_gui.h"
+ #include "framerate_type.h"
+ #include "screenshot_gui.h"
+-- 
+2.55.0
+

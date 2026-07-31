@@ -1,0 +1,72 @@
+From 595727c438c98e4f3774efeed1155c36cfa3bef4 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 4 Apr 2016 21:33:16 +0300
+Subject: [PATCH 0248/1053] Fix for vehicles unable to fully load
+
+---
+ src/core/enum_type.hpp | 13 -------------
+ src/economy.cpp        | 10 +++++++---
+ 2 files changed, 7 insertions(+), 16 deletions(-)
+
+diff --git a/src/core/enum_type.hpp b/src/core/enum_type.hpp
+index b5a12c4836..35a0cb2926 100644
+--- a/src/core/enum_type.hpp
++++ b/src/core/enum_type.hpp
+@@ -28,19 +28,6 @@
+ 	}
+ 
+ 
+-/** Some enums need to have cycling through values */
+-#define DECLARE_CYCLE(type, min_val, max_val) \
+-	inline type CycleUp(type e) \
+-	{ \
+-		assert(!((int)e < min_val || (int)e > max_val)); \
+-		return e == max_val ? (type)min_val : (type)((int)e + 1); \
+-	} \
+-	inline type CycleDown(type e) \
+-	{ \
+-		assert(!((int)e < min_val || (int)e > max_val)); \
+-		return e == min_val ? (type)max_val : (type)((int)e - 1); \
+-	}
+-
+ 
+ /** Operators to allow to work with enum as with type safe bit set in C++ */
+ # define DECLARE_ENUM_AS_BIT_SET(mask_t) \
+diff --git a/src/economy.cpp b/src/economy.cpp
+index 6281c08cdd..e1f110b70a 100644
+--- a/src/economy.cpp
++++ b/src/economy.cpp
+@@ -1637,7 +1637,7 @@ static void LoadUnloadVehicle(Vehicle *front)
+ 	CargoPayment *payment = front->cargo_payment;
+ 
+ 	uint artic_part = 0; // Articulated part we are currently trying to load. (not counting parts without capacity)
+-	for (Vehicle *v = front; v != NULL && payment != NULL; v = v->Next()) {
++	for (Vehicle *v = front; v != NULL; v = v->Next()) {
+ 		if (v == front || !v->Previous()->HasArticulatedPart()) artic_part = 0;
+ 		if (v->cargo_cap == 0) continue;
+ 		artic_part++;
+@@ -1651,7 +1651,9 @@ static void LoadUnloadVehicle(Vehicle *front)
+ 			uint amount_unloaded = _settings_game.order.gradual_loading ? min(cargo_count, load_amount) : cargo_count;
+ 			bool remaining = false; // Are there cargo entities in this vehicle that can still be unloaded here?
+ 
+-			payment->SetCargo(v->cargo_type);
++			if (payment != NULL) {
++				payment->SetCargo(v->cargo_type);
++			}
+ 
+ 			if (!HasBit(ge->status, GoodsEntry::GES_ACCEPTANCE) && v->cargo.ActionCount(VehicleCargoList::MTA_DELIVER) > 0) {
+ 				/* The station does not accept our goods anymore. */
+@@ -1690,7 +1692,9 @@ static void LoadUnloadVehicle(Vehicle *front)
+ 				}
+ 			}
+ 
+-			amount_unloaded = v->cargo.Unload(amount_unloaded, &ge->cargo, payment);
++			if (payment != NULL) {
++				amount_unloaded = v->cargo.Unload(amount_unloaded, &ge->cargo, payment);
++			}
+ 			remaining = v->cargo.UnloadCount() > 0;
+ 			if (amount_unloaded > 0) {
+ 				dirty_vehicle = true;
+-- 
+2.55.0
+

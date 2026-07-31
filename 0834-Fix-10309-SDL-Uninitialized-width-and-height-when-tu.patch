@@ -1,0 +1,32 @@
+From 88030d781ba6b0aea7c453b95fa4e9e04e983401 Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Sat, 7 Jan 2023 12:49:11 +0100
+Subject: [PATCH 0834/1053] Fix #10309: [SDL] Uninitialized width and height
+ when turning off full screen
+
+---
+ src/video/sdl2_v.cpp | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/src/video/sdl2_v.cpp b/src/video/sdl2_v.cpp
+index 5f6950a8e1..51c490d231 100644
+--- a/src/video/sdl2_v.cpp
++++ b/src/video/sdl2_v.cpp
+@@ -648,12 +648,11 @@ bool VideoDriver_SDL_Base::ChangeResolution(int w, int h)
+ 
+ bool VideoDriver_SDL_Base::ToggleFullscreen(bool fullscreen)
+ {
++	/* Remember current window size */
+ 	int w, h;
++	SDL_GetWindowSize(this->sdl_window, &w, &h);
+ 
+-	/* Remember current window size */
+ 	if (fullscreen) {
+-		SDL_GetWindowSize(this->sdl_window, &w, &h);
+-
+ 		/* Find fullscreen window size */
+ 		SDL_DisplayMode dm;
+ 		if (SDL_GetCurrentDisplayMode(0, &dm) < 0) {
+-- 
+2.55.0
+

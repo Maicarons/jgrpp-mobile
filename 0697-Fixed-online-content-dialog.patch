@@ -1,0 +1,36 @@
+From e485c7d38b2e9819fb23c1707a417b4f736550e2 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 11 May 2021 00:02:18 +0300
+Subject: [PATCH 0697/1053] Fixed online content dialog
+
+---
+ src/network/network_content_gui.cpp | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/network/network_content_gui.cpp b/src/network/network_content_gui.cpp
+index a4da317f0d..7bfbbb141d 100644
+--- a/src/network/network_content_gui.cpp
++++ b/src/network/network_content_gui.cpp
+@@ -565,7 +565,8 @@ public:
+ 				break;
+ 
+ 			case WID_NCL_CHECKBOX:
+-				size->width = GetMinButtonSize(this->checkbox_size.width) + WD_MATRIX_RIGHT + WD_MATRIX_LEFT;
++				size->width = this->checkbox_size.width + WD_MATRIX_RIGHT + WD_MATRIX_LEFT;
++				size->width = GetMinButtonSize(size->width);
+ 				break;
+ 
+ 			case WID_NCL_TYPE: {
+@@ -579,7 +580,8 @@ public:
+ 
+ 			case WID_NCL_MATRIX:
+ 				resize->height = std::max(this->checkbox_size.height, (uint)FONT_HEIGHT_NORMAL) + WD_MATRIX_TOP + WD_MATRIX_BOTTOM;
+-				size->height = 10 * resize->height;
++				resize->height = GetMinButtonSize(resize->height);
++				size->height = 5 * resize->height;
+ 				break;
+ 		}
+ 	}
+-- 
+2.55.0
+

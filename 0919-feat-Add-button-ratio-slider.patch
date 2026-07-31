@@ -1,0 +1,233 @@
+From 97ffd049d84d66f85a76830534a817172ec08b2b Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Tue, 4 Jun 2024 20:30:45 +0100
+Subject: [PATCH 0919/1053] feat: Add button ratio slider
+
+---
+ src/gfx.cpp                          |  7 ++-
+ src/settings_gui.cpp                 | 73 +++++++++++++++++-----------
+ src/table/settings/misc_settings.ini |  9 ++++
+ src/widget.cpp                       |  4 +-
+ src/widgets/settings_widget.h        |  1 +
+ src/zoom_type.h                      |  2 +
+ 6 files changed, 66 insertions(+), 30 deletions(-)
+
+diff --git a/src/gfx.cpp b/src/gfx.cpp
+index 5aac4b61db..0df20e5864 100644
+--- a/src/gfx.cpp
++++ b/src/gfx.cpp
+@@ -64,6 +64,8 @@ ZoomLevel _gui_zoom  = ZOOM_LVL_OUT_4X;     ///< GUI Zoom level
+ ZoomLevel _font_zoom = _gui_zoom;           ///< Sprite font Zoom level (not clamped)
+ int _gui_scale       = MIN_INTERFACE_SCALE; ///< GUI scale, 100 is 100%.
+ int _gui_scale_cfg;                         ///< GUI scale in config.
++int _button_ratio = MIN_INTERFACE_SCALE;    ///< Button ratio
++int _button_ratio_cfg;                      ///< Button ratio in config
+ 
+ /**
+  * The rect for repaint.
+@@ -1792,6 +1794,8 @@ void UpdateGUIZoom()
+ 		_gui_scale = Clamp(_gui_scale_cfg, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
+ 	}
+ 
++	_button_ratio = Clamp(_button_ratio_cfg, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
++
+ 	int8_t new_zoom = ScaleGUITrad(1) <= 1 ? ZOOM_LVL_OUT_4X : ScaleGUITrad(1) >= 4 ? ZOOM_LVL_MIN : ZOOM_LVL_OUT_2X;
+ 	/* Font glyphs should not be clamped to min/max zoom. */
+ 	_font_zoom = static_cast<ZoomLevel>(new_zoom);
+@@ -1811,8 +1815,9 @@ bool AdjustGUIZoom(bool automatic)
+ 	ZoomLevel old_gui_zoom = _gui_zoom;
+ 	ZoomLevel old_font_zoom = _font_zoom;
+ 	int old_scale = _gui_scale;
++	int old_ratio = _button_ratio;
+ 	UpdateGUIZoom();
+-	if (old_scale == _gui_scale && old_gui_zoom == _gui_zoom) return false;
++	if (old_scale == _gui_scale && old_gui_zoom == _gui_zoom && old_ratio == _button_ratio) return false;
+ 
+ 	/* Update cursors if sprite zoom level has changed. */
+ 	if (old_gui_zoom != _gui_zoom) {
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index 92b42f1dab..03cb015ed5 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -377,6 +377,7 @@ struct GameOptionsWindow : Window {
+ 	GameSettings *opt;
+ 	bool reload;
+ 	int gui_scale;
++	int button_ratio;
+ 	static inline WidgetID active_tab = WID_GO_TAB_GENERAL;
+ 
+ 	GameOptionsWindow(WindowDesc *desc) : Window(desc)
+@@ -384,6 +385,7 @@ struct GameOptionsWindow : Window {
+ 		this->opt = &GetGameSettings();
+ 		this->reload = false;
+ 		this->gui_scale = _gui_scale;
++		this->button_ratio = _button_ratio;
+ 
+ 		AddCustomRefreshRates();
+ 
+@@ -587,6 +589,10 @@ struct GameOptionsWindow : Window {
+ 				DrawSliderWidget(r, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, this->gui_scale, _scale_labels);
+ 				break;
+ 
++			case WID_GO_GUI_BUTTON_RATIO:
++				DrawSliderWidget(r, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, this->button_ratio, _scale_labels);
++				break;
++
+ 			case WID_GO_VIDEO_DRIVER_INFO:
+ 				SetDParamStr(0, VideoDriver::GetInstance()->GetInfoString());
+ 				DrawStringMultiLine(r, STR_GAME_OPTIONS_VIDEO_DRIVER_INFO);
+@@ -834,6 +840,15 @@ struct GameOptionsWindow : Window {
+ 				if (click_count > 0) this->mouse_capture_widget = widget;
+ 				break;
+ 
++			case WID_GO_GUI_BUTTON_RATIO:
++				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, this->button_ratio)) {
++					if (!_ctrl_pressed) this->button_ratio = ((this->button_ratio + 12) / 25) * 25;
++					this->SetWidgetDirty(widget);
++				}
++
++				if (click_count > 0) this->mouse_capture_widget = widget;
++				break;
++
+ 			case WID_GO_GUI_SCALE_AUTO:
+ 			{
+ 				if (_gui_scale_cfg == -1) {
+@@ -918,9 +933,10 @@ struct GameOptionsWindow : Window {
+ 
+ 	void OnMouseLoop() override
+ 	{
+-		if (_left_button_down || this->gui_scale == _gui_scale) return;
++		if (_left_button_down || (this->gui_scale == _gui_scale && this->button_ratio == _button_ratio)) return;
+ 
+ 		_gui_scale_cfg = this->gui_scale;
++		_button_ratio_cfg = this->button_ratio;
+ 
+ 		if (AdjustGUIZoom(false)) {
+ 			ReInitAllWindows(true);
+@@ -1084,35 +1100,36 @@ static constexpr NWidgetPart _nested_game_options_widgets[] = {
+ 			/* Interface tab */
+ 			NWidget(NWID_VERTICAL), SetPadding(WidgetDimensions::unscaled.sparse), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0),
+ 				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_GAME_OPTIONS_GUI_SCALE_FRAME, STR_NULL),
+-					NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+-						NWidget(WWT_EMPTY, COLOUR_GREY, WID_GO_GUI_SCALE), SetMinimalSize(67, 0), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(0, 0), SetDataTip(0x0, STR_GAME_OPTIONS_GUI_SCALE_TOOLTIP),
+-						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-							NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_SCALE_AUTO, STR_NULL),
+-							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_SCALE_AUTO), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_SCALE_AUTO_TOOLTIP),
+-						EndContainer(),
+-						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-							NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_SCALE_BEVELS, STR_NULL),
+-							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_SCALE_BEVEL_BUTTON), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP),
+-						EndContainer(),
++					NWidget(WWT_EMPTY, COLOUR_GREY, WID_GO_GUI_SCALE), SetMinimalSize(67, 0), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(0, 0), SetDataTip(0x0, STR_GAME_OPTIONS_GUI_SCALE_TOOLTIP),
++				EndContainer(),
++				NWidget(WWT_FRAME, COLOUR_GREY), SetDataTip(STR_CONFIG_SETTING_BUTTON_SIZE, STR_NULL),
++					NWidget(WWT_EMPTY, COLOUR_GREY, WID_GO_GUI_BUTTON_RATIO), SetMinimalSize(67, 0), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(0, 0), SetDataTip(0x0, STR_NULL),
++				EndContainer(),
++				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_SCALE_AUTO, STR_NULL),
++					NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_SCALE_AUTO), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_SCALE_AUTO_TOOLTIP),
++				EndContainer(),
++				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_SCALE_BEVELS, STR_NULL),
++					NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_SCALE_BEVEL_BUTTON), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP),
++				EndContainer(),
+ #ifdef HAS_TRUETYPE_FONT
+-						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-							NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_FONT_SPRITE, STR_NULL),
+-							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_FONT_SPRITE), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP),
+-						EndContainer(),
+-						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-							NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_FONT_AA, STR_NULL),
+-							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_FONT_AA), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP),
+-						EndContainer(),
++				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_FONT_SPRITE, STR_NULL),
++					NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_FONT_SPRITE), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP),
++				EndContainer(),
++				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_GAME_OPTIONS_GUI_FONT_AA, STR_NULL),
++					NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_GUI_FONT_AA), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP),
++				EndContainer(),
+ #endif /* HAS_TRUETYPE_FONT */
+-						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-							NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_MOUSE_CURSOR, STR_NULL),
+-							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_MOUSE_CURSOR), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_MOUSE_CURSOR_HELPTEXT),
+-						EndContainer(),
+-						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+-							NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_WINDOWS_TITLEBARS, STR_NULL),
+-							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_WINDOWS_TITLEBARS), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT),
+-						EndContainer(),
+-					EndContainer(),
++				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_MOUSE_CURSOR, STR_NULL),
++					NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_MOUSE_CURSOR), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_MOUSE_CURSOR_HELPTEXT),
++				EndContainer(),
++				NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
++					NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(0, 12), SetFill(1, 0), SetDataTip(STR_CONFIG_SETTING_WINDOWS_TITLEBARS, STR_NULL),
++					NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_GO_WINDOWS_TITLEBARS), SetMinimalSize(21, 9), SetDataTip(STR_EMPTY, STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT),
+ 				EndContainer(),
+ 			EndContainer(),
+ 
+diff --git a/src/table/settings/misc_settings.ini b/src/table/settings/misc_settings.ini
+index b0b5c91a94..7710fc9805 100644
+--- a/src/table/settings/misc_settings.ini
++++ b/src/table/settings/misc_settings.ini
+@@ -359,6 +359,15 @@ min      = -1
+ max      = MAX_INTERFACE_SCALE
+ cat      = SC_BASIC
+ 
++[SDTG_VAR]
++name     = ""button_ratio""
++type     = SLE_INT32
++var      = _button_ratio_cfg
++def      = 100
++min      = 100
++max      = MAX_INTERFACE_SCALE
++cat      = SC_BASIC
++
+ [SDTG_BOOL]
+ ifdef    = WITH_COCOA
+ name     = ""allow_hidpi""
+diff --git a/src/widget.cpp b/src/widget.cpp
+index fcdb8eeb7b..1c07c28b58 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -3570,7 +3570,9 @@ std::unique_ptr<NWidgetBase> MakeCompanyButtonRows(WidgetID widget_first, Widget
+  */
+ uint32_t GetMinButtonSize(uint32_t min_1)
+ {
+-	uint32_t min_sizing = _gui_scale / 4;
++	if (_button_ratio_cfg == 0) _button_ratio_cfg = 25;
++
++	uint32_t min_sizing = 0.25 * _gui_scale + 0.25 * _button_ratio_cfg;
+ 
+ 	return std::max(min_sizing, min_1);
+ }
+diff --git a/src/widgets/settings_widget.h b/src/widgets/settings_widget.h
+index 3cda132a74..038481eabe 100644
+--- a/src/widgets/settings_widget.h
++++ b/src/widgets/settings_widget.h
+@@ -32,6 +32,7 @@ enum GameOptionsWidgets : WidgetID {
+ 	WID_GO_MOUSE_CURSOR,           ///< Show mouse cursor.
+ 	WID_GO_GUI_SCALE,              ///< GUI Scale slider.
+ 	WID_GO_GUI_SCALE_AUTO,         ///< Autodetect GUI scale button.
++	WID_GO_GUI_BUTTON_RATIO,       ///< Button ratio
+ 	WID_GO_GUI_SCALE_BEVEL_BUTTON, ///< Toggle for chunky bevels.
+ 	WID_GO_GUI_FONT_SPRITE,        ///< Toggle whether to prefer the sprite font over TTF fonts.
+ 	WID_GO_GUI_FONT_AA,            ///< Toggle whether to anti-alias fonts.
+diff --git a/src/zoom_type.h b/src/zoom_type.h
+index bc6d58d8be..db20658808 100644
+--- a/src/zoom_type.h
++++ b/src/zoom_type.h
+@@ -49,6 +49,8 @@ DECLARE_ENUM_AS_ADDABLE(ZoomLevel)
+ 
+ extern int _gui_scale;
+ extern int _gui_scale_cfg;
++extern int _button_ratio;
++extern int _button_ratio_cfg;
+ 
+ extern ZoomLevel _gui_zoom;
+ extern ZoomLevel _font_zoom;
+-- 
+2.55.0
+

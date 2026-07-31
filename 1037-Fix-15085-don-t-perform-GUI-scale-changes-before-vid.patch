@@ -1,0 +1,26 @@
+From ebec0b37a1a6fc19fa8dbc1b01b3da395fbb2d3b Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Tue, 27 Jan 2026 21:07:18 +0000
+Subject: [PATCH 1037/1053] Fix #15085: don't perform GUI scale changes before
+ video driver is fully initialised (#15175)
+
+---
+ src/gfx.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/gfx.cpp b/src/gfx.cpp
+index 9d05ce8d86..2cae30cf0e 100644
+--- a/src/gfx.cpp
++++ b/src/gfx.cpp
+@@ -1817,6 +1817,8 @@ void UpdateGUIZoom()
+  */
+ bool AdjustGUIZoom(bool automatic)
+ {
++	if (VideoDriver::GetInstance() == nullptr) return false;
++
+ 	ZoomLevel old_gui_zoom = _gui_zoom;
+ 	ZoomLevel old_font_zoom = _font_zoom;
+ 	int old_scale = _gui_scale;
+-- 
+2.55.0
+

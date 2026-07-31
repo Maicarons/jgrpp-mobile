@@ -1,0 +1,26 @@
+From e34ff278d4732c00d5c3eec2be3f8355682eb9a6 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 7 May 2021 02:17:27 +0300
+Subject: [PATCH 0688/1053] Disabled on-screen keyboard in default config, we
+ have native text input
+
+---
+ src/table/settings.ini | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/table/settings.ini b/src/table/settings.ini
+index 2cb0488bb5..ae9b08824f 100644
+--- a/src/table/settings.ini
++++ b/src/table/settings.ini
+@@ -2846,7 +2846,7 @@ strhelp  = STR_CONFIG_SETTING_OSK_ACTIVATION_HELPTEXT
+ strval   = STR_CONFIG_SETTING_OSK_ACTIVATION_DISABLED
+ guiflags = SGF_MULTISTRING
+ full     = _osk_activation
+-def      = 1
++def      = 0
+ min      = 0
+ max      = 3
+ cat      = SC_BASIC
+-- 
+2.55.0
+

@@ -1,0 +1,104 @@
+From 38e93182c5ff741d4817f74b023bb6edb326d73d Mon Sep 17 00:00:00 2001
+From: peter1138 <peter1138@openttd.org>
+Date: Sun, 10 Mar 2019 17:45:15 +0000
+Subject: [PATCH 0462/1053] Fix e66cec8f86: Permit loading of industry
+ production callback with invalid cargo type.
+
+It is only an error if the invalid result is actually used. This will be silently ignored at the moment.
+It is still an error if a duplicate cargo type is returned.
+---
+ src/lang/english.txt      |  3 ++-
+ src/newgrf.cpp            | 12 ++++++++++--
+ src/newgrf_industries.cpp | 11 +++++++++++
+ src/newgrf_spritegroup.h  |  2 +-
+ 4 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 6c482f053f..b4688d5e27 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -2999,7 +2999,7 @@ STR_NEWGRF_ERROR_GRM_FAILED                                     :Requested GRF r
+ STR_NEWGRF_ERROR_FORCEFULLY_DISABLED                            :{1:RAW_STRING} was disabled by {2:RAW_STRING}
+ STR_NEWGRF_ERROR_INVALID_SPRITE_LAYOUT                          :Invalid/unknown sprite layout format (sprite {3:NUM})
+ STR_NEWGRF_ERROR_LIST_PROPERTY_TOO_LONG                         :Too many elements in property value list (sprite {3:NUM}, property {4:HEX})
+-STR_NEWGRF_ERROR_INDPROD_CALLBACK                               :Invalid industry production callback (sprite {3:NUM}, "{1:RAW_STRING}")
++STR_NEWGRF_ERROR_INDPROD_CALLBACK                               :Invalid industry production callback (sprite {3:NUM}, "{2:RAW_STRING}")
+ 
+ # NewGRF related 'general' warnings
+ STR_NEWGRF_POPUP_CAUTION_CAPTION                                :{WHITE}Caution!
+@@ -3031,6 +3031,7 @@ STR_NEWGRF_BUGGY                                                :{WHITE}NewGRF '
+ STR_NEWGRF_BUGGY_ARTICULATED_CARGO                              :{WHITE}Cargo/refit information for '{1:ENGINE}' differs from purchase list after construction. This might cause autorenew/-replace to fail refitting correctly
+ STR_NEWGRF_BUGGY_ENDLESS_PRODUCTION_CALLBACK                    :{WHITE}'{1:STRING}' caused an endless loop in the production callback
+ STR_NEWGRF_BUGGY_UNKNOWN_CALLBACK_RESULT                        :{WHITE}Callback {1:HEX} returned unknown/invalid result {2:HEX}
++STR_NEWGRF_BUGGY_INVALID_CARGO_PRODUCTION_CALLBACK              :{WHITE}'{1:STRING}' returned invalid cargo type in the production callback at {2:HEX}
+ 
+ # 'User removed essential NewGRFs'-placeholders for stuff without specs
+ STR_NEWGRF_INVALID_CARGO                                        :<invalid cargo>
+diff --git a/src/newgrf.cpp b/src/newgrf.cpp
+index ff10287981..13d1377d07 100644
+--- a/src/newgrf.cpp
++++ b/src/newgrf.cpp
+@@ -5005,7 +5005,12 @@ static void NewSpriteGroup(ByteReader *buf)
+ 						for (uint i = 0; i < group->num_input; i++) {
+ 							byte rawcargo = buf->ReadByte();
+ 							CargoID cargo = GetCargoTranslation(rawcargo, _cur.grffile);
+-							if (std::find(group->cargo_input, group->cargo_input + i, cargo) != group->cargo_input + i) {
++							if (cargo == CT_INVALID) {
++								/* The mapped cargo is invalid. This is permitted at this point,
++								 * as long as the result is not used. Mark it invalid so this
++								 * can be tested later. */
++								group->version = 0xFF;
++							} else if (std::find(group->cargo_input, group->cargo_input + i, cargo) != group->cargo_input + i) {
+ 								GRFError *error = DisableGrf(STR_NEWGRF_ERROR_INDPROD_CALLBACK);
+ 								error->data = stredup("duplicate input cargo");
+ 								return;
+@@ -5022,7 +5027,10 @@ static void NewSpriteGroup(ByteReader *buf)
+ 						for (uint i = 0; i < group->num_output; i++) {
+ 							byte rawcargo = buf->ReadByte();
+ 							CargoID cargo = GetCargoTranslation(rawcargo, _cur.grffile);
+-							if (std::find(group->cargo_output, group->cargo_output + i, cargo) != group->cargo_output + i) {
++							if (cargo == CT_INVALID) {
++								/* Mark this result as invalid to use */
++								group->version = 0xFF;
++							} else if (std::find(group->cargo_output, group->cargo_output + i, cargo) != group->cargo_output + i) {
+ 								GRFError *error = DisableGrf(STR_NEWGRF_ERROR_INDPROD_CALLBACK);
+ 								error->data = stredup("duplicate output cargo");
+ 								return;
+diff --git a/src/newgrf_industries.cpp b/src/newgrf_industries.cpp
+index de388c0234..980059cabb 100644
+--- a/src/newgrf_industries.cpp
++++ b/src/newgrf_industries.cpp
+@@ -605,6 +605,17 @@ void IndustryProductionCallback(Industry *ind, int reason)
+ 		if (tgroup == NULL || tgroup->type != SGT_INDUSTRY_PRODUCTION) break;
+ 		const IndustryProductionSpriteGroup *group = (const IndustryProductionSpriteGroup *)tgroup;
+ 
++		if (group->version == 0xFF) {
++			/* Result was marked invalid on load, display error message */
++			SetDParamStr(0, spec->grf_prop.grffile->filename);
++			SetDParam(1, spec->name);
++			SetDParam(2, ind->location.tile);
++			ShowErrorMessage(STR_NEWGRF_BUGGY, STR_NEWGRF_BUGGY_INVALID_CARGO_PRODUCTION_CALLBACK, WL_WARNING);
++
++			/* abort the function early, this error isn't critical and will allow the game to continue to run */
++			break;
++		}
++
+ 		bool deref = (group->version >= 1);
+ 
+ 		if (group->version < 2) {
+diff --git a/src/newgrf_spritegroup.h b/src/newgrf_spritegroup.h
+index 6f038fd138..2db78f6bad 100644
+--- a/src/newgrf_spritegroup.h
++++ b/src/newgrf_spritegroup.h
+@@ -277,7 +277,7 @@ struct TileLayoutSpriteGroup : SpriteGroup {
+ struct IndustryProductionSpriteGroup : SpriteGroup {
+ 	IndustryProductionSpriteGroup() : SpriteGroup(SGT_INDUSTRY_PRODUCTION) {}
+ 
+-	uint8 version;
++	uint8 version;                              ///< Production callback version used, or 0xFF if marked invalid
+ 	uint8 num_input;                            ///< How many subtract_input values are valid
+ 	int16 subtract_input[INDUSTRY_NUM_INPUTS];  ///< Take this much of the input cargo (can be negative, is indirect in cb version 1+)
+ 	CargoID cargo_input[INDUSTRY_NUM_INPUTS];   ///< Which input cargoes to take from (only cb version 2)
+-- 
+2.55.0
+

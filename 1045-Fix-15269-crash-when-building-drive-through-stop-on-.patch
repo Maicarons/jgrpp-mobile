@@ -1,0 +1,27 @@
+From 613aba0667a41ae410fe8ba145bd4c77e7a5b191 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Fri, 13 Feb 2026 22:20:55 +0000
+Subject: [PATCH 1045/1053] Fix #15269: crash when building drive-through stop
+ on unowned one-way road (#15270)
+
+Allow over-building drive-through roadstops on unowned one-way roads.
+---
+ src/station_cmd.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/station_cmd.cpp b/src/station_cmd.cpp
+index 351f10dfbe..d754b2f60a 100644
+--- a/src/station_cmd.cpp
++++ b/src/station_cmd.cpp
+@@ -1140,7 +1140,7 @@ static CommandCost CheckFlatLandRoadStop(TileIndex cur_tile, int &allowed_z, con
+ 
+ 				if (rt != INVALID_ROADTYPE && RoadTypeIsRoad(rt) && !HasPowerOnRoad(rt, road_rt)) return CommandCost(STR_ERROR_NO_SUITABLE_ROAD);
+ 
+-				if (GetDisallowedRoadDirections(cur_tile) != DRD_NONE && road_owner != OWNER_TOWN) {
++				if (GetDisallowedRoadDirections(cur_tile) != DRD_NONE && road_owner != OWNER_TOWN && road_owner != OWNER_NONE) {
+ 					ret = CheckOwnership(road_owner);
+ 					if (ret.Failed()) return ret;
+ 				}
+-- 
+2.55.0
+

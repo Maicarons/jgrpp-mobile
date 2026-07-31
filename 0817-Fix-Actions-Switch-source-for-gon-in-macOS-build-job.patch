@@ -1,0 +1,28 @@
+From 7d26f4c4348280a472abeebdc9f06a9c6e39114e Mon Sep 17 00:00:00 2001
+From: Owen Rudge <owen@owenrudge.net>
+Date: Mon, 28 Mar 2022 11:56:19 +0100
+Subject: [PATCH 0817/1053] Fix: [Actions] Switch source for 'gon' in macOS
+ build job
+
+---
+ .github/workflows/release.yml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index fd6a8d8fa1..dff88bdb77 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -619,8 +619,8 @@ jobs:
+         HOMEBREW_NO_AUTO_UPDATE: 1
+         HOMEBREW_NO_INSTALL_CLEANUP: 1
+       run: |
+-        brew tap mitchellh/gon
+-        brew install mitchellh/gon/gon
++        brew tap mistydemeo/gon
++        brew install mistydemeo/gon/gon
+ 
+     - name: Notarize
+       env:
+-- 
+2.55.0
+

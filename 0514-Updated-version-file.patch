@@ -1,0 +1,19 @@
+From b9c85ff3a647b32b5c76bef8ad744a13b17ae006 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 9 Jul 2019 18:08:46 +0300
+Subject: [PATCH 0514/1053] Updated version file
+
+---
+ .ottdrev | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.ottdrev b/.ottdrev
+index 4bfa84ecdd..966fcb80c8 100644
+--- a/.ottdrev
++++ b/.ottdrev
+@@ -1 +1 @@
+-1.9.1	20190408	0	b61ef7e0d2e11e6f8fa963c9459e918b24afc8b5	1	1
++1.9.2	20190707	0	a82f21f24df9f42aea38af9fb48da553b30432f4	1	1
+-- 
+2.55.0
+

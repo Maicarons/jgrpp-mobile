@@ -1,0 +1,39 @@
+From 5bfff40f5e8d00bfa9aa6febff3afe66acd9e9ad Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 25 Apr 2019 23:44:20 +0300
+Subject: [PATCH 0508/1053] Increased video resolutions list size to 100
+
+---
+ src/driver.cpp             | 2 +-
+ src/video/video_driver.hpp | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/driver.cpp b/src/driver.cpp
+index 825c489b97..b8c075f427 100644
+--- a/src/driver.cpp
++++ b/src/driver.cpp
+@@ -20,7 +20,7 @@
+ 
+ char *_ini_videodriver;     ///< The video driver a stored in the configuration file.
+ int _num_resolutions;       ///< The number of resolutions.
+-Dimension _resolutions[32]; ///< List of resolutions.
++Dimension _resolutions[100]; ///< List of resolutions.
+ Dimension _cur_resolution;  ///< The current resolution.
+ bool _rightclick_emulate;   ///< Whether right clicking is emulated.
+ 
+diff --git a/src/video/video_driver.hpp b/src/video/video_driver.hpp
+index 5cb3c6cc3f..e8d2f3ea32 100644
+--- a/src/video/video_driver.hpp
++++ b/src/video/video_driver.hpp
+@@ -102,7 +102,7 @@ public:
+ 
+ extern char *_ini_videodriver;
+ extern int _num_resolutions;
+-extern Dimension _resolutions[32];
++extern Dimension _resolutions[100];
+ extern Dimension _cur_resolution;
+ extern bool _rightclick_emulate;
+ 
+-- 
+2.55.0
+

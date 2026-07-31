@@ -1,0 +1,29 @@
+From 1b0f8fe2e40f7aa0943ded06a37dc30d0d21f432 Mon Sep 17 00:00:00 2001
+From: Patric Stout <truebrain@openttd.org>
+Date: Sun, 17 Oct 2021 21:59:50 +0200
+Subject: [PATCH 0613/1053] Fix 3046a6ce: [Preview] building preview failed to
+ patch LZMA (#9620)
+
+The job was started under a non-priv user, which did not have
+permission to patch the emscripten files required to make LZMA
+work.
+---
+ .github/workflows/preview_build.yml | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/.github/workflows/preview_build.yml b/.github/workflows/preview_build.yml
+index ad254a4939..d539611b4e 100644
+--- a/.github/workflows/preview_build.yml
++++ b/.github/workflows/preview_build.yml
+@@ -13,8 +13,6 @@ jobs:
+     container:
+       # If you change this version, change the number in the cache step too.
+       image: emscripten/emsdk:2.0.31
+-      # uid=1001(runner) gid=121(docker)
+-      options: -u 1001:121
+ 
+     steps:
+     - name: Update deployment status to in progress
+-- 
+2.55.0
+

@@ -1,0 +1,58 @@
+From cd0032e33dd1069a8d5a5ee8c6f294f42998282a Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 2 Apr 2017 23:39:38 +0300
+Subject: [PATCH 0392/1053] Fixed minimap. That's good enough for release
+
+---
+ src/window.cpp | 9 +++++++--
+ todo.txt       | 2 --
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/src/window.cpp b/src/window.cpp
+index 61a349aed9..d4dcbb6a62 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -680,7 +680,10 @@ static void DispatchLeftClickEvent(Window *w, int x, int y, int click_count, boo
+ 		focused_widget_changed |= w->SetFocusedWidget(widget_index);
+ 	}
+ 
++	Point pt = { x, y };
++
+ 	if (!_settings_client.gui.windows_titlebars && mouse_down) {
++		// TODO: this should be handled inside window or widget methods, not here
+ 		if (widget_type == NWID_VSCROLLBAR || widget_type == NWID_HSCROLLBAR) {
+ 			ScrollbarClickHandler(w, nw, x, y);
+ 			_dragging_widget = true;
+@@ -689,6 +692,10 @@ static void DispatchLeftClickEvent(Window *w, int x, int y, int click_count, boo
+ 			StartWindowSizing(w, (int)nw->pos_x < (w->width / 2));
+ 			nw->SetDirty(w);
+ 		}
++		if (w->window_class == WC_SMALLMAP && widget_index == WID_SM_MAP) {
++			w->OnClick(pt, widget_index, click_count);
++			_dragging_widget = true;
++		}
+ 		return;
+ 	}
+ 
+@@ -698,8 +705,6 @@ static void DispatchLeftClickEvent(Window *w, int x, int y, int click_count, boo
+ 
+ 	if ((widget_type & ~WWB_PUSHBUTTON) < WWT_LAST && (widget_type & WWB_PUSHBUTTON)) w->HandleButtonClick(widget_index);
+ 
+-	Point pt = { x, y };
+-
+ 	switch (widget_type) {
+ 		case NWID_VSCROLLBAR:
+ 		case NWID_HSCROLLBAR:
+diff --git a/todo.txt b/todo.txt
+index 1a05a2f2f6..371c173a05 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -13,5 +13,3 @@
+ 
+ - Draggable combo boxes.
+ 
+-- Cannot scroll minimap.
+-
+-- 
+2.55.0
+

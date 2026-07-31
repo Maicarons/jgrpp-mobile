@@ -1,0 +1,23 @@
+From 306bf73bbf99e94e12034be114e36c79025237d1 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 23 Jan 2021 00:17:32 +0200
+Subject: [PATCH 0558/1053] Updated todo
+
+---
+ todo.txt | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 2354521100..c86b9df8c9 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -6,3 +6,6 @@
+ - Create auto-save when the app is put to background, and load it on the next start.
+ 
+ - Two-finger cancel action does not work when confirmation dialog is disabled.
++
++- Mouse wheel does not work for Bluetooth mouse.
++
+-- 
+2.55.0
+

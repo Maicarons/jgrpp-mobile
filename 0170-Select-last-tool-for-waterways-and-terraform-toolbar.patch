@@ -1,0 +1,56 @@
+From 60f12ed588fc9b965c4cd261ed9ff1492381cbf0 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 14 Nov 2014 20:56:06 +0200
+Subject: [PATCH 0170/1053] Select last tool for waterways and terraform
+ toolbars
+
+---
+ src/dock_gui.cpp      | 10 ++++++++++
+ src/terraform_gui.cpp | 10 ++++++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/src/dock_gui.cpp b/src/dock_gui.cpp
+index a12c5e0d10..4704b060cd 100644
+--- a/src/dock_gui.cpp
++++ b/src/dock_gui.cpp
+@@ -284,6 +284,16 @@ struct BuildDocksToolbarWindow : Window {
+ 		DeleteWindowByClass(WC_BUILD_BRIDGE);
+ 	}
+ 
++	virtual void SelectLastTool()
++	{
++		// User misplaced something - activate last selected tool again
++		if (this->last_clicked_widget == WIDGET_LIST_END)
++			return;
++		Point dummy = {0, 0};
++		this->RaiseWidget(this->last_clicked_widget);
++		this->OnClick(dummy, this->last_clicked_widget, 0);
++	}
++
+ 	virtual void OnPlacePresize(Point pt, TileIndex tile_from)
+ 	{
+ 		if (!IsValidTile(tile_from)) return;
+diff --git a/src/terraform_gui.cpp b/src/terraform_gui.cpp
+index db8bf210c3..0b7d4a415a 100644
+--- a/src/terraform_gui.cpp
++++ b/src/terraform_gui.cpp
+@@ -293,6 +293,16 @@ struct TerraformToolbarWindow : Window {
+ 		ResetObjectToPlace();
+ 	}
+ 
++	virtual void SelectLastTool()
++	{
++		// User misplaced something - activate last selected tool again
++		if (this->last_user_action == WIDGET_LIST_END)
++			return;
++		Point dummy = {0, 0};
++		this->RaiseWidget(this->last_user_action);
++		this->OnClick(dummy, this->last_user_action, 0);
++	}
++
+ 	static HotkeyList hotkeys;
+ };
+ 
+-- 
+2.55.0
+

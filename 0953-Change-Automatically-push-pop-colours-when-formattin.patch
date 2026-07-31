@@ -1,0 +1,122 @@
+From d04225a2fb461ad898deb4cc1e4534d32e5f036b Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Fri, 19 Dec 2025 20:17:58 +0000
+Subject: [PATCH 0953/1053] Change: Automatically push/pop colours when
+ formatting a sub-string. (#14006)
+
+Reverts 226a44bf86.
+
+This universally prevents the sub-string from changing colours in the outer string.
+---
+ src/lang/english.txt | 18 +++++++++---------
+ src/strings.cpp      | 27 +++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+), 9 deletions(-)
+
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index cc2f54e2a2..f98a663c2f 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1248,7 +1248,7 @@ STR_CONFIG_SETTING_EXPAND_ALL                                   :Expand all
+ STR_CONFIG_SETTING_COLLAPSE_ALL                                 :Collapse all
+ STR_CONFIG_SETTING_RESET_ALL                                    :Reset all values
+ STR_CONFIG_SETTING_NO_EXPLANATION_AVAILABLE_HELPTEXT            :(no explanation available)
+-STR_CONFIG_SETTING_VALUE                                        :{PUSH_COLOUR}{ORANGE}{STRING1}{POP_COLOUR}
++STR_CONFIG_SETTING_VALUE                                        :{ORANGE}{STRING1}
+ STR_CONFIG_SETTING_DEFAULT_VALUE                                :{LTBLUE}Default value: {ORANGE}{STRING1}
+ STR_CONFIG_SETTING_TYPE                                         :{LTBLUE}Setting type: {ORANGE}{STRING}
+ STR_CONFIG_SETTING_TYPE_CLIENT                                  :Client setting (not stored in saves; affects all games)
+@@ -3656,17 +3656,17 @@ STR_NEWGRF_LIST_COMPATIBLE                                      :{YELLOW}Found c
+ STR_NEWGRF_LIST_MISSING                                         :{RED}Missing files
+ 
+ # NewGRF 'it's broken' warnings
+-STR_NEWGRF_BROKEN                                               :{WHITE}Behaviour of NewGRF '{PUSH_COLOUR}{0:RAW_STRING}{POP_COLOUR}' is likely to cause desyncs and/or crashes
+-STR_NEWGRF_BROKEN_POWERED_WAGON                                 :{WHITE}It changed powered-wagon state for '{PUSH_COLOUR}{1:ENGINE}{POP_COLOUR}' when not inside a depot
+-STR_NEWGRF_BROKEN_VEHICLE_LENGTH                                :{WHITE}It changed vehicle length for '{PUSH_COLOUR}{1:ENGINE}{POP_COLOUR}' when not inside a depot
+-STR_NEWGRF_BROKEN_CAPACITY                                      :{WHITE}It changed vehicle capacity for '{PUSH_COLOUR}{1:ENGINE}{POP_COLOUR}' when not inside a depot or refitting
++STR_NEWGRF_BROKEN                                               :{WHITE}Behaviour of NewGRF '{0:RAW_STRING}' is likely to cause desyncs and/or crashes
++STR_NEWGRF_BROKEN_POWERED_WAGON                                 :{WHITE}It changed powered-wagon state for '{1:ENGINE}' when not inside a depot
++STR_NEWGRF_BROKEN_VEHICLE_LENGTH                                :{WHITE}It changed vehicle length for '{1:ENGINE}' when not inside a depot
++STR_NEWGRF_BROKEN_CAPACITY                                      :{WHITE}It changed vehicle capacity for '{1:ENGINE}' when not inside a depot or refitting
+ STR_BROKEN_VEHICLE_LENGTH                                       :{WHITE}Train '{VEHICLE}' belonging to '{COMPANY}' has invalid length. It is probably caused by problems with NewGRFs. Game may desync or crash
+ 
+-STR_NEWGRF_BUGGY                                                :{WHITE}NewGRF '{PUSH_COLOUR}{0:RAW_STRING}{POP_COLOUR}' provides incorrect information
+-STR_NEWGRF_BUGGY_ARTICULATED_CARGO                              :{WHITE}Cargo/refit information for '{PUSH_COLOUR}{1:ENGINE}{POP_COLOUR}' differs from purchase list after construction. This might cause autorenew/-replace to fail refitting correctly
+-STR_NEWGRF_BUGGY_ENDLESS_PRODUCTION_CALLBACK                    :{WHITE}'{PUSH_COLOUR}{1:STRING}{POP_COLOUR}' caused an endless loop in the production callback
++STR_NEWGRF_BUGGY                                                :{WHITE}NewGRF '{0:RAW_STRING}' provides incorrect information
++STR_NEWGRF_BUGGY_ARTICULATED_CARGO                              :{WHITE}Cargo/refit information for '{1:ENGINE}' differs from purchase list after construction. This might cause autorenew/-replace to fail refitting correctly
++STR_NEWGRF_BUGGY_ENDLESS_PRODUCTION_CALLBACK                    :{WHITE}'{1:STRING}' caused an endless loop in the production callback
+ STR_NEWGRF_BUGGY_UNKNOWN_CALLBACK_RESULT                        :{WHITE}Callback {1:HEX} returned unknown/invalid result {2:HEX}
+-STR_NEWGRF_BUGGY_INVALID_CARGO_PRODUCTION_CALLBACK              :{WHITE}'{PUSH_COLOUR}{1:STRING}{POP_COLOUR}' returned invalid cargo type in the production callback at {2:HEX}
++STR_NEWGRF_BUGGY_INVALID_CARGO_PRODUCTION_CALLBACK              :{WHITE}'{1:STRING}' returned invalid cargo type in the production callback at {2:HEX}
+ 
+ # 'User removed essential NewGRFs'-placeholders for stuff without specs
+ STR_NEWGRF_INVALID_CARGO                                        :<invalid cargo>
+diff --git a/src/strings.cpp b/src/strings.cpp
+index 47c8cc3203..955b5bd0fe 100644
+--- a/src/strings.cpp
++++ b/src/strings.cpp
+@@ -1073,6 +1073,27 @@ static void DecodeEncodedString(StringConsumer &consumer, bool game_script, Stri
+ 	GetStringWithArgs(builder, stringid, sub_args, true);
+ }
+ 
++/**
++ * Test if a string contains colour codes, and is not wrapped by push/pop codes.
++ * @param buffer String to test.
++ * @return True iff the string is colour safe.
++ */
++static bool IsColourSafe(std::string_view buffer)
++{
++	int safety = 0;
++	for (char32_t ch : Utf8View(buffer)) {
++		if (ch == SCC_PUSH_COLOUR) {
++			++safety;
++		} else if (ch == SCC_POP_COLOUR) {
++			--safety;
++			if (safety < 0) return false;
++		} else if ((ch >= SCC_BLUE && ch <= SCC_BLACK) || ch == SCC_COLOUR) {
++			if (safety == 0) return false;
++		}
++	}
++	return true;
++}
++
+ /**
+  * Parse most format codes within a string and write the result to a buffer.
+  * @param builder The string builder to write the final string to.
+@@ -1083,6 +1104,7 @@ static void DecodeEncodedString(StringConsumer &consumer, bool game_script, Stri
+ static void FormatString(StringBuilder &builder, std::string_view str_arg, StringParameters &args, uint orig_case_index, bool game_script, bool dry_run)
+ {
+ 	size_t orig_first_param_offset = args.GetOffset();
++	bool emit_automatic_push_pop = false;
+ 
+ 	if (!dry_run) {
+ 		/*
+@@ -1096,6 +1118,7 @@ static void FormatString(StringBuilder &builder, std::string_view str_arg, Strin
+ 		std::string buffer;
+ 		StringBuilder dry_run_builder(buffer);
+ 		FormatString(dry_run_builder, str_arg, args, orig_case_index, game_script, true);
++		emit_automatic_push_pop = !IsColourSafe(buffer);
+ 		/* We have to restore the original offset here to to read the correct values. */
+ 		args.SetOffset(orig_first_param_offset);
+ 	}
+@@ -1112,6 +1135,8 @@ static void FormatString(StringBuilder &builder, std::string_view str_arg, Strin
+ 	std::stack<StrStackItem, std::vector<StrStackItem>> str_stack;
+ 	str_stack.emplace(str_arg, orig_first_param_offset, orig_case_index);
+ 
++	if (emit_automatic_push_pop) builder.PutUtf8(SCC_PUSH_COLOUR);
++
+ 	for (;;) {
+ 		try {
+ 			while (!str_stack.empty() && !str_stack.top().consumer.AnyBytesLeft()) {
+@@ -1839,6 +1864,8 @@ static void FormatString(StringBuilder &builder, std::string_view str_arg, Strin
+ 			builder += "(invalid parameter)";
+ 		}
+ 	}
++
++	if (emit_automatic_push_pop) builder.PutUtf8(SCC_POP_COLOUR);
+ }
+ 
+ 
+-- 
+2.55.0
+

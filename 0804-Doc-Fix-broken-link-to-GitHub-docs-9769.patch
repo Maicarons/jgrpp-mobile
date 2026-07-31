@@ -1,0 +1,39 @@
+From 429a356e4e1c8018b43f5bca820ebc640cf41b19 Mon Sep 17 00:00:00 2001
+From: Tyler Trahan <tyler@tylertrahan.com>
+Date: Wed, 5 Jan 2022 05:23:16 -0700
+Subject: [PATCH 0804/1053] Doc: Fix broken link to GitHub docs (#9769)
+
+---
+ CONTRIBUTING.md | 2 +-
+ README.md       | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 1ad85d0918..b0c5b7ec30 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -137,7 +137,7 @@ git checkout upstream/master -b <topic-branch-name>
+ ```
+ 
+ 4. Commit your changes in logical chunks. Please adhere to these [git commit message guidelines](https://wiki.openttd.org/en/Development/Coding%20style#commit-message) or your code is unlikely to be merged into the main project.
+-Use Git's [interactive rebase](https://help.github.com/articles/interactive-rebase) feature to tidy up your commits before making them public.
++Use Git's [interactive rebase](https://docs.github.com/en/get-started/using-git/about-git-rebase) feature to tidy up your commits before making them public.
+ 
+ 5. Locally rebase the upstream development branch into your topic branch:
+ 
+diff --git a/README.md b/README.md
+index 8fc534dcfa..311f9e0ed0 100644
+--- a/README.md
++++ b/README.md
+@@ -163,7 +163,7 @@ If you want to compile OpenTTD from source, instructions can be found in [COMPIL
+ 
+ - [OpenTTD website](https://www.openttd.org)
+ - IRC chat using #openttd on irc.oftc.net [more info about our irc channel](https://wiki.openttd.org/en/Development/IRC%20channel)
+-- [OpenTTD on Github](https://github.com/openTTD/) for code repositories and for reporting issues
++- [OpenTTD on Github](https://github.com/OpenTTD/) for code repositories and for reporting issues
+ - [forum.openttd.org](https://forum.openttd.org/) - the primary community forum site for discussing OpenTTD and related games
+ - [OpenTTD wiki](https://wiki.openttd.org/) community-maintained wiki, including topics like gameplay guide, detailed explanation of some game mechanics, how to use add-on content (mods) and much more
+ 
+-- 
+2.55.0
+

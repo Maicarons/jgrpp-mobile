@@ -1,0 +1,22 @@
+From 2e4592bd1c4fa3f58e2cd5556e9cea956af6ba41 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 11 May 2021 00:06:33 +0300
+Subject: [PATCH 0700/1053] Updated todo
+
+---
+ todo.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 897024b0f7..fc027a0c8b 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -39,3 +39,5 @@
+ - Implement cloud saves by downloading the savegame from the web browser.
+ 
+ - Find some developer with a MacBook and $100 to publish the 'OpenTTD Webapp Launcher' to the Apple Store.
++
++- Fast forward button requires separate rendering thread, implement frameskip instead.
+-- 
+2.55.0
+

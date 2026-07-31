@@ -1,0 +1,46 @@
+From 909414616d41dc93e506f1abcb107653f741991f Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 25 Sep 2017 20:22:48 +0300
+Subject: [PATCH 0438/1053] Fixed Group GUI
+
+---
+ src/group_gui.cpp | 10 ++--------
+ todo.txt          |  2 --
+ 2 files changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/src/group_gui.cpp b/src/group_gui.cpp
+index cff38b0f46..5bb5fd23b5 100644
+--- a/src/group_gui.cpp
++++ b/src/group_gui.cpp
+@@ -364,16 +364,10 @@ public:
+ 				resize->height = this->tiny_step_height;
+ 
+ 				/* Minimum height is the height of the list widget minus all and default vehicles... */
+-				size->height =  4 * GetVehicleListHeight(this->vli.vtype, this->tiny_step_height) - 2 * this->tiny_step_height;
+-
+-				/* ... minus the buttons at the bottom ... */
+-				uint max_icon_height = GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_CREATE_GROUP)->widget_data).height;
+-				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_RENAME_GROUP)->widget_data).height);
+-				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_DELETE_GROUP)->widget_data).height);
+-				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_REPLACE_PROTECTION)->widget_data).height);
++				size->height = (this->vli.vtype >= VEH_SHIP ? 3.5 : 7) * GetVehicleListHeight(this->vli.vtype, this->tiny_step_height) - 2 * this->tiny_step_height;
+ 
+ 				/* Get a multiple of tiny_step_height of that amount */
+-				size->height = Ceil(size->height - max_icon_height, tiny_step_height);
++				size->height = Ceil(size->height, tiny_step_height);
+ 				break;
+ 			}
+ 
+diff --git a/todo.txt b/todo.txt
+index a54aa2215c..6d53214c0c 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -10,5 +10,3 @@
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), TODO: it's broken in SDL.
+ 
+ - Draggable combo boxes.
+-
+-- Group GUI is broken - Android patch did not apply.
+-- 
+2.55.0
+

@@ -1,0 +1,37 @@
+From 4ad85e0fe63de946ced9b761711528499c8372ae Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Fri, 12 Dec 2025 09:24:16 +0000
+Subject: [PATCH 0938/1053] Fix: Graph label allocated size could be too small.
+ (#14901)
+
+Set initial size based on what could be displayed, instead of what is displayed right now.
+---
+ src/graph_gui.cpp | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
+
+diff --git a/src/graph_gui.cpp b/src/graph_gui.cpp
+index 35bcf33871..35205f56a6 100644
+--- a/src/graph_gui.cpp
++++ b/src/graph_gui.cpp
+@@ -677,16 +677,9 @@ public:
+ 
+ 				/* Draw x-axis labels and markings for graphs based on financial quarters and years.  */
+ 				if (this->draw_dates) {
+-					TimerGameEconomy::Month month = this->month;
+-					TimerGameEconomy::Year year = this->year;
+-					for (int i = 0; i < this->num_on_x_axis; i++) {
++					uint year = GetParamMaxValue(this->year.base(), 4, FS_SMALL);
++					for (uint month = 0; month < 12; ++month) {
+ 						x_label_width = std::max(x_label_width, GetStringBoundingBox(GetString(month == 0 ? STR_GRAPH_X_LABEL_MONTH_YEAR : STR_GRAPH_X_LABEL_MONTH, STR_MONTH_ABBREV_JAN + month, year)).width);
+-
+-						month += this->month_increment;
+-						if (month >= 12) {
+-							month = 0;
+-							year++;
+-						}
+ 					}
+ 				} else {
+ 					/* Draw x-axis labels for graphs not based on quarterly performance (cargo payment rates). */
+-- 
+2.55.0
+

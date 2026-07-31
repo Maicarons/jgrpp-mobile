@@ -1,0 +1,36 @@
+From 9500f8d92ac4db1da4f8e1696e4f4cb604717975 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Tue, 14 Apr 2015 13:04:40 +0300
+Subject: [PATCH 0206/1053] Set default min size for all widgets
+
+Conflicts:
+	src/widget.cpp
+---
+ src/widget.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/widget.cpp b/src/widget.cpp
+index e4045d79f9..954d410a76 100644
+--- a/src/widget.cpp
++++ b/src/widget.cpp
+@@ -2117,7 +2117,7 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 		case WWT_CAPTION:
+ 			this->SetFill(1, 0);
+ 			this->SetResize(1, 0);
+-			this->min_y = WD_CAPTION_HEIGHT;
++			//this->min_y = WD_CAPTION_HEIGHT;
+ 			this->SetDataTip(data, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS);
+ 			break;
+ 
+@@ -2159,7 +2159,7 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, int index, uint32 data,
+ 
+ 		case WWT_DROPDOWN:
+ 			this->SetFill(0, 0);
+-			this->min_y = WD_DROPDOWN_HEIGHT;
++			//this->min_y = WD_DROPDOWN_HEIGHT;
+ 			break;
+ 
+ 		default:
+-- 
+2.55.0
+

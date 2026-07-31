@@ -1,0 +1,117 @@
+From 753f7e769af5ee03e62c80890e3639b304af9dbc Mon Sep 17 00:00:00 2001
+From: SamuXarick <43006711+SamuXarick@users.noreply.github.com>
+Date: Thu, 8 Jan 2026 22:06:57 +0000
+Subject: [PATCH 0999/1053] Fix: [Script] Retarget iterators on list swap
+ (#14805)
+
+Fix script list sorter to correctly retarget iterator when swapping lists.
+Each sorter implementation now updates its internal iterator to remain valid after attaching to a new list, avoiding undefined behaviour.
+---
+ src/script/api/script_list.cpp | 52 +++++++++++++++++++++++++++++++---
+ 1 file changed, 48 insertions(+), 4 deletions(-)
+
+diff --git a/src/script/api/script_list.cpp b/src/script/api/script_list.cpp
+index 378b4117b0..968be137c5 100644
+--- a/src/script/api/script_list.cpp
++++ b/src/script/api/script_list.cpp
+@@ -34,6 +34,11 @@ protected:
+ 	 */
+ 	virtual void FindNext() = 0;
+ 
++	/**
++	 * Retarget sorter internal iterator after retargeting the list.
++	 */
++	virtual void RetargetIterator() = 0;
++
+ public:
+ 	/**
+ 	 * Virtual dtor, needed to mute warnings.
+@@ -87,14 +92,15 @@ public:
+ 	}
+ 
+ 	/**
+-	 * Attach the sorter to a new list. This assumes the content of the old list has been moved to
+-	 * the new list, too, so that we don't have to invalidate any iterators. Note that std::swap
+-	 * doesn't invalidate iterators on lists and maps, so that should be safe.
+-	 * @param new_list New list to attach to.
++	 * Attach the sorter to a new list and update internal iterator so it remains valid
++	 * in the context of the new list. This assumes the content of the old list has been
++	 * moved to the new list.
++	 * @param new_list New list to attach to and update internal iterator.
+ 	 */
+ 	void Retarget(const ScriptList *new_list)
+ 	{
+ 		this->list = new_list;
++		this->RetargetIterator();
+ 	}
+ };
+ 
+@@ -138,6 +144,16 @@ public:
+ 		++this->value_iter;
+ 		if (this->value_iter != this->list->values.end()) this->item_next = this->value_iter->second;
+ 	}
++
++	void RetargetIterator() override
++	{
++		if (this->item_next.has_value()) {
++			auto item_iter = this->list->items.find(this->item_next.value());
++			this->value_iter = this->list->values.find({item_iter->second, this->item_next.value()});
++		} else {
++			this->value_iter = this->list->values.end();
++		}
++	}
+ };
+ 
+ /**
+@@ -189,6 +205,16 @@ public:
+ 		}
+ 		if (this->value_iter != this->list->values.end()) this->item_next = this->value_iter->second;
+ 	}
++
++	void RetargetIterator() override
++	{
++		if (this->item_next.has_value()) {
++			auto item_iter = this->list->items.find(this->item_next.value());
++			this->value_iter = this->list->values.find({item_iter->second, this->item_next.value()});
++		} else {
++			this->value_iter = this->list->values.end();
++		}
++	}
+ };
+ 
+ /**
+@@ -231,6 +257,15 @@ public:
+ 		++this->item_iter;
+ 		if (this->item_iter != this->list->items.end()) this->item_next = this->item_iter->first;
+ 	}
++
++	void RetargetIterator() override
++	{
++		if (this->item_next.has_value()) {
++			this->item_iter = this->list->items.find(this->item_next.value());
++		} else {
++			this->item_iter = this->list->items.end();
++		}
++	}
+ };
+ 
+ /**
+@@ -282,6 +317,15 @@ public:
+ 		}
+ 		if (this->item_iter != this->list->items.end()) this->item_next = this->item_iter->first;
+ 	}
++
++	void RetargetIterator() override
++	{
++		if (this->item_next.has_value()) {
++			this->item_iter = this->list->items.find(this->item_next.value());
++		} else {
++			this->item_iter = this->list->items.end();
++		}
++	}
+ };
+ 
+ 
+-- 
+2.55.0
+

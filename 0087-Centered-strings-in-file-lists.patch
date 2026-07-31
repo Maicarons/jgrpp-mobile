@@ -1,0 +1,25 @@
+From 390776ea07679e5c971ce6ed7ce5bdeb6b102255 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 19 Mar 2014 22:32:19 +0200
+Subject: [PATCH 0087/1053] Centered strings in file lists
+
+---
+ src/fios_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index c8a0d64867..ced9e722d8 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -355,7 +355,7 @@ public:
+ 			case WID_SL_DRIVES_DIRECTORIES_LIST: {
+ 				GfxFillRect(r.left + 1, r.top + 1, r.right, r.bottom, PC_BLACK);
+ 
+-				uint y = r.top + WD_FRAMERECT_TOP;
++				uint y = r.top + WD_FRAMERECT_TOP + this->resize.step_height / 2;
+ 				for (uint pos = this->vscroll->GetPosition(); pos < _fios_items.Length(); pos++) {
+ 					const FiosItem *item = _fios_items.Get(pos);
+ 
+-- 
+2.55.0
+

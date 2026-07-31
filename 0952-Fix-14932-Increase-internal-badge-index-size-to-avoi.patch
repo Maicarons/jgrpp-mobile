@@ -1,0 +1,28 @@
+From 65902d4abe118eab9f7ba97b762594b3ef25659f Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Fri, 19 Dec 2025 18:13:59 +0000
+Subject: [PATCH 0952/1053] Fix #14932: Increase internal badge index size to
+ avoid overflowing BadgeIDs. (#14933)
+
+---
+ src/newgrf_badge_type.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/newgrf_badge_type.h b/src/newgrf_badge_type.h
+index aff2a47857..d12d5fd041 100644
+--- a/src/newgrf_badge_type.h
++++ b/src/newgrf_badge_type.h
+@@ -13,8 +13,8 @@
+ #include "core/enum_type.hpp"
+ #include "core/strong_typedef_type.hpp"
+ 
+-using BadgeID = StrongType::Typedef<uint16_t, struct BadgeIDTag, StrongType::Compare>;
+-using BadgeClassID = StrongType::Typedef<uint16_t, struct BadgeClassIDTag, StrongType::Compare>;
++using BadgeID = StrongType::Typedef<uint32_t, struct BadgeIDTag, StrongType::Compare>;
++using BadgeClassID = StrongType::Typedef<uint32_t, struct BadgeClassIDTag, StrongType::Compare>;
+ 
+ template <> struct std::hash<BadgeClassID> {
+ 	std::size_t operator()(const BadgeClassID &badge_class_index) const noexcept
+-- 
+2.55.0
+

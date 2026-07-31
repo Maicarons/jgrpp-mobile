@@ -1,0 +1,37 @@
+From 0e4eb0fc4141d063c68f92e4ec873e7b3dbe34b8 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 21 Feb 2022 01:22:37 +0200
+Subject: [PATCH 0792/1053] CI: install autoconf for Emscripten
+
+---
+ .github/workflows/ci-build.yml | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index 3f234ea954..61f844fc6e 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -23,6 +23,20 @@ jobs:
+     - name: Checkout
+       uses: actions/checkout@v2
+ 
++    - name: Install dependencies
++      run: |
++        echo "::group::Update apt"
++        sudo apt-get update
++        echo "::endgroup::"
++
++        echo "::group::Install dependencies"
++        sudo apt-get install -y --no-install-recommends \
++          autoconf \
++          automake \
++          libtool \
++          # EOF
++        echo "::endgroup::"
++
+     - name: Setup cache
+       uses: actions/cache@v2
+       with:
+-- 
+2.55.0
+

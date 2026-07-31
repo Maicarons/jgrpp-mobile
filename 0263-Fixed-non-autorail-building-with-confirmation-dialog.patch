@@ -1,0 +1,93 @@
+From 8a27d0bb1ed0ed5c45416d67ef85f9df0aaf4995 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 11 Apr 2016 00:34:01 +0300
+Subject: [PATCH 0263/1053] Fixed non-autorail building with confirmation
+ dialog, UI is still slightly broken
+
+---
+ src/build_confirmation_gui.cpp | 14 +++++++++++---
+ src/viewport.cpp               |  5 +++--
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 5a514a2d4d..b111a152ee 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -33,10 +33,16 @@
+ struct BuildConfirmationWindow : Window {
+ 
+ 	// TODO: show estimated price
+-	static bool shown; // Just to speed up window hiding, HideBuildConfirmationWindow() is called very often
++	static bool shown;   ///< Just to speed up window hiding, HideBuildConfirmationWindow() is called very often.
++	Point selstart;      ///< The selection start on the viewport.
++	Point selend;        ///< The selection end on the viewport.
+ 
+ 	BuildConfirmationWindow(WindowDesc *desc) : Window(desc)
+ 	{
++		// Save tile selection points, they will be reset by subsequent code, and we must keep them
++		selstart = _thd.selstart;
++		selend = _thd.selend;
++
+ 		this->InitNested(0);
+ 
+ 		Point pt;
+@@ -67,6 +73,8 @@ struct BuildConfirmationWindow : Window {
+ 		switch (widget) {
+ 			case WID_BC_OK:
+ 				if (pt.y <= (int)GetWidget<NWidgetViewport>(WID_BC_OK)->current_y / 2) {
++					_thd.selstart = selstart;
++					_thd.selend = selend;
+ 					ConfirmPlacingObject();
+ 					ToolbarSelectLastTool();
+ 				} else {
+@@ -91,8 +99,8 @@ struct BuildConfirmationWindow : Window {
+ 	{
+ 		this->DrawWidgets();
+ 
+-		DrawButtonFrame(0, 0, this->width, this->height / 2 - 1, STR_BUTTON_OK);
+-		DrawButtonFrame(0, this->height / 2, this->width, this->height / 2, STR_BUTTON_CANCEL);
++		DrawButtonFrame(0, 0, this->width - 1, this->height / 2 - 2, STR_BUTTON_OK);
++		DrawButtonFrame(0, this->height / 2, this->width - 1, this->height / 2 - 1, STR_BUTTON_CANCEL);
+ 	}
+ 
+ 	void DrawButtonFrame(int x, int y, int w, int h, int str)
+diff --git a/src/viewport.cpp b/src/viewport.cpp
+index b67f794051..5cd2cb155a 100644
+--- a/src/viewport.cpp
++++ b/src/viewport.cpp
+@@ -3149,6 +3149,8 @@ EventState VpHandlePlaceSizingDrag()
+ 		return ES_HANDLED;
+ 	}
+ 
++	ShowBuildConfirmationWindow(); // This will also remember tile selection, so it's okay for the4 code below
++
+ 	/* mouse button released..
+ 	 * keep the selected tool, but reset it to the original mode. */
+ 	_special_mouse_mode = WSM_NONE;
+@@ -3167,7 +3169,6 @@ EventState VpHandlePlaceSizingDrag()
+ 	SetTileSelectSize(1, 1);
+ 
+ place_mouseup:
+-	ShowBuildConfirmationWindow();
+ 	return ES_HANDLED;
+ }
+ 
+@@ -3176,7 +3177,6 @@ void ConfirmPlacingObject()
+ 	Window *w = _thd.GetCallbackWnd();
+ 	if (w == NULL) ResetObjectToPlace();
+ 
+-
+ 	w->OnPlaceMouseUp(_thd.select_method, _thd.select_proc, _thd.selend, TileVirtXY(_thd.selstart.x, _thd.selstart.y), TileVirtXY(_thd.selend.x, _thd.selend.y));
+ }
+ 
+@@ -3257,6 +3257,7 @@ void ResetObjectToPlace()
+ 		_last_selected_window_number = _thd.window_number;
+ 	}
+ 	SetObjectToPlace(SPR_CURSOR_MOUSE, PAL_NONE, HT_NONE, WC_MAIN_WINDOW, 0);
++	HideBuildConfirmationWindow();
+ 	MoveAllHiddenWindowsBackToScreen();
+ }
+ 
+-- 
+2.55.0
+

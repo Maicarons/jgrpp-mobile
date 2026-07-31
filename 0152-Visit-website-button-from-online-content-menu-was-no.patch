@@ -1,0 +1,41 @@
+From 21e577c7d4a65b7a1502a7ee54c0909509db3b22 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 20 Jul 2014 00:05:53 +0300
+Subject: [PATCH 0152/1053] 'Visit website' button from online content menu was
+ not working
+
+---
+ src/os/unix/unix.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/os/unix/unix.cpp b/src/os/unix/unix.cpp
+index ac1d406d0c..596a0e6746 100644
+--- a/src/os/unix/unix.cpp
++++ b/src/os/unix/unix.cpp
+@@ -372,10 +372,23 @@ void OSOpenBrowser(const char *url)
+ 	pid_t child_pid = fork();
+ 	if (child_pid != 0) return;
+ 
++#ifdef __ANDROID__
++	const char *args[9];
++	args[0] = "/system/bin/am";
++	args[1] = "start";
++	args[2] = "-a";
++	args[3] = "android.intent.action.VIEW";
++	args[4] = "--user";
++	args[5] = "0";
++	args[6] = "-d";
++	args[7] = url;
++	args[8] = NULL;
++#else
+ 	const char *args[3];
+ 	args[0] = "/usr/bin/xdg-open";
+ 	args[1] = url;
+ 	args[2] = NULL;
++#endif
+ 	execv(args[0], const_cast<char * const *>(args));
+ 	DEBUG(misc, 0, "Failed to open url: %s", url);
+ 	exit(0);
+-- 
+2.55.0
+

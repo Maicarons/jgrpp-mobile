@@ -1,0 +1,25 @@
+From 6b231fdd7002c9adc91d9ee736cf963c69f8949d Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 22 Feb 2022 00:34:42 +0200
+Subject: [PATCH 0794/1053] CI: cache Emscripten libraries
+
+---
+ .github/workflows/ci-build.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.github/workflows/ci-build.yml b/.github/workflows/ci-build.yml
+index 179e6ef16b..0db7ebdcba 100644
+--- a/.github/workflows/ci-build.yml
++++ b/.github/workflows/ci-build.yml
+@@ -50,7 +50,7 @@ jobs:
+       run: |
+         mkdir -p release-wasm
+         cd os/emscripten
+-        ./emscripten-build.sh release `pwd`/../../release-wasm
++        #./emscripten-build.sh release `pwd`/../../release-wasm
+ 
+   linux:
+     name: Linux
+-- 
+2.55.0
+

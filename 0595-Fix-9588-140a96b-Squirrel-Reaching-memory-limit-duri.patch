@@ -1,0 +1,92 @@
+From 9c1f2b384bde70e39ed3e94fe107b4e0bc00a5b7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Sat, 2 Oct 2021 15:13:58 +0200
+Subject: [PATCH 0595/1053] Fix #9588, 140a96b: [Squirrel] Reaching memory
+ limit during script registration could prevent further script detections
+ (#9589)
+
+Also the memory allocation triggering the limit was never freed.
+And if the exception was thrown in a constructor using placement new, the pre-allocated memory was not freed either.
+---
+ src/3rdparty/squirrel/squirrel/sqobject.h | 18 ++++++++++++++++++
+ src/script/squirrel.cpp                   | 14 +++++++++++++-
+ 2 files changed, 31 insertions(+), 1 deletion(-)
+
+diff --git a/src/3rdparty/squirrel/squirrel/sqobject.h b/src/3rdparty/squirrel/squirrel/sqobject.h
+index 129674b5a6..77d09301c6 100644
+--- a/src/3rdparty/squirrel/squirrel/sqobject.h
++++ b/src/3rdparty/squirrel/squirrel/sqobject.h
+@@ -62,6 +62,24 @@ struct SQRefCounted
+ 	SQUnsignedInteger _uiRef;
+ 	struct SQWeakRef *_weakref;
+ 	virtual void Release()=0;
++
++	/* Placement new/delete to prevent memory leaks if constructor throws an exception. */
++	inline void *operator new(size_t size, SQRefCounted *place)
++	{
++		place->size = size;
++		return place;
++	}
++
++	inline void operator delete(void *ptr, SQRefCounted *place)
++	{
++		SQ_FREE(ptr, place->size);
++	}
++
++	/* Never used but required. */
++	inline void operator delete(void *ptr) { NOT_REACHED(); }
++
++private:
++	size_t size;
+ };
+ 
+ struct SQWeakRef : SQRefCounted
+diff --git a/src/script/squirrel.cpp b/src/script/squirrel.cpp
+index 6489c87371..8d2aa3b783 100644
+--- a/src/script/squirrel.cpp
++++ b/src/script/squirrel.cpp
+@@ -67,7 +67,7 @@ struct ScriptAllocator {
+ 	 * @param requested_size The requested size that was requested to be allocated.
+ 	 * @param p              The pointer to the allocated object, or null if allocation failed.
+ 	 */
+-	void CheckAllocation(size_t requested_size, const void *p)
++	void CheckAllocation(size_t requested_size, void *p)
+ 	{
+ 		if (this->allocated_size > this->allocation_limit && !this->error_thrown) {
+ 			/* Do not allow allocating more than the allocation limit, except when an error is
+@@ -77,6 +77,11 @@ struct ScriptAllocator {
+ 			char buff[128];
+ 			seprintf(buff, lastof(buff), "Maximum memory allocation exceeded by " PRINTF_SIZE " bytes when allocating " PRINTF_SIZE " bytes",
+ 				this->allocated_size - this->allocation_limit, requested_size);
++			/* Don't leak the rejected allocation. */
++			free(p);
++			p = nullptr;
++			/* Allocation rejected, don't count it. */
++			this->allocated_size -= requested_size;
+ 			throw Script_FatalError(buff);
+ 		}
+ 
+@@ -93,6 +98,8 @@ struct ScriptAllocator {
+ 			this->error_thrown = true;
+ 			char buff[64];
+ 			seprintf(buff, lastof(buff), "Out of memory. Cannot allocate " PRINTF_SIZE " bytes", requested_size);
++			/* Allocation failed, don't count it. */
++			this->allocated_size -= requested_size;
+ 			throw Script_FatalError(buff);
+ 		}
+ 	}
+@@ -757,6 +764,11 @@ void Squirrel::Uninitialize()
+ 	/* Clean up the stuff */
+ 	sq_pop(this->vm, 1);
+ 	sq_close(this->vm);
++
++	assert(this->allocator->allocated_size == 0);
++
++	/* Reset memory allocation errors. */
++	this->allocator->error_thrown = false;
+ }
+ 
+ void Squirrel::Reset()
+-- 
+2.55.0
+

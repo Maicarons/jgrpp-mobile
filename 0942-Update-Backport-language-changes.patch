@@ -1,0 +1,1841 @@
+From 9062d25456b0c969db39f2719a0cd08791b539b1 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Sat, 13 Dec 2025 11:19:43 +0000
+Subject: [PATCH 0942/1053] Update: Backport language changes
+
+---
+ src/lang/brazilian_portuguese.txt |  17 +--
+ src/lang/catalan.txt              |   2 -
+ src/lang/danish.txt               |  45 +++++--
+ src/lang/english_AU.txt           |   5 +-
+ src/lang/english_US.txt           |   5 +-
+ src/lang/finnish.txt              |  13 +-
+ src/lang/greek.txt                |   5 +-
+ src/lang/hebrew.txt               |  48 ++++++-
+ src/lang/hungarian.txt            |   3 +
+ src/lang/korean.txt               |   3 +
+ src/lang/norwegian_bokmal.txt     |   3 +
+ src/lang/polish.txt               |  15 ++-
+ src/lang/portuguese.txt           | 119 ++++++++---------
+ src/lang/russian.txt              |   7 +-
+ src/lang/simplified_chinese.txt   |   3 +
+ src/lang/swedish.txt              |  13 +-
+ src/lang/traditional_chinese.txt  |   7 +-
+ src/lang/turkish.txt              | 207 +++++++++++++++++++++++++-----
+ 18 files changed, 378 insertions(+), 142 deletions(-)
+
+diff --git a/src/lang/brazilian_portuguese.txt b/src/lang/brazilian_portuguese.txt
+index 17b6085590..51c7b7891e 100644
+--- a/src/lang/brazilian_portuguese.txt
++++ b/src/lang/brazilian_portuguese.txt
+@@ -219,15 +219,15 @@ STR_UNITS_VELOCITY_GAMEUNITS_SEC                                :{DECIMAL}{NBSP}
+ STR_UNITS_VELOCITY_KNOTS                                        :{DECIMAL}{NBSP}nós
+ 
+ STR_UNITS_POWER_IMPERIAL                                        :{DECIMAL}{NBSP}hp
+-STR_UNITS_POWER_METRIC                                          :{DECIMAL}{NBSP}hp
++STR_UNITS_POWER_METRIC                                          :{DECIMAL}{NBSP}cv
+ STR_UNITS_POWER_SI                                              :{DECIMAL}{NBSP}kW
+ 
+ STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_IMPERIAL                     :{DECIMAL}{NBSP}hp/t
+ STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_METRIC                       :{DECIMAL}{NBSP}hp/t
+-STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_SI                           :{DECIMAL}{NBSP}hp/t
+-STR_UNITS_POWER_METRIC_TO_WEIGHT_IMPERIAL                       :{DECIMAL}{NBSP}hp/t
+-STR_UNITS_POWER_METRIC_TO_WEIGHT_METRIC                         :{DECIMAL}{NBSP}hp/t
+-STR_UNITS_POWER_METRIC_TO_WEIGHT_SI                             :{DECIMAL}{NBSP}hp/t
++STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_SI                           :{DECIMAL}{NBSP}hp/Mg
++STR_UNITS_POWER_METRIC_TO_WEIGHT_IMPERIAL                       :{DECIMAL}{NBSP}cv/t
++STR_UNITS_POWER_METRIC_TO_WEIGHT_METRIC                         :{DECIMAL}{NBSP}cv/t
++STR_UNITS_POWER_METRIC_TO_WEIGHT_SI                             :{DECIMAL}{NBSP}cv/Mg
+ STR_UNITS_POWER_SI_TO_WEIGHT_IMPERIAL                           :{DECIMAL}{NBSP}kW/t
+ STR_UNITS_POWER_SI_TO_WEIGHT_METRIC                             :{DECIMAL}{NBSP}kW/t
+ STR_UNITS_POWER_SI_TO_WEIGHT_SI                                 :{DECIMAL}{NBSP}W/kg
+@@ -1091,8 +1091,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marque esta cai
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Usar a fonte fixa tradicional
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Marque esta caixa se preferir usar o tipo de fonte tradicional de tamanho fixo
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Usar fonte padrão
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Marque esta opção para usar a fonte padrão em vez das fontes alternativas encontradas no sistema
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Fontes com contornos suaves
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Marque esta caixa para usar fontes redimensionáveis com contornos suaves
+ 
+@@ -2137,7 +2135,7 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER                     :Unidades de pot
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_HELPTEXT            :Sempre que a potência de um veículo for exibida na interface de usuário, mostrar nessas unidades
+ ###length 3
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_IMPERIAL            :Imperial (hp)
+-STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_METRIC              :Métrico (hp)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_METRIC              :Métrico (cv)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_SI                  :SI (kW)
+ 
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT                    :Unidades de peso: {STRING}
+@@ -2881,8 +2879,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Periferia Dista
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Periferia Próxima
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro da cidade
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Impedir atualizações
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolher se essa casa será protegida contra substituição quando a cidade crescer
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Substituir existentes
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Escolha se deseja remover automaticamente a casa existente no local onde esta casa será colocada
+ 
+ STR_STATION_CLASS_DFLT                                          :Padrão
+ STR_STATION_CLASS_DFLT_STATION                                  :Estação padrão
+diff --git a/src/lang/catalan.txt b/src/lang/catalan.txt
+index bcf5d1c51a..bc27acde08 100644
+--- a/src/lang/catalan.txt
++++ b/src/lang/catalan.txt
+@@ -1091,8 +1091,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marqueu aquesta
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Fes servir la font tradicional
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Marqueu aquesta casella si preferiu fer servir la font tradicional de mida fixa i pixelada.
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Prefereix la font per defecte
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Marqueu aquesta casella si preferiu fer servir la font tradicional abans que les fonts alternatives trobades.
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Aplica anti-àlies a les fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Marqueu aquesta casella per a fer servir tècniques d'anti-àlies a les fonts redimensionables.
+ 
+diff --git a/src/lang/danish.txt b/src/lang/danish.txt
+index c1d6a12e59..64f392ba20 100644
+--- a/src/lang/danish.txt
++++ b/src/lang/danish.txt
+@@ -254,6 +254,7 @@ STR_UNITS_FORCE_SI                                              :{DECIMAL} kN
+ STR_UNITS_HEIGHT_IMPERIAL                                       :{DECIMAL} fod
+ STR_UNITS_HEIGHT_METRIC                                         :{DECIMAL} m
+ STR_UNITS_HEIGHT_SI                                             :{DECIMAL} m
++STR_UNITS_HEIGHT_GAMEUNITS                                      :{DECIMAL}{NBSP}level{P "" s}
+ 
+ # Time units used in string control characters
+ STR_UNITS_DAYS                                                  :{COMMA}{NBSP}dag{P "" s}
+@@ -311,6 +312,7 @@ STR_SHOW_HIDDEN_ENGINES_VEHICLE_AIRCRAFT_TOOLTIP                :{BLACK}Ved at a
+ STR_BUTTON_DEFAULT                                              :{BLACK}Standard
+ STR_BUTTON_CANCEL                                               :{BLACK}Annullér
+ STR_BUTTON_OK                                                   :{BLACK}OK
++STR_BUTTON_MOVE                                                 :{BLACK}Flyt
+ 
+ # On screen keyboard window
+ STR_OSK_KEYBOARD_LAYOUT                                         :`1234567890-= qwertyuiop[]asdfghjkl;'#\zxcvbnm,./ .
+@@ -2162,6 +2164,7 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_HELPTEXT           :Når højde er
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_IMPERIAL           :Imperisk (fod)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_METRIC             :Metrisk (m)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_SI                 :SI (m)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_GAMEUNITS          :Spillenheder (levels)
+ 
+ STR_CONFIG_SETTING_LOCALISATION                                 :Lokalisering
+ STR_CONFIG_SETTING_GRAPHICS                                     :Grafiksæt / Manglende grafik
+@@ -2859,15 +2862,15 @@ STR_PICKER_HOUSE_CLASS_TOOLTIP                                  :Vælg en byzone
+ STR_PICKER_HOUSE_TYPE_TOOLTIP                                   :Vælg en hustype at bygge. Ctrl+klik for at tilføje eller fjerne i gemte elementer
+ 
+ STR_HOUSE_PICKER_CAPTION                                        :Husvalg
+-STR_HOUSE_PICKER_NAME                                           :{BLACK}Navn: {ORANGE}{STRING}
+-STR_HOUSE_PICKER_POPULATION                                     :{BLACK}Befolkning: {ORANGE}{NUM}
+-STR_HOUSE_PICKER_YEARS                                          :{BLACK}År: {ORANGE}{NUM}-{NUM}
+-STR_HOUSE_PICKER_YEARS_ANY                                      :{BLACK}År: {ORANGE}Any
+-STR_HOUSE_PICKER_YEARS_FROM                                     :{BLACK}År: {ORANGE}Fra {NUM}
+-STR_HOUSE_PICKER_YEARS_UNTIL                                    :{BLACK}År: {ORANGE}til {NUM}
+-STR_HOUSE_PICKER_SIZE                                           :{BLACK}Størrelse: {ORANGE}{NUM}x{NUM} fliser
+-STR_HOUSE_PICKER_CARGO_ACCEPTED                                 :{BLACK}Gods accepteret: {ORANGE}
+-STR_HOUSE_PICKER_CARGO_PRODUCED                                 :{BLACK}Produceret last: {ORANGE}{CARGO_LIST}
++STR_HOUSE_PICKER_NAME                                           :{BLACK}Navn: {GOLD}{STRING}
++STR_HOUSE_PICKER_POPULATION                                     :{BLACK}Befolkning: {GOLD}{NUM}
++STR_HOUSE_PICKER_YEARS                                          :{BLACK}År: {GOLD}{NUM}-{NUM}
++STR_HOUSE_PICKER_YEARS_ANY                                      :{BLACK}År: {GOLD}Any
++STR_HOUSE_PICKER_YEARS_FROM                                     :{BLACK}År: {GOLD}From {NUM}
++STR_HOUSE_PICKER_YEARS_UNTIL                                    :{BLACK}År: {GOLD}til {NUM}
++STR_HOUSE_PICKER_SIZE                                           :{BLACK}Størrelse: {GOLD}{NUM}x{NUM} fliser
++STR_HOUSE_PICKER_CARGO_ACCEPTED                                 :{BLACK}Last accepteret: {GOLD}
++STR_HOUSE_PICKER_CARGO_PRODUCED                                 :{BLACK}Produceret last: {GOLD}{CARGO_LIST}
+ 
+ STR_HOUSE_PICKER_CLASS_ZONE1                                    :Kant
+ STR_HOUSE_PICKER_CLASS_ZONE2                                    :Udkant
+@@ -2875,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ydre Forstæder
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Indre Forstæder
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Bymidte
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Forhindre opgraderinger
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Vælg om dette hus skal beskyttes mod udskiftning i takt med at byen vokser
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Erstat eksisterende
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Vælg om et eksisterende hus automatisk skal fjernes på den flise, hvor dette hus er placeret
+ 
+ STR_STATION_CLASS_DFLT                                          :Standard station
+ STR_STATION_CLASS_DFLT_STATION                                  :Standard station
+@@ -3423,6 +3429,10 @@ STR_MAPGEN_NORTHWEST                                            :{BLACK}Nordvest
+ STR_MAPGEN_NORTHEAST                                            :{BLACK}Nordøst
+ STR_MAPGEN_SOUTHEAST                                            :{BLACK}Sydøst
+ STR_MAPGEN_SOUTHWEST                                            :{BLACK}Sydvest
++STR_MAPGEN_NORTHWEST_TOOLTIP                                    :Skift mellem vand- eller friformskant på den nordvestlige kortkant
++STR_MAPGEN_NORTHEAST_TOOLTIP                                    :Skift mellem vand- eller friformskant på den nordøstlige kortkant
++STR_MAPGEN_SOUTHEAST_TOOLTIP                                    :Skift mellem vand- eller friformskant på den sydøstlige kortkant
++STR_MAPGEN_SOUTHWEST_TOOLTIP                                    :Skift mellem vand- eller friformskant på den sydvestlige kortkant
+ STR_MAPGEN_BORDER_FREEFORM                                      :{BLACK}Fri udformning
+ STR_MAPGEN_BORDER_WATER                                         :{BLACK}Vand
+ STR_MAPGEN_BORDER_RANDOM                                        :{BLACK}Tilfældige
+@@ -3469,6 +3479,8 @@ STR_GENERATION_LANDSCAPE_GENERATION                             :{BLACK}Landskab
+ STR_GENERATION_RIVER_GENERATION                                 :{BLACK}Flod-generering
+ STR_GENERATION_CLEARING_TILES                                   :{BLACK}Generer råt og stenet område
+ STR_GENERATION_TOWN_GENERATION                                  :{BLACK}By generation
++STR_GENERATION_LAND_INDUSTRY_GENERATION                         :{BLACK}Generering af jordindustrien
++STR_GENERATION_WATER_INDUSTRY_GENERATION                        :{BLACK}Generering af vandindustrien
+ STR_GENERATION_OBJECT_GENERATION                                :{BLACK}Ikke-flytbar generering
+ STR_GENERATION_TREE_GENERATION                                  :{BLACK}Trægenerering
+ STR_GENERATION_SETTINGUP_GAME                                   :{BLACK}Klargør spil
+@@ -3677,7 +3689,7 @@ STR_SIGN_LIST_MATCH_CASE                                        :{BLACK}Match st
+ STR_SIGN_LIST_MATCH_CASE_TOOLTIP                                :{BLACK}Vis matchende stort/lille bogstav når der sammenlignes skiltenavne med filter teksten
+ 
+ # Sign window
+-STR_EDIT_SIGN_CAPTION                                           :{WHITE}Ændre skiltets tekst
++STR_EDIT_SIGN_CAPTION                                           :{WHITE}Rediger skilt
+ STR_EDIT_SIGN_LOCATION_TOOLTIP                                  :{BLACK}Centrér skærmen ved skiltets placering. Ctrl+klik åbner et nyt vindue ved skiltets placering
+ STR_EDIT_SIGN_NEXT_SIGN_TOOLTIP                                 :{BLACK}Gå til næste skilt
+ STR_EDIT_SIGN_PREVIOUS_SIGN_TOOLTIP                             :{BLACK}Gå til forrige skilt
+@@ -3894,12 +3906,14 @@ STR_CARGO_RATING_EXCELLENT                                      :Fortrinlig
+ STR_CARGO_RATING_OUTSTANDING                                    :Enestående
+ 
+ STR_STATION_VIEW_CENTER_TOOLTIP                                 :{BLACK}Centrer skærmen over stationens lokalitet. Ctrl+Klik åbner et nyt vindue ved stationens lokalitet.
++STR_STATION_VIEW_EDIT_TOOLTIP                                   :{BLACK}Omdøb station eller flyt skilt
+ 
+ STR_STATION_VIEW_SCHEDULED_TRAINS_TOOLTIP                       :{BLACK}Vis alle toge, som har denne station i deres ruteplan
+ STR_STATION_VIEW_SCHEDULED_ROAD_VEHICLES_TOOLTIP                :{BLACK}Vis alle køretøjer, som har denne station i deres ruteplan
+ STR_STATION_VIEW_SCHEDULED_AIRCRAFT_TOOLTIP                     :{BLACK}Vis alle fly, som har denne lufthavn i deres ruteplan
+ STR_STATION_VIEW_SCHEDULED_SHIPS_TOOLTIP                        :{BLACK}Vis alle skibe, som har denne station i deres ruteplan
+ 
++STR_STATION_VIEW_EDIT_STATION_SIGN                              :{WHITE}Rediger stationsskilt
+ 
+ STR_STATION_VIEW_CLOSE_AIRPORT                                  :{BLACK}Luk lufthavn
+ STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}Forhindre at fly lander i denne lufthavn
+@@ -3907,9 +3921,11 @@ STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}Forhindr
+ # Waypoint/buoy view window
+ STR_WAYPOINT_VIEW_CAPTION                                       :{WHITE}{WAYPOINT}
+ STR_WAYPOINT_VIEW_CENTER_TOOLTIP                                :{BLACK}Centrer skærmen over rutepunktets lokalitet. Ctrl+Klik åbner et nyt vindue ved rutepunktets lokalitet.
++STR_WAYPOINT_VIEW_EDIT_TOOLTIP                                  :{BLACK}Omdøb rutepunkt eller flyt skilt
+ STR_BUOY_VIEW_CENTER_TOOLTIP                                    :{BLACK}Centrér skærmen ved bøjens placering. Ctrl+klik åbner et nyt vindue ved bøjens placering
+ STR_BUOY_VIEW_RENAME_TOOLTIP                                    :{BLACK}Ændr navnet på bøjen
+ 
++STR_WAYPOINT_VIEW_EDIT_WAYPOINT_SIGN                            :{WHITE}Rediger rutepunkt skilt
+ 
+ # Finances window
+ STR_FINANCES_CAPTION                                            :{WHITE}{COMPANY} Finanser {BLACK}{COMPANY_NUM}
+@@ -5123,6 +5139,7 @@ STR_ERROR_TOO_MANY_TRUCK_STOPS                                  :{WHITE}For mang
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_DOCK                             :{WHITE}For tæt på en anden havn
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_AIRPORT                          :{WHITE}For tæt på en anden lufthavn
+ STR_ERROR_CAN_T_RENAME_STATION                                  :{WHITE}Kan ikke omdøbe stationen...
++STR_ERROR_CAN_T_MOVE_STATION_NAME                               :{WHITE}Kan ikke flytte stationsskiltet...
+ STR_ERROR_DRIVE_THROUGH_ON_TOWN_ROAD                            :{WHITE}... denne vej er ejet af en by
+ STR_ERROR_DRIVE_THROUGH_DIRECTION                               :{WHITE}... vejen peger i den forkerte retning
+ STR_ERROR_DRIVE_THROUGH_CORNER                                  :{WHITE}... drive-through stops kan ikke have hjørner
+@@ -5154,6 +5171,7 @@ STR_ERROR_CAN_T_BUILD_RAIL_WAYPOINT                             :{WHITE}Kan ikke
+ STR_ERROR_CAN_T_BUILD_ROAD_WAYPOINT                             :{WHITE}Kan ikke bygge rutepunkt her...
+ STR_ERROR_CAN_T_POSITION_BUOY_HERE                              :{WHITE}Kan ikke placere en bøje her...
+ STR_ERROR_CAN_T_CHANGE_WAYPOINT_NAME                            :{WHITE}Kan ikke omdøbe rutepunkt...
++STR_ERROR_CAN_T_MOVE_WAYPOINT_NAME                              :{WHITE}Kan ikke flytte rutepunkt skiltet...
+ 
+ STR_ERROR_CAN_T_REMOVE_RAIL_WAYPOINT                            :{WHITE}Kan ikke fjerne rutepunkt for tog her...
+ STR_ERROR_CAN_T_REMOVE_ROAD_WAYPOINT                            :{WHITE}Kan ikke fjerne rutepunkt...
+@@ -5262,6 +5280,13 @@ STR_ERROR_START_AND_END_MUST_BE_IN                              :{WHITE}Start- o
+ STR_ERROR_ENDS_OF_BRIDGE_MUST_BOTH                              :{WHITE}... begge ender af en bro skal være på land
+ STR_ERROR_BRIDGE_TOO_LONG                                       :{WHITE}... broen er for lang
+ STR_ERROR_BRIDGE_THROUGH_MAP_BORDER                             :{WHITE}Broen ville slutte udenfor kortet
++STR_ERROR_BRIDGE_TOO_LOW_FOR_STATION                            :{WHITE}Broen er {HEIGHT} for lav til en station
++STR_ERROR_BRIDGE_TOO_LOW_FOR_ROADSTOP                           :{WHITE}Broen er {HEIGHT} for lav til et vej stoppested
++STR_ERROR_BRIDGE_TOO_LOW_FOR_DOCK                               :{WHITE}Broen er {HEIGHT} for lav til havnen
++STR_ERROR_BRIDGE_TOO_LOW_FOR_BUOY                               :{WHITE} Broen er {HEIGHT}  for lav til en bøje
++STR_ERROR_BRIDGE_TOO_LOW_FOR_RAIL_WAYPOINT                      :{WHITE}Broen er  {HEIGHT} for lav til et rutepunkt
++STR_ERROR_BRIDGE_TOO_LOW_FOR_ROAD_WAYPOINT                      :{WHITE}Broen er {HEIGHT} for lav til et rutepunkt
++STR_ERROR_BRIDGE_TOO_LOW_FOR_LOCK                               :{WHITE}Bro er {HEIGHT} for lav til slusen
+ 
+ # Tunnel related errors
+ STR_ERROR_CAN_T_BUILD_TUNNEL_HERE                               :{WHITE}Kan ikke bygge en tunnel her...
+diff --git a/src/lang/english_AU.txt b/src/lang/english_AU.txt
+index 771c31ea7f..a02cb639af 100644
+--- a/src/lang/english_AU.txt
++++ b/src/lang/english_AU.txt
+@@ -1090,8 +1090,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Check this box
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Use traditional sprite font
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Check this box if you prefer to use the traditional fixed-size sprite font
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Prefer default font
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Check this box if you prefer to use the default font over discovered fallback fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Anti-alias fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Check this box to anti-alias resizable fonts
+ 
+@@ -2880,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Outer Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Inner Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Town centre
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Prevent upgrades
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Choose whether this house will be protected from replacement as the town grows
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Replace existing
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Choose whether to automatically remove an existing house on the tile where this house is placed
+ 
+ STR_STATION_CLASS_DFLT                                          :Default
+ STR_STATION_CLASS_DFLT_STATION                                  :Default station
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index 98026e3f34..9bf6c3741e 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -1090,8 +1090,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Check this box
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Use traditional sprite font
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Check this box if you prefer to use the traditional fixed-size sprite font
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Prefer default font
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Check this box if you prefer to use the default font over discovered fallback fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Anti-alias fonts
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Check this box to anti-alias resizable fonts
+ 
+@@ -2880,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Outer Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Inner Suburbs
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Town center
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Prevent upgrades
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Choose whether this house will be protected from replacement as the town grows
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Replace existing
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Choose whether to automatically remove an existing house on the tile where this house is placed
+ 
+ STR_STATION_CLASS_DFLT                                          :Default
+ STR_STATION_CLASS_DFLT_STATION                                  :Default station
+diff --git a/src/lang/finnish.txt b/src/lang/finnish.txt
+index e3ad12fa3e..f510de14d1 100644
+--- a/src/lang/finnish.txt
++++ b/src/lang/finnish.txt
+@@ -1090,8 +1090,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Valitse tämä
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Käytä perinteistä sprite-fonttia
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Valitse tämä ruutu käyttääksesi perinteistä kiinteäkokoista sprite-kirjasintyyppiä
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Suosi oletusfonttia
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Valitse tämä ruutu, jos haluat käyttää oletuskirjaintyyppiä löydettyjen varafonttien sijaan
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Pehmennä kirjasinten reunoja
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Valitse tämä ruutu pehmentääksesi muuttuvan kokoisten fonttien reunoja
+ 
+@@ -2880,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ulommat lähiö
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Sisemmät lähiöt
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Keskusta
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Estä parannukset
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Valitse, suojataanko tämä talo korvaamiselta kunnan kasvaessa
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Korvaa entinen
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Valitse, poistetaanko olemassa oleva talo automaattisesti ruudulta, jolle taloa sijoitetaan
+ 
+ STR_STATION_CLASS_DFLT                                          :Oletus
+ STR_STATION_CLASS_DFLT_STATION                                  :Oletusasema
+@@ -4638,10 +4639,10 @@ STR_ORDER_GO_VIA                                                :Mene kautta
+ STR_ORDER_GO_NON_STOP_VIA                                       :Mene pysähtymättä kautta
+ STR_ORDER_TOOLTIP_NON_STOP                                      :{BLACK}Muuta korostetun käskyn pysähtymiskäyttäytymistä
+ 
+-STR_ORDER_TOGGLE_FULL_LOAD                                      :{BLACK}Lastaa täyteen mikä tahansa rahtityyppi
++STR_ORDER_TOGGLE_FULL_LOAD                                      :{BLACK}Lastaa täyteen mitä tahansa rahtia
+ STR_ORDER_DROP_LOAD_IF_POSSIBLE                                 :Lastaa jos saatavilla
+ STR_ORDER_DROP_FULL_LOAD_ALL                                    :Lastaa täyteen kaikki rahtityypit
+-STR_ORDER_DROP_FULL_LOAD_ANY                                    :Lastaa täyteen mikä tahansa rahtityyppi
++STR_ORDER_DROP_FULL_LOAD_ANY                                    :Lastaa täyteen mitä tahansa rahtia
+ STR_ORDER_DROP_NO_LOADING                                       :Älä lastaa rahtia
+ STR_ORDER_TOOLTIP_FULL_LOAD                                     :{BLACK}Muuta korostetun käskyn lastauskäyttäytymistä
+ 
+@@ -4713,7 +4714,7 @@ STR_ORDER_GO_TO_NEAREST_DEPOT                                   :Mene lähimmäl
+ STR_ORDER_GO_TO_NEAREST_HANGAR                                  :Mene lähimpään lentokonehalliin
+ STR_ORDER_CONDITIONAL                                           :Ehdollinen hyppykäsky
+ STR_ORDER_SHARE                                                 :Jaa käskyt
+-STR_ORDERS_GO_TO_TOOLTIP                                        :{BLACK}Lisää uuden käskyn ennen valittua, tai lisää listan viimeiseksi. Ctrl+napsautuksella asemakäskyistä tulee ”lastaa täyteen mikä tahansa rahti”, reittipistekäskyille ”oletuksena pysähtymättä” -asetuksen vastakohta, ja veturitallikäskyistä tulee ”sumanpurku”. Napsauta toista kulkuneuvoa kopioidaksesi sen käskyt tai Ctrl+napsauta luodaksesi jaetun käskyn. Tallikäsky poistaa automaattiset huollot
++STR_ORDERS_GO_TO_TOOLTIP                                        :{BLACK}Lisää uuden käskyn ennen valittua, tai lisää listan viimeiseksi. Ctrl+napsautuksella asemakäskyistä tulee ”lastaa täyteen mitä tahansa rahtia”, reittipistekäskyillä ”oletuksena pysähtymättä” -asetuksen vastakohta, ja varikkokäskyistä tulee ”sumanpurku”. Napsauta toista kulkuneuvoa kopioidaksesi sen käskyt tai Ctrl+napsauta luodaksesi jaetun käskyn. Varikkokäsky poistaa kulkuneuvon automaattiset huollot käytöstä
+ 
+ STR_ORDERS_VEH_WITH_SHARED_ORDERS_LIST_TOOLTIP                  :{BLACK}Näytä kaikki kulkuneuvot, jotka jakavat nämä käskyt
+ 
+@@ -4763,7 +4764,7 @@ STR_ORDER_NO_UNLOAD_NO_LOAD                                     :{SPACE}(Ei purk
+ 
+ STR_ORDER_AUTO_REFIT                                            :{SPACE}(Sovita rahdille {STRING})
+ STR_ORDER_FULL_LOAD_REFIT                                       :{SPACE}(Sovita rahdille {STRING} ja lastaa täyteen)
+-STR_ORDER_FULL_LOAD_ANY_REFIT                                   :{SPACE}(Sovita rahdille {STRING} ja lastaa täyteen mitä tahansa rahtia)
++STR_ORDER_FULL_LOAD_ANY_REFIT                                   :{SPACE}(Sovita rahdille {STRING} ja lastaa täyteen)
+ STR_ORDER_UNLOAD_REFIT                                          :{SPACE}(Pura lasti, sovita rahdille {STRING}, ota rahti)
+ STR_ORDER_UNLOAD_FULL_LOAD_REFIT                                :{SPACE}(Pura lasti, sovita rahdille {STRING}, odota täyttä lastia)
+ STR_ORDER_UNLOAD_FULL_LOAD_ANY_REFIT                            :{SPACE}(Pura lasti, sovita rahdille {STRING}, odota mitä tahansa täyttä lastia)
+diff --git a/src/lang/greek.txt b/src/lang/greek.txt
+index e6752f439e..7a8595353f 100644
+--- a/src/lang/greek.txt
++++ b/src/lang/greek.txt
+@@ -1183,8 +1183,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Τσεκάρε
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Χρήση παραδοσιακής γραμματοσειράς
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Τσεκάρετε αυτό το κουτάκι εάν προτιμάτε να χρησιμοποιήσετε την παραδοσιακή γραμματοσειρά σταθερού μεγέθους
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Προτίμησε την προεπιλεγμένη γραμματοσειρά
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Επιλέξτε αυτό το πλαίσιο αν προτιμάτε να χρησιμοποιήσετε την προεπιλεγμένη γραμματοσειρά αντί για τις ανακαλυφθείσες εφεδρικές γραμματοσειρές
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Εξομάλυνση εμφάνισης γραμματοσειράς
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Τσεκάρετε αυτό το κουτάκι για εξομάλυνση εμφάνισης γραμματοσειράς μεταβλητού μεγέθους
+ 
+@@ -2973,8 +2971,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Εξωτερι
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Εσωτερικά Προάστια
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Κέντρο της πόλης
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Αποτροπή αναβαθμίσεων
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Επιλέξτε αν αυτό το σπίτι θα προστατεύεται από αντικατάσταση καθώς η πόλη μεγαλώνει
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Αντικατάσταση υπάρχοντος
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Επιλέξτε εάν θα αφαιρεθεί αυτόματα ένα υπάρχον σπίτι στο πλακίδιο όπου τοποθετείται αυτό το σπίτι
+ 
+ STR_STATION_CLASS_DFLT                                          :Προεπιλεγμένος
+ STR_STATION_CLASS_DFLT_STATION                                  :Προεπιλεγμένος σταθμός
+diff --git a/src/lang/hebrew.txt b/src/lang/hebrew.txt
+index e10378a46b..36bfd914a4 100644
+--- a/src/lang/hebrew.txt
++++ b/src/lang/hebrew.txt
+@@ -183,6 +183,7 @@ STR_LITERS                                                      :{P 0 "ליטר
+ STR_ITEMS                                                       :{P 0 "פריט " ""}{COMMA}{P "" "פריטים"}
+ STR_CRATES                                                      :{P 0 "ארגז " ""}{COMMA}{P "" "ארגזים"}
+ 
++STR_COLOUR_DEFAULT                                              :ברירת מחדל
+ ###length 17
+ STR_COLOUR_DARK_BLUE                                            :כחול כהה
+ STR_COLOUR_PALE_GREEN                                           :ירוק חיוור
+@@ -200,10 +201,13 @@ STR_COLOUR_ORANGE                                               :כתום
+ STR_COLOUR_BROWN                                                :חום
+ STR_COLOUR_GREY                                                 :אפור
+ STR_COLOUR_WHITE                                                :לבן
++STR_COLOUR_RANDOM                                               :אקראי
+ 
+ ###length 17
+ STR_COLOUR_SECONDARY_DARK_BLUE                                  :כחול כהה
+ STR_COLOUR_SECONDARY_PALE_GREEN                                 :ירוק חיוור
++STR_COLOUR_SECONDARY_SECONDARY_PINK                             :ורוד
++STR_COLOUR_SECONDARY_YELLOW                                     :צהוב
+ STR_COLOUR_SECONDARY_RED                                        :אדום
+ STR_COLOUR_SECONDARY_LIGHT_BLUE                                 :כחול בהיר
+ STR_COLOUR_SECONDARY_GREEN                                      :ירוק
+@@ -215,6 +219,7 @@ STR_COLOUR_SECONDARY_PURPLE                                     :סגול
+ STR_COLOUR_SECONDARY_ORANGE                                     :כתום
+ STR_COLOUR_SECONDARY_BROWN                                      :חום
+ STR_COLOUR_SECONDARY_GREY                                       :אפור
++STR_COLOUR_SECONDARY_WHITE                                      :לבן
+ STR_COLOUR_SECONDARY_SAME_AS_PRIMARY                            :כמו הראשי
+ 
+ 
+@@ -906,7 +911,15 @@ STR_EXTRA_VIEW_MOVE_MAIN_TO_VIEW_TOOLTIP                        :{BLACK}העתק
+ STR_GAME_OPTIONS_CAPTION                                        :{WHITE}אפשרויות משחק
+ 
+ STR_GAME_OPTIONS_TAB_GENERAL                                    :כללי
++STR_GAME_OPTIONS_TAB_GENERAL_TOOLTIP                            :בחר הגדרות כלליות
+ STR_GAME_OPTIONS_TAB_GRAPHICS                                   :גרפיקות
++STR_GAME_OPTIONS_TAB_GRAPHICS_TOOLTIP                           :בחר הגדרות גרפיקה
++STR_GAME_OPTIONS_TAB_SOUND                                      :שמע
++STR_GAME_OPTIONS_TAB_SOUND_TOOLTIP                              :בחר הגדרות שמע ומוזיקה
++STR_GAME_OPTIONS_TAB_SOCIAL                                     :חברתי
++STR_GAME_OPTIONS_TAB_SOCIAL_TOOLTIP                             :בחר הגדרות שילוב חברתי
++STR_GAME_OPTIONS_TAB_ADVANCED                                   :הגדרות מתקדמות
++STR_GAME_OPTIONS_TAB_ADVANCED_TOOLTIP                           :שנה את ההגדרות המתקדמות
+ 
+ 
+ 
+@@ -989,6 +1002,10 @@ STR_GAME_OPTIONS_GUI_SCALE_AUTO_TOOLTIP                         :סמן תיבה
+ STR_GAME_OPTIONS_GUI_SCALE_BEVELS                               :התאם שוליים
+ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :סמן תיבה זו כדי להתאים את השוליים לפי גודל הממשק
+ 
++STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :השתמש בגופן ספרייט מסורתי
++STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :סמן תיבה זו אם אתה מעדיף להשתמש בגופן הספרייט המסורתי בעל גודל קבוע
++STR_GAME_OPTIONS_GUI_FONT_AA                                    :גופנים חלקים
++STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :סמן תיבה זו כדי להחליק גופנים בעלי גודל משתנה
+ 
+ STR_GAME_OPTIONS_GUI_SCALE_MARK                                 :{DECIMAL}x
+ 
+@@ -1299,9 +1316,11 @@ STR_CONFIG_SETTING_SIGNALSIDE_RIGHT                             :מימין
+ 
+ ###length 2
+ STR_CONFIG_SETTING_SHOWFINANCES                                 :הראה את חלון מערך הכספים בכל סוף שנה : {STRING}
++STR_CONFIG_SETTING_SHOWFINANCES_PERIOD                          :הראה את חלון מערך הכספים בכל סוף תקופה: {STRING}
+ 
+ ###length 2
+ STR_CONFIG_SETTING_SHOWFINANCES_HELPTEXT                        :אם מאופשר, חלון הכספים מופיע בסוף כל שנה כדי לאפשר בחינה קלה של המצב הכספי של החברה
++STR_CONFIG_SETTING_SHOWFINANCES_HELPTEXT_PERIOD                 :אם מאופשר, חלון הכספים מופיע בסוף כל תקופה כדי לאפשר בחינה קלה של המצב הכספי של החברה
+ 
+ STR_CONFIG_SETTING_NONSTOP_BY_DEFAULT                           :הוראות חדשות הם תמיד 'לא לעצור' כבחירת מחדל: {STRING}
+ STR_CONFIG_SETTING_NONSTOP_BY_DEFAULT_HELPTEXT                  :בדרך כלל, רכב יעצור בכל תחנה בה הוא עובר. ע"י הפעלת הגדרה זו, הוא יסע דרך כל התחנות בדרך על יעדו הסופי מבלי לעצור. שים לב, הגדרה זו רק קובעת ערך ברירת מחדל עבור הוראות חדשות. הוראות פרטניות יכולות להיות מוגדרות במפורש לכל אחת מבין ההתנהגויות בכל מקרה
+@@ -1613,6 +1632,7 @@ STR_CONFIG_SETTING_PERSISTENT_BUILDINGTOOLS                     :{STRING}: שמ
+ STR_CONFIG_SETTING_PERSISTENT_BUILDINGTOOLS_HELPTEXT            :השאר את כלי הבנייה עבור גשרים, מנהרות וכו' פתוחים אחרי השימוש
+ 
+ STR_CONFIG_SETTING_AUTO_REMOVE_SIGNALS                          :הסר רמזורים אוטומטית במהלך בניית פסי רכבת: {STRING}
++STR_CONFIG_SETTING_AUTO_REMOVE_SIGNALS_HELPTEXT                 :הסר רמזורים אוטומטית במהלך בניית פסי רכבת אם הרמזורים נמצאים בדרך. הסרה זו עלולה לגרום לתאונות רכבת
+ 
+ STR_CONFIG_SETTING_FAST_FORWARD_SPEED_LIMIT                     :הגבלת מהירות הרצה קדימה: {STRING}
+ STR_CONFIG_SETTING_FAST_FORWARD_SPEED_LIMIT_HELPTEXT            :הגבלת מהירות המשחק כאשר הרצה קדימה מופעלת. 0 = ללא הגבלה (מהר ככל שהמחשב שלך מאפשר). ערכים מתחת ל-100% מאטים את המשחק. הגבול העליון תלוי במפרט המחשב שלך ועשוי להשתנות בהתאם למשחק.
+@@ -1628,9 +1648,11 @@ STR_CONFIG_SETTING_SOUND_NEWS_HELPTEXT                          :השמע צלי
+ 
+ ###length 2
+ STR_CONFIG_SETTING_SOUND_NEW_YEAR                               :סוף שנה: {STRING}
++STR_CONFIG_SETTING_SOUND_NEW_PERIOD                             :סוף תקופה: {STRING}
+ 
+ ###length 2
+ STR_CONFIG_SETTING_SOUND_NEW_YEAR_HELPTEXT                      :השמע צליל בסוף שנה המסכם את תפקוד החברה בהשוואה לשנה הקודמת
++STR_CONFIG_SETTING_SOUND_NEW_PERIOD_HELPTEXT                    :השמע צליל בסוף תקופה המסכם את תפקוד החברה במהלך התקופה בהשוואה לתקופה הקודמת
+ 
+ STR_CONFIG_SETTING_SOUND_CONFIRM                                :בנייה: {STRING}
+ STR_CONFIG_SETTING_SOUND_CONFIRM_HELPTEXT                       :השמע צליל בעת הצלחת בנייה או פעולות אחרות
+@@ -2180,6 +2202,10 @@ STR_NETWORK_SERVER_LIST_JOIN_GAME                               :{BLACK}הצטר
+ STR_NETWORK_SERVER_LIST_REFRESH                                 :{BLACK}רענן שרת
+ STR_NETWORK_SERVER_LIST_REFRESH_TOOLTIP                         :{BLACK}רענן את המידע המוצג לגבי השרת
+ 
++STR_NETWORK_SERVER_LIST_SEARCH_SERVER_INTERNET                  :{BLACK}חפש באינטרנט
++STR_NETWORK_SERVER_LIST_SEARCH_SERVER_INTERNET_TOOLTIP          :{BLACK}חפש שרתים פומביים באינטרנט
++STR_NETWORK_SERVER_LIST_SEARCH_SERVER_LAN                       :{BLACK}חפש ברשת המקומית
++STR_NETWORK_SERVER_LIST_SEARCH_SERVER_LAN_TOOLTIP               :{BLACK}חפש שרתים ברשת המקורית
+ STR_NETWORK_SERVER_LIST_ADD_SERVER                              :{BLACK}הוסף שרת
+ STR_NETWORK_SERVER_LIST_ADD_SERVER_TOOLTIP                      :{BLACK}מוסיף שרת לרשימה שתמיד תבדק למשחקים פעילים.
+ STR_NETWORK_SERVER_LIST_START_SERVER                            :{BLACK}הפעל שרת
+@@ -2475,6 +2501,10 @@ STR_LINKGRAPH_LEGEND_SATURATED                                  :{TINY_FONT}{BLA
+ STR_LINKGRAPH_LEGEND_OVERLOADED                                 :{TINY_FONT}{BLACK}העמסת יתר
+ 
+ # Linkgraph tooltip
++STR_LINKGRAPH_STATS_TOOLTIP_MONTH                               :{BLACK}{CARGO_LONG} ישונעו בחודש מ{STATION} ל{STATION} ({COMMA}% מהקיבולת){STRING}
++STR_LINKGRAPH_STATS_TOOLTIP_MINUTE                              :{BLACK}{CARGO_LONG} ישונעו בדקה מ{STATION} ל{STATION} ({COMMA}% מהקיבולת){STRING}
++STR_LINKGRAPH_STATS_TOOLTIP_RETURN_EXTENSION                    :{}{CARGO_LONG} ישונעו חזרה  ({COMMA}% מהקיבולת)
++STR_LINKGRAPH_STATS_TOOLTIP_TIME_EXTENSION                      :{}זמן מסע ממוצע: {UNITS_DAYS_OR_SECONDS}
+ 
+ # Base for station construction window(s)
+ STR_STATION_BUILD_COVERAGE_AREA_TITLE                           :{BLACK}הדגשת שטח הכיסוי
+@@ -3599,6 +3629,14 @@ STR_INDUSTRY_VIEW_REQUIRES_N_CARGO                              :{BLACK}דורש
+ STR_INDUSTRY_VIEW_CARGO_LIST_EXTENSION                          :, {STRING}{STRING}
+ 
+ STR_INDUSTRY_VIEW_REQUIRES                                      :{BLACK}דורש:
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_SUFFIX                           :{YELLOW}{0:STRING}{BLACK}{3:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_SUFFIX                    :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} ממתינים{3:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_SUFFIX.singular           :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} ממתין{3:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_SUFFIX.plural             :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} ממתינים{3:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_NOSUFFIX                         :{YELLOW}{0:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_NOSUFFIX                  :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} ממתינים
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_NOSUFFIX.singular         :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} ממתין
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_NOSUFFIX.plural           :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} ממתינים
+ 
+ STR_CONFIG_GAME_PRODUCTION                                      :{WHITE}שנה תפוקה (כפולות של 8, עד 2040)
+ STR_CONFIG_GAME_PRODUCTION_LEVEL                                :{WHITE}שינוי ברמת ההפקה (עד 800% אחוז)
+@@ -3810,7 +3848,7 @@ STR_DEPOT_SELL_ALL_BUTTON_AIRCRAFT_TOOLTIP                      :{BLACK}מכור
+ STR_DEPOT_AUTOREPLACE_TRAIN_TOOLTIP                             :{BLACK}החלף אוטומטית את כל הרכבות שבמוסך
+ STR_DEPOT_AUTOREPLACE_ROAD_VEHICLE_TOOLTIP                      :{BLACK}החלף אוטומטית את כל הרכבים שבמוסך
+ STR_DEPOT_AUTOREPLACE_SHIP_TOOLTIP                              :{BLACK}החלף אוטומטית את כל כלי השייט שבמבדוק
+-STR_DEPOT_AUTOREPLACE_AIRCRAFT_TOOLTIP                          :{BLACK}החלף אוטומאטית את כל כלי הטייס שבסככה
++STR_DEPOT_AUTOREPLACE_AIRCRAFT_TOOLTIP                          :{BLACK}החלף אוטומטית את כל כלי הטייס שבסככה
+ 
+ ###length VEHICLE_TYPES
+ STR_DEPOT_TRAIN_NEW_VEHICLES_BUTTON                             :{BLACK}כלים חדשים
+@@ -3879,6 +3917,8 @@ STR_ENGINE_PREVIEW_SHIP                                         :כלי שייט
+ 
+ STR_ENGINE_PREVIEW_COST_WEIGHT                                  :עלות: {CURRENCY_LONG} משקל: {WEIGHT_SHORT}
+ STR_ENGINE_PREVIEW_COST_MAX_SPEED                               :עלות: {CURRENCY_LONG} מהירות מרבית: {VELOCITY}
++STR_ENGINE_PREVIEW_RUNCOST_YEAR                                 :עלות הפעלה: {CURRENCY_LONG} לשנה
++STR_ENGINE_PREVIEW_RUNCOST_PERIOD                               :עלות הפעלה: {CURRENCY_LONG} לתקופה
+ 
+ # Autoreplace window
+ STR_REPLACE_VEHICLES_WHITE                                      :{WHITE}החלף {STRING} - {STRING}
+@@ -4482,6 +4522,7 @@ STR_ERROR_TERRAFORM_LIMIT_REACHED                               :{WHITE}... הג
+ STR_ERROR_CLEARING_LIMIT_REACHED                                :{WHITE}... הגעת למגבלת פינוי המשבצות
+ STR_ERROR_TREE_PLANT_LIMIT_REACHED                              :{WHITE}... הגעת למגבלת נטיעת העצים
+ STR_ERROR_NAME_MUST_BE_UNIQUE                                   :{WHITE}השם חייב להיות ייחודי
++STR_ERROR_GENERIC_OBJECT_IN_THE_WAY                             :{WHITE}חוסם את הדרך {STRING}
+ STR_ERROR_NOT_ALLOWED_WHILE_PAUSED                              :{WHITE}אסור בזמן שהמשחק מושהה
+ 
+ # Local authority errors
+@@ -4786,12 +4827,17 @@ STR_ERROR_CAN_T_SELL_AIRCRAFT                                   :{WHITE}לא נ
+ ###length VEHICLE_TYPES
+ 
+ ###length VEHICLE_TYPES
++STR_ERROR_CAN_T_AUTOREPLACE_TRAIN                               :{WHITE}לא ניתן להחליף את הרכבות אוטומטית...
++STR_ERROR_CAN_T_AUTOREPLACE_ROAD_VEHICLE                        :{WHITE}לא ניתן להחליף את כלי הרכב אוטומטית...
++STR_ERROR_CAN_T_AUTOREPLACE_SHIP                                :{WHITE}לא ניתן להחליף את כלי השייט אוטומטית...
++STR_ERROR_CAN_T_AUTOREPLACE_AIRCRAFT                            :{WHITE}לא ניתן להחליף את כלי הטייס אוטומטית...
+ 
+ STR_ERROR_TOO_MANY_VEHICLES_IN_GAME                             :{WHITE}יותר מידי כלי תעבורה במשחק
+ STR_ERROR_CAN_T_CHANGE_SERVICING                                :{WHITE}לא ניתן לשנות את מרווחי הטיפול...
+ 
+ STR_ERROR_VEHICLE_IS_DESTROYED                                  :{WHITE}... הרכב נהרס
+ 
++STR_ERROR_CAN_T_CLONE_VEHICLE_LIST                              :{WHITE}... לא כל כלי הרכב זהים
+ 
+ STR_ERROR_NO_VEHICLES_AVAILABLE_AT_ALL                          :{WHITE}כלי תחבורה לא יהיו זמינים
+ STR_ERROR_NO_VEHICLES_AVAILABLE_AT_ALL_EXPLANATION              :{WHITE}שנה הגדרות NewGRF
+diff --git a/src/lang/hungarian.txt b/src/lang/hungarian.txt
+index 65bfaf9d07..fe72ab970f 100644
+--- a/src/lang/hungarian.txt
++++ b/src/lang/hungarian.txt
+@@ -2942,8 +2942,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Külső kertvá
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Belső kertváros
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Városközpont
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Növekedés megakadályozása
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Válaszd ki, hogy a város növekedésével ez a ház védve legyen-e a cserétől
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Meglévő kicserélése
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Válaszd ki, hogy automatikusan eltávolítsa-e a meglévő házat arról a mezőről, ahova ez a ház lerakásra kerül
+ 
+ STR_STATION_CLASS_DFLT                                          :Alapértelmezett
+ STR_STATION_CLASS_DFLT_STATION                                  :Alapértelmezett állomás
+diff --git a/src/lang/korean.txt b/src/lang/korean.txt
+index 9cf523b305..4587ea40a7 100644
+--- a/src/lang/korean.txt
++++ b/src/lang/korean.txt
+@@ -2879,8 +2879,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :바깥쪽 시
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :안쪽 시내
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :도시 중심
+ 
++STR_HOUSE_PICKER_PROTECT                                        :업그레이드 방지
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :이 건물이 도시가 성장함에 따라 교체되는 것을 막을지 여부를 선택합니다
+ 
++STR_HOUSE_PICKER_REPLACE                                        :이미 설치된 것 교체
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :이 건물이 배치된 칸에서 기존 건물을 자동으로 제거할지 여부를 선택합니다
+ 
+ STR_STATION_CLASS_DFLT                                          :기본
+ STR_STATION_CLASS_DFLT_STATION                                  :기본 역
+diff --git a/src/lang/norwegian_bokmal.txt b/src/lang/norwegian_bokmal.txt
+index 370cb5bf9c..b099675130 100644
+--- a/src/lang/norwegian_bokmal.txt
++++ b/src/lang/norwegian_bokmal.txt
+@@ -2880,8 +2880,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Ytre forsteder
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Indre forsteder
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Bysentrum
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Forhindre oppgraderinger
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Velg hvorvidt dette huset skal være beskyttet mot å bli byttet ut når byen vokser
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Erstatt eksisterende
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Velg hvorvidt eksisterende hus skal fjernes automatisk på ruten hvor dette huset blir plassert
+ 
+ STR_STATION_CLASS_DFLT                                          :Standard
+ STR_STATION_CLASS_DFLT_STATION                                  :Standard stasjon
+diff --git a/src/lang/polish.txt b/src/lang/polish.txt
+index f6b7659dd7..0f84aba6fc 100644
+--- a/src/lang/polish.txt
++++ b/src/lang/polish.txt
+@@ -1470,8 +1470,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Zaznacz to pole
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Użyj tradycyjnego fonta typu sprite
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Zaznacz to pole, jeśli wolisz używać tradycyjnego fonta typu sprite o stałym rozmiarze
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Preferuj font domyślny
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Zaznacz to pole, jeśli wolisz używać fontu domyślnego zamiast wykrytych fontów zastępczych
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Wygładzanie fontów
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Zaznacz to pole, aby wygładzać fonty o zmiennym rozmiarze
+ 
+@@ -2661,7 +2659,7 @@ STR_HELP_WINDOW_README                                          :{BLACK}Plik „
+ STR_HELP_WINDOW_CHANGELOG                                       :{BLACK}Lista Zmian
+ STR_HELP_WINDOW_KNOWN_BUGS                                      :{BLACK}Znane Błędy
+ STR_HELP_WINDOW_LICENSE                                         :{BLACK}Licencja
+-STR_HELP_WINDOW_FONTS                                           :{BLACK}Fonty
++STR_HELP_WINDOW_FONTS                                           :{BLACK}Fonty (pot. czcionki)
+ STR_HELP_WINDOW_MAIN_WEBSITE                                    :{BLACK}OpenTTD
+ STR_HELP_WINDOW_MANUAL_WIKI                                     :{BLACK}Podręcznik / Wiki
+ STR_HELP_WINDOW_BUGTRACKER                                      :{BLACK}Zgłoś Błąd
+@@ -3260,8 +3258,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Przedmieścia z
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Przedmieścia wewnętrzne
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centrum miasta
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Zapobiegaj modernizacji
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Określ, czy ten budynek ma być chroniony przed zastąpieniem w miarę rozwoju miasta
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Zastąp istniejące budynki
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Określ, czy chcesz budować nowe budunki w miejscu innych budynków. Jeśli tak, to stary budunek zostanie automatycznie usunięty, jeśli nie, to w wypadku takiej próby umieszczenia zostanie wyświetlony komunikat o błędnym umiejscowieniu budunku
+ 
+ STR_STATION_CLASS_DFLT                                          :Standardowa
+ STR_STATION_CLASS_DFLT_STATION                                  :Standardowa stacja
+@@ -3961,11 +3962,11 @@ STR_SPRITE_ALIGNER_CAPTION_NO_ACTION                            :{WHITE}Wyrówny
+ STR_SPRITE_ALIGNER_CAPTION_ACTIONA                              :{WHITE}Wyrównywanie sprite'a: Action 0xA, {COMMA} ({STRING}:{NUM})
+ STR_SPRITE_ALIGNER_CAPTION_ACTION5                              :{WHITE}Wyrównywanie sprite'a: Action 0x5, typ {HEX}, {COMMA} ({STRING}:{NUM})
+ STR_SPRITE_ALIGNER_NEXT_BUTTON                                  :{BLACK}Następny sprite
+-STR_SPRITE_ALIGNER_NEXT_TOOLTIP                                 :{BLACK}Idź do następnego normalnego sprite'a, pomijając jakiekolwiek pseudo / przebarwione / czcionkowe sprite'y, a po ostatnim przejdź do pierwszego
++STR_SPRITE_ALIGNER_NEXT_TOOLTIP                                 :{BLACK}Idź do następnego sprite'a (pomijając sprite'y: pseudo, zmiany kolorów, fontów), a po ostatnim przejdź do pierwszego
+ STR_SPRITE_ALIGNER_GOTO_BUTTON                                  :{BLACK}Idź do sprite'a
+ STR_SPRITE_ALIGNER_GOTO_TOOLTIP                                 :{BLACK}Idź do danego sprite'a. Jeśli dany sprite nie jest normalnym spritem, przejdź do następnego normalnego sprite'a
+ STR_SPRITE_ALIGNER_PREVIOUS_BUTTON                              :{BLACK}Poprzedni sprite
+-STR_SPRITE_ALIGNER_PREVIOUS_TOOLTIP                             :{BLACK}Idź do poprzedniego normalnego sprite'a, pomijając jakiekolwiek pseudo / przebarwione / czcionkowe sprite'y, a po pierwszym przejdź do ostatniego
++STR_SPRITE_ALIGNER_PREVIOUS_TOOLTIP                             :{BLACK}Idź do poprzedniego sprite'a (pomijając sprite'y: pseudo, zmiany kolorów, fontów), a po pierwszym przejdź do ostatniego
+ STR_SPRITE_ALIGNER_SPRITE_TOOLTIP                               :{BLACK}Prezentacja wybranego sprite'a. Wyrównanie jest ignorowane podczas rysowania tego sprite'a
+ STR_SPRITE_ALIGNER_MOVE_TOOLTIP                                 :{BLACK}Poruszaj spritem, zmieniając przesunięcia X i Y. Użyj Ctrl, aby przesunąć o 8 jednostek  na raz
+ STR_SPRITE_ALIGNER_SPRITE                                       :{STRING}:{NUM}
+@@ -5334,8 +5335,8 @@ STR_TEXTFILE_JUMPLIST_TOOLTIP                                   :{BLACK}Przeskoc
+ STR_TEXTFILE_JUMPLIST_ITEM                                      :{WHITE}{STRING}
+ STR_TEXTFILE_NAVBACK_TOOLTIP                                    :{BLACK}Cofnij się w historii nawigacji
+ STR_TEXTFILE_NAVFORWARD_TOOLTIP                                 :{BLACK}Powrót do przodu w historii nawigacji
+-STR_TEXTFILE_WRAP_TEXT                                          :{WHITE}Zawijaj tekst
+-STR_TEXTFILE_WRAP_TEXT_TOOLTIP                                  :{BLACK}Zawiń tekst w oknie, aby zmieścił się bez konieczności przewijania
++STR_TEXTFILE_WRAP_TEXT                                          :{WHITE}Zawijaj wiersze
++STR_TEXTFILE_WRAP_TEXT_TOOLTIP                                  :{BLACK}Zawiń tekst, aby zmieścił się w oknie bez konieczności przewijania w poziomie
+ STR_TEXTFILE_VIEW_README                                        :{BLACK}Plik „readme”
+ STR_TEXTFILE_VIEW_README_TOOLTIP                                :Wyświetl plik „readme” dla tej zawartości
+ STR_TEXTFILE_VIEW_CHANGELOG                                     :{BLACK}Lista zmian
+diff --git a/src/lang/portuguese.txt b/src/lang/portuguese.txt
+index ad57f530af..6c6ee3fa32 100644
+--- a/src/lang/portuguese.txt
++++ b/src/lang/portuguese.txt
+@@ -211,38 +211,38 @@ STR_COLOUR_SECONDARY_SAME_AS_PRIMARY                            :Igual à Primá
+ 
+ 
+ # Units used in OpenTTD
+-STR_UNITS_VELOCITY_IMPERIAL                                     :{DECIMAL}{NBSP}mph
++STR_UNITS_VELOCITY_IMPERIAL                                     :{DECIMAL}{NBSP}mi/h
+ STR_UNITS_VELOCITY_METRIC                                       :{DECIMAL}{NBSP}km/h
+ STR_UNITS_VELOCITY_SI                                           :{DECIMAL}{NBSP}m/s
+ STR_UNITS_VELOCITY_GAMEUNITS_DAY                                :{DECIMAL}{NBSP}mosaicos/dia
+ STR_UNITS_VELOCITY_GAMEUNITS_SEC                                :{DECIMAL}{NBSP}mosaicos/seg
+ STR_UNITS_VELOCITY_KNOTS                                        :{DECIMAL}{NBSP}nó{P 0 "" s}
+ 
+-STR_UNITS_POWER_IMPERIAL                                        :{DECIMAL}cv
+-STR_UNITS_POWER_METRIC                                          :{DECIMAL}cv
++STR_UNITS_POWER_IMPERIAL                                        :{DECIMAL}{NBSP}hp
++STR_UNITS_POWER_METRIC                                          :{DECIMAL}{NBSP}cv
+ STR_UNITS_POWER_SI                                              :{DECIMAL}kW
+ 
+-STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_IMPERIAL                     :{DECIMAL}{NBSP}hp/t
++STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_IMPERIAL                     :{DECIMAL}{NBSP}hp/tn
+ STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_METRIC                       :{DECIMAL}{NBSP}hp/t
+ STR_UNITS_POWER_IMPERIAL_TO_WEIGHT_SI                           :{DECIMAL}{NBSP}hp/Mg
+-STR_UNITS_POWER_METRIC_TO_WEIGHT_IMPERIAL                       :{DECIMAL}{NBSP}hp/t
+-STR_UNITS_POWER_METRIC_TO_WEIGHT_METRIC                         :{DECIMAL}{NBSP}hp/t
+-STR_UNITS_POWER_METRIC_TO_WEIGHT_SI                             :{DECIMAL}{NBSP}hp/Mg
+-STR_UNITS_POWER_SI_TO_WEIGHT_IMPERIAL                           :{DECIMAL}{NBSP}kW/t
++STR_UNITS_POWER_METRIC_TO_WEIGHT_IMPERIAL                       :{DECIMAL}{NBSP}cv/tn
++STR_UNITS_POWER_METRIC_TO_WEIGHT_METRIC                         :{DECIMAL}{NBSP}cv/t
++STR_UNITS_POWER_METRIC_TO_WEIGHT_SI                             :{DECIMAL}{NBSP}cv/Mg
++STR_UNITS_POWER_SI_TO_WEIGHT_IMPERIAL                           :{DECIMAL}{NBSP}kW/tn
+ STR_UNITS_POWER_SI_TO_WEIGHT_METRIC                             :{DECIMAL}{NBSP}kW/t
+ STR_UNITS_POWER_SI_TO_WEIGHT_SI                                 :{DECIMAL}{NBSP}W/kg
+ 
+-STR_UNITS_WEIGHT_SHORT_IMPERIAL                                 :{DECIMAL}t
+-STR_UNITS_WEIGHT_SHORT_METRIC                                   :{DECIMAL}t
+-STR_UNITS_WEIGHT_SHORT_SI                                       :{DECIMAL}kg
++STR_UNITS_WEIGHT_SHORT_IMPERIAL                                 :{DECIMAL}{NBSP}tn
++STR_UNITS_WEIGHT_SHORT_METRIC                                   :{DECIMAL}{NBSP}t
++STR_UNITS_WEIGHT_SHORT_SI                                       :{DECIMAL}{NBSP}kg
+ 
+ STR_UNITS_WEIGHT_LONG_IMPERIAL                                  :{DECIMAL}{NBSP}ton{P "" s}
+ STR_UNITS_WEIGHT_LONG_METRIC                                    :{DECIMAL}{NBSP}tonelada{P "" s}
+ STR_UNITS_WEIGHT_LONG_SI                                        :{DECIMAL}{NBSP}kg
+ 
+-STR_UNITS_VOLUME_SHORT_IMPERIAL                                 :{DECIMAL}gal
+-STR_UNITS_VOLUME_SHORT_METRIC                                   :{DECIMAL}l
+-STR_UNITS_VOLUME_SHORT_SI                                       :{DECIMAL}m³
++STR_UNITS_VOLUME_SHORT_IMPERIAL                                 :{DECIMAL}{NBSP}gal
++STR_UNITS_VOLUME_SHORT_METRIC                                   :{DECIMAL}{NBSP}L
++STR_UNITS_VOLUME_SHORT_SI                                       :{DECIMAL}{NBSP}m³
+ 
+ STR_UNITS_VOLUME_LONG_IMPERIAL                                  :{DECIMAL}{NBSP}gal{P ão ões}
+ STR_UNITS_VOLUME_LONG_METRIC                                    :{DECIMAL}{NBSP}litro{P "" s}
+@@ -514,10 +514,10 @@ STR_RAIL_MENU_MAGLEV_CONSTRUCTION                               :Construção de
+ 
+ # Road construction menu
+ STR_ROAD_MENU_ROAD_CONSTRUCTION                                 :Construção de estradas
+-STR_ROAD_MENU_TRAM_CONSTRUCTION                                 :Construção de carris para elétricos
++STR_ROAD_MENU_TRAM_CONSTRUCTION                                 :Construção de linhas de elétrico
+ 
+ # Waterways construction menu
+-STR_WATERWAYS_MENU_WATERWAYS_CONSTRUCTION                       :Construção de vias fluviais
++STR_WATERWAYS_MENU_WATERWAYS_CONSTRUCTION                       :Construção de rotas navais
+ 
+ # Aairport construction menu
+ STR_AIRCRAFT_MENU_AIRPORT_CONSTRUCTION                          :Construção de aeroportos
+@@ -670,7 +670,7 @@ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_TRAFFIC_MANAGER            :Gestor de Tráf
+ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_TRANSPORT_COORDINATOR      :Coordenador de Transportes
+ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_ROUTE_SUPERVISOR           :Supervisor de Rotas
+ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_DIRECTOR                   :Diretor
+-STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_CHIEF_EXECUTIVE            :Chefe Executivo
++STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_CHIEF_EXECUTIVE            :Diretor Sénior
+ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_CHAIRMAN                   :Diretor Executivo
+ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_PRESIDENT                  :Presidente
+ STR_COMPANY_LEAGUE_PERFORMANCE_TITLE_TYCOON                     :Magnata
+@@ -878,8 +878,8 @@ STR_NEWS_DISASTER_SMALL_UFO                                     :{BIG_FONT}{BLAC
+ STR_NEWS_DISASTER_AIRPLANE_OIL_REFINERY                         :{BIG_FONT}{BLACK}Explosão em refinaria de petróleo perto de {TOWN}!
+ STR_NEWS_DISASTER_HELICOPTER_FACTORY                            :{BIG_FONT}{BLACK}Fábrica perto de {TOWN} foi destruída em circunstâncias suspeitas!
+ STR_NEWS_DISASTER_BIG_UFO                                       :{BIG_FONT}{BLACK}OVNI pousa em {TOWN}!
+-STR_NEWS_DISASTER_COAL_MINE_SUBSIDENCE                          :{BIG_FONT}{BLACK}Afundamento em mina de carvão perto de {TOWN} causa rasto de destruição!
+-STR_NEWS_DISASTER_FLOOD_VEHICLE                                 :{BIG_FONT}{BLACK}Inundações!{}Pelo menos {COMMA} pessoa{P 0 "" s} desaparecida{P 0 "" s} ou morta{P 0 "" s} após terrível desastre!
++STR_NEWS_DISASTER_COAL_MINE_SUBSIDENCE                          :{BIG_FONT}{BLACK}Afundamento em mina de carvão perto de {TOWN} deixa rasto de destruição!
++STR_NEWS_DISASTER_FLOOD_VEHICLE                                 :{BIG_FONT}{BLACK}Inundações!{}Pelo menos {COMMA} pessoa{P 0 "" s} desaparecida{P 0 "" s}, presumivelmente morta{P 0 "" s} após terrível desastre!
+ 
+ STR_NEWS_COMPANY_IN_TROUBLE_TITLE                               :{BIG_FONT}{BLACK}Empresa de transportes em dificuldades!
+ STR_NEWS_COMPANY_IN_TROUBLE_DESCRIPTION                         :{BIG_FONT}{BLACK}{STRING} será vendida ou declarada falida a menos que melhore os seus rendimentos em breve!
+@@ -888,7 +888,7 @@ STR_NEWS_COMPANY_MERGER_DESCRIPTION                             :{BIG_FONT}{BLAC
+ STR_NEWS_COMPANY_BANKRUPT_TITLE                                 :{BIG_FONT}{BLACK}Faliu!
+ STR_NEWS_COMPANY_BANKRUPT_DESCRIPTION                           :{BIG_FONT}{BLACK}{STRING} foi encerrada por credores e todos os ativos foram vendidos!
+ STR_NEWS_COMPANY_LAUNCH_TITLE                                   :{BIG_FONT}{BLACK}Nova empresa de transportes!
+-STR_NEWS_COMPANY_LAUNCH_DESCRIPTION                             :{BIG_FONT}{BLACK}{STRING} inicia construção em {TOWN}!
++STR_NEWS_COMPANY_LAUNCH_DESCRIPTION                             :{BIG_FONT}{BLACK}{STRING} inicia construção perto de {TOWN}!
+ STR_NEWS_MERGER_TAKEOVER_TITLE                                  :{BIG_FONT}{BLACK}{STRING} foi adquirida por {STRING} por um valor não declarado!
+ STR_PRESIDENT_NAME_MANAGER                                      :{BLACK}{PRESIDENT_NAME}{}(Presidente)
+ 
+@@ -909,7 +909,7 @@ STR_NEWS_END_OF_RECESSION                                       :{BIG_FONT}{BLAC
+ STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_GENERAL                   :{BIG_FONT}{BLACK}{G 0 "" "O " "A " "Os " "As "}{INDUSTRY} aumenta{G 0 "" "" "" m m} a produção!
+ STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_COAL                      :{BIG_FONT}{BLACK}Foi descoberto um novo estrato de carvão {G 0 em no na nos nas} {INDUSTRY}!{}Espera-se duplicar a produção!
+ STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_OIL                       :{BIG_FONT}{BLACK}Novas reservas de petróleo encontradas {G 0 em no na nos nas} {INDUSTRY}!{}Espera-se duplicar a produção!
+-STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_FARM                      :{BIG_FONT}{BLACK}Nova técnica de cultivo leva à duplicação da produção {G 0 em no na nos nas} {INDUSTRY}!
++STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_FARM                      :{BIG_FONT}{BLACK}Nova técnica de cultivo deverá duplicar a produção {G 0 em no na nos nas} {INDUSTRY}!
+ STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_SMOOTH                    :{BIG_FONT}{BLACK}Produção de {STRING} {G 1 em no na nos nas} {INDUSTRY} aumenta {COMMA}%!
+ STR_NEWS_INDUSTRY_PRODUCTION_DECREASE_GENERAL                   :{BIG_FONT}{BLACK}Produção d{G 0 e o a os as} {INDUSTRY} reduzida em 50%!
+ STR_NEWS_INDUSTRY_PRODUCTION_DECREASE_FARM                      :{BIG_FONT}{BLACK}Praga de insetos causa estragos {G 0 em no na nos nas} {INDUSTRY}!{}A produção diminui 50%!
+@@ -1037,7 +1037,7 @@ STR_GAME_OPTIONS_CURRENCY_IRR                                   :Rial Iraniano
+ STR_GAME_OPTIONS_CURRENCY_RUB                                   :Novo Rublo Russo
+ STR_GAME_OPTIONS_CURRENCY_MXN                                   :Peso Mexicano
+ STR_GAME_OPTIONS_CURRENCY_NTD                                   :Novo Dólar Taiwanês
+-STR_GAME_OPTIONS_CURRENCY_CNY                                   :Remimbi chinês
++STR_GAME_OPTIONS_CURRENCY_CNY                                   :Remimbi Chinês
+ STR_GAME_OPTIONS_CURRENCY_HKD                                   :Dólar de Hong Kong
+ STR_GAME_OPTIONS_CURRENCY_INR                                   :Rupia Indiana
+ STR_GAME_OPTIONS_CURRENCY_IDR                                   :Rupia Indonésia
+@@ -1071,7 +1071,7 @@ STR_GAME_OPTIONS_RESOLUTION_OTHER                               :outra
+ STR_GAME_OPTIONS_RESOLUTION_ITEM                                :{NUM}x{NUM}
+ 
+ STR_GAME_OPTIONS_VIDEO_ACCELERATION                             :Aceleração por hardware
+-STR_GAME_OPTIONS_VIDEO_ACCELERATION_TOOLTIP                     :Marque esta opção para permitir que o OpenTTD tente usar a aceleração por hardware. Uma definição alterada só será aplicada após reiniciar o jogo
++STR_GAME_OPTIONS_VIDEO_ACCELERATION_TOOLTIP                     :Marque esta opção para permitir que o OpenTTD tente usar aceleração por hardware. Se for alterada, esta configuração só terá efeito após reiniciar o jogo
+ STR_GAME_OPTIONS_VIDEO_ACCELERATION_RESTART                     :{WHITE}A definição só terá efeito após reiniciar o jogo
+ 
+ STR_GAME_OPTIONS_VIDEO_VSYNC                                    :VSync
+@@ -1091,8 +1091,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Marque esta op
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Usar o tipo de letra com gráficos tradicionais
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Marque esta opção se prefere usar o tipo de letra tradicional de tamanho fixo
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Preferir tipo de letra padrão
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Marque esta opção se prefere usar o tipo de letra padrão em vez os tipos de letra alternativos encontrados no seu sistema.
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Tipos de letra com contornos suaves
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Marque esta opção para tipos de letra redimensionáveis com contornos suaves
+ 
+@@ -1174,7 +1172,7 @@ STR_CURRENCY_CUSTOM_CURRENCY_PREVIEW_TOOLTIP                    :{BLACK}10000 Li
+ STR_CURRENCY_CHANGE_PARAMETER                                   :{BLACK}Mudar parâmetro da moeda personalizada
+ 
+ STR_NONE                                                        :Nenhum
+-STR_FUNDING_ONLY                                                :Financiamento apenas
++STR_FUNDING_ONLY                                                :Apenas com financiamento
+ STR_MINIMAL                                                     :Mínimo
+ STR_NUM_VERY_LOW                                                :Muito Baixo
+ STR_NUM_LOW                                                     :Baixo
+@@ -2088,7 +2086,7 @@ STR_CONFIG_SETTING_TOWN_GROWTH_VERY_FAST                        :Muito Rápido
+ 
+ STR_CONFIG_SETTING_LARGER_TOWNS                                 :Proporção de localidades que se tornarão cidades: {STRING}
+ STR_CONFIG_SETTING_LARGER_TOWNS_HELPTEXT                        :Quantidade de localidades que se tornarão cidades, ou seja uma localidade que começa maior e crescerá mais depressa.
+-STR_CONFIG_SETTING_LARGER_TOWNS_VALUE                           :1 em {COMMA}
++STR_CONFIG_SETTING_LARGER_TOWNS_VALUE                           :1 em cada {COMMA}
+ ###setting-zero-is-special
+ STR_CONFIG_SETTING_LARGER_TOWNS_DISABLED                        :Nenhum
+ STR_CONFIG_SETTING_CITY_SIZE_MULTIPLIER                         :Multiplicador inicial para a dimensão das metrópoles: {STRING}
+@@ -2126,7 +2124,7 @@ STR_CONFIG_SETTING_SHORT_PATH_SATURATION_HELPTEXT               :Frequentemente
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY                  :Unidades de velocidade (terrestre): {STRING}
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_NAUTICAL         :Unidades de velocidade (náutica): {STRING}
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_HELPTEXT         :Quando uma velocidade é mostrada no interface de utilizador, mostrar na unidade selecionada
+-STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_IMPERIAL         :Imperial (mph)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_IMPERIAL         :Imperial (mi/h)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_METRIC           :Métrico (km/h)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_SI               :SI (m/s)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VELOCITY_GAMEUNITS_DAYS   :Unidades do jogo (mosaicos/dia)
+@@ -2137,21 +2135,21 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER                     :Unidades de pot
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_HELPTEXT            :Quando a potência de um veículo é mostrada no interface de utilizador, mostrar na unidade selecionada
+ ###length 3
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_IMPERIAL            :Imperial (hp)
+-STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_METRIC              :Métrico (hp)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_METRIC              :Métrico (cv)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_POWER_SI                  :SI (kW)
+ 
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT                    :Unidades de peso: {STRING}
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_HELPTEXT           :Quando um peso é mostrado na interface de utilizador, mostrar na unidade selecionada
+ ###length 3
+-STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_IMPERIAL           :Imperial (short t/ton)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_IMPERIAL           :Imperial (tn/ton curta)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_METRIC             :Métrico (t/tonelada)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_WEIGHT_SI                 :SI (kg)
+ 
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME                    :Unidades de volume: {STRING}
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME_HELPTEXT           :Quando uma quantidade de volume é mostrada na interface de utilizador, mostrar na unidade selecionada
+ ###length 3
+-STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME_IMPERIAL           :Imperial (galões)
+-STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME_METRIC             :Métrico (l)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME_IMPERIAL           :Imperial (gal)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME_METRIC             :Métrico (L)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_VOLUME_SI                 :SI (m³)
+ 
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_FORCE                     :Unidades de esforço de tração: {STRING}
+@@ -2298,7 +2296,7 @@ STR_CHEAT_NO_JETCRASH                                           :{LTBLUE}Aviões
+ STR_CHEAT_EDIT_MAX_HL                                           :{LTBLUE}Editar altura máxima do mapa: {ORANGE}{NUM}
+ STR_CHEAT_EDIT_MAX_HL_QUERY_CAPT                                :{WHITE}Editar altura máxima de montanhas no mapa
+ STR_CHEAT_CHANGE_DATE                                           :{LTBLUE}Alterar data: {ORANGE}{DATE_SHORT}
+-STR_CHEAT_CHANGE_DATE_QUERY_CAPT                                :{WHITE}Alterar ano atual
++STR_CHEAT_CHANGE_DATE_QUERY_CAPT                                :{WHITE}Alterar o ano atual
+ STR_CHEAT_SETUP_PROD                                            :{LTBLUE}Ativar modificação de valores de produção: {ORANGE}{STRING}
+ STR_CHEAT_STATION_RATING                                        :{LTBLUE}Afixar as classificações da estação em 100%: {ORANGE}{STRING}
+ 
+@@ -2881,8 +2879,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Subúrbios Peri
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Subúrbios Centrais
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Centro da localidade
+ 
+-STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolha se esta casa será protegida contra a substituição à medida que localidade cresce
++STR_HOUSE_PICKER_PROTECT                                        :Impedir atualizações
++STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Escolha se esta casa será protegida contra a substituição à medida que a localidade cresce
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Substituir existentes
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Escolha se deseja remover automaticamente a casa existente no mosaico onde esta nova casa será colocada.
+ 
+ STR_STATION_CLASS_DFLT                                          :Padrão
+ STR_STATION_CLASS_DFLT_STATION                                  :Estação padrão
+@@ -2972,7 +2973,7 @@ STR_STATION_BUILD_CARGO_TRAM_ORIENTATION                        :{WHITE}Orienta
+ STR_STATION_BUILD_CARGO_TRAM_ORIENTATION_TOOLTIP                :{BLACK}Selecionar orientação do terminal de carga para elétricos
+ 
+ # Waterways toolbar (last two for SE only)
+-STR_WATERWAYS_TOOLBAR_CAPTION                                   :{WHITE}Construção de Vias Fluviais
++STR_WATERWAYS_TOOLBAR_CAPTION                                   :{WHITE}Construção de Rotas Navais
+ STR_WATERWAYS_TOOLBAR_CAPTION_SE                                :{WHITE}Canais
+ STR_WATERWAYS_TOOLBAR_BUILD_CANALS_TOOLTIP                      :{BLACK}Construir canais. Ctrl+Clique+Arrastar para selecionar a área diagonalmente. Pressione também Shift para apenas mostrar o custo estimado
+ STR_WATERWAYS_TOOLBAR_BUILD_LOCKS_TOOLTIP                       :{BLACK}Construir eclusas. Pressione também Shift para apenas mostrar o custo estimado
+@@ -3018,7 +3019,7 @@ STR_AIRPORT_CLASS_HELIPORTS                                     :Heliportos
+ STR_STATION_BUILD_NOISE                                         :{BLACK}Ruído gerado: {GOLD}{COMMA}
+ 
+ # Landscaping toolbar
+-STR_LANDSCAPING_TOOLBAR                                         :{WHITE}Terreno
++STR_LANDSCAPING_TOOLBAR                                         :{WHITE}Paisagem
+ STR_LANDSCAPING_TOOLTIP_LOWER_A_CORNER_OF_LAND                  :{BLACK}Baixar um canto do terreno. Clique+Arraste para rebaixar o primeiro canto selecionado e nivelar o terreno da área selecionada para a nova altura do canto. Ctrl+Clique+Arraste para selecionar a área na diagonal. Pressione também Shift para apenas mostrar o custo estimado
+ STR_LANDSCAPING_TOOLTIP_RAISE_A_CORNER_OF_LAND                  :{BLACK}Elevar um canto do terreno. Clique+Arrastar para elevar o primeiro canto selecionado e nivelar a área selecionada com a altura do novo canto. Ctrl+Clique+Arrastar para selecionar a área na diagonal. Pressione também Shift para apenas mostrar o custo estimado
+ STR_LANDSCAPING_LEVEL_LAND_TOOLTIP                              :{BLACK}Nivelar uma área de terreno até a altura do primeiro canto selecionado. Ctrl+Clique+Arrastar para selecionar a área na diagonal. Pressione também Shift para apenas mostrar o custo estimado
+@@ -3364,13 +3365,13 @@ STR_MAPGEN_WORLD_GENERATION_CAPTION                             :{WHITE}Gerador
+ STR_MAPGEN_MAPSIZE                                              :{BLACK}Dim. do mapa:
+ STR_MAPGEN_MAPSIZE_TOOLTIP                                      :{BLACK}Selecionar o tamanho do mapa em mosaicos. O número de mosaicos disponíveis será ligeiramente menor
+ STR_MAPGEN_BY                                                   :{BLACK}*
+-STR_MAPGEN_NUMBER_OF_TOWNS                                      :{BLACK}Num. de localidades:
++STR_MAPGEN_NUMBER_OF_TOWNS                                      :{BLACK}Núm. de localidades:
+ STR_MAPGEN_NUMBER_OF_TOWNS_TOOLTIP                              :{BLACK}Selecionar a densidade das cidades, ou um número personalizado
+ STR_MAPGEN_TOWN_NAME_LABEL                                      :{BLACK}Nomes das localidades:
+ STR_MAPGEN_TOWN_NAME_DROPDOWN_TOOLTIP                           :{BLACK}Selecionar o estilo dos nomes das localidades
+ STR_MAPGEN_DATE                                                 :{BLACK}Data:
+ STR_MAPGEN_DATE_TOOLTIP                                         :{BLACK}Selecionar a data inicial
+-STR_MAPGEN_NUMBER_OF_INDUSTRIES                                 :{BLACK}Num. de indústrias:
++STR_MAPGEN_NUMBER_OF_INDUSTRIES                                 :{BLACK}Núm. de indústrias:
+ STR_MAPGEN_NUMBER_OF_INDUSTRIES_TOOLTIP                         :{BLACK}Selecionar a densidade das indústrias, ou um número personalizado
+ STR_MAPGEN_HEIGHTMAP_HEIGHT                                     :{BLACK}Pico mais alto:
+ STR_MAPGEN_HEIGHTMAP_HEIGHT_TOOLTIP                             :{BLACK}Escolher o pico mais alto que o jogo tentará criar, medido em elevação acima do nível do mar
+@@ -3453,7 +3454,7 @@ STR_MAPGEN_TERRAIN_TYPE_QUERY_CAPT                              :{WHITE}Altura d
+ STR_MAPGEN_HEIGHTMAP_HEIGHT_QUERY_CAPT                          :{WHITE}Pico mais alto
+ STR_MAPGEN_SNOW_COVERAGE_QUERY_CAPT                             :{WHITE}Cobertura de neve (em %)
+ STR_MAPGEN_DESERT_COVERAGE_QUERY_CAPT                           :{WHITE}Cobertura do deserto (em %)
+-STR_MAPGEN_START_DATE_QUERY_CAPT                                :{WHITE}Mudar ano de início
++STR_MAPGEN_START_DATE_QUERY_CAPT                                :{WHITE}Alterar o ano inicial
+ 
+ # SE Map generation
+ STR_SE_MAPGEN_CAPTION                                           :{WHITE}Tipo de cenário
+@@ -3480,7 +3481,7 @@ STR_GENERATION_RIVER_GENERATION                                 :{BLACK}A gerar
+ STR_GENERATION_CLEARING_TILES                                   :{BLACK}A gerar zonas rochosas e montanhosas
+ STR_GENERATION_TOWN_GENERATION                                  :{BLACK}A gerar localidades
+ STR_GENERATION_LAND_INDUSTRY_GENERATION                         :{BLACK}A gerar indústrias terrestres
+-STR_GENERATION_WATER_INDUSTRY_GENERATION                        :{BLACK}A gerar indústrias fluviais
++STR_GENERATION_WATER_INDUSTRY_GENERATION                        :{BLACK}A gerar indústrias fluviais/marítimas
+ STR_GENERATION_OBJECT_GENERATION                                :{BLACK}A gerar objetos
+ STR_GENERATION_TREE_GENERATION                                  :{BLACK}A gerar árvores
+ STR_GENERATION_SETTINGUP_GAME                                   :{BLACK}A configurar jogo
+@@ -3517,7 +3518,7 @@ STR_NEWGRF_SETTINGS_MOVEUP                                      :{BLACK}Para Cim
+ STR_NEWGRF_SETTINGS_MOVEUP_TOOLTIP                              :{BLACK}Move o ficheiro NewGRF selecionado para cima na lista
+ STR_NEWGRF_SETTINGS_MOVEDOWN                                    :{BLACK}Para Baixo
+ STR_NEWGRF_SETTINGS_MOVEDOWN_TOOLTIP                            :{BLACK}Move o ficheiro NewGRF selecionado para baixo na lista
+-STR_NEWGRF_SETTINGS_UPGRADE                                     :{BLACK}Atualiza
++STR_NEWGRF_SETTINGS_UPGRADE                                     :{BLACK}Atualizar
+ STR_NEWGRF_SETTINGS_UPGRADE_TOOLTIP                             :{BLACK}Atualiza ficheiros NewGRF para os quais tens uma versão mais recente instalada
+ STR_NEWGRF_SETTINGS_FILE_TOOLTIP                                :{BLACK}Uma lista dos ficheiros NewGRF que estão instalados
+ 
+@@ -3990,7 +3991,7 @@ STR_COMPANY_VIEW_INFRASTRUCTURE                                 :{GOLD}Infraestr
+ STR_COMPANY_VIEW_INFRASTRUCTURE_RAIL                            :{WHITE}{COMMA} secç{P ão ões} de linha ferroviária
+ STR_COMPANY_VIEW_INFRASTRUCTURE_ROAD                            :{WHITE}{COMMA} secç{P ão ões} de estrada
+ STR_COMPANY_VIEW_INFRASTRUCTURE_WATER                           :{WHITE}{COMMA} mosaico{P "" s} com água
+-STR_COMPANY_VIEW_INFRASTRUCTURE_STATION                         :{WHITE}{COMMA} mosaico{P "" s} com estaç{P ão ões}
++STR_COMPANY_VIEW_INFRASTRUCTURE_STATION                         :{WHITE}{COMMA} mosaico{P "" s} com {P "uma " ""}estaç{P ão ões}
+ STR_COMPANY_VIEW_INFRASTRUCTURE_AIRPORT                         :{WHITE}{COMMA} aeroporto{P "" s}
+ STR_COMPANY_VIEW_INFRASTRUCTURE_NONE                            :{WHITE}Nenhuma
+ 
+@@ -4358,7 +4359,7 @@ STR_DEPOT_SELL_CONFIRMATION_TEXT                                :{YELLOW}Está p
+ 
+ # Engine preview window
+ STR_ENGINE_PREVIEW_CAPTION                                      :{WHITE}Mensagem de um fabricante de veículos
+-STR_ENGINE_PREVIEW_MESSAGE                                      :{GOLD}Desenvolvemos u{G 0 m m ma ns mas} nov{G 0 "o modelo de" o a os as} {STRING} - estaria interessado num ano de exclusividade de uso deste{G 0 "" "" "" s s} veículo{G 0 "" "" "" s s}, de modo a que possamos avaliar o {G 0 "seu " "seu " "seu " "" ""}desempenho antes de o{G 0 "" "" "" s s} disponibilizar globalmente?
++STR_ENGINE_PREVIEW_MESSAGE                                      :{GOLD}Desenvolvemos u{G 0 m m ma ns mas} nov{G 0 "o modelo de" o a os as} {STRING} - estaria interessado num ano de uso exclusivo deste{G 0 "" "" "" s s} veículo{G 0 "" "" "" s s}, de modo a que possamos avaliar o {G 0 "seu " "seu " "seu " "" ""}desempenho antes de o{G 0 "" "" "" s s} disponibilizar globalmente?
+ 
+ STR_ENGINE_PREVIEW_RAILROAD_LOCOMOTIVE                          :{G=f}locomotiva ferroviária
+ STR_ENGINE_PREVIEW_ELRAIL_LOCOMOTIVE                            :{G=f}locomotiva elétrica ferroviária
+@@ -4494,7 +4495,7 @@ STR_VEHICLE_STATUS_STOPPED                                      :{RED}Parado
+ STR_VEHICLE_STATUS_TRAIN_STOPPING_VEL                           :{RED}{VELOCITY} - A parar
+ STR_VEHICLE_STATUS_TRAIN_NO_POWER                               :{RED}Sem energia
+ STR_VEHICLE_STATUS_TRAIN_STUCK                                  :{ORANGE}A esperar por caminho livre
+-STR_VEHICLE_STATUS_AIRCRAFT_TOO_FAR                             :{ORANGE}Longe de mais do próximo destino
++STR_VEHICLE_STATUS_AIRCRAFT_TOO_FAR                             :{ORANGE}Demasiado longe do próximo destino
+ 
+ STR_VEHICLE_STATUS_HEADING_FOR_STATION_VEL                      :{LTBLUE}{1:VELOCITY} - Dirige-se para {G 0 "" "o " "a " "os " "as "}{0:STATION}
+ STR_VEHICLE_STATUS_NO_ORDERS_VEL                                :{LTBLUE}{VELOCITY} - Sem ordens
+@@ -4739,7 +4740,7 @@ STR_ORDER_REFIT_ORDER                                           :{SPACE}(Adaptar
+ STR_ORDER_REFIT_STOP_ORDER                                      :{SPACE}(Adaptar para transportar {STRING} e parar)
+ STR_ORDER_STOP_ORDER                                            :{SPACE}(Parar)
+ 
+-STR_ORDER_WAIT_TO_UNBUNCH                                       :{SPACE}(Esperar por desagrupar)
++STR_ORDER_WAIT_TO_UNBUNCH                                       :{SPACE}(Esperar para desagrupar)
+ 
+ STR_ORDER_GO_TO_STATION                                         :{STRING} {STATION}
+ STR_ORDER_GO_TO_STATION_CAN_T_USE_STATION                       :{PUSH_COLOUR}{RED}(Não pode usar a estação){POP_COLOUR} {STRING} {STATION}
+@@ -4780,7 +4781,7 @@ STR_ORDER_AUTO_REFIT_ANY                                        :mercadoria disp
+ ###length 3
+ STR_ORDER_STOP_LOCATION_NEAR_END                                :{SPACE}[início]
+ STR_ORDER_STOP_LOCATION_MIDDLE                                  :{SPACE}[meio]
+-STR_ORDER_STOP_LOCATION_FAR_END                                 :{SPACE}[final]
++STR_ORDER_STOP_LOCATION_FAR_END                                 :{SPACE}[fim]
+ 
+ STR_ORDER_OUT_OF_RANGE                                          :{RED} (Próximo destino está fora de alcance)
+ 
+@@ -4807,7 +4808,7 @@ STR_TIMETABLE_TRAVEL_FOR_ESTIMATED                              :Viajar (durante
+ STR_TIMETABLE_TRAVEL_FOR_SPEED_ESTIMATED                        :Viajar (por {STRING}, sem programação) no máximo a {VELOCITY}
+ STR_TIMETABLE_STAY_FOR_ESTIMATED                                :{SPACE}(permanecer por {STRING}, sem horário)
+ STR_TIMETABLE_AND_TRAVEL_FOR_ESTIMATED                          :{SPACE}(viajar durante {STRING}, sem horário)
+-STR_TIMETABLE_STAY_FOR                                          :{SPACE}e ficar por {STRING}
++STR_TIMETABLE_STAY_FOR                                          :{SPACE}e permanecer por {STRING}
+ STR_TIMETABLE_AND_TRAVEL_FOR                                    :{SPACE}e viajar durante {STRING}
+ 
+ STR_TIMETABLE_APPROX_TIME                                       :{BLACK}Este horário levará aproximadamente {STRING} para concluir
+@@ -4983,7 +4984,7 @@ STR_MESSAGE_ESTIMATED_INCOME                                    :{WHITE}Lucro Es
+ # Saveload messages
+ STR_ERROR_SAVE_STILL_IN_PROGRESS                                :{WHITE}Gravação ainda em curso,{}por favor aguarde!
+ STR_ERROR_AUTOSAVE_FAILED                                       :{WHITE}Falha ao guardar automaticamente
+-STR_ERROR_UNABLE_TO_READ_DRIVE                                  :{BLACK}Não é possível ler unidade
++STR_ERROR_UNABLE_TO_READ_DRIVE                                  :{BLACK}Não é possível ler unidade do sistema
+ STR_ERROR_GAME_SAVE_FAILED                                      :{WHITE}Falha ao guardar jogo...
+ STR_ERROR_UNABLE_TO_DELETE_FILE                                 :{WHITE}Não é possível eliminar ficheiro
+ STR_ERROR_GAME_LOAD_FAILED                                      :{WHITE}Falha ao carregar jogo...
+@@ -5046,12 +5047,12 @@ STR_ERROR_AREA_IS_OWNED_BY_ANOTHER                              :{WHITE}... a á
+ STR_ERROR_TERRAFORM_LIMIT_REACHED                               :{WHITE}... atingido o limite para terraformação
+ STR_ERROR_CLEARING_LIMIT_REACHED                                :{WHITE}... limite para limpeza de mosaicos atingido
+ STR_ERROR_TREE_PLANT_LIMIT_REACHED                              :{WHITE}... limite de plantação de árvores alcançado
+-STR_ERROR_NAME_MUST_BE_UNIQUE                                   :{WHITE}Nome deve ser único
++STR_ERROR_NAME_MUST_BE_UNIQUE                                   :{WHITE}O nome tem que ser único
+ STR_ERROR_GENERIC_OBJECT_IN_THE_WAY                             :{WHITE}{STRING} no caminho
+ STR_ERROR_NOT_ALLOWED_WHILE_PAUSED                              :{WHITE}Não permitido durante pausa
+ 
+ # Local authority errors
+-STR_ERROR_LOCAL_AUTHORITY_REFUSES_TO_ALLOW_THIS                 :{WHITE}A autoridade local de {TOWN} não autorizou
++STR_ERROR_LOCAL_AUTHORITY_REFUSES_TO_ALLOW_THIS                 :{WHITE}A autoridade local de {TOWN} não autoriza
+ STR_ERROR_LOCAL_AUTHORITY_REFUSES_AIRPORT                       :{WHITE}A autoridade local de {TOWN} recusa-se a permitir a construção de outro aeroporto nesta localidade
+ STR_ERROR_LOCAL_AUTHORITY_REFUSES_NOISE                         :{WHITE}A autoridade local de {TOWN} não permite a construção do aeroporto devido à poluição sonora
+ STR_ERROR_BRIBE_FAILED                                          :{WHITE}A sua tentativa de suborno foi descoberta por um investigador regional
+@@ -5114,7 +5115,7 @@ STR_ERROR_FOREST_CAN_ONLY_BE_PLANTED                            :{WHITE}... a fl
+ STR_ERROR_CAN_ONLY_BE_BUILT_ABOVE_SNOW_LINE                     :{WHITE}... só se pode construir acima da linha da neve
+ STR_ERROR_CAN_ONLY_BE_BUILT_BELOW_SNOW_LINE                     :{WHITE}... só se pode construir abaixo da linha da neve
+ 
+-STR_ERROR_PROSPECTING_WAS_UNLUCKY                               :{WHITE}O financiamento falhou em prospetar devido ao azar; tente novamente
++STR_ERROR_PROSPECTING_WAS_UNLUCKY                               :{WHITE}Por azar o financiamento da prospeção falhou; tente novamente
+ STR_ERROR_NO_SUITABLE_PLACES_FOR_PROSPECTING                    :{WHITE}Não havia locais adequados para prospetar esta indústria
+ STR_ERROR_NO_SUITABLE_PLACES_FOR_INDUSTRIES                     :{WHITE}Não foram encontrados locais adequados para '{STRING}' indústrias
+ STR_ERROR_NO_SUITABLE_PLACES_FOR_INDUSTRIES_EXPLANATION         :{WHITE}Altera os parâmetros de geração do mapa para obter um mapa melhor
+@@ -5138,7 +5139,7 @@ STR_ERROR_TOO_MANY_BUS_STOPS                                    :{WHITE}Demasiad
+ STR_ERROR_TOO_MANY_TRUCK_STOPS                                  :{WHITE}Demasiadas estações de carga
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_DOCK                             :{WHITE}Muito perto de outra doca
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_AIRPORT                          :{WHITE}Demasiado perto de outro aeroporto
+-STR_ERROR_CAN_T_RENAME_STATION                                  :{WHITE}Não pode alterar o nome da estação...
++STR_ERROR_CAN_T_RENAME_STATION                                  :{WHITE}Não é possível alterar o nome da estação...
+ STR_ERROR_CAN_T_MOVE_STATION_NAME                               :{WHITE}Não é possível mover o letreiro da estação...
+ STR_ERROR_DRIVE_THROUGH_ON_TOWN_ROAD                            :{WHITE}... estrada pertence a uma localidade
+ STR_ERROR_DRIVE_THROUGH_DIRECTION                               :{WHITE}... estrada orientada na direção incorreta
+@@ -5207,10 +5208,10 @@ STR_ERROR_UNABLE_TO_FIND_LOCAL_DEPOT                            :{WHITE}Não é
+ STR_ERROR_DEPOT_WRONG_DEPOT_TYPE                                :Tipo de depósito errado
+ 
+ # Depot unbunching related errors
+-STR_ERROR_UNBUNCHING_ONLY_ONE_ALLOWED                           :{WHITE}... só pode ter uma ordem de desagrupar
+-STR_ERROR_UNBUNCHING_NO_FULL_LOAD                               :{WHITE}... não é possível usar ordens de carga completa quando o veículo tem uma ordem de desagrupar
++STR_ERROR_UNBUNCHING_ONLY_ONE_ALLOWED                           :{WHITE}... só pode ter uma ordem para desagrupar
++STR_ERROR_UNBUNCHING_NO_FULL_LOAD                               :{WHITE}... não é possível usar ordens de carga completa quando o veículo tem uma ordem para desagrupar
+ STR_ERROR_UNBUNCHING_NO_UNBUNCHING_FULL_LOAD                    :{WHITE}... não é possível desagrupar um veículo com ordem de carga completa
+-STR_ERROR_UNBUNCHING_NO_CONDITIONAL                             :{WHITE}... não é possível usar ordens condicionais quando um veículo tem uma ordem de desagrupar
++STR_ERROR_UNBUNCHING_NO_CONDITIONAL                             :{WHITE}... não é possível usar ordens condicionais quando um veículo tem uma ordem para desagrupar
+ STR_ERROR_UNBUNCHING_NO_UNBUNCHING_CONDITIONAL                  :{WHITE}... não é possível desagrupar um veículo com uma ordem condicional
+ 
+ # Autoreplace related errors
+@@ -5393,8 +5394,8 @@ STR_ERROR_CAN_T_CLONE_VEHICLE_LIST                              :{WHITE}... nem
+ 
+ STR_ERROR_NO_VEHICLES_AVAILABLE_AT_ALL                          :{WHITE}Nenhum veículo estará disponível
+ STR_ERROR_NO_VEHICLES_AVAILABLE_AT_ALL_EXPLANATION              :{WHITE}Mudar a sua configuração NewGRF
+-STR_ERROR_NO_VEHICLES_AVAILABLE_YET                             :{WHITE}Nenhum veículo ainda disponível
+-STR_ERROR_NO_VEHICLES_AVAILABLE_YET_EXPLANATION                 :{WHITE}Começar um novo jogo depois de {DATE_SHORT} ou utilizar um NewGRF que forneça veículos iniciais
++STR_ERROR_NO_VEHICLES_AVAILABLE_YET                             :{WHITE}Ainda não existe veículos disponíveis
++STR_ERROR_NO_VEHICLES_AVAILABLE_YET_EXPLANATION                 :{WHITE}Começar um novo jogo depois de {DATE_SHORT} ou utilizar um NewGRF que forneça veículos iniciais nesta data
+ 
+ STR_ERROR_NO_TOWN_ROADTYPES_AVAILABLE_AT_ALL                    :{WHITE}Não está disponível nenhum tipo de estrada edificável para localidades
+ STR_ERROR_NO_TOWN_ROADTYPES_AVAILABLE_AT_ALL_EXPLANATION        :{WHITE}Mudar a sua configuração NewGRF
+@@ -5420,7 +5421,7 @@ STR_ERROR_CAN_T_MOVE_THIS_ORDER                                 :{WHITE}Não é
+ STR_ERROR_CAN_T_SKIP_ORDER                                      :{WHITE}Não é possível saltar a ordem atual...
+ STR_ERROR_CAN_T_SKIP_TO_ORDER                                   :{WHITE}Não é possível saltar a ordem selecionada...
+ STR_ERROR_CAN_T_COPY_SHARE_ORDER                                :{WHITE}... veiculo não pode ir a todas as estações
+-STR_ERROR_CAN_T_ADD_ORDER                                       :{WHITE}... veiculo não pode ir a essa estação
++STR_ERROR_CAN_T_ADD_ORDER                                       :{WHITE}... veiculo não pode ir para essa estação
+ STR_ERROR_CAN_T_ADD_ORDER_SHARED                                :{WHITE}... um veículo a partilhar esta ordem não pode ir a essa estação
+ STR_ERROR_CAN_T_COPY_ORDER_VEHICLE_LIST                         :{WHITE}... nem todos os veículos têm as mesmas ordens
+ STR_ERROR_CAN_T_SHARE_ORDER_VEHICLE_LIST                        :{WHITE}... nem todos os veículos estão a partilhar ordens
+@@ -5890,7 +5891,7 @@ STR_FORMAT_DEPOT_NAME_SHIP                                      :{G=m}Estaleiro
+ STR_FORMAT_DEPOT_NAME_SHIP_SERIAL                               :{G=m}Estaleiro Naval de {TOWN} #{COMMA}
+ ###next-name-looks-similar
+ 
+-STR_FORMAT_DEPOT_NAME_AIRCRAFT                                  :{G=m}Hangar de {STATION}
++STR_FORMAT_DEPOT_NAME_AIRCRAFT                                  :{G=m}Hangar {G de do da dos das} {STATION}
+ # _SERIAL version of AIRACRAFT doesn't exist
+ 
+ STR_UNKNOWN_STATION                                             :estação desconhecida
+diff --git a/src/lang/russian.txt b/src/lang/russian.txt
+index af72c9eb6c..fc06fab262 100644
+--- a/src/lang/russian.txt
++++ b/src/lang/russian.txt
+@@ -1235,8 +1235,6 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Масштаб
+ 
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                :Использовать растровый шрифт
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Включить/отключить использование классического растрового шрифта фиксированного размера
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT                               :Предпочитать шрифт по умолчанию
+-STR_GAME_OPTIONS_GUI_FONT_DEFAULT_TOOLTIP                       :Всегда использовать шрифт по умолчанию вместо динамически подгружаемых шрифтов при отображении символов, отсутствующих в текущем шрифте
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Сглаживание шрифтов
+ STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Включить/отключить сглаживание масштабируемых шрифтов
+ 
+@@ -2105,7 +2103,7 @@ STR_CONFIG_SETTING_NEWS_MESSAGES_SUMMARY                        :кратко
+ STR_CONFIG_SETTING_NEWS_MESSAGES_FULL                           :полностью
+ 
+ STR_CONFIG_SETTING_COLOURED_NEWS_YEAR                           :Цветные газеты появляются в {STRING} году
+-STR_CONFIG_SETTING_COLOURED_NEWS_YEAR_HELPTEXT                  :Обычно в газетах печатают чёрно-белые изображения, а начиная с указанного года - цветные
++STR_CONFIG_SETTING_COLOURED_NEWS_YEAR_HELPTEXT                  :В старых газетах печатают чёрно-белые изображения, а начиная с указанного года - цветные
+ STR_CONFIG_SETTING_STARTING_YEAR                                :Год начала игры: {STRING}
+ 
+ STR_CONFIG_SETTING_ENDING_YEAR                                  :Последний год игры: {STRING}
+@@ -3051,8 +3049,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Перифер
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Центральные районы
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Центр
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Запретить обновление
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Вы можете указать, что это здание нельзя заменять другим, несмотря на рост и расширение города.
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Автозамена
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Укажите, заменять ли автоматически уже стоящие здания
+ 
+ STR_STATION_CLASS_DFLT                                          :Стандартная станция
+ STR_STATION_CLASS_DFLT_STATION                                  :Стандартная ж/д станция
+diff --git a/src/lang/simplified_chinese.txt b/src/lang/simplified_chinese.txt
+index 653915355e..1df2b670ba 100644
+--- a/src/lang/simplified_chinese.txt
++++ b/src/lang/simplified_chinese.txt
+@@ -2878,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :外郊区
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :内郊区
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :城镇中心
+ 
++STR_HOUSE_PICKER_PROTECT                                        :阻止重盖建筑
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :选择是否保护房屋以防止房屋随着城镇发展被替换
+ 
++STR_HOUSE_PICKER_REPLACE                                        :替换现有建筑
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :选择是否自动移除选中格子上已经存在的房屋
+ 
+ STR_STATION_CLASS_DFLT                                          :默认
+ STR_STATION_CLASS_DFLT_STATION                                  :默认车站
+diff --git a/src/lang/swedish.txt b/src/lang/swedish.txt
+index ec3c882acd..bd5176bad7 100644
+--- a/src/lang/swedish.txt
++++ b/src/lang/swedish.txt
+@@ -2878,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Yttrerförorter
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :Innerförorter
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Stadskärnan
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Hindra uppgraderingar
+ STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Välj huruvida detta hus ska skyddas från att ersättas i samband med att staden växer
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Ersätt befintlig
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Välj om befintliga hus automatiskt ska tas bort när denna byggnad placeras
+ 
+ STR_STATION_CLASS_DFLT                                          :Original
+ STR_STATION_CLASS_DFLT_STATION                                  :Standardstation
+@@ -5727,7 +5730,7 @@ STR_VEHICLE_NAME_ROAD_VEHICLE_MPS_MAIL_TRUCK                    :MPS Postbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_REYNARD_MAIL_TRUCK                :Reynard Postbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_PERRY_MAIL_TRUCK                  :Perry Postbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_MAIL_TRUCK            :MightyMover postbil
+-STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_MAIL_TRUCK            :Powernaught Postbil
++STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_MAIL_TRUCK            :Powernaught postbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_MAIL_TRUCK               :Wizzowow Postbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WITCOMBE_OIL_TANKER               :Witcombe Oljetanker
+ STR_VEHICLE_NAME_ROAD_VEHICLE_FOSTER_OIL_TANKER                 :Foster Oljetanker
+@@ -5771,7 +5774,7 @@ STR_VEHICLE_NAME_ROAD_VEHICLE_KELLING_FRUIT_TRUCK               :Kelling Fruktla
+ STR_VEHICLE_NAME_ROAD_VEHICLE_BALOGH_RUBBER_TRUCK               :Balogh Gummidumper
+ STR_VEHICLE_NAME_ROAD_VEHICLE_UHL_RUBBER_TRUCK                  :Uhl Gummidumper
+ STR_VEHICLE_NAME_ROAD_VEHICLE_RMT_RUBBER_TRUCK                  :RMT Gummidumper
+-STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_SUGAR_TRUCK           :MightyMover Sockerlastare
++STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_SUGAR_TRUCK           :MightyMover sockerlastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_SUGAR_TRUCK           :Powernaught sockerlastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_SUGAR_TRUCK              :Wizzowow sockerlastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_COLA_TRUCK            :MightyMover kolalastare
+@@ -5780,10 +5783,10 @@ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_COLA_TRUCK               :Wizzowow kolala
+ STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_COTTON_CANDY          :MightyMover sockervaddslastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_COTTON_CANDY          :Powernaught sockervaddslastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_COTTON_CANDY_TRUCK       :Wizzowow sockervaddslastare
+-STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_TOFFEE_TRUCK          :MightyMover Knäcklastare
++STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_TOFFEE_TRUCK          :MightyMover knäcklastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_TOFFEE_TRUCK          :Powernaught knäcklastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_TOFFEE_TRUCK             :Wizzowow knäcklastare
+-STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_TOY_VAN               :MightyMover Leksaksbil
++STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_TOY_VAN               :MightyMover leksaksbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_TOY_VAN               :Powernaught leksaksbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_TOY_VAN                  :Wizzowow leksaksbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_CANDY_TRUCK           :MightyMover godislastare
+@@ -5795,7 +5798,7 @@ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_BATTERY_TRUCK            :Wizzowow batter
+ STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_FIZZY_DRINK           :MightyMover läsklastbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_FIZZY_DRINK           :Powernaught läsklastbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_FIZZY_DRINK_TRUCK        :Wizzowow läsklastbil
+-STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_PLASTIC_TRUCK         :MightyMover Plastlastare
++STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_PLASTIC_TRUCK         :MightyMover plastlastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_POWERNAUGHT_PLASTIC_TRUCK         :Powernaught plastlastare
+ STR_VEHICLE_NAME_ROAD_VEHICLE_WIZZOWOW_PLASTIC_TRUCK            :Wizzowow plastlastbil
+ STR_VEHICLE_NAME_ROAD_VEHICLE_MIGHTYMOVER_BUBBLE_TRUCK          :MightyMover bubbellastbil
+diff --git a/src/lang/traditional_chinese.txt b/src/lang/traditional_chinese.txt
+index 5733fb158a..0c328f0f2a 100644
+--- a/src/lang/traditional_chinese.txt
++++ b/src/lang/traditional_chinese.txt
+@@ -1705,7 +1705,7 @@ STR_CONFIG_SETTING_LIVERIES_NONE                                :不顯示
+ STR_CONFIG_SETTING_LIVERIES_OWN                                 :自家公司
+ STR_CONFIG_SETTING_LIVERIES_ALL                                 :所有公司
+ 
+-STR_CONFIG_SETTING_PREFER_TEAMCHAT                              :傾向以 <ENTER> 鍵開啟小隊交談功能：{STRING}
++STR_CONFIG_SETTING_PREFER_TEAMCHAT                              :使用 <Enter> 與隊伍聊天：{STRING}
+ STR_CONFIG_SETTING_PREFER_TEAMCHAT_HELPTEXT                     :選擇是否以 <ENTER> 鍵取代 <Ctrl+ENTER> 鍵作切換公眾交談窗與公司內部交談窗之用。
+ 
+ STR_CONFIG_SETTING_SCROLLWHEEL_MULTIPLIER                       :滾輪地圖捲動速度：{STRING}
+@@ -2878,8 +2878,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :遠郊
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :近郊
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :市鎮中心
+ 
+-STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :選擇是否要保護房屋以免房屋隨著市鎮的發展而被替換
++STR_HOUSE_PICKER_PROTECT                                        :防止升級
++STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :選擇是否保護房屋以免房屋隨著市鎮發展而被替換
+ 
++STR_HOUSE_PICKER_REPLACE                                        :替換現有
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :選擇是否自動移除該房屋所在地上的現有房屋
+ 
+ STR_STATION_CLASS_DFLT                                          :預設
+ STR_STATION_CLASS_DFLT_STATION                                  :預設車站
+diff --git a/src/lang/turkish.txt b/src/lang/turkish.txt
+index 5b8612f119..4ecc1cd317 100644
+--- a/src/lang/turkish.txt
++++ b/src/lang/turkish.txt
+@@ -170,7 +170,7 @@ STR_LITERS                                                      :{COMMA}{NBSP}li
+ STR_ITEMS                                                       :{COMMA}{NBSP}adet
+ STR_CRATES                                                      :{COMMA}{NBSP}kasa
+ 
+-STR_COLOUR_DEFAULT                                              :Varsayılan
++STR_COLOUR_DEFAULT                                              :Öntanımlı
+ ###length 17
+ STR_COLOUR_DARK_BLUE                                            :Koyu Mavi
+ STR_COLOUR_PALE_GREEN                                           :Soluk Yeşil
+@@ -308,9 +308,10 @@ STR_SHOW_HIDDEN_ENGINES_VEHICLE_SHIP_TOOLTIP                    :{BLACK}Bu düğ
+ STR_SHOW_HIDDEN_ENGINES_VEHICLE_AIRCRAFT_TOOLTIP                :{BLACK}Bu düğme etkinleştirildiğinde, gizli uçaklar da görüntülenir
+ 
+ # Query window
+-STR_BUTTON_DEFAULT                                              :{BLACK}Varsayılan
++STR_BUTTON_DEFAULT                                              :{BLACK}Öntanımlı
+ STR_BUTTON_CANCEL                                               :{BLACK}İptal
+ STR_BUTTON_OK                                                   :{BLACK}Tamam
++STR_BUTTON_MOVE                                                 :{BLACK}Taşı
+ 
+ # On screen keyboard window
+ STR_OSK_KEYBOARD_LAYOUT                                         :"1234567890*-\qwertyuıopğüasdfghjklşi,'  zxcvbnmöç. .
+@@ -452,6 +453,12 @@ STR_SETTINGS_MENU_SANDBOX_OPTIONS                               :Sandbox ayarlar
+ STR_SETTINGS_MENU_TRANSPARENCY_OPTIONS                          :Şeffaflık seçenekleri
+ STR_SETTINGS_MENU_TOWN_NAMES_DISPLAYED                          :Şehir isimlerini göster
+ STR_SETTINGS_MENU_STATION_NAMES_DISPLAYED                       :İstasyon isimlerini göster
++STR_SETTINGS_MENU_STATION_NAMES_TRAIN                           :Tren istasyonları
++STR_SETTINGS_MENU_STATION_NAMES_LORRY                           :Kamyon durakları
++STR_SETTINGS_MENU_STATION_NAMES_BUS                             :Otobüs durakları
++STR_SETTINGS_MENU_STATION_NAMES_SHIP                            :İskeleler
++STR_SETTINGS_MENU_STATION_NAMES_PLANE                           :Havalimanları
++STR_SETTINGS_MENU_STATION_NAMES_GHOST                           :Hayalet
+ STR_SETTINGS_MENU_WAYPOINTS_DISPLAYED                           :Ara nokta isimlerini göster
+ STR_SETTINGS_MENU_SIGNS_DISPLAYED                               :Tabelaları göster
+ STR_SETTINGS_MENU_SHOW_COMPETITOR_SIGNS                         :Rakip tabela ve isimlerini göster
+@@ -614,22 +621,37 @@ STR_GRAPH_CARGO_DELIVERED_CAPTION                               :{WHITE}Taşına
+ STR_GRAPH_COMPANY_PERFORMANCE_RATINGS_CAPTION                   :{WHITE}Şirket performans değerlendirmeleri (azami=1000)
+ STR_GRAPH_COMPANY_VALUES_CAPTION                                :{WHITE}Şirket Değerleri Grafiği
+ 
++STR_GRAPH_LAST_24_MINUTES_TIME_LABEL                            :{TINY_FONT}{BLACK}Son 24 dakika
+ STR_GRAPH_LAST_72_MINUTES_TIME_LABEL                            :{TINY_FONT}{BLACK}Son 72 dakika
++STR_GRAPH_LAST_288_MINUTES_TIME_LABEL                           :{TINY_FONT}{BLACK}Son 288 dakika
+ 
++STR_GRAPH_LAST_24_MONTHS                                        :{TINY_FONT}{BLACK}2 yıl (aylık)
++STR_GRAPH_LAST_24_QUARTERS                                      :{TINY_FONT}{BLACK}6 yıl (çeyreklik)
++STR_GRAPH_LAST_24_YEARS                                         :{TINY_FONT}{BLACK}24 yıl (yıllık)
+ 
++STR_GRAPH_TOGGLE_RANGE                                          :Bu veri aralığı için grafiği aç
++STR_GRAPH_SELECT_SCALE                                          :Grafiğin yatay ölçeğini değiştir
+ 
+ STR_GRAPH_CARGO_PAYMENT_RATES_CAPTION                           :{WHITE}Kargo Ödeme Seviyeleri
+ STR_GRAPH_CARGO_PAYMENT_RATES_DAYS                              :{TINY_FONT}{BLACK}Transit günler
+ STR_GRAPH_CARGO_PAYMENT_RATES_SECONDS                           :{TINY_FONT}{BLACK}Geçişte saniyeler
+ STR_GRAPH_CARGO_PAYMENT_RATES_TITLE                             :{TINY_FONT}{BLACK}20 karelik yolda 10 birim (ya da 10,000 litre) için ödeme
+-STR_GRAPH_CARGO_ENABLE_ALL                                      :{TINY_FONT}{BLACK}Tümünü aç
+-STR_GRAPH_CARGO_DISABLE_ALL                                     :{TINY_FONT}{BLACK}Tümünü kapat
++STR_GRAPH_CARGO_ENABLE_ALL                                      :{TINY_FONT}{BLACK}Tümü
++STR_GRAPH_CARGO_DISABLE_ALL                                     :{TINY_FONT}{BLACK}Hiçbiri
+ STR_GRAPH_CARGO_TOOLTIP_ENABLE_ALL                              :{BLACK}Kargo ödeme tablosunda tüm kargo türlerini göster
+ STR_GRAPH_CARGO_TOOLTIP_DISABLE_ALL                             :{BLACK}Kargo ödeme tablosunda hiçbir kargo türünü gösterme
+-STR_GRAPH_CARGO_PAYMENT_TOGGLE_CARGO                            :{BLACK}Kargo türünü göster/gizle
++STR_GRAPH_CARGO_PAYMENT_TOGGLE_CARGO                            :{BLACK}Bu kargo türünün grafiğini aç
+ STR_GRAPH_CARGO_PAYMENT_CARGO                                   :{TINY_FONT}{BLACK}{STRING}
+ 
++STR_GRAPH_INDUSTRY_CAPTION                                      :{WHITE}{INDUSTRY} - Kargo Geçmişi
++STR_GRAPH_INDUSTRY_RANGE_PRODUCED                               :Üretilen
++STR_GRAPH_INDUSTRY_RANGE_TRANSPORTED                            :Taşınan
++STR_GRAPH_INDUSTRY_RANGE_DELIVERED                              :Taşınan
++STR_GRAPH_INDUSTRY_RANGE_WAITING                                :Bekleyen
+ 
++STR_GRAPH_TOWN_CARGO_CAPTION                                    :{WHITE}{TOWN} - Kargo Geçmişi
++STR_GRAPH_TOWN_RANGE_PRODUCED                                   :Kaynak
++STR_GRAPH_TOWN_RANGE_TRANSPORTED                                :Taşınan
+ 
+ STR_GRAPH_PERFORMANCE_DETAIL_TOOLTIP                            :{BLACK}Detaylı performans oranlarını göster
+ 
+@@ -811,6 +833,7 @@ STR_SMALLMAP_SHOW_INDUSTRY_NAMES                                :{BLACK}Fabrika
+ STR_SMALLMAP_TOOLTIP_DISABLE_ALL_INDUSTRIES                     :{BLACK}Haritada fabrika gösterme
+ STR_SMALLMAP_TOOLTIP_ENABLE_ALL_INDUSTRIES                      :{BLACK}Haritada tüm fabrikaları göster
+ STR_SMALLMAP_TOOLTIP_SHOW_HEIGHT                                :{BLACK}Yükseklik haritasının gösterimini aç/kapa
++STR_SMALLMAP_TOOLTIP_SHOW_INDUSTRY_NAMES                        :{BLACK}Endüstri isimlerini göster/gizle
+ STR_SMALLMAP_TOOLTIP_DISABLE_ALL_COMPANIES                      :{BLACK}Haritada şirket mülkü gösterme
+ STR_SMALLMAP_TOOLTIP_ENABLE_ALL_COMPANIES                       :{BLACK}Haritada şirketlerin tüm mülklerini göster
+ STR_SMALLMAP_TOOLTIP_DISABLE_ALL_CARGOS                         :{BLACK}Haritada hiçbir kargo türünü gösterme
+@@ -958,12 +981,16 @@ STR_GAME_OPTIONS_TAB_SOUND                                      :Ses
+ STR_GAME_OPTIONS_TAB_SOUND_TOOLTIP                              :Ses ve müzik ayarlarını seçin
+ STR_GAME_OPTIONS_TAB_SOCIAL                                     :Sosyal
+ STR_GAME_OPTIONS_TAB_SOCIAL_TOOLTIP                             :Sosyal entegre ayarlarını seçin
++STR_GAME_OPTIONS_TAB_ADVANCED                                   :Gelişmiş
++STR_GAME_OPTIONS_TAB_ADVANCED_TOOLTIP                           :Gelişmiş ayarları değiştir
+ 
+ STR_GAME_OPTIONS_VOLUME                                         :Ses seviyesi
+ STR_GAME_OPTIONS_SFX_VOLUME                                     :Ses efektleri
+ STR_GAME_OPTIONS_MUSIC_VOLUME                                   :Müzik
+ 
++STR_GAME_OPTIONS_SETTING                                        :{STRING}: {ORANGE}{STRING}
+ 
++STR_GAME_OPTIONS_VOLUME_MARK                                    :%{NUM}
+ 
+ STR_GAME_OPTIONS_CURRENCY_UNITS_FRAME                           :Para birimleri
+ STR_GAME_OPTIONS_CURRENCY_UNITS_DROPDOWN_TOOLTIP                :Para birimi seçimi
+@@ -1015,6 +1042,8 @@ STR_GAME_OPTIONS_CURRENCY_IDR                                   :Endonezya Rupia
+ STR_GAME_OPTIONS_CURRENCY_MYR                                   :Malezya Ringgiti
+ STR_GAME_OPTIONS_CURRENCY_LVL                                   :Letonya Latsı
+ STR_GAME_OPTIONS_CURRENCY_PTE                                   :Portekiz Esküdosu
++STR_GAME_OPTIONS_CURRENCY_UAH                                   :Ukrayna Grivnası
++STR_GAME_OPTIONS_CURRENCY_VND                                   :Vietnam Dongu
+ 
+ STR_GAME_OPTIONS_AUTOSAVE_FRAME                                 :Otomatik Kaydet
+ STR_GAME_OPTIONS_AUTOSAVE_DROPDOWN_TOOLTIP                      :Otomatik kaydetme sıklığını seçin
+@@ -1032,7 +1061,7 @@ STR_GAME_OPTIONS_LANGUAGE_TOOLTIP                               :Görünen dili
+ STR_GAME_OPTIONS_LANGUAGE_PERCENTAGE                            :{STRING} (%{NUM} tamamlandı)
+ 
+ STR_GAME_OPTIONS_FULLSCREEN                                     :Tam ekran
+-STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :Tam ekran oynamak için bunu isaretleyin
++STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :OpenTTD'yi tam ekran oynamak için bu kutucuğu işaretleyin
+ 
+ STR_GAME_OPTIONS_RESOLUTION                                     :Ekran Çözünürlüğü
+ STR_GAME_OPTIONS_RESOLUTION_TOOLTIP                             :Kullanılacak ekran çözünürlüğünü seçin
+@@ -1048,6 +1077,7 @@ STR_GAME_OPTIONS_VIDEO_VSYNC_TOOLTIP                            :Dikey senkroniz
+ 
+ STR_GAME_OPTIONS_VIDEO_DRIVER_INFO                              :Geçerli sürücü: {STRING}
+ 
++STR_GAME_OPTIONS_INTERFACE                                      :Arayüz
+ 
+ STR_GAME_OPTIONS_GUI_SCALE_FRAME                                :Arayüz büyüklüğü
+ STR_GAME_OPTIONS_GUI_SCALE_TOOLTIP                              :Arayüz büyüklüğünü ayarlamak için kaydırın. Sürekli ayarlama için Ctrl tuşunu basılı tutun
+@@ -1060,8 +1090,9 @@ STR_GAME_OPTIONS_GUI_SCALE_BEVELS_TOOLTIP                       :Eğimi arayüz
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE                                : Geleneksel yazı tipini kullan
+ STR_GAME_OPTIONS_GUI_FONT_SPRITE_TOOLTIP                        :Yazı tipini geleneksel sabit boyutlu haline döndürmek için bu kutucuğu işaretleyin
+ STR_GAME_OPTIONS_GUI_FONT_AA                                    :Yazı tipi kenarlarını yumuşatma
+-STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Yeniden boyutlandırılabilir yazı tiplerinin kenarlarını yumuşatmak için bu kutuyu işaretleyin
++STR_GAME_OPTIONS_GUI_FONT_AA_TOOLTIP                            :Yeniden boyutlandırılabilir yazı tiplerinin kenarlarını yumuşatmak için bu kutucuğu işaretleyin
+ 
++STR_GAME_OPTIONS_GUI_SCALE_MARK                                 :{DECIMAL}x
+ 
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_FRAME                       :Otomatik anket
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY                             :Otomatik ankete katılın
+@@ -1071,6 +1102,7 @@ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_LINK_TOOLTIP                :Bu, otomatik an
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_PREVIEW                     :Anket sonucunu önizleyin
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_PREVIEW_TOOLTIP             :Mevcut çalışan oyunun anket sonucunu göster
+ 
++STR_GAME_OPTIONS_DISPLAY                                        :Görüntü
+ 
+ STR_GAME_OPTIONS_REFRESH_RATE                                   :Tazeleme oranını görüntüle
+ STR_GAME_OPTIONS_REFRESH_RATE_TOOLTIP                           :Kullanılacak tazeleme oranını seç
+@@ -1089,8 +1121,10 @@ STR_GAME_OPTIONS_BASE_MUSIC                                     :Temel müzik k
+ STR_GAME_OPTIONS_BASE_MUSIC_TOOLTIP                             :Kullanılacak temel müzik kümesini seçin
+ STR_GAME_OPTIONS_BASE_MUSIC_DESCRIPTION_TOOLTIP                 :Temel müzik hakkında daha fazla bilgi
+ 
++STR_GAME_OPTIONS_ONLINE_CONTENT                                 :İçerik Al
++STR_GAME_OPTIONS_ONLINE_CONTENT_TOOLTIP                         :İndirilecek yeni ve güncellenmiş içeriği kontrol et
+ 
+-STR_GAME_OPTIONS_SOCIAL_PLUGINS_NONE                            :{LTBLUE}(yüklü sosyal platformlarla entegre edilecek eklenti yok)
++STR_GAME_OPTIONS_SOCIAL_PLUGINS_NONE                            :(yüklü sosyal platformlarla entegre edilecek eklenti yok)
+ 
+ STR_GAME_OPTIONS_SOCIAL_PLUGIN_TITLE                            :{STRING} ({STRING})
+ STR_GAME_OPTIONS_SOCIAL_PLUGIN_PLATFORM                         :Platform:
+@@ -1284,6 +1318,9 @@ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :Borç faiz oran
+ STR_CONFIG_SETTING_RUNNING_COSTS                                :İşletme giderleri: {STRING}
+ STR_CONFIG_SETTING_RUNNING_COSTS_HELPTEXT                       :Araçlar ve altyapı için bakım ve işletme giderlerinin seviyesini ayarlayın
+ ###length 3
++STR_CONFIG_SETTING_RUNNING_COSTS_LOW                            :Düşük
++STR_CONFIG_SETTING_RUNNING_COSTS_MEDIUM                         :Orta
++STR_CONFIG_SETTING_RUNNING_COSTS_HIGH                           :Yüksek
+ 
+ STR_CONFIG_SETTING_CONSTRUCTION_SPEED                           :İnşaat hızı: {STRING}
+ STR_CONFIG_SETTING_CONSTRUCTION_SPEED_HELPTEXT                  :YZ'ler için inşaat hareketi sayısını sınırlayın
+@@ -1306,6 +1343,9 @@ STR_CONFIG_SETTING_SUBSIDY_DURATION_DISABLED                    :Teşvik yok
+ STR_CONFIG_SETTING_CONSTRUCTION_COSTS                           :İnşaat maliyetleri: {STRING}
+ STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HELPTEXT                  :İnşaat ve satın alma maliyet seviyesini belirleyin
+ ###length 3
++STR_CONFIG_SETTING_CONSTRUCTION_COSTS_LOW                       :Düşük
++STR_CONFIG_SETTING_CONSTRUCTION_COSTS_MEDIUM                    :Orta
++STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HIGH                      :Yüksek
+ 
+ STR_CONFIG_SETTING_RECESSIONS                                   :Ekonomik krizler: {STRING}
+ STR_CONFIG_SETTING_RECESSIONS_HELPTEXT                          :Etkinleştirilirse, periyodik olarak bir ekonomik durgunluk yaşanır. Durgunluk süresince tüm üretim seviyeleri belirgin oranda düşer (durgunluk sona erdiğinde önceki seviyesine tekrar yükselir)
+@@ -1491,6 +1531,8 @@ STR_CONFIG_SETTING_WARN_INCOME_LESS                             :Bir aracın gel
+ STR_CONFIG_SETTING_WARN_INCOME_LESS_HELPTEXT                    :Etkinleştirildiğinde, eğer bir araç bir yıl içerisinde hiç kâr etmezse bir haber mesajı gönderilir.
+ STR_CONFIG_SETTING_WARN_INCOME_LESS_HELPTEXT_PERIOD             :Etkinleştirildiğinde, eğer bir araç bir periyot içerisinde hiç kâr etmezse bir haber mesajı gönderilir.
+ 
++STR_CONFIG_SETTING_WARN_OLD_VEHICLE                             :Araç yaşlanınca uyar: {STRING}
++STR_CONFIG_SETTING_WARN_OLD_VEHICLE_HELPTEXT                    :Etkinleştirildiğinde, eğer bir araç yaşlanırsa haber mesajı gönderilir.
+ 
+ STR_CONFIG_SETTING_NEVER_EXPIRE_VEHICLES                        :Eski araçlar sürekli üretilsin: {STRING}
+ STR_CONFIG_SETTING_NEVER_EXPIRE_VEHICLES_HELPTEXT               :Etkinleştirildiğinde, tüm araç modelleri piyasaya çıkışlarından itibaren sonsuza dek satın alınabilir.
+@@ -1649,6 +1691,8 @@ STR_CONFIG_SETTING_SCROLLMODE_LMB                               :Sol Fare Tuşu
+ STR_CONFIG_SETTING_SMOOTH_SCROLLING                             :Düzgün bakış noktası kaydırması: {STRING}
+ STR_CONFIG_SETTING_SMOOTH_SCROLLING_HELPTEXT                    :Küçük haritaya tıklandığında veya harita üzerindeki belli bir nesneye gidilmesi için komut verildiğinde ana görüntünün nasıl kaydırılacağını kontrol eder. Etkinleştirildiğinde harita kayarak ilerler, kapatıldığında ise doğrudan hedeflenen noktaya atlama yapar.
+ 
++STR_CONFIG_SETTING_TOOLBAR_DROPDOWN_AUTOSELECT                  :Geleneksel araç çubuğu menüsü seçimi davranışı: {STRING}
++STR_CONFIG_SETTING_TOOLBAR_DROPDOWN_AUTOSELECT_HELPTEXT         :Araç çubuğu seçimi davranışını seçin. Kapalıysa araç çubuğu menüleri seçim yapılana kadar açık kalır. Açıksa araç çubuğu menüleri fare tuşu bırakıldığında aktifleşir.
+ 
+ STR_CONFIG_SETTING_MEASURE_TOOLTIP                              :İnşa araçları kullanılırken ölçüm ipucu göster: {STRING}
+ STR_CONFIG_SETTING_MEASURE_TOOLTIP_HELPTEXT                     :İnşaat işlemleri sırasında fareyi sürükleyince kare-uzaklıkları ve yükseklik farklarını göster.
+@@ -1755,7 +1799,7 @@ STR_CONFIG_SETTING_PERSISTENT_BUILDINGTOOLS_HELPTEXT            :Köprü, tünel
+ STR_CONFIG_SETTING_AUTO_REMOVE_SIGNALS                          :Ray yapımı sırasında sinyalleri otomatik olarak kaldır: {STRING}
+ STR_CONFIG_SETTING_AUTO_REMOVE_SIGNALS_HELPTEXT                 :Ray yapımı sırasında sinyaller yolun üzerinde ise otomatik kaldır. Bunun potansiyel olarak tren kazalarına yol açabileceğini unutmayın
+ 
+-STR_CONFIG_SETTING_FAST_FORWARD_SPEED_LIMIT                     :İleri sarma hız limiti: {STRING}
++STR_CONFIG_SETTING_FAST_FORWARD_SPEED_LIMIT                     :İleri sarma hız sınırı: {STRING}
+ STR_CONFIG_SETTING_FAST_FORWARD_SPEED_LIMIT_HELPTEXT            :Hızlı ileri sarma etkinleştirildiğinde oyunun ne kadar hızlı sarıldığını sınırlayın. 0 = sınır yok (bilgisayarın el verdiği kadar). %100'ün altındaki değerler oyunu yavaşlatır. Üst sınır bilgisayarının özelliklerine ve oyuna göre değişkenlik gösterebilir
+ STR_CONFIG_SETTING_FAST_FORWARD_SPEED_LIMIT_VAL                 :%{NUM} normal oyun hızı
+ ###setting-zero-is-special
+@@ -1835,6 +1879,9 @@ STR_CONFIG_SETTING_SERVINT_AIRCRAFT_HELPTEXT                    :Yeni hava araç
+ STR_CONFIG_SETTING_SERVINT_SHIPS                                :Gemiler için varsayılan bakım aralığı: {STRING}
+ STR_CONFIG_SETTING_SERVINT_SHIPS_HELPTEXT                       :Yeni gemiler için varsayılan bakım aralığını ayarlar, eğer araç için özel bir bakım aralığı belirtilmemişse geçerlidir
+ ###length 3
++STR_CONFIG_SETTING_SERVINT_VALUE_DAYS                           :{COMMA}{NBSP}Gün
++STR_CONFIG_SETTING_SERVINT_VALUE_MINUTES                        :{COMMA}{NBSP}Dakika
++STR_CONFIG_SETTING_SERVINT_VALUE_PERCENTAGE                     :{COMMA}%{NBSP}
+ 
+ ###setting-zero-is-special
+ STR_CONFIG_SETTING_SERVINT_DISABLED                             :Etkisiz
+@@ -1970,7 +2017,12 @@ STR_CONFIG_SETTING_TOWN_FOUNDING_FORBIDDEN                      :Yasak
+ STR_CONFIG_SETTING_TOWN_FOUNDING_ALLOWED                        :İzin verildi
+ STR_CONFIG_SETTING_TOWN_FOUNDING_ALLOWED_CUSTOM_LAYOUT          :İzin verildi, özel kasaba yerleşimi
+ 
++STR_CONFIG_SETTING_HOUSE_PLACER                                 :Binaları şehre teker teker yerleştirme: {STRING}
++STR_CONFIG_SETTING_HOUSE_PLACER_HELPTEXT                        :Bu ayarı etkinleştirmek, oyuncuların şehir binaları inşa etmesine izin verir
+ ###length 3
++STR_CONFIG_SETTING_HOUSE_PLACER_FORBIDDEN                       :Yasak
++STR_CONFIG_SETTING_HOUSE_PLACER_ALLOWED                         :İzinli
++STR_CONFIG_SETTING_HOUSE_PLACER_FULLY_CONSTRUCTED               :İzinli, inşası bitmiş
+ 
+ STR_CONFIG_SETTING_TOWN_CARGOGENMODE                            :Şehrin kargo üretimi: {STRING}
+ STR_CONFIG_SETTING_TOWN_CARGOGENMODE_HELPTEXT                   :Şehrin genel nüfusuna oranla, şehirlerdeki evler tarafından ne kadar kargo üretiliyor.{}Üstel büyüme: İki katı büyüklükteki bir şehir dört katı büyüklükte yolcuya sahip olur.{}Lineer büyüme: İki katı büyüklükteki bir şehir iki katı büyüklükte yolcuya sahip olur.
+@@ -2110,6 +2162,7 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_HELPTEXT           :Kullanıcı ara
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_IMPERIAL           :Imperial (Ingiliz ölçü birimleri) (ft)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_METRIC             :Metrik (m)
+ STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_SI                 :SI (Uluslararası Ölçüm Sistemi) (m)
++STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_GAMEUNITS          :Oyun birimleri (seviyeler)
+ 
+ STR_CONFIG_SETTING_LOCALISATION                                 :Yerelleştirme
+ STR_CONFIG_SETTING_GRAPHICS                                     :Grafikler
+@@ -2168,6 +2221,8 @@ STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... uyum
+ STR_VIDEO_DRIVER_ERROR_HARDWARE_ACCELERATION_CRASH              :{WHITE}... GPU sürücüsü oyunu çökertti. Donanım hızlandırma devre dışı bırakıldı
+ 
+ # Intro window
++STR_INTRO_CAPTION                                               :{WHITE}OpenTTD
++STR_INTRO_VERSION                                               :OpenTTD {REV}
+ 
+ STR_INTRO_NEW_GAME                                              :{BLACK}Yeni Oyun
+ STR_INTRO_LOAD_GAME                                             :{BLACK}Oyun Yükle
+@@ -2179,7 +2234,7 @@ STR_INTRO_MULTIPLAYER                                           :{BLACK}Çok Oyu
+ STR_INTRO_GAME_OPTIONS                                          :{BLACK}Seçenekler
+ STR_INTRO_HIGHSCORE                                             :{BLACK}Puan Tablosu
+ STR_INTRO_HELP                                                  :{BLACK}Yardım ve Kılavuzlar
+-STR_INTRO_ONLINE_CONTENT                                        :{BLACK}Çevrimiçi İçeriği Kontrol Et
++STR_INTRO_ONLINE_CONTENT                                        :{BLACK}Çevrimiçi İçerik
+ STR_INTRO_QUIT                                                  :{BLACK}Çıkış
+ 
+ STR_INTRO_TOOLTIP_NEW_GAME                                      :{BLACK}Yeni oyuna başla. Ctrl+Tıklama harita ayarlamasını atlar.
+@@ -2222,6 +2277,7 @@ STR_HELP_WINDOW_README                                          :{BLACK}Beni oku
+ STR_HELP_WINDOW_CHANGELOG                                       :{BLACK}Değişiklik günlüğü
+ STR_HELP_WINDOW_KNOWN_BUGS                                      :{BLACK}Bilinen Hatalar
+ STR_HELP_WINDOW_LICENSE                                         :{BLACK}Lisans
++STR_HELP_WINDOW_FONTS                                           :{BLACK}Yazı Tipleri
+ STR_HELP_WINDOW_MAIN_WEBSITE                                    :{BLACK}OpenTTD
+ STR_HELP_WINDOW_MANUAL_WIKI                                     :{BLACK}Kılavuz / Wiki
+ STR_HELP_WINDOW_BUGTRACKER                                      :{BLACK}Hata Bildir
+@@ -2300,16 +2356,19 @@ STR_FACE_SIMPLE_TOOLTIP                                         :{BLACK}Basit y
+ STR_FACE_LOAD                                                   :{BLACK}Yükle
+ STR_FACE_LOAD_TOOLTIP                                           :{BLACK}Tercih edilen yüzü yükle
+ STR_FACE_LOAD_DONE                                              :{WHITE}Tercih edilen yüz OpenTTD ayar dosyasından yüklendi
+-STR_FACE_FACECODE                                               :{BLACK}Oyuncu yüzü no.
+-STR_FACE_FACECODE_TOOLTIP                                       :{BLACK}Şirket başkanının yüz portre numarasını göster ve/veya düzenle
+-STR_FACE_FACECODE_CAPTION                                       :{WHITE}Şirket başkanının yüz portre numarasını göster ve/veya düzenle
+-STR_FACE_FACECODE_SET                                           :{WHITE}Surat numarası ayarlandı
+-STR_FACE_FACECODE_ERR                                           :{WHITE}Şirket başkanının yüz portre numarası hatalıdır. - Yüz portre numarası 0 ve 4,294,967,295 arasında bir sayı olmalıdır!
++STR_FACE_FACECODE                                               :{BLACK}Oyuncu surat kodu
++STR_FACE_FACECODE_TOOLTIP                                       :{BLACK}Şirket başkanının surat kodunu göster ve/veya düzenle
++STR_FACE_FACECODE_CAPTION                                       :{WHITE}Şirket başkanının surat kodunu göster ve/veya düzenle
++STR_FACE_FACECODE_SET                                           :{WHITE}Yeni surat kodu ayarlandı
++STR_FACE_FACECODE_ERR                                           :{WHITE}Şirket başkanının surat kodu ayarlanamadı - geçerli bir etiket ve numara olmalıdır
+ STR_FACE_SAVE                                                   :{BLACK}Kaydet
+ STR_FACE_SAVE_TOOLTIP                                           :{BLACK}Tercih edilen yüzü kaydet
+ STR_FACE_SAVE_DONE                                              :{WHITE}Bu yüz OpenTTD ayar dosyasına favoriniz olarak kaydedilecek
++STR_FACE_SETTING_TOGGLE                                         :{STRING} {ORANGE}{STRING}
++STR_FACE_SETTING_NUMERIC                                        :{STRING} {ORANGE}{NUM} / {NUM}
+ STR_FACE_YES                                                    :Evet
+ STR_FACE_NO                                                     :Hayır
++STR_FACE_STYLE                                                  :Biçem:
+ STR_FACE_HAIR                                                   :Saç:
+ STR_FACE_EYEBROWS                                               :Kaşlar:
+ STR_FACE_EYECOLOUR                                              :Göz rengi:
+@@ -2527,6 +2586,7 @@ STR_NETWORK_ERROR_BAD_PLAYER_NAME                               :{WHITE}Kullanı
+ STR_NETWORK_ERROR_BAD_SERVER_NAME                               :{WHITE}Sunucu adınız ayarlanmamış. Ad Çok Oyunculu penceresinin üstünden ayarlanabilir
+ STR_NETWORK_ERROR_WRONG_REVISION                                :{WHITE}Bu istemcinin revizyonu sunucununki ile aynı değil
+ STR_NETWORK_ERROR_WRONG_PASSWORD                                :{WHITE}Yanlış parola
++STR_NETWORK_ERROR_NOT_ON_ALLOW_LIST                             :{WHITE}İzin verilen istemciler arasında değilsiniz
+ STR_NETWORK_ERROR_SERVER_FULL                                   :{WHITE}Sunucu dolu
+ STR_NETWORK_ERROR_SERVER_BANNED                                 :{WHITE}Sunucuya girmeniz yasaklandı
+ STR_NETWORK_ERROR_KICKED                                        :{WHITE}Oyundan atıldınız
+@@ -2741,8 +2801,8 @@ STR_RAIL_TOOLBAR_MAGLEV_CONSTRUCTION_CAPTION                    :Maglev Yapımı
+ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_TRACK                   :{BLACK}Demiryolu yap. Ctrl+Sol tık ile yerleştirilen rayı kaldırabilirsiniz. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_AUTORAIL                         :{BLACK}Otoray kipinde ray yap. Ctrl+ sol tık yerleştirilen rayı kaldırır. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_TRAIN_DEPOT_FOR_BUILDING         :{BLACK}Tren garajı yap (tren yapımı ve bakımı için). Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+-STR_RAIL_TOOLBAR_TOOLTIP_CONVERT_RAIL_TO_WAYPOINT               :{BLACK}Demir yolunda bir işaret oluşturur. Ctrl+Sol tıklayarak başka bir işaret ile seçim yapabilirsiniz. Maliyetini görmek için Shift tuşuna basabilirsiniz.
+-STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_STATION                 :{BLACK}Tren istasyonu yap. Ctrl+Sol tık ile istasyonu başka bir istasyon ile beraber seçebilirsiniz. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
++STR_RAIL_TOOLBAR_TOOLTIP_CONVERT_RAIL_TO_WAYPOINT               :{BLACK}Demir yolunda bir işaret oluşturur. Ctrl+Sol tıklayarak başka bir işaret ile seçim yapabilirsiniz. Ayrıca maliyetini görmek için Shift'e basabilirsiniz
++STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_STATION                 :{BLACK}Tren istasyonu yap. Ctrl+Sol tık ile istasyonu başka bir istasyon ile beraber seçebilirsiniz. Ayrıca maliyetini görmek için Shift'e basabilirsiniz
+ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_SIGNALS                 :{BLACK}Demiryolu sinyali yap. Ctrl+Sol tık semafor/ışıklı işaret seçimi yapar{} Fare ile sürükleme seçilen sinyal aralığına uyarak tıklanan yere kadar sinyal koyar. Ctrl ile sürükleme sonraki kavşak veya istasyona kadar sinyalleri koyar. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_BRIDGE                  :{BLACK}Demiryolu köprüsü yap. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_TUNNEL                  :{BLACK}Demiryolu tüneli yap. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+@@ -2779,22 +2839,33 @@ STR_PICKER_MODE_USED_TOOLTIP                                    :Yalnızca mevcu
+ STR_PICKER_MODE_SAVED                                           :Kaydedilen
+ STR_PICKER_MODE_SAVED_TOOLTIP                                   :Yalnızca kaydedilen öğeleri göstermeyi aç/kapat
+ 
++STR_PICKER_PREVIEW_SHRINK                                       :-
++STR_PICKER_PREVIEW_SHRINK_TOOLTIP                               :Önizleme resimlerinin yüksekliğini azaltır. En düşüğe çekmek için Ctrl + Sol Tık yapın
++STR_PICKER_PREVIEW_EXPAND                                       :+
++STR_PICKER_PREVIEW_EXPAND_TOOLTIP                               :Önizleme resimlerinin yüksekliğini arttır. En yükseğe çekmek için Ctrl + Sol Tık yapın
+ 
++STR_PICKER_STATION_CLASS_TOOLTIP                                :Görüntülenecek istasyon sınıfını seçin
++STR_PICKER_STATION_TYPE_TOOLTIP                                 :İnşa edilecek istasyon türünü seçin. Kayıtlı öğelerde ekleme çıkarma için Ctrl+Tıklayabilirsiniz
+ STR_PICKER_WAYPOINT_CLASS_TOOLTIP                               :Görüntülenecek bir yol noktası türünü seçin
++STR_PICKER_ROADSTOP_BUS_CLASS_TOOLTIP                           :Görüntülenecek otobüs istasyonunu seçin
++STR_PICKER_ROADSTOP_BUS_TYPE_TOOLTIP                            :İnşa edilecek otobüs istasyonunu seçin. Kayıtlı öğelerde ekleme çıkarma için Ctrl+Tıklayabilirsiniz
+ STR_PICKER_ROADSTOP_TRUCK_CLASS_TOOLTIP                         :Görüntülenecek bir kamyon istasyonu türünü seçin
+ STR_PICKER_ROADSTOP_TRUCK_TYPE_TOOLTIP                          :İnşa edilecek bir tür kamyon istasyonu seçin. Kaydedilen öğelerde eklemek veya kaldırmak istiyorsanız Ctrl+Tık ile yapabilirsiniz.
++STR_PICKER_OBJECT_CLASS_TOOLTIP                                 :Görüntülenecek öğe sınıfını seçin
++STR_PICKER_OBJECT_TYPE_TOOLTIP                                  :İnşa edilecek nesne türünü seçin. Kayıtlı öğelerde ekleme çıkarma için Ctrl+tıklayabilirsiniz. Ctrl+Tıkla+Sürükle yaparak köşeden köşeye seçim yapabilirsiniz. Shift'e basarak sadece fiyat önizlemesi yapabilirsiniz
+ STR_PICKER_HOUSE_CLASS_TOOLTIP                                  :Görüntülemek için bir şehir bölgesi seçin
+ STR_PICKER_HOUSE_TYPE_TOOLTIP                                   :Bir konut türü seçin. Kaydedilmiş öğelere eklemek veya kaldırmak için Ctrl+Tıklayın
+ 
+ STR_HOUSE_PICKER_CAPTION                                        :Ev Seçimi
+-STR_HOUSE_PICKER_NAME                                           :{BLACK}İsim: {ORANGE}{STRING}
+-STR_HOUSE_PICKER_POPULATION                                     :{BLACK}Nüfus: {ORANGE}{NUM}
+-STR_HOUSE_PICKER_YEARS                                          :{BLACK}Yıl: {ORANGE}{NUM}-{NUM} arası
+-STR_HOUSE_PICKER_YEARS_ANY                                      :{BLACK}Yıl: {ORANGE}Her zaman
+-STR_HOUSE_PICKER_YEARS_FROM                                     :{BLACK}Yıl: {ORANGE}{NUM} tarihinden beri
+-STR_HOUSE_PICKER_YEARS_UNTIL                                    :{BLACK}Yıl: {ORANGE}{NUM} tarihine kadar
+-STR_HOUSE_PICKER_SIZE                                           :{BLACK}Boyut: {ORANGE}{NUM}x{NUM} kare
+-STR_HOUSE_PICKER_CARGO_ACCEPTED                                 :{BLACK}Kabul edilen kargo: {ORANGE}
++STR_HOUSE_PICKER_NAME                                           :{BLACK}İsim: {GOLD}{STRING}
++STR_HOUSE_PICKER_POPULATION                                     :{BLACK}Nüfus: {GOLD}{NUM}
++STR_HOUSE_PICKER_YEARS                                          :{BLACK}Yıl: {GOLD}{NUM}-{NUM}
++STR_HOUSE_PICKER_YEARS_ANY                                      :{BLACK}Yıl: {GOLD}Herhangi biri
++STR_HOUSE_PICKER_YEARS_FROM                                     :{BLACK}Yıl: {GOLD}{NUM} yılından itibaren
++STR_HOUSE_PICKER_YEARS_UNTIL                                    :{BLACK}Yıl: {GOLD}{NUM} yılına kadar
++STR_HOUSE_PICKER_SIZE                                           :{BLACK}Boyut: {GOLD}{NUM}x{NUM} kare
++STR_HOUSE_PICKER_CARGO_ACCEPTED                                 :{BLACK}Kabul edilen kargo: {GOLD}
++STR_HOUSE_PICKER_CARGO_PRODUCED                                 :{BLACK}Üretilen kargo: {GOLD}{CARGO_LIST}
+ 
+ STR_HOUSE_PICKER_CLASS_ZONE1                                    :Kenar
+ STR_HOUSE_PICKER_CLASS_ZONE2                                    :Banliyöler
+@@ -2802,7 +2873,11 @@ STR_HOUSE_PICKER_CLASS_ZONE3                                    :Dış banliyöl
+ STR_HOUSE_PICKER_CLASS_ZONE4                                    :İç banliyöler
+ STR_HOUSE_PICKER_CLASS_ZONE5                                    :Şehir merkezi
+ 
++STR_HOUSE_PICKER_PROTECT                                        :Yükseltmeyi engelle
++STR_HOUSE_PICKER_PROTECT_TOOLTIP                                :Bu evin şehir büyüdüğünde değiştirilmekten korunup korunmayacağını seç
+ 
++STR_HOUSE_PICKER_REPLACE                                        :Mevcut olanları değiştir
++STR_HOUSE_PICKER_REPLACE_TOOLTIP                                :Bu evin bulunduğu karede mevcut olan evlerin otomatik olarak kaldırılıp kaldırılmayacağını seç
+ 
+ STR_STATION_CLASS_DFLT                                          :Varsayılan
+ STR_STATION_CLASS_DFLT_STATION                                  :Varsayılan istasyon
+@@ -2855,10 +2930,12 @@ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_AUTOROAD                         :{BLACK}Otomatik
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_AUTOTRAM                         :{BLACK}Otomatik ray kipini kullanarak tramvay yolu inşa et. Ctrl + Sol tık yaparak rayı silebilirsin. Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_ROAD_VEHICLE_DEPOT               :{BLACK}Garaj inşa et (araç alımı ve bakımı için). Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_TRAM_VEHICLE_DEPOT               :{BLACK}Tramvay garı inşa et (araç alımı ve bakımı için). Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+-STR_ROAD_TOOLBAR_TOOLTIP_BUILD_BUS_STATION                      :{BLACK}Otobüs durağı inşa et. Ctrl + Sol Tık istasyonları birleştirmeyi aktif eder. Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
++STR_ROAD_TOOLBAR_TOOLTIP_CONVERT_ROAD_TO_WAYPOINT               :{BLACK}Yola yerimi inşa et. Ctrl + Sol Tık birleştirmek için başka yerimi seçtirir. Ayrıca maliyetini görmek için Shift'e basabilirsiniz
++STR_ROAD_TOOLBAR_TOOLTIP_CONVERT_TRAM_TO_WAYPOINT               :{BLACK}Tramvaya yerimi inşa et. Ctrl + Sol Tık birleştirmek için başka yerimi seçtirir. Ayrıca maliyetini görmek için Shift'e basabilirsiniz
++STR_ROAD_TOOLBAR_TOOLTIP_BUILD_BUS_STATION                      :{BLACK}Otobüs durağı inşa et. Ctrl + Sol Tık istasyonları birleştirmeyi aktif eder. Ayrıca maliyetini görmek için Shift'e basabilirsiniz
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_PASSENGER_TRAM_STATION           :{BLACK}Yolcu tramvayı istasyonu inşa et. Ctrl + Sol Tık birleştirmeyi mümkün kılar. Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_TRUCK_LOADING_BAY                :{BLACK}Kamyon yükleme bölgesi inşa et. Ctrl + Sol Tık istasyonları birleştirmeyi mümkün kılar. Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
+-STR_ROAD_TOOLBAR_TOOLTIP_BUILD_CARGO_TRAM_STATION               :{BLACK}Yük tramvayı istasyonu inşa et. Ctrl + Sol Tık ile tıklayarak istasyonları birleştirebilirsiniz. Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
++STR_ROAD_TOOLBAR_TOOLTIP_BUILD_CARGO_TRAM_STATION               :{BLACK}Yük tramvayı istasyonu inşa et. Ctrl + Sol Tık ile tıklayarak istasyonları birleştirebilirsiniz. Ayrıca maliyetini görmek için Shift'e basabilirsiniz
+ STR_ROAD_TOOLBAR_TOOLTIP_TOGGLE_ONE_WAY_ROAD                    :{BLACK}Tek yönlü yolları etkinleştir/kapat
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_ROAD_BRIDGE                      :{BLACK}Köprü inşa et. Shift'e basılı tutarak tıklarsanız sadece maliyetini gösterir.
+ STR_ROAD_TOOLBAR_TOOLTIP_BUILD_TRAMWAY_BRIDGE                   :{BLACK}Tramvay köprüsü yap. Ayrıca maliyetini görmek için Shift tuşuna basabilirsiniz.
+@@ -3005,6 +3082,11 @@ STR_FOUND_TOWN_INITIAL_SIZE_TOOLTIP                             :{BLACK}Şehir b
+ STR_FOUND_TOWN_CITY                                             :{BLACK}Şehir
+ STR_FOUND_TOWN_CITY_TOOLTIP                                     :{BLACK}Şehirler normal kasabalardan daha hızlı büyürler{}Ayarlara göre değişmekle birlikte, ilk kurulduklarında daha büyük olurlar.
+ 
++STR_FOUND_TOWN_EXPAND_MODE                                      :{YELLOW}Şehir genişletme:
++STR_FOUND_TOWN_EXPAND_BUILDINGS                                 :Binalar
++STR_FOUND_TOWN_EXPAND_BUILDINGS_TOOLTIP                         :Şehrin binalarını arttır
++STR_FOUND_TOWN_EXPAND_ROADS                                     :Karayolları
++STR_FOUND_TOWN_EXPAND_ROADS_TOOLTIP                             :Şehrin yollarını arttır
+ 
+ STR_FOUND_TOWN_ROAD_LAYOUT                                      :{YELLOW}Kasaba yol yerleşimi:
+ STR_FOUND_TOWN_SELECT_LAYOUT_TOOLTIP                            :{BLACK}Bu kasaba için kullanılacak yol yerleşimini seç
+@@ -3087,6 +3169,9 @@ STR_LAI_CLEAR_DESCRIPTION_BARE_LAND                             :Çıplak arazi
+ STR_LAI_CLEAR_DESCRIPTION_GRASS                                 :Çim
+ STR_LAI_CLEAR_DESCRIPTION_FIELDS                                :Mera
+ STR_LAI_CLEAR_DESCRIPTION_DESERT                                :Çöl
++STR_LAI_CLEAR_DESCRIPTION_SNOWY_ROCKS                           :Karla örtülü kaya
++STR_LAI_CLEAR_DESCRIPTION_SNOWY_ROUGH_LAND                      :Karla örtülü engebeli arazi
++STR_LAI_CLEAR_DESCRIPTION_SNOWY_GRASS                           :Karla örtülü çimen
+ 
+ STR_LAI_RAIL_DESCRIPTION_TRACK                                  :Ray
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_SIGNALS              :Blok sinyalli ray
+@@ -3261,6 +3346,8 @@ STR_SAVELOAD_DETAIL_GRFSTATUS                                   :{SILVER}NewGRF:
+ STR_SAVELOAD_FILTER_TITLE                                       :{BLACK}Filtre:
+ STR_SAVELOAD_OVERWRITE_TITLE                                    :{WHITE}Dosya Üzerine Yaz
+ STR_SAVELOAD_OVERWRITE_WARNING                                  :{YELLOW}Mevcut dosyanın üzerine yazmak istediğinizden emin misiniz?
++STR_SAVELOAD_DELETE_TITLE                                       :{WHITE}Dosyayı Sil
++STR_SAVELOAD_DELETE_WARNING                                     :{YELLOW}Dosyayı silmek istediğinizden emin misiniz?
+ STR_SAVELOAD_DIRECTORY                                          :{STRING} (Dizin)
+ STR_SAVELOAD_PARENT_DIRECTORY                                   :{STRING} (Ana dizin)
+ 
+@@ -3336,13 +3423,18 @@ STR_MAPGEN_NORTHWEST                                            :{BLACK}Kuzeybat
+ STR_MAPGEN_NORTHEAST                                            :{BLACK}Kuzeydoğu
+ STR_MAPGEN_SOUTHEAST                                            :{BLACK}Güneydoğu
+ STR_MAPGEN_SOUTHWEST                                            :{BLACK}Güneybatı
++STR_MAPGEN_NORTHWEST_TOOLTIP                                    :Haritanın kuzeybatı köşesinde su veya serbest biçimi aç
++STR_MAPGEN_NORTHEAST_TOOLTIP                                    :Haritanın kuzeydoğu köşesinde su veya serbest biçimi aç
++STR_MAPGEN_SOUTHEAST_TOOLTIP                                    :Haritanın güneydoğu köşesinde su veya serbest biçimi aç
++STR_MAPGEN_SOUTHWEST_TOOLTIP                                    :Haritanın güneybatı köşesinde su veya serbest biçimi aç
+ STR_MAPGEN_BORDER_FREEFORM                                      :{BLACK}Serbest
+ STR_MAPGEN_BORDER_WATER                                         :{BLACK}Su
+ STR_MAPGEN_BORDER_RANDOM                                        :{BLACK}Rastgele
+ 
+ ###length 3
+-STR_MAPGEN_BORDER_RANDOMIZE                                     :{BLACK}Rastgele
+-STR_MAPGEN_BORDER_MANUAL                                        :{BLACK}El ile
++STR_MAPGEN_BORDER_RANDOMIZE                                     :Rastgele
++STR_MAPGEN_BORDER_MANUAL                                        :El ile
++STR_MAPGEN_BORDER_INFINITE_WATER                                :Sınırsız Su
+ 
+ STR_MAPGEN_HEIGHTMAP_ROTATION                                   :{BLACK}Yükseklik haritası döndür:
+ STR_MAPGEN_HEIGHTMAP_NAME                                       :{BLACK}Yükseklik haritası adı:
+@@ -3381,6 +3473,8 @@ STR_GENERATION_LANDSCAPE_GENERATION                             :{BLACK}Peyzaj o
+ STR_GENERATION_RIVER_GENERATION                                 :{BLACK}Nehir oluşturma
+ STR_GENERATION_CLEARING_TILES                                   :{BLACK}Engebeli ve kayalık alan oluştur
+ STR_GENERATION_TOWN_GENERATION                                  :{BLACK}Kasaba Oluşumu
++STR_GENERATION_LAND_INDUSTRY_GENERATION                         :{BLACK}Kara endüstrisi oluşturma
++STR_GENERATION_WATER_INDUSTRY_GENERATION                        :{BLACK}Su endüstrisi oluşturma
+ STR_GENERATION_OBJECT_GENERATION                                :{BLACK}Nesne oluşturma
+ STR_GENERATION_TREE_GENERATION                                  :{BLACK}Ağaç üretimi
+ STR_GENERATION_SETTINGUP_GAME                                   :{BLACK}Oyun ayarlanıyor
+@@ -3388,7 +3482,9 @@ STR_GENERATION_PREPARING_TILELOOP                               :{BLACK}tile-loo
+ STR_GENERATION_PREPARING_SCRIPT                                 :{BLACK}Betik çalıştırılıyor
+ STR_GENERATION_PREPARING_GAME                                   :{BLACK}Oyun hazırlanıyor
+ 
++STR_TOWN_DATA_ERROR_TOWN_FORMATTED_INCORRECTLY                  :{WHITE}{STRING} veri hatalı şekilde biçimlendirilmiş
+ 
++STR_TOWN_DATA_ERROR_FAILED_TO_FOUND_TOWN                        :{WHITE}{NUM} şehri kurmak için uygun yer bulunamadı. Kurulmak istenen yere tabela konuldu
+ 
+ # NewGRF settings
+ STR_NEWGRF_SETTINGS_CAPTION                                     :{WHITE}NewGRF Ayarları
+@@ -3617,9 +3713,15 @@ STR_TOWN_VIEW_CENTER_TOOLTIP                                    :{BLACK}Ana gör
+ STR_TOWN_VIEW_LOCAL_AUTHORITY_BUTTON                            :{BLACK}Belediye
+ STR_TOWN_VIEW_LOCAL_AUTHORITY_TOOLTIP                           :{BLACK}Belediye hakkında bilgi göster
+ STR_TOWN_VIEW_RENAME_TOOLTIP                                    :{BLACK}Şehrin ismini değiştir
++STR_TOWN_VIEW_CARGO_GRAPH                                       :Kargo Grafiği
++STR_TOWN_VIEW_CARGO_GRAPH_TOOLTIP                               :Şehrin kargo geçmişinin grafiğini gösterir
+ 
+ STR_TOWN_VIEW_EXPAND_BUTTON                                     :{BLACK}Genişlet
+ STR_TOWN_VIEW_EXPAND_TOOLTIP                                    :{BLACK}Şehrin boyutunu büyült
++STR_TOWN_VIEW_EXPAND_BUILDINGS_BUTTON                           :{BLACK}Binaları genişlet
++STR_TOWN_VIEW_EXPAND_BUILDINGS_TOOLTIP                          :{BLACK}Şehrin binalarını arttır
++STR_TOWN_VIEW_EXPAND_ROADS_BUTTON                               :{BLACK}Yolları genişlet
++STR_TOWN_VIEW_EXPAND_ROADS_TOOLTIP                              :{BLACK}Şehrin yollarını arttır
+ STR_TOWN_VIEW_DELETE_BUTTON                                     :{BLACK}Sil
+ STR_TOWN_VIEW_DELETE_TOOLTIP                                    :{BLACK}Bu şehri tamamen sil
+ 
+@@ -3793,12 +3895,14 @@ STR_CARGO_RATING_EXCELLENT                                      :Harika
+ STR_CARGO_RATING_OUTSTANDING                                    :Mükemmel
+ 
+ STR_STATION_VIEW_CENTER_TOOLTIP                                 :{BLACK}Durağın oldugu yeri ortala. Ctrl + Sol Tıklama durağın olduğu yere ait bir görünüm penceresi açar.
++STR_STATION_VIEW_EDIT_TOOLTIP                                   :{BLACK}İstasyon ismini değiştir veya tabelayı taşı
+ 
+ STR_STATION_VIEW_SCHEDULED_TRAINS_TOOLTIP                       :{BLACK}Talimat listesinde bu durak olan trenleri listele
+ STR_STATION_VIEW_SCHEDULED_ROAD_VEHICLES_TOOLTIP                :{BLACK}Talimat listesinde bu durak olan tüm karayolu araçlarını listele
+ STR_STATION_VIEW_SCHEDULED_AIRCRAFT_TOOLTIP                     :{BLACK}Talimat listesinde bu durak olan uçakları listele
+ STR_STATION_VIEW_SCHEDULED_SHIPS_TOOLTIP                        :{BLACK}Talimat listesinde bu durak olan gemileri listele
+ 
++STR_STATION_VIEW_EDIT_STATION_SIGN                              :{WHITE}İstasyon tabelasını değiştir
+ 
+ STR_STATION_VIEW_CLOSE_AIRPORT                                  :{BLACK}Havalimanını kapat
+ STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}Uçağın bu havalimanına iniş yapmasını engelle
+@@ -3940,6 +4044,8 @@ STR_INDUSTRY_VIEW_PRODUCTION_LAST_MONTH_TITLE                   :{BLACK}Geçen a
+ STR_INDUSTRY_VIEW_PRODUCTION_LAST_MINUTE_TITLE                  :{BLACK}Geçen dakikadaki üretim:
+ STR_INDUSTRY_VIEW_TRANSPORTED                                   :{YELLOW}{CARGO_LONG}{STRING}{BLACK} (%{COMMA} taşındı)
+ STR_INDUSTRY_VIEW_LOCATION_TOOLTIP                              :{BLACK}Görüntüyü fabrikada ortala. Ctrl+Sol tık ile fabrikanın konumunu gösteren yeni bir pencere açabilirsiniz
++STR_INDUSTRY_VIEW_CARGO_GRAPH                                   :{BLACK}Kargo Grafiği
++STR_INDUSTRY_VIEW_CARGO_GRAPH_TOOLTIP                           :{BLACK}Geçmişteki endüstri kargolarının grafiğini gösterir
+ STR_INDUSTRY_VIEW_PRODUCTION_LEVEL                              :{BLACK}Üretim seviyesi: %{YELLOW}{COMMA}
+ STR_INDUSTRY_VIEW_INDUSTRY_ANNOUNCED_CLOSURE                    :{YELLOW}Fabrika çok yakında kapanacağını duyurdu!
+ 
+@@ -3948,6 +4054,10 @@ STR_INDUSTRY_VIEW_PRODUCES_N_CARGO                              :{BLACK}Üretile
+ STR_INDUSTRY_VIEW_CARGO_LIST_EXTENSION                          :, {STRING}{STRING}
+ 
+ STR_INDUSTRY_VIEW_REQUIRES                                      :{BLACK}Gereken:
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_SUFFIX                           :{YELLOW}{0:STRING}{BLACK}{3:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_SUFFIX                    :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} bekliyor{3:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_NOSUFFIX                         :{YELLOW}{0:STRING}
++STR_INDUSTRY_VIEW_ACCEPT_CARGO_AMOUNT_NOSUFFIX                  :{YELLOW}{0:STRING}{BLACK}: {1:CARGO_SHORT} bekliyor
+ 
+ STR_CONFIG_GAME_PRODUCTION                                      :{WHITE}Üretimi değiştir (8'in katı, 2040'a kadar)
+ STR_CONFIG_GAME_PRODUCTION_LEVEL                                :{WHITE}Üretim seviyesini değiştir (yüzde olarak, %800'e kadar)
+@@ -4256,6 +4366,7 @@ STR_ENGINE_PREVIEW_RUNCOST_YEAR                                 :İşletim maliy
+ STR_ENGINE_PREVIEW_RUNCOST_PERIOD                               :İşletim maliyeti: {CURRENCY_LONG}/periyot
+ STR_ENGINE_PREVIEW_CAPACITY                                     :Kapasite: {CARGO_LONG}
+ STR_ENGINE_PREVIEW_CAPACITY_2                                   :Kapasite: {CARGO_LONG}, {CARGO_LONG}
++STR_ENGINE_PREVIEW_RAILTYPES                                    :Ray türleri: {STRING}
+ 
+ # Autoreplace window
+ STR_REPLACE_VEHICLES_WHITE                                      :{WHITE}Değiştir {STRING} - {STRING}
+@@ -4605,6 +4716,8 @@ STR_ORDER_ROAD_VEHICLE_DEPOT                                    :Karayolu Garaj
+ STR_ORDER_SHIP_DEPOT                                            :Tersane
+ ###next-name-looks-similar
+ 
++STR_ORDER_GO_TO_NEAREST_HANGAR_FORMAT                           :{STRING} en yakın Hangar
++STR_ORDER_GO_TO_NEAREST_DEPOT_FORMAT                            :{STRING} yakındır {STRING}
+ STR_ORDER_GO_TO_DEPOT_FORMAT                                    :{STRING} {DEPOT}
+ 
+ STR_ORDER_REFIT_ORDER                                           :(Moifiye ile > {STRING})
+@@ -4672,14 +4785,15 @@ STR_TIMETABLE_TOOLTIP                                           :{BLACK}Zaman ç
+ STR_TIMETABLE_NO_TRAVEL                                         :Sefer yok
+ STR_TIMETABLE_NOT_TIMETABLEABLE                                 :Yolculuk (otomatik; bir sonraki elle verilmiş talimat tarafından zamanlanır)
+ STR_TIMETABLE_TRAVEL_NOT_TIMETABLED                             :Gezi (zamanlı değil)
++STR_TIMETABLE_TRAVEL_NOT_TIMETABLED_SPEED                       :En çok {VELOCITY} hız ile git (zaman tablosu yok)
+ STR_TIMETABLE_TRAVEL_FOR                                        :{STRING} boyunca yol al
+ STR_TIMETABLE_TRAVEL_FOR_SPEED                                  :{STRING} boyunca en çok {VELOCITY} hız ile git
+ STR_TIMETABLE_TRAVEL_FOR_ESTIMATED                              :Seyahat et ({STRING} için, hareket planı yok)
+ STR_TIMETABLE_TRAVEL_FOR_SPEED_ESTIMATED                        :Seyahat et ({STRING} için, hareket planı yok) en fazla {VELOCITY} hızı ile
+ STR_TIMETABLE_STAY_FOR_ESTIMATED                                :({STRING} kalma, hareket saati yok)
+-STR_TIMETABLE_AND_TRAVEL_FOR_ESTIMATED                          :({STRING} için seyahat, hareket saati yok)
++STR_TIMETABLE_AND_TRAVEL_FOR_ESTIMATED                          :{SPACE}({STRING} için seyahat, hareket saati yok)
+ STR_TIMETABLE_STAY_FOR                                          :{STRING} bekle
+-STR_TIMETABLE_AND_TRAVEL_FOR                                    :ve şuraya sefer yap: {STRING}
++STR_TIMETABLE_AND_TRAVEL_FOR                                    :{SPACE}ve şuraya sefer yap: {STRING}
+ 
+ STR_TIMETABLE_TOTAL_TIME                                        :{BLACK}Bu zaman çizelgesinin bitmesi {STRING} sürecek
+ STR_TIMETABLE_TOTAL_TIME_INCOMPLETE                             :{BLACK}Bu zaman çizelgesinin bitmesi en az {STRING} sürecek (tamamı hesaplanmadı)
+@@ -4697,12 +4811,14 @@ STR_TIMETABLE_START_SECONDS_QUERY                               :Zaman çizelges
+ 
+ STR_TIMETABLE_CHANGE_TIME                                       :{BLACK}Zamanı değiştir
+ STR_TIMETABLE_WAIT_TIME_TOOLTIP                                 :{BLACK}Seçili talimatın harcaması gereken süreyi değiştir. Ctrl+Tıklama bütün talimatların süresini değiştirir
++STR_TIMETABLE_CHANGE_TIME_QUERY                                 :Zamanı değiştir
+ 
+ STR_TIMETABLE_CLEAR_TIME                                        :{BLACK}Zamanı Temizle
+ STR_TIMETABLE_CLEAR_TIME_TOOLTIP                                :{BLACK}Seçili talimatın harcaması gereken süreyi sil. Ctrl+ Sol Tıklama bütün talimatların sürelerini siler
+ 
+ STR_TIMETABLE_CHANGE_SPEED                                      :{BLACK}Hız Sınırını Değiştir
+ STR_TIMETABLE_CHANGE_SPEED_TOOLTIP                              :{BLACK}Seçili emrin azami seyahat hızını değiştir. Ctrl+Sol Tık bütün emirlerin azami hızlarını değiştirir
++STR_TIMETABLE_CHANGE_SPEED_QUERY                                :Hız sınırını değiştir
+ 
+ STR_TIMETABLE_CLEAR_SPEED                                       :{BLACK}Hız Sınırını Kaldır
+ STR_TIMETABLE_CLEAR_SPEED_TOOLTIP                               :{BLACK}Seçili emrin azami seyahat hızını sil. Ctrl+ Sol Tıklama bütün emirlerin azami hızlarını siler
+@@ -4902,6 +5018,7 @@ STR_ERROR_FLAT_LAND_REQUIRED                                    :{WHITE}Zeminin
+ STR_ERROR_LAND_SLOPED_IN_WRONG_DIRECTION                        :{WHITE}Arazi yanlış yöne doğru meyilli
+ STR_ERROR_CAN_T_DO_THIS                                         :{WHITE}Bu yapılamaz...
+ STR_ERROR_BUILDING_MUST_BE_DEMOLISHED                           :{WHITE}Önce bina yıkılmalı
++STR_ERROR_BUILDING_IS_PROTECTED                                 :{WHITE}... bina korunuyor
+ STR_ERROR_CAN_T_CLEAR_THIS_AREA                                 :{WHITE}Bu alan temizlenemez...
+ STR_ERROR_SITE_UNSUITABLE                                       :{WHITE}... yer uygun değil
+ STR_ERROR_ALREADY_BUILT                                         :{WHITE}... zaten yapıldı
+@@ -4993,6 +5110,8 @@ STR_ERROR_CAN_T_BUILD_AIRPORT_HERE                              :{WHITE}Buraya h
+ 
+ STR_ERROR_ADJOINS_MORE_THAN_ONE_EXISTING                        :{WHITE}Birden fazla istasyona bitişik
+ STR_ERROR_STATION_TOO_SPREAD_OUT                                :{WHITE}... istasyon çok yayılmış
++STR_ERROR_STATION_DISALLOWED_NUMBER_TRACKS                      :{WHITE}... desteklenmeyen sayıda şerit
++STR_ERROR_STATION_DISALLOWED_LENGTH                             :{WHITE}... desteklenmeyen uzunluk
+ STR_ERROR_TOO_MANY_STATIONS_LOADING                             :{WHITE}Haritada çok fazla istasyon var
+ STR_ERROR_TOO_MANY_STATION_SPECS                                :{WHITE}Çok fazla demiryolu istasyon parçası var
+ STR_ERROR_TOO_MANY_BUS_STOPS                                    :{WHITE}Çok fazla durak var
+@@ -5000,6 +5119,7 @@ STR_ERROR_TOO_MANY_TRUCK_STOPS                                  :{WHITE}Çok faz
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_DOCK                             :{WHITE}Başka bir limana çok yakın
+ STR_ERROR_TOO_CLOSE_TO_ANOTHER_AIRPORT                          :{WHITE}Başka bir havalimanına çok yakın
+ STR_ERROR_CAN_T_RENAME_STATION                                  :{WHITE}İsim değiştirilemiyor...
++STR_ERROR_CAN_T_MOVE_STATION_NAME                               :{WHITE}İstasyon tabelası taşınamıyor...
+ STR_ERROR_DRIVE_THROUGH_ON_TOWN_ROAD                            :{WHITE}... yol kasabaya ait
+ STR_ERROR_DRIVE_THROUGH_DIRECTION                               :{WHITE}... yol yanlış yönde
+ STR_ERROR_DRIVE_THROUGH_CORNER                                  :{WHITE}... yol üstü duraklar köşe üzerine inşa edilemez
+@@ -5030,6 +5150,7 @@ STR_ERROR_TOO_CLOSE_TO_ANOTHER_WAYPOINT                         :{WHITE}Diğer y
+ STR_ERROR_CAN_T_BUILD_RAIL_WAYPOINT                             :{WHITE}Buraya tren yerimi yapılamaz...
+ STR_ERROR_CAN_T_POSITION_BUOY_HERE                              :{WHITE}Buraya şamandıra yerleştirilemez...
+ STR_ERROR_CAN_T_CHANGE_WAYPOINT_NAME                            :{WHITE}Yerimi adı değiştirilemedi...
++STR_ERROR_CAN_T_MOVE_WAYPOINT_NAME                              :{WHITE}Yerimi tabelası taşınamıyor...
+ 
+ STR_ERROR_CAN_T_REMOVE_RAIL_WAYPOINT                            :{WHITE}Tren yerimi kaldırılamaz...
+ STR_ERROR_CAN_T_REMOVE_ROAD_WAYPOINT                            :{WHITE}yol yerimi kaldırılamaz....
+@@ -5137,6 +5258,13 @@ STR_ERROR_START_AND_END_MUST_BE_IN                              :{WHITE}Başlang
+ STR_ERROR_ENDS_OF_BRIDGE_MUST_BOTH                              :{WHITE}... köprünün her iki ucu da karada olmalı
+ STR_ERROR_BRIDGE_TOO_LONG                                       :{WHITE}... köprü çok uzun
+ STR_ERROR_BRIDGE_THROUGH_MAP_BORDER                             :{WHITE}Köprü haritanın dışında sonlanacaktı
++STR_ERROR_BRIDGE_TOO_LOW_FOR_STATION                            :{WHITE}Körü istasyon için {HEIGHT} fazla alçak
++STR_ERROR_BRIDGE_TOO_LOW_FOR_ROADSTOP                           :{WHITE}Köprü karayolu durağı için {HEIGHT} fazla alçak
++STR_ERROR_BRIDGE_TOO_LOW_FOR_DOCK                               :{WHITE}Köprü rıhtım için {HEIGHT} fazla alçak
++STR_ERROR_BRIDGE_TOO_LOW_FOR_BUOY                               :{WHITE}Köprü şamandıra için {HEIGHT} fazla alçak
++STR_ERROR_BRIDGE_TOO_LOW_FOR_RAIL_WAYPOINT                      :{WHITE}Köprü ray durağı için {HEIGHT} fazla alçak
++STR_ERROR_BRIDGE_TOO_LOW_FOR_ROAD_WAYPOINT                      :{WHITE}Köprü karayolu işareti için {HEIGHT} fazla alçak
++STR_ERROR_BRIDGE_TOO_LOW_FOR_LOCK                               :{WHITE}Körpü kilit için {HEIGHT} fazla alçak
+ 
+ # Tunnel related errors
+ STR_ERROR_CAN_T_BUILD_TUNNEL_HERE                               :{WHITE}Buraya tünel yapılamaz...
+@@ -5292,7 +5420,8 @@ STR_ERROR_NO_STOP_COMPATIBLE_TRAM_TYPE                          :{WHITE}Uyumlu b
+ STR_ERROR_NO_STOP_ARTICULATED_VEHICLE                           :{WHITE} Körüklü karayolu taşıtları için uygun durak yoktur.{}Körüklü karayolu taşıtları üzerinden geçme durağı gerektirir, körfez durağı değil
+ STR_ERROR_AIRPORT_NO_PLANES                                     :{WHITE}Bu uçak bu helikopter pistine inemez
+ STR_ERROR_AIRPORT_NO_HELICOPTERS                                :{WHITE}Helikopter bu havalimanı'na inemez
+-STR_ERROR_NO_RAIL_WAYPOINT                                      :{WHITE} Demiryolu ara noktası yok
++STR_ERROR_NO_RAIL_WAYPOINT                                      :{WHITE} Hiç ray ara noktası yok
++STR_ERROR_NO_ROAD_WAYPOINT                                      :{WHITE} Hiç karayolu ara noktası yok
+ STR_ERROR_NO_BUOY                                               :{WHITE}Şamandıra yok
+ 
+ # Timetable related errors
+@@ -5761,7 +5890,9 @@ STR_SAVEGAME_NAME_DEFAULT                                       :{COMPANY}, {STR
+ STR_SAVEGAME_NAME_SPECTATOR                                     :İzleyici, {1:STRING}
+ 
+ # Viewport strings
+-STR_VIEWPORT_TOWN_POP                                           :{WHITE}{TOWN} ({COMMA})
++STR_VIEWPORT_TOWN_POP                                           :{TOWN} ({COMMA})
++STR_VIEWPORT_TOWN_CITY                                          :{TOWN} {CITY_ICON}
++STR_VIEWPORT_TOWN_CITY_POP                                      :{TOWN} ({COMMA}) {CITY_ICON}
+ STR_VIEWPORT_STATION                                            :{STATION} {STATION_FEATURES}
+ 
+ # Simple strings to get specific types of data
+@@ -5785,6 +5916,7 @@ STR_CURRENCY_SHORT_GIGA                                         :{NBSP}bn
+ STR_CURRENCY_SHORT_TERA                                         :{NBSP}tn
+ 
+ STR_JUST_CARGO                                                  :{CARGO_LONG}
++STR_JUST_LEFT_ARROW                                             :{LEFT_ARROW}
+ STR_JUST_RIGHT_ARROW                                            :{RIGHT_ARROW}
+ STR_JUST_CHECKMARK                                              :{CHECKMARK}
+ STR_JUST_COMMA                                                  :{COMMA}
+@@ -5823,3 +5955,12 @@ STR_SHIP                                                        :{BLACK}{SHIP}
+ 
+ STR_TOOLBAR_RAILTYPE_VELOCITY                                   :{STRING} ({VELOCITY})
+ 
++STR_BADGE_NAME_LIST                                             :{STRING}: {GOLD}{STRING}
++STR_BADGE_CONFIG_MENU_TOOLTIP                                   :Rozet ayarlarını aç
++STR_BADGE_CONFIG_RESET                                          :Sıfırla
++STR_BADGE_CONFIG_ICONS                                          :{WHITE}Rozet Simgeleri
++STR_BADGE_CONFIG_FILTERS                                        :{WHITE}Rozet Filtreleri
++STR_BADGE_CONFIG_PREVIEW                                        :Önizleme Resmi
++STR_BADGE_CONFIG_NAME                                           :İsim
++STR_BADGE_FILTER_ANY_LABEL                                      :Her {STRING}
++STR_BADGE_FILTER_IS_LABEL                                       :{STRING} eşittir {STRING}
+-- 
+2.55.0
+

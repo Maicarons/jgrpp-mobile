@@ -1,0 +1,38 @@
+From 25d6b94c0fd4c70920c782375cb15985e3c5ed0a Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Mon, 25 Jan 2021 01:07:27 +0200
+Subject: [PATCH 0561/1053] Do not use Git revision for Android
+
+---
+ CMakeLists.txt                  | 1 +
+ cmake/scripts/FindVersion.cmake | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a278dfc04b..ad72089be9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -69,6 +69,7 @@ add_custom_target(find_version
+         ${CMAKE_COMMAND}
+                 -DFIND_VERSION_BINARY_DIR=${CMAKE_BINARY_DIR}/generated
+                 -DCPACK_BINARY_DIR=${CMAKE_BINARY_DIR}
++                $<$<BOOL:ANDROID>:-DANDROID=TRUE>
+                 -P "${CMAKE_SOURCE_DIR}/cmake/scripts/FindVersion.cmake"
+         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+         BYPRODUCTS ${GENERATED_SOURCE_FILES}
+diff --git a/cmake/scripts/FindVersion.cmake b/cmake/scripts/FindVersion.cmake
+index c920e6b8c7..06610060d5 100644
+--- a/cmake/scripts/FindVersion.cmake
++++ b/cmake/scripts/FindVersion.cmake
+@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.5)
+ 
+ find_package(Git QUIET)
+ # ${CMAKE_SOURCE_DIR}/.git may be a directory or a regular file
+-if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
++if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
+     # Make sure LC_ALL is set to something desirable
+     set(SAVED_LC_ALL "$ENV{LC_ALL}")
+     set(ENV{LC_ALL} C)
+-- 
+2.55.0
+

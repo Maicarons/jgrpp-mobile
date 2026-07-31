@@ -1,0 +1,26 @@
+From 0858148c948d561d52be6b94caf06e412e52e40b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Mon, 22 Dec 2025 19:21:10 +0100
+Subject: [PATCH 0959/1053] Fix #14958, e96f35c: Don't use not yet initialised
+ member (#14959)
+
+---
+ src/station_gui.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/station_gui.cpp b/src/station_gui.cpp
+index c9cbd4f2ec..80d7e9778a 100644
+--- a/src/station_gui.cpp
++++ b/src/station_gui.cpp
+@@ -1323,7 +1323,7 @@ struct StationViewWindow : public Window {
+ 	StationViewWindow(WindowDesc &desc, WindowNumber window_number) : Window(desc)
+ 	{
+ 		this->CreateNestedTree();
+-		this->GetWidget<NWidgetStacked>(WID_SV_CLOSE_AIRPORT_SEL)->SetDisplayedPlane(Station::Get(this->window_number)->facilities.Test(StationFacility::Airport) ? 0 : SZSP_NONE);
++		this->GetWidget<NWidgetStacked>(WID_SV_CLOSE_AIRPORT_SEL)->SetDisplayedPlane(Station::Get(window_number)->facilities.Test(StationFacility::Airport) ? 0 : SZSP_NONE);
+ 		this->vscroll = this->GetScrollbar(WID_SV_SCROLLBAR);
+ 		/* Nested widget tree creation is done in two steps to ensure that this->GetWidget<NWidgetCore>(WID_SV_ACCEPTS_RATINGS) exists in UpdateWidgetSize(). */
+ 		this->FinishInitNested(window_number);
+-- 
+2.55.0
+

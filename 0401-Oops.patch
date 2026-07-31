@@ -1,0 +1,24 @@
+From d0ddcdf1b75609919141547c5ea11deb16634029 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 7 Apr 2017 21:54:46 +0300
+Subject: [PATCH 0401/1053] Oops
+
+---
+ src/build_confirmation_gui.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 18ef7ef741..466679acf7 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -21,6 +21,7 @@
+ #include "zoom_func.h"
+ #include "settings_type.h"
+ #include "station_gui.h"
++#include "error.h"
+ #include "build_confirmation_func.h"
+ #include "widgets/build_confirmation_widget.h"
+ #include "widgets/misc_widget.h"
+-- 
+2.55.0
+

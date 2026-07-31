@@ -1,0 +1,23 @@
+From a36d05567e5b84d1dfa469d1b8bbaa999c1d61f2 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 1 Jul 2016 21:50:39 +0300
+Subject: [PATCH 0291/1053] Updated todo
+
+---
+ todo.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/todo.txt b/todo.txt
+index 2246ebce6d..06f89cd47b 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -1,2 +1,6 @@
+ 
+ - 'Place Sign' does not work. Landscaping - Place Sign works.
++
++- Smallmap UI won't fit all FIRS industries.
++
++- Build tools keep zombie dialogs open after right-click.
+-- 
+2.55.0
+

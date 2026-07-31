@@ -1,0 +1,44 @@
+From 8b2b89c5649a31c2aecdf48a3b71e8cc4c0e2f5a Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Mon, 2 Oct 2017 20:39:12 +0300
+Subject: [PATCH 0443/1053] Fixed multitouch events
+
+---
+ src/video/sdl_v.cpp | 2 ++
+ todo.txt            | 3 ---
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index b7dee86647..e604fc5d10 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -428,6 +428,7 @@ bool VideoDriver_SDL::CreateMainSurface(uint w, uint h)
+ 
+ #ifdef __ANDROID__
+ 	if (!_multitouch_device) {
++		SDL_InitSubSystem(SDL_INIT_JOYSTICK);
+ 		_multitouch_device = SDL_JoystickOpen(0);
+ 	}
+ 	SDL_ANDROID_SetSystemMousePointerVisible(0); // We have our own cursor, only works on Android N
+@@ -674,6 +675,7 @@ int VideoDriver_SDL::PollEvent()
+ 				_multitouch_second_point.x = ev.jball.xrel;
+ 				_multitouch_second_point.y = ev.jball.yrel;
+ 			}
++			break;
+ #endif /* not __ANDROID__ */
+ #ifndef __ANDROID__
+ 		case SDL_VIDEORESIZE: {
+diff --git a/todo.txt b/todo.txt
+index 8195db6f4d..6d53214c0c 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -10,6 +10,3 @@
+ - Fix text input - it should use SDL_ANDROID_GetScreenKeyboardTextInputAsync(), TODO: it's broken in SDL.
+ 
+ - Draggable combo boxes.
+-
+-- Multitouch events are broken in SDL
+-
+-- 
+2.55.0
+

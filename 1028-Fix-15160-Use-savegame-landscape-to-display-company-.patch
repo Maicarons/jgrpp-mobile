@@ -1,0 +1,25 @@
+From 903325e4c8e6464c2a8c849a5c9b5279e6f387f7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Sat, 24 Jan 2026 19:53:30 +0100
+Subject: [PATCH 1028/1053] Fix #15160: Use savegame landscape to display
+ company names in SaveLoad window (#15161)
+
+---
+ src/fios_gui.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index bb304ad3a4..97a6a72c3a 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -618,6 +618,7 @@ public:
+ 				for (auto &pair : _load_check_data.companies) {
+ 					const CompanyProperties &c = *pair.second;
+ 					if (c.name.empty()) {
++						AutoRestoreBackup landscape_backup(_settings_game.game_creation.landscape, _load_check_data.landscape);
+ 						DrawString(tr, GetString(STR_SAVELOAD_DETAIL_COMPANY_INDEX, pair.first + 1, c.name_1, c.name_2));
+ 					} else {
+ 						DrawString(tr, GetString(STR_SAVELOAD_DETAIL_COMPANY_INDEX, pair.first + 1, STR_JUST_RAW_STRING, c.name));
+-- 
+2.55.0
+

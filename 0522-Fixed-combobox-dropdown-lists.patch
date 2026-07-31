@@ -1,0 +1,33 @@
+From dd3af9bfb2e5378d6dd935b6a3f1659991f3e429 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 18 Jul 2019 21:03:42 +0300
+Subject: [PATCH 0522/1053] Fixed combobox dropdown lists
+
+---
+ src/widgets/dropdown.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 4cd5c4f0d3..d3ed2eb316 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -149,7 +149,7 @@ struct DropdownWindow : Window {
+ 		/* Capacity is the average number of items visible */
+ 		this->vscroll->SetCapacity(size.height * (uint16)list->Length() / list_height);
+ 		this->vscroll->SetCount((uint16)list->Length());
+-		this->vscroll->SetPosition(Clamp(selected, 0, list->Length()));
++		this->vscroll->UpdatePosition(0);
+ 
+ 		this->parent_wnd_class = parent->window_class;
+ 		this->parent_wnd_num   = parent->window_number;
+@@ -159,6 +159,7 @@ struct DropdownWindow : Window {
+ 		this->click_delay      = 0;
+ 		this->drag_mode        = instant_close;
+ 		this->instant_close    = instant_close;
++		this->scrolling        = 0;
+ 		this->scrolling_timer  = GUITimer(MILLISECONDS_PER_TICK);
+ 		this->left_button_state = _left_button_down;
+ 	}
+-- 
+2.55.0
+

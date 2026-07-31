@@ -1,0 +1,31 @@
+From e0ccc58ed1f5af56d0f3a5788e2fd1411c06d35b Mon Sep 17 00:00:00 2001
+From: Jonathan G Rennison <j.g.rennison@gmail.com>
+Date: Thu, 30 Dec 2021 14:06:40 +0000
+Subject: [PATCH 0784/1053] Fix #9774: CmdBuildRoadStop updated station
+ acceptance in estimate mode
+
+---
+ src/station_cmd.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/station_cmd.cpp b/src/station_cmd.cpp
+index 1a188252ce..3a7114d9f4 100644
+--- a/src/station_cmd.cpp
++++ b/src/station_cmd.cpp
+@@ -1949,10 +1949,10 @@ CommandCost CmdBuildRoadStop(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
+ 
+ 			MarkTileDirtyByTile(cur_tile);
+ 		}
+-	}
+ 
+-	if (st != nullptr) {
+-		st->AfterStationTileSetChange(true, type ? STATION_TRUCK: STATION_BUS);
++		if (st != nullptr) {
++			st->AfterStationTileSetChange(true, type ? STATION_TRUCK: STATION_BUS);
++		}
+ 	}
+ 	return cost;
+ }
+-- 
+2.55.0
+

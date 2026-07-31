@@ -1,0 +1,36 @@
+From 849a5e1f27b74f3bbdbdfb200a521d03eaf1c87e Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Sat, 6 Apr 2024 14:02:23 +0100
+Subject: [PATCH 0894/1053] fix: change FindICU to properly check pkg-config
+ results
+
+While skiping this checks for Android. Idealy it would also be done in
+Android, something to improve a in future release.
+---
+ cmake/FindICU.cmake | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/cmake/FindICU.cmake b/cmake/FindICU.cmake
+index 15c0edc047..53867c3337 100644
+--- a/cmake/FindICU.cmake
++++ b/cmake/FindICU.cmake
+@@ -42,13 +42,14 @@ foreach(MOD_NAME IN LISTS ICU_FIND_COMPONENTS)
+     # Check the libraries returned by pkg-config really exist.
+     unset(PC_LIBRARIES)
+     foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
++        unset(PC_LIBRARY CACHE)
+         if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+-            find_library(PC_ICU_${MOD_NAME}_LIBRARY NAMES ${LIBRARY})
++            find_library(PC_LIBRARY NAMES ${LIBRARY})
+         endif()
+         if(NOT PC_ICU_${MOD_NAME}_LIBRARY)
+             unset(PC_ICU_${MOD_NAME}_FOUND)
+         endif()
+-        list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
++        list(APPEND PC_LIBRARIES ${PC_LIBRARY})
+     endforeach()
+     unset(PC_LIBRARY CACHE)
+ 
+-- 
+2.55.0
+

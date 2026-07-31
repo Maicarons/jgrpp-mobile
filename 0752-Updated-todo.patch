@@ -1,0 +1,25 @@
+From b1afbb0ee9ac9a6dba24e2ba631520706e7fcc6a Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sat, 18 Dec 2021 23:52:18 +0200
+Subject: [PATCH 0752/1053] Updated todo
+
+---
+ todo.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/todo.txt b/todo.txt
+index b675606679..67b755f284 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -17,7 +17,7 @@
+ 
+ - Fix manager face dialog and company color scheme dialog.
+ 
+-- Button to copy server invite code to clipboard
++- Reampping Ctrl keycode on gamepad does not work.
+ 
+ 
+ ===== Emscripten TODO =====
+-- 
+2.55.0
+

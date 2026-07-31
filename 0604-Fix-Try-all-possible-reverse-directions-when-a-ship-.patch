@@ -1,0 +1,197 @@
+From 3d46c6fc4ccf7fc4c4471da40f03a4a236b69ef3 Mon Sep 17 00:00:00 2001
+From: glx22 <glx@openttd.org>
+Date: Tue, 5 Oct 2021 17:58:19 +0200
+Subject: [PATCH 0604/1053] Fix: Try all possible reverse directions when a
+ ship reaches a dead end
+
+---
+ src/pathfinder/npf/npf.cpp        | 18 ++++++++++++++++--
+ src/pathfinder/npf/npf_func.h     |  3 ++-
+ src/pathfinder/yapf/yapf.h        |  3 ++-
+ src/pathfinder/yapf/yapf_ship.cpp | 19 ++++++++++++-------
+ src/ship_cmd.cpp                  | 21 +++++++++++++++++----
+ 5 files changed, 49 insertions(+), 15 deletions(-)
+
+diff --git a/src/pathfinder/npf/npf.cpp b/src/pathfinder/npf/npf.cpp
+index 3bc596e63e..f7cb1a5cda 100644
+--- a/src/pathfinder/npf/npf.cpp
++++ b/src/pathfinder/npf/npf.cpp
+@@ -1211,7 +1211,7 @@ Track NPFShipChooseTrack(const Ship *v, bool &path_found)
+ 	return TrackdirToTrack(ftd.best_trackdir);
+ }
+ 
+-bool NPFShipCheckReverse(const Ship *v)
++bool NPFShipCheckReverse(const Ship *v, Trackdir *best_td)
+ {
+ 	NPFFindStationOrTileData fstd;
+ 	NPFFoundTargetData ftd;
+@@ -1224,7 +1224,21 @@ bool NPFShipCheckReverse(const Ship *v)
+ 	assert(trackdir_rev != INVALID_TRACKDIR);
+ 
+ 	AyStarUserData user = { v->owner, TRANSPORT_WATER, RAILTYPES_NONE, ROADTYPES_NONE, 0 };
+-	ftd = NPFRouteToStationOrTileTwoWay(v->tile, trackdir, false, v->tile, trackdir_rev, false, &fstd, &user);
++	if (best_td != nullptr) {
++		TrackdirBits rtds = DiagdirReachesTrackdirs(ReverseDiagDir(VehicleExitDir(v->direction, v->state)));
++		Trackdir best = (Trackdir)FindFirstBit2x64(rtds);
++		for (rtds = KillFirstBit(rtds); rtds != TRACKDIR_BIT_NONE; rtds = KillFirstBit(rtds)) {
++			Trackdir td = (Trackdir)FindFirstBit2x64(rtds);
++			ftd = NPFRouteToStationOrTileTwoWay(v->tile, best, false, v->tile, td, false, &fstd, &user);
++			if (ftd.best_bird_dist == 0 && NPFGetFlag(&ftd.node, NPF_FLAG_REVERSE)) best = td;
++		}
++		if (ftd.best_bird_dist == 0) {
++			*best_td = best;
++			return true;
++		}
++	} else {
++		ftd = NPFRouteToStationOrTileTwoWay(v->tile, trackdir, false, v->tile, trackdir_rev, false, &fstd, &user);
++	}
+ 	/* If we didn't find anything, just keep on going straight ahead, otherwise take the reverse flag */
+ 	return ftd.best_bird_dist == 0 && NPFGetFlag(&ftd.node, NPF_FLAG_REVERSE);
+ }
+diff --git a/src/pathfinder/npf/npf_func.h b/src/pathfinder/npf/npf_func.h
+index 036caf9bb0..9183f76ed5 100644
+--- a/src/pathfinder/npf/npf_func.h
++++ b/src/pathfinder/npf/npf_func.h
+@@ -46,9 +46,10 @@ Track NPFShipChooseTrack(const Ship *v, bool &path_found);
+ /**
+  * Returns true if it is better to reverse the ship before leaving depot using NPF.
+  * @param v the ship leaving the depot
++ * @param trackdir [out] the best of all possible reversed trackdirs
+  * @return true if reversing is better
+  */
+-bool NPFShipCheckReverse(const Ship *v);
++bool NPFShipCheckReverse(const Ship *v, Trackdir *trackdir);
+ 
+ /**
+  * Used when user sends train to the nearest depot or if train needs servicing using NPF
+diff --git a/src/pathfinder/yapf/yapf.h b/src/pathfinder/yapf/yapf.h
+index af5e966e7f..d644669807 100644
+--- a/src/pathfinder/yapf/yapf.h
++++ b/src/pathfinder/yapf/yapf.h
+@@ -31,9 +31,10 @@ Track YapfShipChooseTrack(const Ship *v, TileIndex tile, DiagDirection enterdir,
+ /**
+  * Returns true if it is better to reverse the ship before leaving depot using YAPF.
+  * @param v the ship leaving the depot
++ * @param trackdir [out] the best of all possible reversed trackdirs
+  * @return true if reversing is better
+  */
+-bool YapfShipCheckReverse(const Ship *v);
++bool YapfShipCheckReverse(const Ship *v, Trackdir *trackdir);
+ 
+ /**
+  * Finds the best path for given road vehicle using YAPF.
+diff --git a/src/pathfinder/yapf/yapf_ship.cpp b/src/pathfinder/yapf/yapf_ship.cpp
+index 3a54ddb3eb..25a63ec669 100644
+--- a/src/pathfinder/yapf/yapf_ship.cpp
++++ b/src/pathfinder/yapf/yapf_ship.cpp
+@@ -204,14 +204,15 @@ public:
+ 	 * @param tile Current position
+ 	 * @param td1 Forward direction
+ 	 * @param td2 Reverse direction
++	 * @param trackdir [out] the best of all possible reversed trackdirs
+ 	 * @return true if the reverse direction is better
+ 	 */
+-	static bool CheckShipReverse(const Ship *v, TileIndex tile, Trackdir td1, Trackdir td2)
++	static bool CheckShipReverse(const Ship *v, TileIndex tile, Trackdir td1, Trackdir td2, Trackdir *trackdir)
+ 	{
+ 		/* create pathfinder instance */
+ 		Tpf pf;
+ 		/* set origin and destination nodes */
+-		pf.SetOrigin(tile, TrackdirToTrackdirBits(td1) | TrackdirToTrackdirBits(td2));
++		pf.SetOrigin(tile, trackdir == nullptr ? TrackdirToTrackdirBits(td1) | TrackdirToTrackdirBits(td2) : DiagdirReachesTrackdirs(ReverseDiagDir(VehicleExitDir(v->direction, v->state))));
+ 		pf.SetDestination(v);
+ 		/* find best path */
+ 		if (!pf.FindPath(v)) return false;
+@@ -226,8 +227,12 @@ public:
+ 		}
+ 
+ 		Trackdir best_trackdir = pNode->GetTrackdir();
+-		assert(best_trackdir == td1 || best_trackdir == td2);
+-		return best_trackdir == td2;
++		if (trackdir != nullptr) {
++			*trackdir = best_trackdir;
++		} else {
++			assert(best_trackdir == td1 || best_trackdir == td2);
++		}
++		return best_trackdir != td1;
+ 	}
+ };
+ 
+@@ -353,13 +358,13 @@ Track YapfShipChooseTrack(const Ship *v, TileIndex tile, DiagDirection enterdir,
+ 	return (td_ret != INVALID_TRACKDIR) ? TrackdirToTrack(td_ret) : INVALID_TRACK;
+ }
+ 
+-bool YapfShipCheckReverse(const Ship *v)
++bool YapfShipCheckReverse(const Ship *v, Trackdir *trackdir)
+ {
+ 	Trackdir td = v->GetVehicleTrackdir();
+ 	Trackdir td_rev = ReverseTrackdir(td);
+ 	TileIndex tile = v->tile;
+ 
+-	typedef bool (*PfnCheckReverseShip)(const Ship*, TileIndex, Trackdir, Trackdir);
++	typedef bool (*PfnCheckReverseShip)(const Ship*, TileIndex, Trackdir, Trackdir, Trackdir*);
+ 	PfnCheckReverseShip pfnCheckReverseShip = CYapfShip2::CheckShipReverse; // default: ExitDir
+ 
+ 	/* check if non-default YAPF type needed */
+@@ -367,7 +372,7 @@ bool YapfShipCheckReverse(const Ship *v)
+ 		pfnCheckReverseShip = &CYapfShip1::CheckShipReverse; // Trackdir
+ 	}
+ 
+-	bool reverse = pfnCheckReverseShip(v, tile, td, td_rev);
++	bool reverse = pfnCheckReverseShip(v, tile, td, td_rev, trackdir);
+ 
+ 	return reverse;
+ }
+diff --git a/src/ship_cmd.cpp b/src/ship_cmd.cpp
+index 0d8cd6c375..7f9dab0f1a 100644
+--- a/src/ship_cmd.cpp
++++ b/src/ship_cmd.cpp
+@@ -335,13 +335,13 @@ static Vehicle *EnsureNoMovingShipProc(Vehicle *v, void *data)
+ 	return v->type == VEH_SHIP && (v->vehstatus & (VS_HIDDEN | VS_STOPPED)) == 0 ? v : nullptr;
+ }
+ 
+-static bool CheckReverseShip(const Ship *v)
++static bool CheckReverseShip(const Ship *v, Trackdir *trackdir = nullptr)
+ {
+ 	/* Ask pathfinder for best direction */
+ 	bool reverse = false;
+ 	switch (_settings_game.pf.pathfinder_for_ships) {
+-		case VPF_NPF: reverse = NPFShipCheckReverse(v); break;
+-		case VPF_YAPF: reverse = YapfShipCheckReverse(v); break;
++		case VPF_NPF: reverse = NPFShipCheckReverse(v, trackdir); break;
++		case VPF_YAPF: reverse = YapfShipCheckReverse(v, trackdir); break;
+ 		default: NOT_REACHED();
+ 	}
+ 	return reverse;
+@@ -725,7 +725,19 @@ static void ShipController(Ship *v)
+ 			DiagDirection diagdir = DiagdirBetweenTiles(gp.old_tile, gp.new_tile);
+ 			assert(diagdir != INVALID_DIAGDIR);
+ 			tracks = GetAvailShipTracks(gp.new_tile, diagdir);
+-			if (tracks == TRACK_BIT_NONE) goto reverse_direction;
++			if (tracks == TRACK_BIT_NONE) {
++				Trackdir trackdir = INVALID_TRACKDIR;
++				CheckReverseShip(v, &trackdir);
++				if (trackdir == INVALID_TRACKDIR) goto reverse_direction;
++				static const Direction _trackdir_to_direction[] = {
++					DIR_NE, DIR_SE, DIR_E, DIR_E, DIR_S, DIR_S, INVALID_DIR, INVALID_DIR,
++					DIR_SW, DIR_NW, DIR_W, DIR_W, DIR_N, DIR_N, INVALID_DIR, INVALID_DIR,
++				};
++				v->direction = _trackdir_to_direction[trackdir];
++				assert(v->direction != INVALID_DIR);
++				v->state = TrackdirBitsToTrackBits(TrackdirToTrackdirBits(trackdir));
++				goto direction_changed;
++			}
+ 
+ 			/* Choose a direction, and continue if we find one */
+ 			track = ChooseShipTrack(v, gp.new_tile, diagdir, tracks);
+@@ -796,6 +808,7 @@ getout:
+ 
+ reverse_direction:
+ 	v->direction = ReverseDir(v->direction);
++direction_changed:
+ 	/* Remember our current location to avoid movement glitch */
+ 	v->rotation_x_pos = v->x_pos;
+ 	v->rotation_y_pos = v->y_pos;
+-- 
+2.55.0
+

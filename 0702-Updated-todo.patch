@@ -1,0 +1,25 @@
+From acce79cfceca94f96eb44b5acc9d5dd8cdb884b9 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 11 May 2021 01:07:48 +0300
+Subject: [PATCH 0702/1053] Updated todo
+
+---
+ todo.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index fc027a0c8b..d0dbff51b8 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -15,8 +15,6 @@
+ 
+ - Resize button does not work when the mouse is outsize of the window borders.
+ 
+-- Option to disable mouse cursor.
+-
+ ===== Emscripten TODO =====
+ 
+ - Fix window resizing to keep videomode height at 480 pixels.
+-- 
+2.55.0
+

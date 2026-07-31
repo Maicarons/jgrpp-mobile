@@ -1,0 +1,27 @@
+From 3b6ba452685abb21eff044114f4c9aea114f6912 Mon Sep 17 00:00:00 2001
+From: Matthijs Kooijman <matthijs@stdin.nl>
+Date: Wed, 5 Jan 2022 13:24:35 +0100
+Subject: [PATCH 0805/1053] Fix: [CMake] openttd.32.bmp wasn't installed but
+ used by SDL (#9772)
+
+This file is used to set the SDL application icon, but it was no longer
+installed since the switch to CMake.
+---
+ media/baseset/CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/media/baseset/CMakeLists.txt b/media/baseset/CMakeLists.txt
+index 48aa443a5b..1bf16ec064 100644
+--- a/media/baseset/CMakeLists.txt
++++ b/media/baseset/CMakeLists.txt
+@@ -17,6 +17,7 @@ set(BASESET_OTHER_SOURCE_FILES
+         ${CMAKE_CURRENT_SOURCE_DIR}/openttd.grf
+         ${CMAKE_CURRENT_SOURCE_DIR}/opntitle.dat
+         ${CMAKE_CURRENT_SOURCE_DIR}/orig_extra.grf
++        ${CMAKE_CURRENT_SOURCE_DIR}/../openttd.32.bmp
+ )
+ 
+ # Done by the subdirectories, if nforenum / grfcodec is installed
+-- 
+2.55.0
+

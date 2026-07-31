@@ -1,0 +1,25 @@
+From 4773b09d13d9ac19f24c5e22d78e4bd901c249fd Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 22 Mar 2014 23:33:05 +0200
+Subject: [PATCH 0102/1053] Oops, fixerd compilation
+
+---
+ src/fileio.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fileio.cpp b/src/fileio.cpp
+index 5eff63027a..cb750b614b 100644
+--- a/src/fileio.cpp
++++ b/src/fileio.cpp
+@@ -1308,7 +1308,7 @@ void DeterminePaths(const char *exe)
+ #ifdef __ANDROID__
+ 	// Copy savegames from "full" OpenTTD to "lite" save directory
+ 	char curdir[PATH_MAX];
+-	if (getcwd(curdir, sizeof(BUF)) && strstr(curdir, "org.openttd.sdl.lowmem")) {
++	if (getcwd(curdir, sizeof(curdir)) && strstr(curdir, "org.openttd.sdl.lowmem")) {
+ 		// No, I won't implement file copying in C, shell script is just fine for this job
+ 		system("cd ../../org.openttd.sdl/files/.openttd/save && "
+ 				"for F in *.sav ; do ls \"../../../../org.openttd.sdl/files/.openttd/save/$F\" || "
+-- 
+2.55.0
+

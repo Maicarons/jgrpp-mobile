@@ -1,0 +1,97 @@
+From 9b2e51b7559d02fa431f2575703dfe6a766ae7f7 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Fri, 10 Dec 2021 01:40:51 +0200
+Subject: [PATCH 0744/1053] Copy server invite code to the clipboard
+ automatically
+
+---
+ src/network/network_coordinator.cpp | 2 ++
+ src/video/sdl2_v.cpp                | 5 +++++
+ src/video/sdl_v.cpp                 | 7 +++++++
+ src/video/video_driver.hpp          | 9 +++++++++
+ 4 files changed, 23 insertions(+)
+
+diff --git a/src/network/network_coordinator.cpp b/src/network/network_coordinator.cpp
+index c3fa2b5ce5..38fe20cd56 100644
+--- a/src/network/network_coordinator.cpp
++++ b/src/network/network_coordinator.cpp
+@@ -13,6 +13,7 @@
+ #include "../rev.h"
+ #include "../settings_type.h"
+ #include "../strings_func.h"
++#include "../video/video_driver.hpp"
+ #include "../window_func.h"
+ #include "../window_type.h"
+ #include "network.h"
+@@ -193,6 +194,7 @@ bool ClientNetworkCoordinatorSocketHandler::Receive_GC_REGISTER_ACK(Packet *p)
+ 	 * and _settings_client.network.server_invite_code contains the one we will
+ 	 * attempt to re-use when registering again. */
+ 	_network_server_invite_code = _settings_client.network.server_invite_code;
++	VideoDriver::GetInstance()->SetClipboardContents(_network_server_invite_code);
+ 
+ 	SetWindowDirty(WC_CLIENT_LIST, 0);
+ 
+diff --git a/src/video/sdl2_v.cpp b/src/video/sdl2_v.cpp
+index 3c7b0cfff7..87221d6b15 100644
+--- a/src/video/sdl2_v.cpp
++++ b/src/video/sdl2_v.cpp
+@@ -604,6 +604,11 @@ void VideoDriver_SDL_Base::InputLoop()
+ 
+ 	if (old_ctrl_pressed != _ctrl_pressed) HandleCtrlChanged();
+ 	old_ctrl_pressed = _ctrl_pressed;
++
++	if (!this->set_clipboard_text.empty()) {
++		SDL_SetClipboardText(this->set_clipboard_text.c_str());
++		this->set_clipboard_text = "";
++	}
+ }
+ 
+ void VideoDriver_SDL_Base::LoopOnce()
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 706704e7cd..11874e9ee1 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -711,6 +711,13 @@ void VideoDriver_SDL::InputLoop()
+ 
+ 	if (old_ctrl_pressed != _ctrl_pressed) HandleCtrlChanged();
+ 	old_ctrl_pressed = _ctrl_pressed;
++
++#ifdef __ANDROID__
++	if (!this->set_clipboard_text.empty()) {
++		SDL_SetClipboardText(this->set_clipboard_text.c_str());
++		this->set_clipboard_text = "";
++	}
++#endif /* __ANDROID__ */
+ }
+ 
+ void VideoDriver_SDL::MainLoop()
+diff --git a/src/video/video_driver.hpp b/src/video/video_driver.hpp
+index b87dc70529..5c277d3e55 100644
+--- a/src/video/video_driver.hpp
++++ b/src/video/video_driver.hpp
+@@ -193,6 +193,14 @@ public:
+ 
+ 	void GameLoopPause();
+ 
++	/**
++	 * Set clipboard contents, the video thread will call the OS clipboard API
++	 */
++	void SetClipboardContents(const std::string &text)
++	{
++		this->set_clipboard_text = text;
++	}
++
+ 	/**
+ 	 * Get the currently active instance of the video driver.
+ 	 */
+@@ -342,6 +350,7 @@ protected:
+ 
+ 	bool fast_forward_key_pressed; ///< The fast-forward key is being pressed.
+ 	bool fast_forward_via_key; ///< The fast-forward was enabled by key press.
++	std::string set_clipboard_text; ///< New clipboard contents to set
+ 
+ 	bool is_game_threaded;
+ 	std::thread game_thread;
+-- 
+2.55.0
+

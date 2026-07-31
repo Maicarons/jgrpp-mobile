@@ -1,0 +1,49 @@
+From 76be9988dd59d873bf063215aaed40448cb5aed6 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Thu, 6 May 2021 02:19:50 +0300
+Subject: [PATCH 0686/1053] Load TTF fonts by default
+
+---
+ src/table/misc_settings.ini | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/table/misc_settings.ini b/src/table/misc_settings.ini
+index d432cf43aa..5e19020ff6 100644
+--- a/src/table/misc_settings.ini
++++ b/src/table/misc_settings.ini
+@@ -174,28 +174,28 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""small_font""
+ type     = SLE_STRB
+ var      = _freetype.small.font
+-def      = nullptr
++def      = ""fonts/Roboto-Bold.ttf""
+ 
+ [SDTG_STR]
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""medium_font""
+ type     = SLE_STRB
+ var      = _freetype.medium.font
+-def      = nullptr
++def      = ""fonts/Roboto-Bold.ttf""
+ 
+ [SDTG_STR]
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""large_font""
+ type     = SLE_STRB
+ var      = _freetype.large.font
+-def      = nullptr
++def      = ""fonts/DroidSerif-Bold.ttf""
+ 
+ [SDTG_STR]
+ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""mono_font""
+ type     = SLE_STRB
+ var      = _freetype.mono.font
+-def      = nullptr
++def      = ""fonts/DroidSansMono.ttf""
+ 
+ [SDTG_VAR]
+ ifdef    = HAS_TRUETYPE_FONT
+-- 
+2.55.0
+

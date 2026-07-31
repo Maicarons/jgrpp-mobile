@@ -1,0 +1,26 @@
+From 6b36f07eb8f3f82fad69e6507178aba586897dbc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lo=C3=AFc=20Guilloux?= <glx22@users.noreply.github.com>
+Date: Sun, 29 Jan 2023 23:27:29 +0100
+Subject: [PATCH 0873/1053] Fix #10361, fe30f66: Don't try to give saved data
+ to a dead script (#10433)
+
+---
+ src/script/script_instance.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/script/script_instance.cpp b/src/script/script_instance.cpp
+index 9bd2d78718..6722fa436e 100644
+--- a/src/script/script_instance.cpp
++++ b/src/script/script_instance.cpp
+@@ -691,7 +691,7 @@ void ScriptInstance::LoadOnStack(ScriptData *data)
+ {
+ 	ScriptObject::ActiveInstance active(this);
+ 
+-	if (data == nullptr) return;
++	if (this->IsDead() || data == nullptr) return;
+ 
+ 	HSQUIRRELVM vm = this->engine->GetVM();
+ 
+-- 
+2.55.0
+

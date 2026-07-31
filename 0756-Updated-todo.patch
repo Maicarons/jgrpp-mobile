@@ -1,0 +1,25 @@
+From 0d7410e4f9ecb058f2294136ec0804bedd1be35c Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Sun, 19 Dec 2021 01:39:24 +0200
+Subject: [PATCH 0756/1053] Updated todo
+
+---
+ todo.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index 67b755f284..d61443e931 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -22,8 +22,6 @@
+ 
+ ===== Emscripten TODO =====
+ 
+-- Fix window resizing to keep videomode height at 480 pixels.
+-
+ - Audio worklet to play MIDI music, with separate data file.
+ 
+ - Fix multiplayer using WebSocket Proxy Server, this depends on pthreads support,
+-- 
+2.55.0
+

@@ -1,0 +1,28 @@
+From dc5684681e2ccaa4c975d6c5e68a4e2b44ed9031 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Fri, 7 Apr 2017 22:01:18 +0300
+Subject: [PATCH 0402/1053] Better fix for hiding error message window after
+ clicking 'Cancel'
+
+---
+ src/build_confirmation_gui.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/build_confirmation_gui.cpp b/src/build_confirmation_gui.cpp
+index 466679acf7..7d9d044af5 100644
+--- a/src/build_confirmation_gui.cpp
++++ b/src/build_confirmation_gui.cpp
+@@ -176,7 +176,9 @@ struct BuildConfirmationWindow : Window {
+ 				} else {
+ 					ResetObjectToPlace();
+ 					DeleteWindowByClass(WC_BUILD_BRIDGE);
+-					ClearErrorMessages();
++					//ClearErrorMessages();
++					Window *w = FindWindowById(WC_ERRMSG, 0);
++					if (w != NULL) delete w;
+ 				}
+ 				break;
+ 		}
+-- 
+2.55.0
+

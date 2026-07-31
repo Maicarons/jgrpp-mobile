@@ -1,0 +1,25 @@
+From 042e98258792c472639ffcf91f3a2519e0679373 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 13 Feb 2021 23:49:12 +0200
+Subject: [PATCH 0575/1053] Updated todo
+
+---
+ todo.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/todo.txt b/todo.txt
+index 01f13e81e3..7b9a98bae3 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -7,8 +7,6 @@
+ 
+ - Two-finger cancel action does not work when confirmation dialog is disabled.
+ 
+-- Mouse wheel does not work for Bluetooth mouse.
+-
+ - Tram type menu missing. https://github.com/pelya/openttd-android/issues/7
+ 
+ - Unable to search for server, input text in wrong box. https://github.com/pelya/openttd-android/issues/5
+-- 
+2.55.0
+

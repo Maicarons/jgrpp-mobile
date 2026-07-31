@@ -1,0 +1,28 @@
+From da2947e5e32b292e5f6826be59f2ecdf4ead08fe Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 14 Feb 2021 00:31:12 +0200
+Subject: [PATCH 0576/1053] Fixed slow compilation on Android, -O1 does not
+ help
+
+---
+ CMakeLists.txt | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 57ec38a75f..c8c1fd03ca 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -238,7 +238,9 @@ if(ANDROID)
+         ${EXPAT_LIBRARY}
+     )
+     # A bug in Android NDK r22: https://github.com/android/ndk/issues/1418
+-    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/settings.cpp PROPERTIES COMPILE_FLAGS "-O1")
++    if(ANDROID_ABI EQUAL "armeabi-v7a" OR ANDROID_ABI EQUAL "x86")
++        set_source_files_properties(${CMAKE_SOURCE_DIR}/src/settings.cpp PROPERTIES COMPILE_FLAGS "-O0")
++    endif(ANDROID_ABI)
+ endif(ANDROID)
+ 
+ if(APPLE)
+-- 
+2.55.0
+

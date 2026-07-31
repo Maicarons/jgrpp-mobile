@@ -1,0 +1,28 @@
+From d92212e60bd987144dab3a8a1791b5f1188b8267 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Tue, 11 May 2021 01:45:25 +0300
+Subject: [PATCH 0703/1053] Enabled LTO for Android 64-bit architectures
+
+---
+ CMakeLists.txt | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 085970135a..9bf1cd3052 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -297,6 +297,11 @@ if(ANDROID)
+     # A bug in Android NDK r22: https://github.com/android/ndk/issues/1418
+     if(ANDROID_ABI STREQUAL "armeabi-v7a" OR ANDROID_ABI STREQUAL "x86")
+         set_source_files_properties(${CMAKE_SOURCE_DIR}/src/settings.cpp PROPERTIES COMPILE_FLAGS "-O0")
++    else()
++        if(NOT CMAKE_BUILD_TYPE STREQUAL Debug)
++            target_compile_options(openttd PRIVATE -flto=thin)
++            target_link_libraries(openttd -flto=thin)
++        endif()
+     endif()
+ endif(ANDROID)
+ 
+-- 
+2.55.0
+

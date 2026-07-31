@@ -1,0 +1,30 @@
+From 4b5b20a16705ccd869ef78abb7b279f86c854e7b Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Thu, 25 Dec 2025 17:21:43 +0000
+Subject: [PATCH 0970/1053] Fix 2d7d085e8e: "(Invalid parameter)" in error
+ message when trying to remove another player's object. (#14981)
+
+Formatted error string was thrown away.
+---
+ src/object_cmd.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/object_cmd.cpp b/src/object_cmd.cpp
+index 2cbe976002..51331fcc27 100644
+--- a/src/object_cmd.cpp
++++ b/src/object_cmd.cpp
+@@ -566,9 +566,9 @@ static CommandCost ClearTile_Object(TileIndex tile, DoCommandFlags flags)
+ 		} else if (GetTileOwner(tile) == OWNER_NONE) {
+ 			/* Owned by nobody and unremovable, so we can only remove it with brute force! */
+ 			if (!_cheats.magic_bulldozer.value && spec->flags.Test(ObjectFlag::CannotRemove)) return CMD_ERROR;
+-		} else if (CheckTileOwnership(tile).Failed()) {
++		} else if (CommandCost ret = CheckTileOwnership(tile); ret.Failed()) {
+ 			/* We don't own it!. */
+-			return CommandCost(STR_ERROR_OWNED_BY);
++			return ret;
+ 		} else if (spec->flags.Test(ObjectFlag::CannotRemove) && !spec->flags.Test(ObjectFlag::Autoremove)) {
+ 			/* In the game editor or with cheats we can remove, otherwise we can't. */
+ 			if (!_cheats.magic_bulldozer.value) {
+-- 
+2.55.0
+

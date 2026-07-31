@@ -1,0 +1,46 @@
+From 383826139ceb38883b0cd1ec235952225297bb25 Mon Sep 17 00:00:00 2001
+From: Sergii Pylypenko <x.pelya.x@gmail.com>
+Date: Wed, 19 Mar 2014 22:32:19 +0200
+Subject: [PATCH 0081/1053] Centered strings in file lists and in dropdowns
+
+---
+ src/fios_gui.cpp         | 2 +-
+ src/widgets/dropdown.cpp | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/fios_gui.cpp b/src/fios_gui.cpp
+index c8a0d64867..ced9e722d8 100644
+--- a/src/fios_gui.cpp
++++ b/src/fios_gui.cpp
+@@ -355,7 +355,7 @@ public:
+ 			case WID_SL_DRIVES_DIRECTORIES_LIST: {
+ 				GfxFillRect(r.left + 1, r.top + 1, r.right, r.bottom, PC_BLACK);
+ 
+-				uint y = r.top + WD_FRAMERECT_TOP;
++				uint y = r.top + WD_FRAMERECT_TOP + this->resize.step_height / 2;
+ 				for (uint pos = this->vscroll->GetPosition(); pos < _fios_items.Length(); pos++) {
+ 					const FiosItem *item = _fios_items.Get(pos);
+ 
+diff --git a/src/widgets/dropdown.cpp b/src/widgets/dropdown.cpp
+index 6603dd588a..174bf95f69 100644
+--- a/src/widgets/dropdown.cpp
++++ b/src/widgets/dropdown.cpp
+@@ -228,12 +228,12 @@ struct DropdownWindow : Window {
+ 
+ 			if (y + item_height < r.bottom) {
+ 				bool selected = (this->selected_index == item->result);
+-				if (selected) GfxFillRect(r.left + 2, y, r.right - 1, y + item_height - 1, PC_BLACK);
++				if (selected) GfxFillRect(r.left + 2, y + item_height / 2, r.right - 1, y + item_height * 3 / 2 - 1, PC_BLACK);
+ 
+-				item->Draw(r.left, r.right, y, y + item_height, selected, colour);
++				item->Draw(r.left, r.right, y + item_height / 2, y + item_height * 3 / 2, selected, colour);
+ 
+ 				if (item->masked) {
+-					GfxFillRect(r.left + 1, y, r.right - 1, y + item_height - 1, _colour_gradient[colour][5], FILLRECT_CHECKER);
++					GfxFillRect(r.left + 1, y + item_height / 2, r.right - 1, y + item_height * 3 / 2 - 1, _colour_gradient[colour][5], FILLRECT_CHECKER);
+ 				}
+ 			}
+ 			y += item_height;
+-- 
+2.55.0
+

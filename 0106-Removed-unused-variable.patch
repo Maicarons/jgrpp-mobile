@@ -1,0 +1,123 @@
+From 982c84b3eed91cd70b3e0db1f75348ceacf2d986 Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sun, 23 Mar 2014 15:39:18 +0200
+Subject: [PATCH 0106/1053] Removed unused variable
+
+---
+ src/settings_type.h         |  1 -
+ src/table/misc_settings.ini |  5 ----
+ src/vehicle_gui.cpp         |  4 ++--
+ src/window.cpp              | 46 -------------------------------------
+ 4 files changed, 2 insertions(+), 54 deletions(-)
+
+diff --git a/src/settings_type.h b/src/settings_type.h
+index cb9d95bb0f..b38aab3781 100644
+--- a/src/settings_type.h
++++ b/src/settings_type.h
+@@ -81,7 +81,6 @@ struct GUISettings {
+ 	TouchscreenModeByte touchscreen_mode;    ///< touchscreen mode for toolbars
+ 	uint   min_button;                       ///< min size of most button widgets
+ 	uint   min_step;                         ///< min size of scrollbar/dropdown elements
+-	bool   manage_min_sizing;                ///< automatically set min_button and min_step
+ 	bool   show_finances;                    ///< show finances at end of year
+ 	bool   sg_new_nonstop;                   ///< ttdpatch compatible nonstop handling read from pre v93 savegames
+ 	bool   new_nonstop;                      ///< ttdpatch compatible nonstop handling
+diff --git a/src/table/misc_settings.ini b/src/table/misc_settings.ini
+index fd0207c4f3..0b02e69b8d 100644
+--- a/src/table/misc_settings.ini
++++ b/src/table/misc_settings.ini
+@@ -228,11 +228,6 @@ min      = 0
+ max      = 100
+ cat      = SC_EXPERT
+ 
+-[SDTG_BOOL]
+-name     = ""manage_min_sizing""
+-var      = _settings_client.gui.manage_min_sizing
+-def      = false
+-
+ [SDTG_VAR]
+ name     = ""min_step_size""
+ type     = SLE_UINT
+diff --git a/src/vehicle_gui.cpp b/src/vehicle_gui.cpp
+index 387976596e..537c0a3e7f 100644
+--- a/src/vehicle_gui.cpp
++++ b/src/vehicle_gui.cpp
+@@ -1474,11 +1474,11 @@ public:
+ 				switch (this->vli.vtype) {
+ 					case VEH_TRAIN:
+ 					case VEH_ROAD:
+-						size->height = 6 * resize->height;
++						size->height = 7 * resize->height;
+ 						break;
+ 					case VEH_SHIP:
+ 					case VEH_AIRCRAFT:
+-						size->height = 4 * resize->height;
++						size->height = 3 * resize->height;
+ 						break;
+ 					default: NOT_REACHED();
+ 				}
+diff --git a/src/window.cpp b/src/window.cpp
+index 715c8ca2cd..8dc3c400a7 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -1818,57 +1818,11 @@ int SETTING_BUTTON_HEIGHT = 10;
+  */
+ void CheckWindowMinSizings()
+ {
+-	if (_settings_client.gui.manage_min_sizing) {
+-		/* Fill the min sizing values for the current resolution. */
+-		uint swap_x = 32; // in longest border, let main toolbar to have 30 buttons.
+-		uint swap_y = 16; // if short border, let main toolbar have 16/18/20 buttons..)
+-		if (_cur_resolution.width < _cur_resolution.height) Swap(swap_x, swap_y);
+-		_settings_client.gui.min_button = min(_cur_resolution.width / swap_x, _cur_resolution.height / swap_y);
+-		_settings_client.gui.min_step = _settings_client.gui.min_button * 3 / 4;
+-	}
+-
+ 	SETTING_BUTTON_HEIGHT = max<int>(GetMinSizing(NWST_STEP) - 10, 10);
+ 	SETTING_BUTTON_WIDTH  = 2 * SETTING_BUTTON_HEIGHT;
+ 
+ 	extern uint _tooltip_width;
+ 	_tooltip_width = max<uint>(194, 10 * _settings_client.gui.min_button);
+-
+-	if (!_settings_client.gui.manage_min_sizing) return;
+-
+-	_freetype.large.size = _settings_client.gui.min_button;
+-	_freetype.medium.size = max(_settings_client.gui.min_step * 2 / 3, 10U);
+-	_freetype.mono.size = _freetype.medium.size;
+-	_freetype.small.size = max(_freetype.medium.size * 2 / 3, 8U);
+-
+-	InitFreeType(true);
+-	CheckForMissingGlyphs();
+-
+-	if (_z_front_window == NULL) return;
+-
+-	DeleteAllNonVitalWindows();
+-
+-	switch (_game_mode) {
+-		default: break;
+-		case GM_MENU:
+-			DeleteWindowById(WC_SELECT_GAME, 0);
+-			extern void ShowSelectGameWindow();
+-			ShowSelectGameWindow();
+-			break;
+-
+-		case GM_NORMAL:
+-		case GM_EDITOR: {
+-			Station *st;
+-			FOR_ALL_STATIONS(st) { st->UpdateVirtCoord(); }
+-			Waypoint *wp;
+-			FOR_ALL_WAYPOINTS(wp) { wp->UpdateVirtCoord(); }
+-
+-			HideVitalWindows();
+-			ShowVitalWindows();
+-			break;
+-		}
+-	}
+-
+-	ShowErrorMessage(STR_ERROR_RESET_WINDOWS, STR_ERROR_AUTOMATIC_SIZING, WL_WARNING);
+ }
+ 
+ /**
+-- 
+2.55.0
+

@@ -1,0 +1,170 @@
+From 4e17e2bc6e0dfdba7e7e3581d10ab928a220694f Mon Sep 17 00:00:00 2001
+From: peter1138 <peter1138@openttd.org>
+Date: Wed, 20 Mar 2019 02:13:36 +0000
+Subject: [PATCH 0469/1053] Codechange: Implement OnTooltip event for custom
+ window tooltips.
+
+This avoids windows from needing to know or care about tooltip delay settings.
+---
+ src/linkgraph/linkgraph_gui.cpp | 15 +--------------
+ src/linkgraph/linkgraph_gui.h   |  4 +---
+ src/window.cpp                  | 10 ++++++----
+ src/window_gui.h                | 24 ++++++++++++++++--------
+ 4 files changed, 24 insertions(+), 29 deletions(-)
+
+diff --git a/src/linkgraph/linkgraph_gui.cpp b/src/linkgraph/linkgraph_gui.cpp
+index 4db9f95b35..6844092c2e 100644
+--- a/src/linkgraph/linkgraph_gui.cpp
++++ b/src/linkgraph/linkgraph_gui.cpp
+@@ -559,7 +559,7 @@ void LinkGraphLegendWindow::DrawWidget(const Rect &r, int widget) const
+ 	}
+ }
+ 
+-bool LinkGraphLegendWindow::OnHoverCommon(Point pt, int widget, TooltipCloseCondition close_cond)
++bool LinkGraphLegendWindow::OnTooltip(Point pt, int widget, TooltipCloseCondition close_cond)
+ {
+ 	if (IsInsideMM(widget, WID_LGL_COMPANY_FIRST, WID_LGL_COMPANY_LAST + 1)) {
+ 		if (this->IsWidgetDisabled(widget)) {
+@@ -584,19 +584,6 @@ bool LinkGraphLegendWindow::OnHoverCommon(Point pt, int widget, TooltipCloseCond
+ 	return false;
+ }
+ 
+-void LinkGraphLegendWindow::OnHover(Point pt, int widget)
+-{
+-	this->OnHoverCommon(pt, widget, TCC_HOVER);
+-}
+-
+-bool LinkGraphLegendWindow::OnRightClick(Point pt, int widget)
+-{
+-	if (_settings_client.gui.hover_delay_ms == 0) {
+-		return this->OnHoverCommon(pt, widget, TCC_RIGHT_CLICK);
+-	}
+-	return false;
+-}
+-
+ /**
+  * Update the overlay with the new company selection.
+  */
+diff --git a/src/linkgraph/linkgraph_gui.h b/src/linkgraph/linkgraph_gui.h
+index 93ec666299..17fcd28b28 100644
+--- a/src/linkgraph/linkgraph_gui.h
++++ b/src/linkgraph/linkgraph_gui.h
+@@ -106,8 +106,7 @@ public:
+ 
+ 	virtual void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize);
+ 	virtual void DrawWidget(const Rect &r, int widget) const;
+-	virtual void OnHover(Point pt, int widget);
+-	virtual bool OnRightClick(Point pt, int widget);
++	virtual bool OnTooltip(Point pt, int widget, TooltipCloseCondition close_cond);
+ 	virtual void OnClick(Point pt, int widget, int click_count);
+ 	virtual void OnInvalidateData(int data = 0, bool gui_scope = true);
+ 
+@@ -116,7 +115,6 @@ private:
+ 
+ 	void UpdateOverlayCompanies();
+ 	void UpdateOverlayCargoes();
+-	bool OnHoverCommon(Point pt, int widget, TooltipCloseCondition close_cond);
+ };
+ 
+ #endif /* LINKGRAPH_GUI_H */
+diff --git a/src/window.cpp b/src/window.cpp
+index 857029622f..faae96187c 100644
+--- a/src/window.cpp
++++ b/src/window.cpp
+@@ -770,16 +770,17 @@ static void DispatchRightClickEvent(Window *w, int x, int y)
+ 	NWidgetCore *wid = w->nested_root->GetWidgetFromPos(x, y);
+ 	if (wid == NULL) return;
+ 
++	Point pt = { x, y };
++
+ 	/* No widget to handle, or the window is not interested in it. */
+ 	if (wid->index >= 0) {
+-		Point pt = { x, y };
+ 		if (w->OnRightClick(pt, wid->index)) return;
+ 	}
+ 
+ 	/* Right-click close is enabled and there is a closebox */
+ 	if (_settings_client.gui.right_mouse_wnd_close && w->nested_root->GetWidgetOfType(WWT_CLOSEBOX)) {
+ 		delete w;
+-	} else if (_settings_client.gui.hover_delay_ms == 0 && wid->tool_tip != 0) {
++	} else if (_settings_client.gui.hover_delay_ms == 0 && !w->OnTooltip(pt, wid->index, TCC_RIGHT_CLICK) && wid->tool_tip != 0) {
+ 		GuiShowTooltips(w, wid->tool_tip, 0, NULL, TCC_RIGHT_CLICK);
+ 	}
+ }
+@@ -797,8 +798,10 @@ static void DispatchHoverEvent(Window *w, int x, int y)
+ 	/* No widget to handle */
+ 	if (wid == NULL) return;
+ 
++	Point pt = { x, y };
++
+ 	/* Show the tooltip if there is any */
+-	if (wid->tool_tip != 0) {
++	if (!w->OnTooltip(pt, wid->index, TCC_HOVER) && wid->tool_tip != 0) {
+ 		GuiShowTooltips(w, wid->tool_tip);
+ 		return;
+ 	}
+@@ -806,7 +809,6 @@ static void DispatchHoverEvent(Window *w, int x, int y)
+ 	/* Widget has no index, so the window is not interested in it. */
+ 	if (wid->index < 0) return;
+ 
+-	Point pt = { x, y };
+ 	w->OnHover(pt, wid->index);
+ }
+ 
+diff --git a/src/window_gui.h b/src/window_gui.h
+index 05a2b3c5a2..b2bba675b2 100644
+--- a/src/window_gui.h
++++ b/src/window_gui.h
+@@ -265,6 +265,13 @@ struct ViewportData : ViewPort {
+ 
+ struct QueryString;
+ 
++/* misc_gui.cpp */
++enum TooltipCloseCondition {
++	TCC_RIGHT_CLICK,
++	TCC_HOVER,
++	TCC_NONE,
++};
++
+ /**
+  * Data structure for an opened window
+  */
+@@ -629,12 +636,20 @@ public:
+ 	virtual bool OnRightClick(Point pt, int widget) { return false; }
+ 
+ 	/**
+-	 * The mouse is hovering over a widget in the window, perform an action for it, like opening a custom tooltip.
++	 * The mouse is hovering over a widget in the window, perform an action for it.
+ 	 * @param pt     The point where the mouse is hovering.
+ 	 * @param widget The widget where the mouse is hovering.
+ 	 */
+ 	virtual void OnHover(Point pt, int widget) {}
+ 
++	/**
++	 * Event to display a custom tooltip.
++	 * @param pt     The point where the mouse is located.
++	 * @param widget The widget where the mouse is located.
++	 * @return True if the event is handled, false if it is ignored.
++	 */
++	virtual bool OnTooltip(Point pt, int widget, TooltipCloseCondition close_cond) { return false; }
++
+ 	/**
+ 	 * An 'object' is being dragged at the provided position, highlight the target if possible.
+ 	 * @param pt     The point inside the window that the mouse hovers over.
+@@ -870,13 +885,6 @@ Wcls *AllocateWindowDescFront(WindowDesc *desc, int window_number, bool return_e
+ 
+ void RelocateAllWindows(int neww, int newh);
+ 
+-/* misc_gui.cpp */
+-enum TooltipCloseCondition {
+-	TCC_RIGHT_CLICK,
+-	TCC_HOVER,
+-	TCC_NONE,
+-};
+-
+ void GuiShowTooltips(Window *parent, StringID str, uint paramcount = 0, const uint64 params[] = NULL, TooltipCloseCondition close_tooltip = TCC_HOVER);
+ 
+ /* widget.cpp */
+-- 
+2.55.0
+

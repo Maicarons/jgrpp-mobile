@@ -1,0 +1,36 @@
+From ba874b69e60bdf55b32b58ee323fff86431115b8 Mon Sep 17 00:00:00 2001
+From: Rubidium <rubidium@openttd.org>
+Date: Sun, 25 Jan 2026 13:33:40 +0100
+Subject: [PATCH 1036/1053] Fix #15166: foundations missing adjacent to NewGRF
+ objects without foundation
+
+---
+ src/object_cmd.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/object_cmd.cpp b/src/object_cmd.cpp
+index 51331fcc27..9b17f2ee9e 100644
+--- a/src/object_cmd.cpp
++++ b/src/object_cmd.cpp
+@@ -449,7 +449,7 @@ static void DrawTile_Object(TileInfo *ti)
+ 	/* Fall back for when the object doesn't exist anymore. */
+ 	if (!spec->IsEnabled()) type = OBJECT_TRANSMITTER;
+ 
+-	if (!spec->flags.Test(ObjectFlag::HasNoFoundation)) DrawFoundation(ti, GetFoundation_Object(ti->tile, ti->tileh));
++	DrawFoundation(ti, GetFoundation_Object(ti->tile, ti->tileh));
+ 
+ 	if (type < NEW_OBJECT_OFFSET) {
+ 		const DrawTileSprites *dts = nullptr;
+@@ -502,7 +502,8 @@ static int GetSlopePixelZ_Object(TileIndex tile, uint x, uint y, bool)
+ 
+ static Foundation GetFoundation_Object(TileIndex tile, Slope tileh)
+ {
+-	return IsObjectType(tile, OBJECT_OWNED_LAND) ? FOUNDATION_NONE : FlatteningFoundation(tileh);
++	const ObjectSpec *spec = ObjectSpec::Get(GetObjectType(tile));
++	return spec->IsEnabled() && spec->flags.Test(ObjectFlag::HasNoFoundation) ? FOUNDATION_NONE : FlatteningFoundation(tileh);
+ }
+ 
+ /**
+-- 
+2.55.0
+

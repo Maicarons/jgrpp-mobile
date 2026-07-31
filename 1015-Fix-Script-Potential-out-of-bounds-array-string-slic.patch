@@ -1,0 +1,35 @@
+From fb56c25d2ca043a17a46cb12f75f504bf3e333a4 Mon Sep 17 00:00:00 2001
+From: Peter Nelson <peter1138@openttd.org>
+Date: Tue, 13 Jan 2026 19:10:05 +0000
+Subject: [PATCH 1015/1053] Fix: [Script] Potential out of bounds array/string
+ slice indexes.
+
+---
+ src/3rdparty/squirrel/squirrel/sqbaselib.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/3rdparty/squirrel/squirrel/sqbaselib.cpp b/src/3rdparty/squirrel/squirrel/sqbaselib.cpp
+index 7db261ccbe..0b3782a52a 100644
+--- a/src/3rdparty/squirrel/squirrel/sqbaselib.cpp
++++ b/src/3rdparty/squirrel/squirrel/sqbaselib.cpp
+@@ -605,7 +605,7 @@ static SQInteger array_slice(HSQUIRRELVM v)
+ 	if(sidx < 0)sidx = alen + sidx;
+ 	if(eidx < 0)eidx = alen + eidx;
+ 	if(eidx < sidx)return sq_throwerror(v,"wrong indexes");
+-	if(eidx > alen)return sq_throwerror(v,"slice out of range");
++	if(sidx < 0 || eidx > alen) return sq_throwerror(v,"slice out of range");
+ 	SQArray *arr=SQArray::Create(_ss(v),eidx-sidx);
+ 	SQObjectPtr t;
+ 	SQInteger count=0;
+@@ -646,7 +646,7 @@ static SQInteger string_slice(HSQUIRRELVM v)
+ 	if(sidx < 0)sidx = slen + sidx;
+ 	if(eidx < 0)eidx = slen + eidx;
+ 	if(eidx < sidx)	return sq_throwerror(v,"wrong indexes");
+-	if(eidx > slen)	return sq_throwerror(v,"slice out of range");
++	if(sidx < 0 || eidx > slen) return sq_throwerror(v,"slice out of range");
+ 	v->Push(SQString::Create(_ss(v),_stringval(o).substr(sidx,eidx-sidx)));
+ 	return 1;
+ }
+-- 
+2.55.0
+

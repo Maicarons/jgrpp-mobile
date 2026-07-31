@@ -1,0 +1,37 @@
+From 0471d7b86520fd6cf6a768723c0d8a9bf9d0c8c7 Mon Sep 17 00:00:00 2001
+From: Miguel Horta <geral@miguelhorta.name>
+Date: Thu, 9 Mar 2023 00:15:09 +0000
+Subject: [PATCH 0886/1053] fix: restore background to EDITBOX
+
+---
+ src/misc_gui.cpp | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/src/misc_gui.cpp b/src/misc_gui.cpp
+index 4669763496..697802f8ab 100644
+--- a/src/misc_gui.cpp
++++ b/src/misc_gui.cpp
+@@ -815,7 +815,6 @@ void QueryString::DrawEditBox(const Window *w, WidgetID wid) const
+ 	bool rtl = _current_text_dir == TD_RTL;
+ 	Dimension sprite_size = GetScaledSpriteSize(rtl ? SPR_IMG_DELETE_RIGHT : SPR_IMG_DELETE_LEFT);
+ 	int clearbtn_width = sprite_size.width + WidgetDimensions::scaled.imgbtn.Horizontal();
+-	clearbtn_width = 0; // Touch interface has it's own keyboard input, and it won't leave space for edit field
+ 
+ 	Rect r = wi->GetCurrentRect();
+ 	Rect cr = r.WithWidth(clearbtn_width, !rtl);
+@@ -825,10 +824,8 @@ void QueryString::DrawEditBox(const Window *w, WidgetID wid) const
+ 	DrawSpriteIgnorePadding(rtl ? SPR_IMG_DELETE_RIGHT : SPR_IMG_DELETE_LEFT, PAL_NONE, cr, SA_CENTER);
+ 	if (this->text.bytes == 1) GfxFillRect(cr.Shrink(WidgetDimensions::scaled.bevel), _colour_gradient[wi->colour & 0xF][2], FILLRECT_CHECKER);
+ 
+-	if (clearbtn_width > 0) {
+-		DrawFrameRect(fr, wi->colour, FR_LOWERED | FR_DARKENED);
+-		GfxFillRect(fr.Shrink(WidgetDimensions::scaled.bevel), PC_BLACK);
+-	}
++	DrawFrameRect(fr, wi->colour, FR_LOWERED | FR_DARKENED);
++	GfxFillRect(fr.Shrink(WidgetDimensions::scaled.bevel), PC_BLACK);
+ 
+ 	fr = fr.Shrink(WidgetDimensions::scaled.framerect);
+ 	/* Limit the drawing of the string inside the widget boundaries */
+-- 
+2.55.0
+

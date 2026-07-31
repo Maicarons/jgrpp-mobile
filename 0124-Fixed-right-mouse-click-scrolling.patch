@@ -1,0 +1,29 @@
+From 7fb35a10ab9e704d64a4c65632eabd6ec3bc862e Mon Sep 17 00:00:00 2001
+From: pelya <x.pelya.x@gmail.com>
+Date: Sat, 31 May 2014 23:57:32 +0300
+Subject: [PATCH 0124/1053] Fixed right mouse click scrolling
+
+---
+ src/video/sdl_v.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/video/sdl_v.cpp b/src/video/sdl_v.cpp
+index 64ce2911be..c5d505a1f6 100644
+--- a/src/video/sdl_v.cpp
++++ b/src/video/sdl_v.cpp
+@@ -549,7 +549,12 @@ int VideoDriver_SDL::PollEvent()
+ 
+ 	switch (ev.type) {
+ 		case SDL_MOUSEMOTION:
++#ifdef __ANDROID__
++			// No mouse warping on Android, mouse strictly follows finger
++			if (false) {
++#else
+ 			if (_cursor.fix_at) {
++#endif
+ 				int dx = ev.motion.x - _cursor.pos.x;
+ 				int dy = ev.motion.y - _cursor.pos.y;
+ 				if (dx != 0 || dy != 0) {
+-- 
+2.55.0
+

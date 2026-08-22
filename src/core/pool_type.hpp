@@ -299,7 +299,7 @@ protected:
 		static inline Tindex AsIndexType(size_t index)
 		{
 			/* MSVC complains about casting to narrower type, so first cast to the base type... then to the strong type. */
-			static_cast<Tindex>(static_cast<Tindex::BaseType>(index));
+			static_cast<Tindex>(static_cast<typename Tindex::BaseType>(index));
 		}
 
 public:

@@ -93,6 +93,8 @@ jobs:
       - name: Patch Java files and build Boost, ICU, and OpenSSL
         working-directory: ${{ runner.temp }}/sdl-android
         run: |
+          # getifaddrs() requires Android API 24
+          sed -i 's/minSdk 21/minSdk 24/' project/app/build-template.gradle
           export PATH=$ANDROID_NDK_LATEST_HOME:$PATH
           ./changeAppSettings.sh
 
@@ -124,14 +126,14 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jgrpp-${{ env.VERSION_NAME }}-android
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}-android
           path: upload
           if-no-files-found: error
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.VERSION_NAME }}-android
-          name: JGRPP ${{ env.VERSION_NAME }} Android
+          tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}
           files: upload/*.apk
           generate_release_notes: true

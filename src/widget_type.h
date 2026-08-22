@@ -11,7 +11,7 @@
 #define WIDGET_TYPE_H
 
 #include "core/math_func.hpp"
-#include "strings_type.h"
+#include "strings_id_type.h"
 #include "gfx_func.h"
 #include "gfx_type.h"
 #include "window_type.h"
@@ -132,6 +132,8 @@ enum class AspectFlag : uint8_t {
 	ResizeX, ///< Resize horizontally to reach desired aspect ratio.
 	ResizeY, ///< Resize vertically to reach desired aspect ratio.
 };
+
+/** Bitset of \c AspectFlag elements. */
 using AspectFlags = EnumBitSet<AspectFlag, uint8_t>;
 
 /* Forward declarations. */
@@ -394,6 +396,8 @@ enum class NWidgetDisplayFlag : uint8_t {
 	/* Generic. */
 	Highlight, ///< Highlight of widget is on.
 };
+
+/** Bitset of \c NWidgetDisplayFlag elements. */
 using NWidgetDisplayFlags = EnumBitSet<NWidgetDisplayFlag, uint16_t>;
 
 /** Container with the data associated to a single widget. */
@@ -723,6 +727,8 @@ enum class NWidContainerFlag : uint8_t {
 	EqualSize, ///< Containers should keep all their (resizing) children equally large.
 	BigFirst, ///< Allocate space to biggest resize first.
 };
+
+/** Bitset of \c NWidContainerFlag elements. */
 using NWidContainerFlags = EnumBitSet<NWidContainerFlag, uint8_t>;
 
 /** Container with pre/inter/post child space. */

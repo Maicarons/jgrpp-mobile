@@ -13,6 +13,7 @@
 #include "cargo_type.h"
 #include "date_type.h"
 #include "house_type.h"
+#include "money_type.h"
 #include "newgrf_animation_type.h"
 #include "newgrf_badge_type.h"
 #include "newgrf_callbacks.h"
@@ -45,6 +46,8 @@ enum class BuildingFlag : uint8_t {
 	IsChurch   = 6, ///< The building functions as a church, i.e. only one can be built in a town.
 	IsStadium  = 7, ///< The building functions as a stadium, i.e. only one can be built in a town.
 };
+
+/** Bitset of \c BuildingFlag elements. */
 using BuildingFlags = EnumBitSet<BuildingFlag, uint8_t>;
 
 static constexpr BuildingFlags BUILDING_HAS_1_TILE  = {BuildingFlag::Size1x1, BuildingFlag::Size2x1, BuildingFlag::Size1x2, BuildingFlag::Size2x2};
@@ -70,6 +73,8 @@ enum class HouseZone : uint8_t {
 };
 DECLARE_INCREMENT_DECREMENT_OPERATORS(HouseZone)
 DECLARE_ENUM_ADD_OPERATOR(HouseZone)
+
+/** Bitset of \c HouseZone elements. */
 using HouseZones = EnumBitSet<HouseZone, uint16_t>;
 
 static constexpr uint NUM_HOUSE_ZONES = to_underlying(HouseZone::TownEnd);
@@ -97,6 +102,8 @@ enum class HouseExtraFlag : uint8_t {
 	SynchronisedCallback1B = 2, ///< synchronized callback 1B will be performed, on multi tile houses
 	Callback1ARandomBits   = 3, ///< callback 1A needs random bits
 };
+
+/** Bitset of \c HouseExtraFlag elements. */
 using HouseExtraFlags = EnumBitSet<HouseExtraFlag, uint8_t>;
 
 enum HouseCtrlFlags : uint8_t {

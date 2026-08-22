@@ -11,6 +11,7 @@
 #define TUNNEL_MAP_H
 
 #include "road_map.h"
+#include "transport_type.h"
 #include "core/pool_id_type.hpp"
 
 struct TunnelIDTag : public PoolIDTraits<uint32_t, 0x8000000, 0xFFFFFFFF> {};
@@ -62,7 +63,7 @@ inline TunnelID GetTunnelIndex(TileIndex t)
  */
 inline bool IsRailTunnelTile(TileIndex t)
 {
-	return IsTunnelTile(t) && (TransportType)GB(_m[t].m5, 2, 2) == TRANSPORT_RAIL;
+	return IsTunnelTile(t) && (TransportType)GB(_m[t].m5, 2, 2) == TransportType::Rail;
 }
 
 /**
@@ -139,7 +140,7 @@ inline void MakeRoadTunnel(TileIndex t, Owner o, TunnelID id, DiagDirection d, R
 	SetTunnelIndex(t, id);
 	_m[t].m3 = 0;
 	_m[t].m4 = 0;
-	_m[t].m5 = TRANSPORT_ROAD << 2 | to_underlying(d);
+	_m[t].m5 = to_underlying(TransportType::Road) << 2 | to_underlying(d);
 	_me[t].m6 = 0;
 	_me[t].m7 = 0;
 	_me[t].m8 = 0;
@@ -163,7 +164,7 @@ inline void MakeRailTunnel(TileIndex t, Owner o, TunnelID id, DiagDirection d, R
 	SetTunnelIndex(t, id);
 	_m[t].m3 = 0;
 	_m[t].m4 = 0;
-	_m[t].m5 = TRANSPORT_RAIL << 2 | to_underlying(d);
+	_m[t].m5 = to_underlying(TransportType::Rail) << 2 | to_underlying(d);
 	_me[t].m6 = 0;
 	_me[t].m7 = 0;
 	_me[t].m8 = r;

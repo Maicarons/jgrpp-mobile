@@ -17,6 +17,7 @@
 #include "road.h"
 #include "road_map.h"
 #include "newgrf_engine.h"
+#include "tile_track_func.h"
 #include <array>
 
 struct RoadVehicle;
@@ -362,15 +363,6 @@ protected: // These functions should not be called outside acceleration code.
 	}
 
 	/**
-	 * Returns the slope steepness used by this vehicle.
-	 * @return Slope steepness used by the vehicle.
-	 */
-	inline uint32_t GetSlopeSteepness() const
-	{
-		return _settings_game.vehicle.roadveh_slope_steepness;
-	}
-
-	/**
 	 * Gets the maximum speed allowed by the track for this vehicle.
 	 * @return Since roads don't limit road vehicle speed, it returns always zero.
 	 */
@@ -385,7 +377,7 @@ protected: // These functions should not be called outside acceleration code.
 	 */
 	inline bool TileMayHaveSlopedTrack() const
 	{
-		TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(this->tile, TRANSPORT_ROAD, GetRoadTramType(this->roadtype)));
+		TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(this->tile, TransportType::Road, GetRoadTramType(this->roadtype)));
 
 		return trackbits == TRACK_BIT_X || trackbits == TRACK_BIT_Y;
 	}
@@ -402,7 +394,7 @@ protected: // These functions should not be called outside acceleration code.
 		const RoadVehicle *rv = this->First();
 
 		/* Check if this vehicle is in the same direction as the road under.
-		 * We already know it has either GVF_GOINGUP_BIT or GVF_GOINGDOWN_BIT set. */
+		 * We already know it has either GroundVehicleFlag::GoingUp or GroundVehicleFlag::GoingDown set. */
 
 		if (rv->state <= RVSB_TRACKDIR_MASK && IsReversingRoadTrackdir((Trackdir)rv->state)) {
 			/* If the first vehicle is reversing, this vehicle may be reversing too

@@ -17,7 +17,9 @@
 #include "core/random_func.hpp"
 #include "newgrf_generic.h"
 #include "newgrf_newlandscape.h"
+#include "tile_cmd.h"
 #include "tree_func.h"
+#include "settings_type.h"
 
 #include "table/strings.h"
 #include "table/sprites.h"
@@ -254,7 +256,7 @@ static void UpdateFences(TileIndex tile)
 	assert_tile(IsTileType(tile, TileType::Clear) && IsClearGround(tile, ClearGround::Fields), tile);
 	bool dirty = false;
 
-	for (DiagDirection dir = DiagDirection::Begin; dir < DiagDirection::End; dir++) {
+	for (DiagDirection dir : EnumRange(DiagDirection::End)) {
 		if (GetFence(tile, dir) != 0) continue;
 		TileIndex neighbour = tile + TileOffsByDiagDir(dir);
 		if (IsTileType(neighbour, TileType::Clear) && IsClearGround(neighbour, ClearGround::Fields)) continue;
@@ -317,7 +319,7 @@ static void TileLoopClearAlps(TileIndex tile)
  */
 static inline bool NeighbourIsNormal(TileIndex tile)
 {
-	for (DiagDirection dir = DiagDirection::Begin; dir < DiagDirection::End; dir++) {
+	for (DiagDirection dir : EnumRange(DiagDirection::End)) {
 		TileIndex t = tile + TileOffsByDiagDir(dir);
 		if (!IsValidTile(t)) continue;
 		if (GetTropicZone(t) != TropicZone::Desert) return true;

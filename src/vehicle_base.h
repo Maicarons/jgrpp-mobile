@@ -12,7 +12,8 @@
 
 #include "sprite.h"
 #include "track_type.h"
-#include "command_type.h"
+#include "command_type_fwd_declare.h"
+#include "economy_type.h"
 #include "order_base.h"
 #include "cargopacket.h"
 #include "texteff.hpp"
@@ -41,6 +42,8 @@ enum class VehState : uint8_t {
 	AircraftBroken = 6, ///< Aircraft is broken down.
 	Crashed        = 7, ///< Vehicle is crashed.
 };
+
+/** Bitset of \c VehState elements. */
 using VehStates = EnumBitSet<VehState, uint8_t>;
 
 /** Bit numbers used to indicate which of the #NewGRFCache values are valid. */
@@ -404,8 +407,8 @@ public:
 	inline GroundVehicleCache *GetGroundVehicleCache();
 	inline const GroundVehicleCache *GetGroundVehicleCache() const;
 
-	inline uint16_t &GetGroundVehicleFlags();
-	inline uint16_t GetGroundVehicleFlags() const;
+	inline GroundVehicleFlags &GetGroundVehicleFlags();
+	inline GroundVehicleFlags GetGroundVehicleFlags() const;
 
 	void DeleteUnreachedImplicitOrders();
 
@@ -1642,7 +1645,7 @@ public:
 		ClrBit(this->vcache.cached_veh_flags, VCF_IMAGE_REFRESH);
 		_sprite_group_resolve_check_veh_check = true;
 		if (EXPECTED_TYPE == VehicleType::Train || EXPECTED_TYPE == VehicleType::Road) _sprite_group_resolve_check_veh_curvature_check = true;
-		((T *)this)->T::GetImage(current_direction, EIT_ON_MAP, &seq);
+		((T *)this)->T::GetImage(current_direction, EngineImageType::OnMap, &seq);
 		if (EXPECTED_TYPE == VehicleType::Train || EXPECTED_TYPE == VehicleType::Road) {
 			AssignBit(this->vcache.cached_veh_flags, VCF_IMAGE_REFRESH_NEXT, !_sprite_group_resolve_check_veh_check);
 			if (unlikely(!_sprite_group_resolve_check_veh_curvature_check)) {

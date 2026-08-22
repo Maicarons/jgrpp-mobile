@@ -10,12 +10,10 @@
 #ifndef ECONOMY_TYPE_H
 #define ECONOMY_TYPE_H
 
-#include "core/overflowsafe_type.hpp"
+#include "money_type.h"
 #include "core/enum_type.hpp"
 #include "core/pool_id_type.hpp"
 #include <array>
-
-typedef OverflowSafeInt64 Money;
 
 /** Type of the game economy. */
 enum class EconomyType : uint8_t {
@@ -58,7 +56,6 @@ enum class ScoreID : uint8_t {
 	Total, ///< Total points out of possible points ,must always be the last entry.
 	End, ///< Score ID end marker.
 };
-DECLARE_INCREMENT_DECREMENT_OPERATORS(ScoreID)
 
 /**
  * The max score that can be in the performance history.
@@ -152,7 +149,6 @@ enum class Price : uint8_t {
 	End, ///< Price base end marker.
 	Invalid = 0xFF ///< Invalid base price.
 };
-DECLARE_INCREMENT_DECREMENT_OPERATORS(Price)
 
 using Prices = EnumIndexArray<Money, Price, Price::End>; ///< Prices of everything. @see Price
 using PriceMultipliers = EnumIndexArray<int8_t, Price, Price::End>;
@@ -178,8 +174,6 @@ enum class ExpensesType : uint8_t {
 	Begin = ExpensesType::Construction, ///< Begin marker.
 	Invalid = 0xFF, ///< Invalid expense type.
 };
-
-DECLARE_INCREMENT_DECREMENT_OPERATORS(ExpensesType)
 
 /**
  * Data type for storage of Money for each #ExpensesType category.

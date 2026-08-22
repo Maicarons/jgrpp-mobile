@@ -13,7 +13,7 @@
 #include "road_type.h"
 #include "gfx_type.h"
 #include "core/flatset_type.hpp"
-#include "strings_type.h"
+#include "strings_id_type.h"
 #include "date_type.h"
 #include "core/enum_type.hpp"
 #include "newgrf.h"
@@ -31,6 +31,8 @@ enum class RoadTypeFlag : uint8_t {
 	Hidden          = 3, ///< Bit number for hidden from construction.
 	TownBuild       = 4, ///< Bit number for allowing towns to build this roadtype.
 };
+
+/** Bitset of \c RoadTypeFlag elements. */
 using RoadTypeFlags = EnumBitSet<RoadTypeFlag, uint8_t>;
 
 /** Roadtype extra flags. */

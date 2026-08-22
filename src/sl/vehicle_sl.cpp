@@ -518,7 +518,7 @@ void AfterLoadVehiclesPhase2(bool part_of_load)
 					}
 
 					RoadVehUpdateCache(rv);
-					if (_settings_game.vehicle.roadveh_acceleration_model != AM_ORIGINAL) {
+					if (_settings_game.vehicle.roadveh_acceleration_model != AccelerationModel::Original) {
 						rv->CargoChanged();
 					}
 				}
@@ -574,13 +574,13 @@ void AfterLoadVehiclesPhase2(bool part_of_load)
 			case VehicleType::Road:
 			case VehicleType::Train:
 			case VehicleType::Ship:
-				v->GetImage(v->direction, EIT_ON_MAP, &v->sprite_seq);
+				v->GetImage(v->direction, EngineImageType::OnMap, &v->sprite_seq);
 				v->UpdateSpriteSeqBound();
 				break;
 
 			case VehicleType::Aircraft:
 				if (Aircraft::From(v)->IsNormalAircraft()) {
-					v->GetImage(v->direction, EIT_ON_MAP, &v->sprite_seq);
+					v->GetImage(v->direction, EngineImageType::OnMap, &v->sprite_seq);
 					v->UpdateSpriteSeqBound();
 
 					/* The aircraft's shadow will have the same image as the aircraft, but no colour */
@@ -593,7 +593,7 @@ void AfterLoadVehiclesPhase2(bool part_of_load)
 					if (v->subtype == AIR_HELICOPTER) {
 						Vehicle *rotor = shadow->Next();
 						if (rotor == nullptr) SlErrorCorrupt("Missing rotor for helicopter");
-						GetRotorImage(Aircraft::From(v), EIT_ON_MAP, &rotor->sprite_seq);
+						GetRotorImage(Aircraft::From(v), EngineImageType::OnMap, &rotor->sprite_seq);
 						rotor->UpdateSpriteSeqBound();
 					}
 
@@ -1211,6 +1211,7 @@ NamedSaveLoadTable GetVehicleDescription(VehicleType vt)
 
 		NSL("wait_counter",               SLE_CONDVAR(Train, wait_counter,              SLE_UINT16,                  SLV_136, SL_MAX_VERSION)),
 		NSL("tunnel_bridge_signal_num", SLE_CONDVAR_X(Train, tunnel_bridge_signal_num,  SLE_UINT16,                  SL_MIN_VERSION, SL_MAX_VERSION, SlXvFeatureTest(XSLFTO_AND, XSLFI_SIG_TUNNEL_BRIDGE, 5))),
+		NSL("tunnel_bridge_tile_ctr",   SLE_CONDVAR_X(Train, tunnel_bridge_tile_ctr,    SLE_UINT8,                   SL_MIN_VERSION, SL_MAX_VERSION, SlXvFeatureTest(XSLFTO_AND, XSLFI_SIG_TUNNEL_BRIDGE, 12))),
 
 		NSL("",                          SLE_CONDNULL(2,                                                             SLV_2, SLV_20)),
 		NSL("gv_flags",                   SLE_CONDVAR(Train, gv_flags,                  SLE_UINT16,                  SLV_139, SL_MAX_VERSION)),

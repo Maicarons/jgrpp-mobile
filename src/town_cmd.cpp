@@ -59,6 +59,7 @@
 #include "clear_map.h"
 #include "tree_map.h"
 #include "map_func.h"
+#include "tile_cmd.h"
 #include "scope.h"
 #include "3rdparty/robin_hood/robin_hood.h"
 
@@ -459,7 +460,7 @@ void Town::UpdateVirtCoord(bool only_if_label_changed)
 
 	Point pt = RemapCoords2(TileX(this->xy) * TILE_SIZE, TileY(this->xy) * TILE_SIZE);
 
-	if (_viewport_sign_kdtree_valid && this->cache.sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeTown(this->index));
+	if (_viewport_sign_kdtree_valid && this->cache.sign.kdtree_valid()) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeTown(this->index));
 
 	auto params = MakeParameters(this->index, this->LabelParam2());
 	this->cache.sign.UpdatePosition(_display_opt.Test(DisplayOption::ShowTownNames) ? ZoomLevel::Out32x : ZoomLevel::End, pt.x, pt.y - 24 * ZOOM_BASE, params, STR_VIEWPORT_TOWN_LABEL, STR_TOWN_NAME);
@@ -916,16 +917,20 @@ CargoArray GetAcceptedCargoOfHouse(const HouseSpec *hs)
 static void GetTileDesc_Town(TileIndex tile, TileDesc &td)
 {
 	const HouseID house = GetHouseType(tile);
+	const HouseSpec *hs = HouseSpec::Get(house);
 
 	td.str = GetHouseName(house, tile);
-	td.town_can_upgrade = !IsHouseProtected(tile);
+
+	/* Show if a player has protected the house, or if the house property is set for protection.
+	 * Note that houses also have a callback which overrides their property (player choice is always respected),
+	 * but it's impossible to know the possible results of the callback in runtime so it's not evaluated here. */
+	td.town_can_upgrade = !IsHousePlayerProtected(tile) && !hs->extra_flags.Test(HouseExtraFlag::BuildingIsProtected);
 
 	if (!IsHouseCompleted(tile)) {
 		td.dparam[0] = td.str;
 		td.str = STR_LAI_TOWN_INDUSTRY_DESCRIPTION_UNDER_CONSTRUCTION;
 	}
 
-	const HouseSpec *hs = HouseSpec::Get(house);
 	if (hs->grf_prop.HasGrfFile()) {
 		const GRFConfig *gc = GetGRFConfig(hs->grf_prop.grfid);
 		td.grf = gc->GetName();
@@ -1255,7 +1260,7 @@ static bool GrowTownWithExtraHouse(Town *t, TileIndex tile, TownExpandModes mode
 	uint counter = 0; // counts the house neighbour tiles
 
 	/* Check the tiles E,N,W and S of the current tile for houses */
-	for (DiagDirection dir = DiagDirection::Begin; dir < DiagDirection::End; dir++) {
+	for (DiagDirection dir : EnumRange(DiagDirection::End)) {
 		/* Count both void and house tiles for checking whether there
 		 * are enough houses in the area. This to make it likely that
 		 * houses get build up to the edge of the map. */
@@ -1310,7 +1315,7 @@ static bool CanRoadContinueIntoNextTile(const Town *t, const TileIndex tile, con
 
 	/* If the next tile is a bridge or tunnel, allow if it's continuing in the same direction. */
 	if (IsTileType(next_tile, TileType::TunnelBridge)) {
-		return GetTunnelBridgeTransportType(next_tile) == TRANSPORT_ROAD && GetTunnelBridgeDirection(next_tile) == road_dir;
+		return GetTunnelBridgeTransportType(next_tile) == TransportType::Road && GetTunnelBridgeDirection(next_tile) == road_dir;
 	}
 
 	/* If the next tile is a station, allow if it's a road station facing the proper direction. Otherwise return false. */
@@ -1410,7 +1415,7 @@ static bool GrowTownWithBridge(const Town *t, const TileIndex tile, const DiagDi
 			if (!IsBridgeTile(search)) continue;
 
 			/* Only consider road bridges. */
-			if (GetTunnelBridgeTransportType(search) != TRANSPORT_ROAD) continue;
+			if (GetTunnelBridgeTransportType(search) != TransportType::Road) continue;
 
 			/* If the bridge is facing the same direction as the proposed bridge, we've found a redundant bridge. */
 			if (GetTileSlope(search) & InclinedSlope(ReverseDiagDir(bridge_dir))) return false;
@@ -1424,8 +1429,8 @@ static bool GrowTownWithBridge(const Town *t, const TileIndex tile, const DiagDi
 	for (;;) {
 		/* Can we actually build the bridge? */
 		RoadType rt = GetTownRoadType();
-		if (MayTownBuildBridgeType(bridge_type) && Command<Commands::BuildBridge>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildBridge>()), tile, bridge_tile, TRANSPORT_ROAD, bridge_type, rt, BuildBridgeFlags::None).Succeeded()) {
-			Command<Commands::BuildBridge>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildBridge>()).Set(DoCommandFlag::Execute), tile, bridge_tile, TRANSPORT_ROAD, bridge_type, rt, BuildBridgeFlags::None);
+		if (MayTownBuildBridgeType(bridge_type) && Command<Commands::BuildBridge>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildBridge>()), tile, bridge_tile, TransportType::Road, bridge_type, rt, BuildBridgeFlags::None).Succeeded()) {
+			Command<Commands::BuildBridge>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildBridge>()).Set(DoCommandFlag::Execute), tile, bridge_tile, TransportType::Road, bridge_type, rt, BuildBridgeFlags::None);
 			return true;
 		}
 
@@ -1513,8 +1518,8 @@ static bool GrowTownWithTunnel(const Town *t, const TileIndex tile, const DiagDi
 
 	/* Attempt to build the tunnel. Return false if it fails to let the town build a road instead. */
 	RoadType rt = GetTownRoadType();
-	if (Command<Commands::BuildTunnel>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildTunnel>()), tile, TRANSPORT_ROAD, rt).Succeeded()) {
-		Command<Commands::BuildTunnel>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildTunnel>()).Set(DoCommandFlag::Execute), tile, TRANSPORT_ROAD, rt);
+	if (Command<Commands::BuildTunnel>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildTunnel>()), tile, TransportType::Road, rt).Succeeded()) {
+		Command<Commands::BuildTunnel>::Do(CommandFlagsToDCFlags(GetCommandFlags<Commands::BuildTunnel>()).Set(DoCommandFlag::Execute), tile, TransportType::Road, rt);
 		return true;
 	}
 
@@ -1740,7 +1745,7 @@ static TownGrowthResult GrowTownInTile(TileIndex *tile_ptr, RoadBits cur_rb, Dia
 					/* cross the bridge */
 					*tile_ptr = GetOtherTunnelBridgeEnd(tile);
 				}
-			} else if (GetTunnelBridgeTransportType(tile) == TRANSPORT_ROAD && (target_dir != DiagDirection::End || Chance16(1, 2))) {
+			} else if (GetTunnelBridgeTransportType(tile) == TransportType::Road && (target_dir != DiagDirection::End || Chance16(1, 2))) {
 				*tile_ptr = GetOtherTunnelBridgeEnd(tile);
 			}
 			return TownGrowthResult::Continue;
@@ -1890,7 +1895,7 @@ static bool CanFollowRoad(TileIndex tile, DiagDirection dir, TownExpandModes mod
 				return IsDriveThroughStopTile(target_tile) && DiagDirToAxis(dir) == GetDriveThroughStopAxis(target_tile);
 
 			case TileType::TunnelBridge:
-				return GetTunnelBridgeTransportType(target_tile) == TRANSPORT_ROAD;
+				return GetTunnelBridgeTransportType(target_tile) == TransportType::Road;
 
 			case TileType::House:
 			case TileType::Industry:
@@ -2665,6 +2670,7 @@ static Town *CreateRandomTown(uint attempts, uint32_t townnameparts, TownSize si
 
 		Backup<CompanyID> cur_company(_current_company, OWNER_TOWN, FILE_LINE);
 		[[maybe_unused]] CommandCost rc = Command<Commands::DeleteTown>::Do(DoCommandFlag::Execute, t->index);
+		cur_company.Restore();
 		assert(rc.Succeeded());
 
 		/* We already know that we can allocate a single town when
@@ -2822,7 +2828,7 @@ HouseZone GetTownRadiusGroup(const Town *t, TileIndex tile)
  * @param stage The current construction stage of the house.
  * @param type The type of house.
  * @param random_bits Random bits for newgrf houses to use.
- * @param is_protected Whether the house is protected from the town upgrading it.
+ * @param is_protected Whether a player has marked the house as protected from the town upgrading it.
  * @pre The house can be built here.
  */
 static inline void ClearMakeHouseTile(TileIndex tile, Town *t, uint8_t counter, uint8_t stage, HouseID type, uint8_t random_bits, bool is_protected)
@@ -2846,7 +2852,7 @@ static inline void ClearMakeHouseTile(TileIndex tile, Town *t, uint8_t counter, 
  * @param type The type of house.
  * @param stage The current construction stage.
  * @param random_bits Random bits for newgrf houses to use.
- * @param is_protected Whether the house is protected from the town upgrading it.
+ * @param is_protected Whether a player has marked the house as protected from the town upgrading it.
  * @pre The house can be built here.
  */
 static void MakeTownHouse(TileIndex tile, Town *t, uint8_t counter, uint8_t stage, HouseID type, uint8_t random_bits, bool is_protected)
@@ -3120,7 +3126,7 @@ static CommandCost CheckCanBuildHouse(HouseID house, const Town *t)
  * @param house The @a HouseID of the house.
  * @param random_bits The random data to be associated with the house.
  * @param house_completed Should the house be placed already complete, instead of under construction?
- * @param is_protected Whether the house is protected from the town upgrading it.
+ * @param is_protected Whether a player has marked the house as protected from the town upgrading it.
  */
 static void BuildTownHouse(Town *t, TileIndex tile, const HouseSpec *hs, HouseID house, uint8_t random_bits, bool house_completed, bool is_protected)
 {
@@ -3233,7 +3239,7 @@ static bool TryBuildTownHouse(Town *t, TileIndex tile, TownExpandModes modes)
 		if (!HouseAllowsConstruction(house, tile, t, random_bits)) continue;
 
 		const HouseSpec *hs = HouseSpec::Get(house);
-		BuildTownHouse(t, tile, hs, house, random_bits, false, hs->extra_flags.Test(HouseExtraFlag::BuildingIsProtected));
+		BuildTownHouse(t, tile, hs, house, random_bits, false, false);
 		return true;
 	}
 
@@ -3245,7 +3251,7 @@ static bool TryBuildTownHouse(Town *t, TileIndex tile, TownExpandModes modes)
  * @param flags Type of operation.
  * @param tile Tile on which to place the house.
  * @param house The HouseID of the house spec.
- * @param is_protected Whether the house is protected from the town upgrading it.
+ * @param is_protected Whether a player has marked the house as protected from the town upgrading it.
  * @param town_id Town ID, or TownID::Invalid() to pick a town automatically.
  * @param replace Whether to automatically demolish an existing house on this tile, if present.
  * @return Empty cost or an error.
@@ -3306,7 +3312,7 @@ CommandCost CmdPlaceHouse(DoCommandFlags flags, TileIndex tile, HouseID house, b
  * @param tile End tile of area dragging.
  * @param start_tile Start tile of area dragging.
  * @param house_ids List of HouseID values for house specs.
- * @param is_protected Whether the house is protected from the town upgrading it.
+ * @param is_protected Whether a player has marked the house as protected from the town upgrading it.
  * @param replace Whether we can replace existing houses.
  * @param diagonal Whether to use the Diagonal or Orthogonal tile iterator.
  * @return Empty cost or an error.
@@ -3796,7 +3802,7 @@ CommandCost CmdDeleteTown(DoCommandFlags flags, TownID town_id)
 	/* The town destructor will delete the other things related to the town. */
 	if (flags.Test(DoCommandFlag::Execute)) {
 		_town_kdtree.Remove(t->index);
-		if (_viewport_sign_kdtree_valid && t->cache.sign.kdtree_valid) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeTown(t->index));
+		if (_viewport_sign_kdtree_valid && t->cache.sign.kdtree_valid()) _viewport_sign_kdtree.Remove(ViewportSignKdtreeItem::MakeTown(t->index));
 		delete t;
 	}
 
@@ -4113,7 +4119,7 @@ TownActions GetMaskOfTownActions(CompanyID cid, const Town *t)
 
 		/* Check the action bits for validity and
 		 * if they are valid add them */
-		for (TownAction cur = {}; cur != TownAction::End; ++cur) {
+		for (TownAction cur : EnumRange(TownAction::End)) {
 
 			/* Is the company prohibited from bribing ? */
 			if (cur == TownAction::Bribe) {
@@ -4443,7 +4449,7 @@ static void UpdateTownGrowth(Town *t)
 
 	if (t->fund_buildings_months == 0) {
 		/* Check if all goals are reached for this town to grow (given we are not funding it) */
-		for (TownAcceptanceEffect i = TownAcceptanceEffect::Begin; i < TownAcceptanceEffect::End; i++) {
+		for (TownAcceptanceEffect i : EnumRange(TownAcceptanceEffect::End)) {
 			switch (t->goal[i]) {
 				case TOWN_GROWTH_WINTER:
 					if (TileHeight(t->xy) >= GetSnowLine() && t->received[i].old_act == 0 && t->cache.population > 90) return;

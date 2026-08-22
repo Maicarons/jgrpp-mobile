@@ -12,7 +12,7 @@
 #include "base_media_base.h"
 #include "base_media_music.h"
 #include "base_media_sounds.h"
-#include "currency.h"
+#include "currency_type.h"
 #include "date_func.h"
 #include "elrail_func.h"
 #include "engine_func.h"
@@ -66,7 +66,7 @@
 #include "blitter/factory.hpp"
 #include "music/music_driver.hpp"
 #include "sound/sound_driver.hpp"
-#include "video/video_driver.hpp"
+#include "video/video_driver_base.hpp"
 
 #if defined(WITH_FREETYPE) || defined(_WIN32) || defined(WITH_COCOA)
 #define HAS_TRUETYPE_FONT
@@ -529,6 +529,8 @@ static bool CheckTrainBrakingModelChange(int32_t &new_value)
 
 static void TrainBrakingModelChanged(int32_t new_value)
 {
+	UpdateRealisticBrakingTypeCache();
+
 	for (Train *t : Train::Iterate()) {
 		if (!t->vehstatus.Test(VehState::Crashed)) {
 			t->crash_anim_pos = 0;
@@ -618,12 +620,12 @@ static void TrainSlopeSteepnessChanged(int32_t new_value)
  */
 static void RoadVehAccelerationModelChanged(int32_t new_value)
 {
-	if (_settings_game.vehicle.roadveh_acceleration_model != AM_ORIGINAL) {
+	if (_settings_game.vehicle.roadveh_acceleration_model != AccelerationModel::Original) {
 		for (RoadVehicle *rv : RoadVehicle::IterateFrontOnly()) {
 			rv->CargoChanged();
 		}
 	}
-	if (_settings_game.vehicle.roadveh_acceleration_model == AM_ORIGINAL || !_settings_game.vehicle.improved_breakdowns) {
+	if (_settings_game.vehicle.roadveh_acceleration_model == AccelerationModel::Original || !_settings_game.vehicle.improved_breakdowns) {
 		for (RoadVehicle *rv : RoadVehicle::IterateFrontOnly()) {
 			rv->breakdown_chance_factor = 128;
 		}
@@ -684,6 +686,7 @@ static void InvalidateVehTimetableWindow(int32_t new_value)
 {
 	InvalidateWindowClassesData(WindowClass::VehicleTimetable, VIWD_MODIFY_ORDERS);
 	InvalidateWindowClassesData(WindowClass::ScheduledDispatchSlots, VIWD_MODIFY_ORDERS);
+	SetWindowClassesDirty(WindowClass::TraceRestrict);
 }
 
 static void ChangeTimetableInTicksMode(int32_t new_value)

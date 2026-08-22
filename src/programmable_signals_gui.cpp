@@ -23,12 +23,13 @@
 #include "gfx_func.h"
 #include "tilehighlight_func.h"
 #include "rail_map.h"
-#include "tile_cmd.h"
+#include "tile_track_func.h"
 #include "error.h"
 #include "scope.h"
 #include "zoom_func.h"
 #include "tracerestrict.h"
 #include "tracerestrict_cmd.h"
+#include "settings_type.h"
 #include "core/string_consumer.hpp"
 
 #include "table/sprites.h"
@@ -417,7 +418,7 @@ public:
 	{
 		if (this->IsWidgetLowered(PROGRAM_WIDGET_COPY_PROGRAM)) {
 			//Copy program from another progsignal
-			TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(tile1, TRANSPORT_RAIL, 0));
+			TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(tile1, TransportType::Rail, 0));
 			if (trackbits & TRACK_BIT_VERT) { // N-S direction
 				trackbits = (_tile_fract_coords.x <= _tile_fract_coords.y) ? TRACK_BIT_RIGHT : TRACK_BIT_LEFT;
 			}
@@ -463,7 +464,7 @@ public:
 			return;
 		}
 
-		TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(tile1, TRANSPORT_RAIL, 0));
+		TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(tile1, TransportType::Rail, 0));
 		if (trackbits & TRACK_BIT_VERT) { // N-S direction
 			trackbits = (_tile_fract_coords.x <= _tile_fract_coords.y) ? TRACK_BIT_RIGHT : TRACK_BIT_LEFT;
 		}

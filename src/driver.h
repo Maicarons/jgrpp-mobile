@@ -52,15 +52,13 @@ public:
 	virtual const char *GetName() const = 0;
 };
 
-DECLARE_INCREMENT_DECREMENT_OPERATORS(Driver::Type)
-
-
 /** Base for all driver factories. */
 class DriverFactoryBase {
 private:
 	friend class MusicDriver;
 	friend class SoundDriver;
 	friend class VideoDriver;
+	friend class VideoDriverBase;
 
 	Driver::Type type;       ///< The type of driver.
 	int priority;            ///< The priority of this factory.
@@ -127,7 +125,7 @@ public:
 	 */
 	static void ShutdownDrivers()
 	{
-		for (Driver::Type dt = Driver::Type::Begin; dt != Driver::Type::End; ++dt) {
+		for (Driver::Type dt : EnumRange(Driver::Type::End)) {
 			auto &driver = GetActiveDriver(dt);
 			if (driver != nullptr) driver->Stop();
 		}

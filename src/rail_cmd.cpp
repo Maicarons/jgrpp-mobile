@@ -43,7 +43,10 @@
 #include "pathfinder/water_regions.h"
 #include "landscape_cmd.h"
 #include "rail_cmd.h"
+#include "rail_settings.h"
 #include "object_base.h"
+#include "tile_cmd.h"
+#include "tile_track_func.h"
 
 #include "table/strings.h"
 #include "table/railtypes.h"
@@ -64,6 +67,22 @@ std::array<RailTypes, 3> _railtypes_acceleration_type_masks;
 RailTypes _railtypes_non_realistic_braking;
 
 static CommandCost RemoveTrainDepot(TileIndex tile, DoCommandFlags flags);
+
+/**
+ * Cycle to the next signal side at the given track on a tile.
+ * For path based signals there are two options, for other signals there is a third option with both sides.
+ * @param t The tile to update.
+ * @param track The track to update for.
+ */
+static void CycleSignalSide(TileIndex t, Track track)
+{
+	uint8_t sig;
+	uint8_t pos = (track == TRACK_LOWER || track == TRACK_RIGHT) ? 4 : 6;
+
+	sig = GB(_m[t].m3, pos, 2);
+	if (--sig == 0) sig = (IsPbsSignal(GetSignalType(t, track)) || _settings_game.vehicle.train_braking_model == TBM_REALISTIC) ? 2 : 3;
+	SB(_m[t].m3, pos, 2, sig);
+}
 
 /**
  * Reset all rail type information to its default values.
@@ -107,7 +126,7 @@ static void ResolveRailTypeGUISignalSprites(RailTypeInfo *rti, uint8_t style, Ra
 		return spr;
 	};
 
-	for (SignalType type = SignalType::Block; type < SignalType::End; type = static_cast<SignalType>(to_underlying(type) + 1)) {
+	for (SignalType type : EnumRange(SignalType::End)) {
 		for (SignalVariant var : {SignalVariant::Electric, SignalVariant::Semaphore}) {
 			PalSpriteID red   = GetCustomSignalSprite(rti, INVALID_TILE, type, var, 0, { CSSC_GUI }, style).sprite;
 			if (red.sprite != 0) {
@@ -217,7 +236,7 @@ void SortRailTypes()
 
 void UpdateRailGuiSprites()
 {
-	for (RailType rt = RAILTYPE_BEGIN; rt != RAILTYPE_END; rt++) {
+	for (RailType rt : EnumRange(RAILTYPE_END)) {
 		ResolveRailTypeGUISprites(&_railtypes[rt]);
 	}
 
@@ -236,7 +255,7 @@ void InitRailTypes()
 	_sorted_railtypes.clear();
 	_railtypes_acceleration_type_masks.fill({});
 	_railtypes_non_realistic_braking = {};
-	for (RailType rt = RAILTYPE_BEGIN; rt != RAILTYPE_END; rt++) {
+	for (RailType rt : EnumRange(RAILTYPE_END)) {
 		bool hidden = _railtypes[rt].flags.Test(RailTypeFlag::Hidden);
 		if (hidden) _railtypes_hidden_mask.Set(rt);
 		if (_railtypes[rt].label != 0) {
@@ -252,7 +271,7 @@ void InitRailTypes()
 void InitRailTypesIndirectCompatibility()
 {
 	std::array<RailTypes, RAILTYPE_END> overall_compatibility;
-	for (RailType rt = RAILTYPE_BEGIN; rt != RAILTYPE_END; rt++) {
+	for (RailType rt : EnumRange(RAILTYPE_END)) {
 		overall_compatibility[rt] = _railtypes[rt].compatible_railtypes;
 		_railtypes[rt].indirect_compatible_railtypes = _railtypes[rt].compatible_railtypes;
 	}
@@ -265,7 +284,7 @@ void InitRailTypesIndirectCompatibility()
 		overall_compatibility[first_rt].Set(rts);
 	}
 
-	for (RailType rt = RAILTYPE_BEGIN; rt != RAILTYPE_END; rt++) {
+	for (RailType rt : EnumRange(RAILTYPE_END)) {
 		RailTypes::BaseType compatible = overall_compatibility[rt].base();
 		RailTypes::BaseType to_check = compatible;
 		while (to_check != 0) {
@@ -1459,7 +1478,7 @@ CommandCost CmdBuildTrainDepot(DoCommandFlags flags, TileIndex tile, RailType ra
 	}
 
 	if (IsBridgeAbove(tile)) {
-		CommandCost ret = IsDepotBridgeAboveOK(tile, TRANSPORT_RAIL, dir, GetBridgeAboveInfo(tile));
+		CommandCost ret = IsDepotBridgeAboveOK(tile, TransportType::Rail, dir, GetBridgeAboveInfo(tile));
 		if (ret.Failed()) return ret;
 	}
 
@@ -1547,7 +1566,7 @@ CommandCost CmdBuildSingleSignal(DoCommandFlags flags, TileIndex tile, Track tra
 
 	/* You can only build signals on plain rail tiles or tunnel/bridges, and the selected track must exist */
 	if (IsTileType(tile, TileType::TunnelBridge)) {
-		if (GetTunnelBridgeTransportType(tile) != TRANSPORT_RAIL) return CMD_ERROR;
+		if (GetTunnelBridgeTransportType(tile) != TransportType::Rail) return CMD_ERROR;
 		if (!ValParamTrackOrientation(track) || !IsTrackAcrossTunnelBridge(tile, track)) {
 			return CommandCost(STR_ERROR_THERE_IS_NO_RAILROAD_TRACK);
 		}
@@ -2066,7 +2085,7 @@ static bool CheckSignalAutoFill(TileIndex &tile, Trackdir &trackdir, int &signal
 	if (tile == INVALID_TILE) return false;
 
 	/* Check for track bits on the new tile */
-	TrackdirBits trackdirbits = GetTileTrackdirBits(tile, TRANSPORT_RAIL, 0);
+	TrackdirBits trackdirbits = GetTileTrackdirBits(tile, TransportType::Rail, 0);
 
 	if (TracksOverlap(TrackdirBitsToTrackBits(trackdirbits))) return false;
 	trackdirbits &= TrackdirReachesTrackdirs(trackdir);
@@ -2098,7 +2117,7 @@ static bool CheckSignalAutoFill(TileIndex &tile, Trackdir &trackdir, int &signal
 			return true;
 
 		case TileType::TunnelBridge: {
-			if (GetTunnelBridgeTransportType(tile) != TRANSPORT_RAIL) return false;
+			if (GetTunnelBridgeTransportType(tile) != TransportType::Rail) return false;
 			if (!remove && IsTunnelBridgeWithSignalSimulation(tile) && HasTrack(GetAcrossTunnelBridgeTrackBits(tile), TrackdirToTrack(trackdir))) return false;
 			TileIndex orig_tile = tile; // backup old value
 
@@ -2110,7 +2129,7 @@ static bool CheckSignalAutoFill(TileIndex &tile, Trackdir &trackdir, int &signal
 				signal_ctr += GetTunnelBridgeLength(orig_tile, tile) * 2;
 
 				/* Check for track bits on the new tile */
-				trackdirbits = GetTileTrackdirBits(tile, TRANSPORT_RAIL, 0);
+				trackdirbits = GetTileTrackdirBits(tile, TransportType::Rail, 0);
 
 				if (TracksOverlap(TrackdirBitsToTrackBits(trackdirbits))) return false;
 				trackdirbits &= TrackdirReachesTrackdirs(trackdir);
@@ -2377,7 +2396,7 @@ CommandCost CmdRemoveSingleSignal(DoCommandFlags flags, TileIndex tile, Track tr
 	Money cost = _price[Price::ClearSignals];
 
 	if (IsTileType(tile, TileType::TunnelBridge)) {
-		if (GetTunnelBridgeTransportType(tile) != TRANSPORT_RAIL) return CommandCost(STR_ERROR_THERE_IS_NO_RAILROAD_TRACK);
+		if (GetTunnelBridgeTransportType(tile) != TransportType::Rail) return CommandCost(STR_ERROR_THERE_IS_NO_RAILROAD_TRACK);
 		if (!ValParamTrackOrientation(track) || !IsTrackAcrossTunnelBridge(tile, track)) {
 			return CommandCost(STR_ERROR_THERE_IS_NO_RAILROAD_TRACK);
 		}
@@ -2587,7 +2606,7 @@ CommandCost CmdConvertRail(DoCommandFlags flags, TileIndex tile, TileIndex area_
 				}
 				break;
 			case TileType::TunnelBridge:
-				if (GetTunnelBridgeTransportType(tile) != TRANSPORT_RAIL) continue;
+				if (GetTunnelBridgeTransportType(tile) != TransportType::Rail) continue;
 				break;
 			default: continue;
 		}
@@ -2887,7 +2906,7 @@ CommandCost CmdConvertRailTrack(DoCommandFlags flags, TileIndex end_tile, TileIn
 				all_track_bits = GetCrossingRailBits(tile);
 				break;
 			case TileType::TunnelBridge:
-				if (GetTunnelBridgeTransportType(tile) != TRANSPORT_RAIL || !HasBit(GetTunnelBridgeTrackBits(tile), track)) continue;
+				if (GetTunnelBridgeTransportType(tile) != TransportType::Rail || !HasBit(GetTunnelBridgeTrackBits(tile), track)) continue;
 				all_track_bits = GetTunnelBridgeTrackBits(tile);
 				break;
 			default: continue;
@@ -3249,13 +3268,7 @@ static uint GetSafeSlopeZ(uint x, uint y, Track track)
 
 static void GetSignalXY(TileIndex tile, uint pos, bool opposite, uint &x, uint &y)
 {
-	bool side;
-	switch (_settings_game.construction.train_signal_side) {
-		case 0:  side = false;                                 break; // left
-		case 2:  side = true;                                  break; // right
-		default: side = _settings_game.vehicle.road_side != 0; break; // driving side
-	}
-	side ^= opposite;
+	bool signal_on_right = IsTrainSignalSideRight() ^ opposite;
 	static const Point SignalPositions[2][12] = {
 		{ // Signals on the left side
 		/*  LEFT      LEFT      RIGHT     RIGHT     UPPER     UPPER */
@@ -3270,8 +3283,8 @@ static void GetSignalXY(TileIndex tile, uint pos, bool opposite, uint &x, uint &
 		}
 	};
 
-	x = TileX(tile) * TILE_SIZE + SignalPositions[side][pos].x;
-	y = TileY(tile) * TILE_SIZE + SignalPositions[side][pos].y;
+	x = TileX(tile) * TILE_SIZE + SignalPositions[signal_on_right][pos].x;
+	y = TileY(tile) * TILE_SIZE + SignalPositions[signal_on_right][pos].y;
 }
 
 void DrawRestrictedSignal(SignalType type, SpriteID sprite, int x, int y, int z, uint8_t dz, int8_t bb_offset_z)
@@ -3548,7 +3561,7 @@ static const FenceOffset _fence_offsets[] = {
 static void DrawTrackFence(const TileInfo *ti, const PalSpriteID &psid, uint num_sprites, RailFenceOffset rfo)
 {
 	int z = ti->z;
-	if (_fence_offsets[rfo].height_ref != CORNER_INVALID) {
+	if (IsValidCorner(_fence_offsets[rfo].height_ref)) {
 		z += GetSlopePixelZInCorner(RemoveHalftileSlope(ti->tileh), _fence_offsets[rfo].height_ref);
 	}
 	AddSortableSpriteToDraw(psid.sprite + (rfo % num_sprites), psid.pal, ti->x, ti->y, z, _fence_offsets[rfo]);
@@ -4305,7 +4318,7 @@ RailGroundType RailTrackToFence(TileIndex tile, TrackBits rail)
 	Owner owner = GetTileOwner(tile);
 	DiagDirections fences{};
 
-	for (DiagDirection d = DiagDirection::Begin; d < DiagDirection::End; d++) {
+	for (DiagDirection d : EnumRange(DiagDirection::End)) {
 		static constexpr DiagDirectionIndexArray<TrackBits> dir_to_trackbits{TRACK_BIT_3WAY_NE, TRACK_BIT_3WAY_SE, TRACK_BIT_3WAY_SW, TRACK_BIT_3WAY_NW};
 
 		/* Track bit on this edge => no fence. */
@@ -4437,7 +4450,7 @@ set_ground:
 static TrackStatus GetTileTrackStatus_Rail(TileIndex tile, TransportType mode, uint sub_mode, DiagDirection side)
 {
 	/* Case of half tile slope with water. */
-	if (mode == TRANSPORT_WATER && IsPlainRail(tile) && GetRailGroundType(tile) == RailGroundType::HalfTileWater && IsSlopeWithOneCornerRaised(GetTileSlope(tile))) {
+	if (mode == TransportType::Water && IsPlainRail(tile) && GetRailGroundType(tile) == RailGroundType::HalfTileWater && IsSlopeWithOneCornerRaised(GetTileSlope(tile))) {
 		TrackBits tb = GetTrackBits(tile);
 		switch (tb) {
 			default: NOT_REACHED();
@@ -4449,7 +4462,7 @@ static TrackStatus GetTileTrackStatus_Rail(TileIndex tile, TransportType mode, u
 		return {TrackBitsToTrackdirBits(tb), TRACKDIR_BIT_NONE};
 	}
 
-	if (mode != TRANSPORT_RAIL) return {};
+	if (mode != TransportType::Rail) return {};
 
 	TrackBits trackbits = TRACK_BIT_NONE;
 	TrackdirBits red_signals = TRACKDIR_BIT_NONE;
@@ -4501,7 +4514,7 @@ static TrackStatus GetTileTrackStatus_Rail(TileIndex tile, TransportType mode, u
 static bool ClickTile_Rail(TileIndex tile)
 {
 	if (_ctrl_pressed && IsPlainRailTile(tile)) {
-		TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(tile, TRANSPORT_RAIL, 0));
+		TrackBits trackbits = TrackdirBitsToTrackBits(GetTileTrackdirBits(tile, TransportType::Rail, 0));
 
 		if (trackbits & TRACK_BIT_VERT) { // N-S direction
 			trackbits = (_tile_fract_coords.x <= _tile_fract_coords.y) ? TRACK_BIT_RIGHT : TRACK_BIT_LEFT;
@@ -4677,7 +4690,7 @@ static void GetTileDesc_Rail(TileIndex tile, TileDesc &td)
 
 		case RailTileType::Depot:
 			td.str = STR_LAI_RAIL_DESCRIPTION_TRAIN_DEPOT;
-			if (_settings_game.vehicle.train_acceleration_model != AM_ORIGINAL) {
+			if (_settings_game.vehicle.train_acceleration_model != AccelerationModel::Original) {
 				if (td.rail_speed > 0) {
 					td.rail_speed = std::min<uint16_t>(td.rail_speed, _settings_game.vehicle.rail_depot_speed_limit);
 				} else {
@@ -4850,7 +4863,8 @@ static VehicleEnterTileStates VehicleEnterTile_Rail(Vehicle *u, TileIndex tile, 
 		if (v->GetMovingNext() == nullptr) {
 			Train *consist = v->First();
 			/* Whether the train should always leave in the forward direction. */
-			const bool reset_reverse = _settings_game.difficulty.train_flip_reverse_allowed != TrainFlipReversingAllowed::None && !consist->Last()->CanLeadTrain();
+			const bool reset_reverse = !_settings_game.vehicle.drive_through_train_depot ||
+					(_settings_game.difficulty.train_flip_reverse_allowed != TrainFlipReversingAllowed::None && !consist->Last()->CanLeadTrain());
 			if (reset_reverse) {
 				/* Clear reversed flag, drive out of depot in forward direction. */
 				consist->flags.Reset(VehicleRailFlag::Reversed);

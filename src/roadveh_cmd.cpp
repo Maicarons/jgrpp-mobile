@@ -40,6 +40,7 @@
 #include "newgrf_roadstop.h"
 #include "road_cmd.h"
 #include "newgrf_roadstop.h"
+#include "tile_cmd.h"
 
 #include "table/strings.h"
 
@@ -352,7 +353,7 @@ CommandCost CmdBuildRoadVehicle(TileIndex tile, DoCommandFlags flags, const Engi
 		}
 		RoadVehUpdateCache(v);
 		/* Initialize cached values for realistic acceleration. */
-		if (_settings_game.vehicle.roadveh_acceleration_model != AM_ORIGINAL) v->CargoChanged();
+		if (_settings_game.vehicle.roadveh_acceleration_model != AccelerationModel::Original) v->CargoChanged();
 
 		v->UpdatePosition();
 
@@ -391,7 +392,7 @@ inline bool IsOneWaySideJunctionRoadTile(TileIndex tile)
 
 static bool MayReverseOnOneWayRoadTile(TileIndex tile, DiagDirection dir)
 {
-	TrackdirBits bits = GetTileTrackdirBits(tile, TRANSPORT_ROAD, RoadTramType::Road);
+	TrackdirBits bits = GetTileTrackdirBits(tile, TransportType::Road, RoadTramType::Road);
 	return bits & DiagdirReachesTrackdirs(ReverseDiagDir(dir));
 }
 
@@ -526,7 +527,7 @@ inline int RoadVehicle::GetCurrentMaxSpeed() const
 
 	/* Limit speed to 50% while reversing, 75% in curves. */
 	for (const RoadVehicle *u = this; u != nullptr; u = u->Next()) {
-		if (_settings_game.vehicle.roadveh_acceleration_model == AM_REALISTIC) {
+		if (_settings_game.vehicle.roadveh_acceleration_model == AccelerationModel::Realistic) {
 			if (this->state <= RVSB_TRACKDIR_MASK && IsReversingRoadTrackdir((Trackdir)this->state)) {
 				max_speed = std::min(max_speed, this->gcache.cached_max_track_speed / 2);
 			} else if (!IsDiagonalDirection(u->direction)) {
@@ -830,12 +831,12 @@ int RoadVehicle::UpdateSpeed(int max_speed)
 {
 	switch (_settings_game.vehicle.roadveh_acceleration_model) {
 		default: NOT_REACHED();
-		case AM_ORIGINAL: {
+		case AccelerationModel::Original: {
 			int acceleration = this->overtaking != 0 ? 512 : 256;
 			return this->DoUpdateSpeed({ acceleration, acceleration }, 0, max_speed, max_speed, false);
 		}
 
-		case AM_REALISTIC: {
+		case AccelerationModel::Realistic: {
 			GroundVehicleAcceleration acceleration = this->GetAcceleration();
 			if (this->overtaking != 0) acceleration.acceleration += 256;
 			return this->DoUpdateSpeed(acceleration, this->GetAccelerationStatus() == AS_BRAKE ? 0 : 4, max_speed, max_speed, false);
@@ -930,7 +931,7 @@ static bool EnumFindVehBlockingOvertakeBehind(const RoadVehicle *v, const Overta
 static bool CheckRoadInfraUnsuitableForOvertaking(OvertakeData *od)
 {
 	if (!HasTileAnyRoadType(od->tile, od->v->compatible_roadtypes)) return true;
-	TrackStatus ts = GetTileTrackStatus(od->tile, TRANSPORT_ROAD, ((od->v->roadtype + 1) << 8) | to_underlying(GetRoadTramType(od->v->roadtype)));
+	TrackStatus ts = GetTileTrackStatus(od->tile, TransportType::Road, ((od->v->roadtype + 1) << 8) | to_underlying(GetRoadTramType(od->v->roadtype)));
 	TrackBits trackbits = TrackdirBitsToTrackBits(ts.trackdirs);
 
 	/* Track does not continue along overtaking direction || levelcrossing is barred */
@@ -1059,7 +1060,7 @@ static void RoadVehCheckOvertake(RoadVehicle *v, RoadVehicle *u)
 	/* Can't overtake a vehicle that is moving faster than us. If the vehicle in front is
 	 * accelerating, take the maximum speed for the comparison, else the current speed.
 	 * Original acceleration always accelerates, so always use the maximum speed. */
-	int u_speed = (_settings_game.vehicle.roadveh_acceleration_model == AM_ORIGINAL || u->GetAcceleration().acceleration > 0) ? u->GetCurrentMaxSpeed() : u->cur_speed;
+	int u_speed = (_settings_game.vehicle.roadveh_acceleration_model == AccelerationModel::Original || u->GetAcceleration().acceleration > 0) ? u->GetCurrentMaxSpeed() : u->cur_speed;
 	if (u_speed >= v->GetCurrentMaxSpeed() &&
 			!u->vehstatus.Test(VehState::Stopped) &&
 			u->cur_speed != 0) {
@@ -1157,7 +1158,7 @@ static void RoadVehCheckOvertake(RoadVehicle *v, RoadVehicle *u)
 
 static void RoadZPosAffectSpeed(RoadVehicle *v, int old_z)
 {
-	if (old_z == v->z_pos || _settings_game.vehicle.roadveh_acceleration_model != AM_ORIGINAL) return;
+	if (old_z == v->z_pos || _settings_game.vehicle.roadveh_acceleration_model != AccelerationModel::Original) return;
 
 	if (old_z < v->z_pos) {
 		v->cur_speed = v->cur_speed * 232 / 256; // slow down by ~10%
@@ -1188,7 +1189,7 @@ static Trackdir RoadFindPathToDest(RoadVehicle *v, TileIndex tile, DiagDirection
 {
 	bool path_found = true;
 
-	TrackStatus ts = GetTileTrackStatus(tile, TRANSPORT_ROAD, ((v->roadtype + 1) << 8) | to_underlying(GetRoadTramType(v->roadtype)));
+	TrackStatus ts = GetTileTrackStatus(tile, TransportType::Road, ((v->roadtype + 1) << 8) | to_underlying(GetRoadTramType(v->roadtype)));
 
 	/* Replaces the given trackdir with INVALID_TRACKDIR when there is red signal for that trackdir. */
 	auto FilterRedSignal = [&ts](Trackdir trackdir) {
@@ -1318,7 +1319,7 @@ static bool RoadVehLeaveDepot(RoadVehicle *v, bool first)
 	v->direction = DiagDirToDir(dir);
 
 	Trackdir tdir = DiagDirToDiagTrackdir(dir);
-	const RoadDriveEntry *rdp = _road_drive_data[GetRoadTramType(v->roadtype)][(_settings_game.vehicle.road_side << RVS_DRIVE_SIDE) + tdir];
+	const RoadDriveEntry *rdp = _road_drive_data[GetRoadTramType(v->roadtype)][(to_underlying(_settings_game.vehicle.road_side) << RVS_DRIVE_SIDE) + tdir];
 
 	int x = TileX(v->tile) * TILE_SIZE + (rdp[RVC_DEPOT_START_FRAME].x & 0xF);
 	int y = TileY(v->tile) * TILE_SIZE + (rdp[RVC_DEPOT_START_FRAME].y & 0xF);
@@ -1528,22 +1529,22 @@ static void RoadVehCheckFinishOvertake(RoadVehicle *v)
 		case DiagDirection::NE:
 			od.min_coord = v->x_pos - front_margin;
 			od.max_coord = last->x_pos + back_margin;
-			od.not_road_pos = (_settings_game.vehicle.road_side ? 5 : 9);
+			od.not_road_pos = (_settings_game.vehicle.road_side == RoadVehicleDrivingSide::Right ? 5 : 9);
 			break;
 		case DiagDirection::SE:
 			od.min_coord = last->y_pos - back_margin;
 			od.max_coord = v->y_pos + front_margin;
-			od.not_road_pos = (_settings_game.vehicle.road_side ? 5 : 9);
+			od.not_road_pos = (_settings_game.vehicle.road_side == RoadVehicleDrivingSide::Right ? 5 : 9);
 			break;
 		case DiagDirection::SW:
 			od.min_coord = last->x_pos - back_margin;
 			od.max_coord = v->x_pos + front_margin;
-			od.not_road_pos = (_settings_game.vehicle.road_side ? 9 : 5);
+			od.not_road_pos = (_settings_game.vehicle.road_side == RoadVehicleDrivingSide::Right ? 9 : 5);
 			break;
 		case DiagDirection::NW:
 			od.min_coord = v->y_pos - front_margin;
 			od.max_coord = last->y_pos + back_margin;
-			od.not_road_pos = (_settings_game.vehicle.road_side ? 9 : 5);
+			od.not_road_pos = (_settings_game.vehicle.road_side == RoadVehicleDrivingSide::Right ? 9 : 5);
 			break;
 		default:
 			NOT_REACHED();
@@ -1679,11 +1680,11 @@ bool IndividualRoadVehicleController(RoadVehicle *v, const RoadVehicle *prev)
 			switch (dir) {
 				case DiagDirection::NE:
 				case DiagDirection::SW:
-					SB(gp.y, 0, 4, (_settings_game.vehicle.road_side ^ (to_underlying(dir) >> 1) ^ (v->overtaking >> RVS_DRIVE_SIDE)) ? 9 : 5);
+					SB(gp.y, 0, 4, (to_underlying(_settings_game.vehicle.road_side) ^ (to_underlying(dir) >> 1) ^ (v->overtaking >> RVS_DRIVE_SIDE)) ? 9 : 5);
 					break;
 				case DiagDirection::SE:
 				case DiagDirection::NW:
-					SB(gp.x, 0, 4, (_settings_game.vehicle.road_side ^ (to_underlying(dir) >> 1) ^ (v->overtaking >> RVS_DRIVE_SIDE)) ? 9 : 5);
+					SB(gp.x, 0, 4, (to_underlying(_settings_game.vehicle.road_side) ^ (to_underlying(dir) >> 1) ^ (v->overtaking >> RVS_DRIVE_SIDE)) ? 9 : 5);
 					break;
 				default:
 					NOT_REACHED();
@@ -1731,7 +1732,7 @@ bool IndividualRoadVehicleController(RoadVehicle *v, const RoadVehicle *prev)
 	 * In this case v->state is masked to give the road stop entry direction. */
 	RoadDriveEntry rd = _road_drive_data[GetRoadTramType(v->roadtype)][(
 		(HasBit(v->state, RVS_IN_DT_ROAD_STOP) ? v->state & RVSB_ROAD_STOP_TRACKDIR_MASK : v->state) +
-		(_settings_game.vehicle.road_side << RVS_DRIVE_SIDE)) ^ v->overtaking][v->frame + 1];
+		(to_underlying(_settings_game.vehicle.road_side) << RVS_DRIVE_SIDE)) ^ v->overtaking][v->frame + 1];
 
 	if (rd.x & RDE_NEXT_TILE) {
 		TileIndex tile = v->tile;
@@ -1829,7 +1830,7 @@ again:
 		}
 
 		/* Get position data for first frame on the new tile */
-		const RoadDriveEntry *rdp = _road_drive_data[GetRoadTramType(v->roadtype)][(dir + (_settings_game.vehicle.road_side << RVS_DRIVE_SIDE)) ^ v->overtaking];
+		const RoadDriveEntry *rdp = _road_drive_data[GetRoadTramType(v->roadtype)][(dir + (to_underlying(_settings_game.vehicle.road_side) << RVS_DRIVE_SIDE)) ^ v->overtaking];
 
 		int x = TileX(tile) * TILE_SIZE + rdp[start_frame].x;
 		int y = TileY(tile) * TILE_SIZE + rdp[start_frame].y;
@@ -1899,7 +1900,7 @@ again:
 		}
 		if (new_dir != v->direction) {
 			v->direction = new_dir;
-			if (_settings_game.vehicle.roadveh_acceleration_model == AM_ORIGINAL) v->cur_speed -= v->cur_speed >> 2;
+			if (_settings_game.vehicle.roadveh_acceleration_model == AccelerationModel::Original) v->cur_speed -= v->cur_speed >> 2;
 		}
 		v->x_pos = x;
 		v->y_pos = y;
@@ -1945,7 +1946,7 @@ again:
 			return false;
 		}
 
-		const RoadDriveEntry *rdp = _road_drive_data[GetRoadTramType(v->roadtype)][(_settings_game.vehicle.road_side << RVS_DRIVE_SIDE) + dir];
+		const RoadDriveEntry *rdp = _road_drive_data[GetRoadTramType(v->roadtype)][(to_underlying(_settings_game.vehicle.road_side) << RVS_DRIVE_SIDE) + dir];
 
 		int x = TileX(v->tile) * TILE_SIZE + rdp[turn_around_start_frame].x;
 		int y = TileY(v->tile) * TILE_SIZE + rdp[turn_around_start_frame].y;
@@ -1973,7 +1974,7 @@ again:
 
 		if (new_dir != v->direction) {
 			v->direction = new_dir;
-			if (_settings_game.vehicle.roadveh_acceleration_model == AM_ORIGINAL) v->cur_speed -= v->cur_speed >> 2;
+			if (_settings_game.vehicle.roadveh_acceleration_model == AccelerationModel::Original) v->cur_speed -= v->cur_speed >> 2;
 		}
 
 		v->x_pos = x;
@@ -2031,7 +2032,7 @@ again:
 	Direction old_dir = v->direction;
 	if (new_dir != old_dir) {
 		v->direction = new_dir;
-		if (_settings_game.vehicle.roadveh_acceleration_model == AM_ORIGINAL) v->cur_speed -= v->cur_speed >> 2;
+		if (_settings_game.vehicle.roadveh_acceleration_model == AccelerationModel::Original) v->cur_speed -= v->cur_speed >> 2;
 
 		/* Delay the vehicle in curves by making it require one additional frame per turning direction (two in total).
 		 * A vehicle has to spend at least 9 frames on a tile, so the following articulated part can follow.
@@ -2047,7 +2048,7 @@ again:
 	 * (the station test and stop type test ensure that other vehicles, using the road stop as
 	 * a through route, do not stop) */
 	if (v->IsFrontEngine() && ((IsInsideMM(v->state, RVSB_IN_ROAD_STOP, RVSB_IN_ROAD_STOP_END) &&
-			_road_stop_stop_frame[v->state - RVSB_IN_ROAD_STOP + (_settings_game.vehicle.road_side << RVS_DRIVE_SIDE)] == v->frame) ||
+			_road_stop_stop_frame[v->state - RVSB_IN_ROAD_STOP + (to_underlying(_settings_game.vehicle.road_side) << RVS_DRIVE_SIDE)] == v->frame) ||
 			(IsInsideMM(v->state, RVSB_IN_DT_ROAD_STOP, RVSB_IN_DT_ROAD_STOP_END) &&
 			v->current_order.ShouldStopAtStation(v, GetStationIndex(v->tile), false) &&
 			IsInfraTileUsageAllowed(VehicleType::Road, v->owner, v->tile) &&
@@ -2302,7 +2303,7 @@ static void CheckIfRoadVehNeedsService(RoadVehicle *v)
 		return;
 	}
 
-	SetBit(v->gv_flags, GVF_SUPPRESS_IMPLICIT_ORDERS);
+	v->gv_flags.Set(GroundVehicleFlag::SuppressImplicitOrders);
 	v->current_order.MakeGoToDepot(depot, {OrderDepotTypeFlag::Service});
 	v->SetDestTile(rfdd.tile);
 	SetWindowWidgetDirty(WindowClass::VehicleView, v->index, WID_VV_START_STOP);

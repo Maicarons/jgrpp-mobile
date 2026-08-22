@@ -19,6 +19,7 @@
 #include "../../landscape.h"
 #include "../../landscape_cmd.h"
 #include "../../terraform_cmd.h"
+#include "../../tile_track_func.h"
 #include "../../tree_cmd.h"
 
 #include "../../safeguards.h"
@@ -274,7 +275,7 @@
 	EnforcePrecondition(false, start_tile < ScriptMap::GetMapSize());
 	EnforcePrecondition(false, end_tile < ScriptMap::GetMapSize());
 
-	return ScriptObject::Command<Commands::LevelLand>::Do(end_tile, start_tile, false, LM_LEVEL);
+	return ScriptObject::Command<Commands::LevelLand>::Do(end_tile, start_tile, false, LevelMode::Level);
 }
 
 /* static */ bool ScriptTile::DemolishTile(TileIndex tile)

@@ -11,11 +11,11 @@ jobs:
     container:
       # If you change this version, change the numbers in the cache step,
       # .github/workflows/ci-emscripten.yml (2x) and os/emscripten/Dockerfile too.
-      image: emscripten/emsdk:3.1.57
+      image: emscripten/emsdk:6.0.1
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
@@ -25,12 +25,12 @@ jobs:
         git checkout -b pr${{ github.event.pull_request.number }}
 
     - name: Setup cache
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: /emsdk/upstream/emscripten/cache
         # If you change this version, change the numbers in the image configuration step,
         # .github/workflows/ci-emscripten.yml (2x) and os/emscripten/Dockerfile too.
-        key: 3.1.57-${{ runner.os }}
+        key: 6.0.1-${{ runner.os }}
 
     - name: Add liblzma support
       run: |
@@ -83,7 +83,7 @@ jobs:
         echo ${{ github.event.pull_request.number }} > ./pr/number
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: pr${{ github.event.pull_request.number }}
         path: |

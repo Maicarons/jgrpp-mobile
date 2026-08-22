@@ -20,6 +20,7 @@
 #include "../base_media_sounds.h"
 #include "../settings_type.h"
 #include "../strings_func.h"
+#include "../time_chrono.h"
 #include "../timer/timer.h"
 #include "../timer/timer_window.h"
 #include "../core/string_consumer.hpp"
@@ -736,12 +737,12 @@ NetworkRecvStatus ClientNetworkContentSocketHandler::CloseConnection([[maybe_unu
 {
 	NetworkContentSocketHandler::CloseConnection();
 
-	if (this->sock == INVALID_SOCKET) return NETWORK_RECV_STATUS_OKAY;
+	if (this->sock == INVALID_SOCKET) return NetworkRecvStatus::Okay;
 
 	this->CloseSocket();
 	this->OnDisconnect();
 
-	return NETWORK_RECV_STATUS_OKAY;
+	return NetworkRecvStatus::Okay;
 }
 
 /**

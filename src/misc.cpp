@@ -42,6 +42,7 @@
 #include "event_logs.h"
 #include "string_func.h"
 #include "plans_func.h"
+#include "session_stats.h"
 #include "core/format.hpp"
 #include "3rdparty/monocypher/monocypher.h"
 
@@ -246,7 +247,7 @@ void InitializeGame(uint size_x, uint size_y, bool reset_date, bool reset_settin
 	ResetRailPlacementSnapping();
 
 	GamelogReset();
-	GamelogStartAction(GLAT_START);
+	GamelogStartAction(GamelogActionType::Start);
 	GamelogRevision();
 	GamelogMode();
 	GamelogGRFAddList(_grfconfig);

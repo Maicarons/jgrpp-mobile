@@ -50,6 +50,7 @@
 #include "../newgrf_roadtype.h"
 #include "../3rdparty/cpp-ring-buffer/ring_buffer.hpp"
 #include "../timer/timer_game_tick.h"
+#include "../session_stats.h"
 #include <atomic>
 #include <string>
 #include <sys/stat.h>
@@ -4374,7 +4375,7 @@ static SaveLoadResult DoLoad(std::shared_ptr<LoadFilter> reader, bool load_check
 			}
 		}
 	} else {
-		GamelogStartAction(GLAT_LOAD);
+		GamelogStartAction(GamelogActionType::Load);
 
 		/* After loading fix up savegame for any internal changes that
 		 * might have occurred since then. If it fails, load back the old game. */
@@ -4448,7 +4449,7 @@ SaveLoadResult SaveOrLoad(const std::string &filename, SaveLoadOperation fop, De
 			_sl_version = SL_MIN_VERSION;
 			_sl_minor_version = 0;
 			SlXvResetState();
-			GamelogStartAction(GLAT_LOAD);
+			GamelogStartAction(GamelogActionType::Load);
 			if (!AfterLoadGame()) {
 				GamelogStopAction();
 				return SaveLoadResult::ReInit;

@@ -47,6 +47,8 @@
 #include "rail_cmd.h"
 #include "economy_func.h"
 #include "maintenance_func.h"
+#include "tile_cmd.h"
+#include "road_layout_func.h"
 
 #include "table/strings.h"
 #include "table/roadtypes.h"
@@ -140,7 +142,7 @@ void InitRoadTypesCaches()
 	_collision_mode_roadtypes.fill({});
 	_roadtypes_non_train_colliding = {};
 
-	for (RoadType rt = ROADTYPE_BEGIN; rt != ROADTYPE_END; rt++) {
+	for (RoadType rt : EnumRange(ROADTYPE_END)) {
 		const RoadTypeInfo &rti = _roadtypes[rt];
 		_collision_mode_roadtypes[rti.collision_mode].Set(rt);
 		if (rti.extra_flags.Test(RoadTypeExtraFlag::NoTrainCollision)) _roadtypes_non_train_colliding.Set(rt);
@@ -231,7 +233,7 @@ static DiagDirection OneWaySideJunctionRoadRoadBitsToDiagDir(RoadBits bits)
 	 */
 	uint8_t bit = FindFirstBit((bits ^ ROAD_ALL).base());
 	bit ^= 3;
-	return (DiagDirection)((bit + 3 + (_settings_game.vehicle.road_side * 2)) % 4);
+	return (DiagDirection)((bit + 3 + (to_underlying(_settings_game.vehicle.road_side) * 2)) % 4);
 }
 
 inline bool IsOneWaySideJunctionRoadDRDsPresent(TileIndex tile, DiagDirection dir)
@@ -282,7 +284,7 @@ static void UpdateTileRoadCachedOneWayState(TileIndex tile)
 		if (HasExactlyOneBit(bits ^ ROAD_ALL)) {
 			DiagDirection dir = OneWaySideJunctionRoadRoadBitsToDiagDir(bits);
 			if (IsOneWaySideJunctionRoadDRDsPresent(tile, dir)) {
-				DiagDirection side_dir = (DiagDirection)((to_underlying(dir) + 3 + (_settings_game.vehicle.road_side * 2)) % 4);
+				DiagDirection side_dir = (DiagDirection)((to_underlying(dir) + 3 + (to_underlying(_settings_game.vehicle.road_side) * 2)) % 4);
 				TileIndexDiffC ti = TileIndexDiffCByDiagDir(side_dir);
 				TileIndex side = AddTileIndexDiffCWrap(tile, ti);
 
@@ -661,7 +663,7 @@ static CommandCost RemoveRoad(TileIndex tile, DoCommandFlags flags, RoadBits pie
 		}
 
 		case TileType::TunnelBridge: {
-			if (GetTunnelBridgeTransportType(tile) != TRANSPORT_ROAD) return CMD_ERROR;
+			if (GetTunnelBridgeTransportType(tile) != TransportType::Road) return CMD_ERROR;
 			CommandCost ret = TunnelBridgeIsFree(tile, GetOtherTunnelBridgeEnd(tile));
 			if (ret.Failed()) return ret;
 			break;
@@ -1241,7 +1243,7 @@ CommandCost CmdBuildRoad(DoCommandFlags flags, TileIndex tile, RoadBits pieces, 
 		}
 
 		case TileType::TunnelBridge: {
-			if (GetTunnelBridgeTransportType(tile) != TRANSPORT_ROAD) goto do_clear;
+			if (GetTunnelBridgeTransportType(tile) != TransportType::Road) goto do_clear;
 
 			const TileIndex other_end = GetOtherTunnelBridgeEnd(tile);
 
@@ -1809,7 +1811,7 @@ CommandCost CmdBuildRoadDepot(DoCommandFlags flags, TileIndex tile, RoadType rt,
 	}
 
 	if (IsBridgeAbove(tile)) {
-		CommandCost ret = IsDepotBridgeAboveOK(tile, TRANSPORT_ROAD, dir, GetBridgeAboveInfo(tile));
+		CommandCost ret = IsDepotBridgeAboveOK(tile, TransportType::Road, dir, GetBridgeAboveInfo(tile));
 		if (ret.Failed()) return ret;
 	}
 
@@ -2025,7 +2027,7 @@ void DrawRoadTypeCatenary(const TileInfo *ti, RoadType rt, RoadBits rb)
 		/* On junctions we check whether neighbouring tiles also have catenary, and possibly
 		 * do not draw catenary towards those neighbours, which do not have catenary. */
 		RoadBits rb_new{};
-		for (DiagDirection dir = DiagDirection::Begin; dir < DiagDirection::End; dir++) {
+		for (DiagDirection dir : EnumRange(DiagDirection::End)) {
 			if (rb.Any(DiagDirToRoadBits(dir))) {
 				TileIndex neighbour = TileAddByDiagDir(ti->tile, dir);
 				if (MayHaveRoad(neighbour)) {
@@ -2810,11 +2812,11 @@ static TrackStatus GetTileTrackStatus_Road(TileIndex tile, TransportType mode, u
 	TrackdirBits trackdirbits = TRACKDIR_BIT_NONE;
 	TrackdirBits red_signals = TRACKDIR_BIT_NONE; // crossing barred
 	switch (mode) {
-		case TRANSPORT_RAIL:
+		case TransportType::Rail:
 			if (IsLevelCrossing(tile)) trackdirbits = TrackBitsToTrackdirBits(GetCrossingRailBits(tile));
 			break;
 
-		case TRANSPORT_ROAD: {
+		case TransportType::Road: {
 			RoadTramType rtt = static_cast<RoadTramType>(GB(sub_mode, 0, 8));
 			if (!HasTileRoadType(tile, rtt)) break;
 			switch (GetRoadTileType(tile)) {
@@ -2846,7 +2848,7 @@ static TrackStatus GetTileTrackStatus_Road(TileIndex tile, TransportType mode, u
 
 							case RCOWS_SIDE_JUNCTION:
 							case RCOWS_SIDE_JUNCTION_NO_EXIT:
-								trackdirbits = static_cast<TrackdirBits>((_road_trackbits[bits.base()] * 0x101) & ~(_settings_game.vehicle.road_side ? left_turns : right_turns));
+								trackdirbits = static_cast<TrackdirBits>((_road_trackbits[bits.base()] * 0x101) & ~(_settings_game.vehicle.road_side == RoadVehicleDrivingSide::Right ? left_turns : right_turns));
 								if (rcows == RCOWS_SIDE_JUNCTION_NO_EXIT) trackdirbits &= ~no_exit_turns[FindFirstBit((bits ^ ROAD_ALL).base()) & 3];
 								break;
 
@@ -3204,7 +3206,7 @@ CommandCost CmdConvertRoad(DoCommandFlags flags, TileIndex tile, TileIndex area_
 				}
 				break;
 			case TileType::TunnelBridge:
-				if (GetTunnelBridgeTransportType(tile) != TRANSPORT_ROAD) continue;
+				if (GetTunnelBridgeTransportType(tile) != TransportType::Road) continue;
 				if (IsTunnel(tile) && RoadNoTunnels(to_type)) {
 					error.MakeError(STR_ERROR_TUNNEL_DISALLOWED_ROAD);
 					continue;

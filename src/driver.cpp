@@ -8,13 +8,12 @@
 /** @file driver.cpp Base for all driver handling. */
 
 #include "stdafx.h"
+#include "driver.h"
 #include "debug.h"
 #include "error.h"
 #include "error_func.h"
-#include "sound/sound_driver.hpp"
-#include "music/music_driver.hpp"
 #include "strings_func.h"
-#include "video/video_driver.hpp"
+#include "video/video_driver_base.hpp"
 #include "string_func.h"
 #include "fileio_func.h"
 #include "core/string_consumer.hpp"
@@ -221,7 +220,7 @@ void DriverFactoryBase::MarkVideoDriverOperational()
  */
 void DriverFactoryBase::GetDriversInfo(format_target &output)
 {
-	for (Driver::Type type = Driver::Type::Begin; type != Driver::Type::End; type++) {
+	for (Driver::Type type : EnumRange(Driver::Type::End)) {
 		output.format("List of {} drivers:\n", GetDriverTypeName(type));
 
 		for (int priority = 10; priority >= 0; priority--) {

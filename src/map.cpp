@@ -14,6 +14,7 @@
 #include "string_func.h"
 #include "rail_map.h"
 #include "tunnelbridge_map.h"
+#include "settings_type.h"
 #include "pathfinder/water_regions.h"
 #include "core/alloc_func.hpp"
 #include "3rdparty/cpp-ring-buffer/ring_buffer.hpp"
@@ -475,7 +476,7 @@ uint GetClosestWaterDistance(TileIndex tile, bool water)
 		y--;
 
 		/* going counter-clockwise around this square */
-		for (DiagDirection dir = DiagDirection::Begin; dir < DiagDirection::End; dir++) {
+		for (DiagDirection dir : EnumRange(DiagDirection::End)) {
 			static constexpr DiagDirectionIndexArray<int8_t> ddx{-1,  1,  1, -1};
 			static constexpr DiagDirectionIndexArray<int8_t> ddy{ 1,  1, -1, -1};
 
@@ -606,12 +607,12 @@ void DumpMapStats(format_target &buffer)
 				if (IsTunnelBridgeSignalSimulationBidirectional(t)) bucket |= TBB_SIGNALLED_BIDI;
 				if (IsTunnelBridgeRestrictedSignal(t)) restricted_signals++;
 			}
-			if (GetTunnelBridgeTransportType(t) == TRANSPORT_ROAD) {
+			if (GetTunnelBridgeTransportType(t) == TransportType::Road) {
 				if (HasTileRoadType(t, RoadTramType::Road)) bucket |= TBB_ROAD;
 				if (HasTileRoadType(t, RoadTramType::Tram)) bucket |= TBB_TRAM;
 			}
-			if (GetTunnelBridgeTransportType(t) == TRANSPORT_RAIL) bucket |= TBB_RAIL;
-			if (GetTunnelBridgeTransportType(t) == TRANSPORT_WATER) bucket |= TBB_WATER;
+			if (GetTunnelBridgeTransportType(t) == TransportType::Rail) bucket |= TBB_RAIL;
+			if (GetTunnelBridgeTransportType(t) == TransportType::Water) bucket |= TBB_WATER;
 			if (IsCustomBridgeHeadTile(t)) bucket |= TBB_CUSTOM_HEAD;
 			if (dual_rt) bucket |= TBB_DUAL_RT;
 			tunnel_bridge_stats[bucket]++;

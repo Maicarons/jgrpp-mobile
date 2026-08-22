@@ -27,6 +27,7 @@
 #include "viewport_func.h"
 #include "road_map.h"
 #include "animated_tile.h"
+#include "tile_cmd.h"
 #include "3rdparty/cpp-btree/btree_set.h"
 
 Zoning _zoning;
@@ -481,11 +482,11 @@ void DrawTileZoning(const TileInfo *ti)
 					{ -INF    , -INF   , INF    , 30 - 8  }  // CORNER_N, clip  8 pixels from bottom
 				};
 
-				DrawSelectionSprite(sprite, colour, ti, 7 + TILE_HEIGHT, FOUNDATION_PART_HALFTILE, 0, 0, &(sub_sprites[GetHalftileSlopeCorner(ti->tileh)]));
+				DrawSelectionSprite(sprite, colour, ti, 7 + TILE_HEIGHT, FoundationPart::Halftile, 0, 0, &(sub_sprites[GetHalftileSlopeCorner(ti->tileh)]));
 			} else {
 				sprite += SlopeToSpriteOffset(ti->tileh);
 			}
-			DrawSelectionSprite(sprite, colour, ti, 7, FOUNDATION_PART_NORMAL);
+			DrawSelectionSprite(sprite, colour, ti, 7, FoundationPart::Normal);
 		}
 	}
 }

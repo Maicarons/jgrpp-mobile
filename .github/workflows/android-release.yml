@@ -47,8 +47,9 @@ jobs:
         run: |
           git clone --depth 1 -b sdl_android https://github.com/pelya/commandergenius.git $RUNNER_TEMP/sdl-android
           cd $RUNNER_TEMP/sdl-android
-          # jpeg/png modules are built from the sdl2_image submodule, so these are required
-          git submodule update --init --depth=1 project/jni/iconv/src \
+          # jpeg/png modules are built from the sdl2_image submodule (recursively:
+          # their sources live in SDL_image's nested submodules)
+          git submodule update --init --recursive --depth=1 project/jni/iconv/src \
             project/jni/sdl2 project/jni/sdl2_image \
             project/jni/sdl2_mixer project/jni/sdl2_ttf
 

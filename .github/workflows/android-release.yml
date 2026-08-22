@@ -1,0 +1,133 @@
+name: Android APK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for the APK (e.g. 0.73.1)'
+        required: false
+        default: '0.73.1'
+      ref:
+        description: 'Branch or tag of jgrpp source to build'
+        required: false
+        default: 'jgrpp-0.73.1-mobile'
+  push:
+    tags:
+      - 'jgrpp-*-android'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    env:
+      APP_NAME: openttd-jgrpp
+      # Each extra ABI costs ~1h of ICU compilation; two ABIs cover nearly all devices
+      ARCH_LIST: armeabi-v7a arm64-v8a
+      ANDROID_BUILD_TOOLS: 35.0.0
+      VERSION_NAME: ${{ github.event.inputs.version || '0.73.1' }}
+      SOURCE_REF: ${{ github.event.inputs.ref || 'jgrpp-0.73.1-mobile' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Check out jgrpp-mobile source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Check out pelya/commandergenius (Android packaging)
+        run: |
+          git clone --depth 1 https://github.com/pelya/commandergenius.git $RUNNER_TEMP/sdl-android
+          cd $RUNNER_TEMP/sdl-android
+          git submodule update --init --depth=1 project/jni/iconv/src
+
+      - name: Install jgrpp source into packaging tree
+        run: |
+          rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src
+          cp -r $GITHUB_WORKSPACE $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src
+          rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src/.git
+
+      - name: Configure app settings
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          CFG=project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
+          sed -i "s/^MultiABI=.*/MultiABI='${ARCH_LIST}'/" $CFG
+          sed -i "s/^AppVersionName=.*/AppVersionName=\"${VERSION_NAME}\"/" $CFG
+          sed -i "s/^AppVersionCode=.*/AppVersionCode=7310/" $CFG
+          ln -sf openttd-jgrpp project/jni/application/src
+
+      - name: Get ICU revision for cache
+        id: icu-rev
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: echo "ICU_REV=`git -C project/jni/iconv/src rev-parse HEAD`::`echo ${ARCH_LIST} | sed 's/ /:/g'`" >> $GITHUB_ENV
+
+      - name: Cache ICU libraries
+        uses: actions/cache@v4
+        id: cache-icu
+        with:
+          key: ${{env.ICU_REV}}
+          path: |
+            ${{ runner.temp }}/sdl-android/project/jni/iconv/include
+            ${{ runner.temp }}/sdl-android/project/jni/iconv/lib
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/include
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/lib
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/share/icu
+
+      - name: Touch cached ICU timestamps
+        if: steps.cache-icu.outputs.cache-hit == 'true'
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: touch project/jni/iconv/lib/*/* project/jni/icuuc/lib/*/* project/jni/icuuc/share/icu/*/* || true
+
+      - name: Patch Java files and build Boost, ICU, and OpenSSL
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_NDK_LATEST_HOME:$PATH
+          ./changeAppSettings.sh
+
+      - name: Set up Gradle and Android SDK licenses
+        working-directory: ${{ runner.temp }}/sdl-android/project
+        run: |
+          for Y in `seq 20`; do echo y; done | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          ./gradlew assembleRelease || true
+          for Y in `seq 20`; do echo y; done | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=`pwd`
+          mkdir -p $HOME/.android
+          keytool -genkey -v -keystore $HOME/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=Debug"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "proguard.config=proguard.cfg;proguard-local.cfg" >> local.properties
+
+      - name: Build APK
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_NDK_LATEST_HOME:$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
+          ./build.sh
+
+      - name: Sign APK with debug key
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
+          mkdir -p $GITHUB_WORKSPACE/upload
+          ./sign.sh
+          mv *.apk $GITHUB_WORKSPACE/upload/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jgrpp-${{ env.VERSION_NAME }}-android
+          path: upload
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION_NAME }}-android
+          name: JGRPP ${{ env.VERSION_NAME }} Android
+          files: upload/*.apk
+          generate_release_notes: true

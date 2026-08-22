@@ -33,7 +33,7 @@ public:
 
 	const char *GetName() const override { return "sdl"; }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 	Dimension GetScreenSize() const override;
 #endif
 

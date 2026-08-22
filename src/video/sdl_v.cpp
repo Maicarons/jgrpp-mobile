@@ -26,7 +26,7 @@
 #include "../window_func.h"
 #include "sdl_v.h"
 #include <SDL.h>
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 #include <SDL_screenkeyboard.h>
 #include <SDL_android.h>
 #endif
@@ -153,7 +153,7 @@ void VideoDriver_SDL::Paint()
 	PerformanceMeasurer framerate(PFE_VIDEO);
 
 	int n = _num_dirty_rects;
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 	if (n == 0 && !_left_button_down) return; // We have to update the screen regularly to receive mouse_up event on Android
 #else
 	if (n == 0) return;
@@ -217,7 +217,7 @@ static void GetVideoModes()
 			_resolutions.emplace_back(w, h);
 		}
 		if (_resolutions.empty()) UserError("No usable screen resolutions found!\n");
-#if !defined(__ANDROID__) // Android has native screen sizes first, do not sort them
+#if !defined(__ANDROID__) && !defined(__OHOS__) // Android has native screen sizes first, do not sort them
 		SortResolutions();
 #endif
 	}
@@ -392,7 +392,7 @@ bool VideoDriver_SDL::CreateMainSurface(uint w, uint h)
 
 	GameSizeChanged();
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 	if (!_multitouch_device) {
 		SDL_InitSubSystem(SDL_INIT_JOYSTICK);
 		_multitouch_device = SDL_JoystickOpen(0);
@@ -408,7 +408,7 @@ void VideoDriver_SDL::ClaimMousePointer()
 	SDL_ShowCursor(0);
 }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 Dimension VideoDriver_SDL::GetScreenSize() const
 {
 	const auto metrics = SDL_ANDROID_GetDisplayMetrics();
@@ -498,7 +498,7 @@ static uint ConvertSdlKeyIntoMy(SDL_keysym *sym, char32_t *character)
 	if (sym->scancode == 49) key = WKC_BACKSPACE;
 #elif defined(__sgi__)
 	if (sym->scancode == 22) key = WKC_BACKQUOTE;
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(__OHOS__)
 	if (sym->scancode == SDLK_BACKQUOTE) key = WKC_BACKQUOTE;
 #else
 	if (sym->scancode == 49) key = WKC_BACKQUOTE;
@@ -535,7 +535,7 @@ bool VideoDriver_SDL::PollEvent()
 			}
 
 			if (_cursor.UpdateCursorPosition(x, y)) {
-#ifndef __ANDROID__ // No mouse warping on Android, mouse strictly follows finger
+#if !defined(__ANDROID__) && !defined(__OHOS__) && !defined(__OHOS__) // No mouse warping on Android, mouse strictly follows finger
 				SDL_WarpMouse(_cursor.pos.x, _cursor.pos.y);
 #endif
 			}
@@ -558,7 +558,7 @@ bool VideoDriver_SDL::PollEvent()
 					_right_button_clicked = true;
 					break;
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 				case SDL_BUTTON_WHEELUP:
 				case SDL_BUTTON_WHEELDOWN:
 					_cursor.wheel += (ev.button.button == SDL_BUTTON_WHEELDOWN) ? 1 : -1;
@@ -591,7 +591,7 @@ bool VideoDriver_SDL::PollEvent()
 			}
 			HandleMouseEvents();
 			break;
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__OHOS__) && !defined(__OHOS__)
 		case SDL_ACTIVEEVENT:
 			if (!(ev.active.state & SDL_APPMOUSEFOCUS)) break;
 
@@ -619,7 +619,7 @@ bool VideoDriver_SDL::PollEvent()
 			break;
 		case SDL_KEYUP:
 			break;
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 		case SDL_JOYBALLMOTION:
 			if (ev.jball.which == 0 && ev.jball.ball == 1) {
 				_multitouch_second_point.x = ev.jball.xrel;
@@ -627,7 +627,7 @@ bool VideoDriver_SDL::PollEvent()
 			}
 			break;
 #endif /* not __ANDROID__ */
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__OHOS__) && !defined(__OHOS__)
 		case SDL_VIDEORESIZE: {
 			int w = std::max(ev.resize.w, 64);
 			int h = std::max(ev.resize.h, 64);

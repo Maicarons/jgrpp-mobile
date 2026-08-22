@@ -111,6 +111,13 @@ if(ANDROID)
     add_definitions(-DNO_TAGGED_PTRS)
 endif()
 
+# On OpenHarmony/HarmonyOS the same approach is used via OhosSDL.cmake, generated
+# by harmony/build-ohos.sh; SDL2 comes from sdl2-compat on top of SDL3 (OHOS port).
+if(OHOS)
+    include(OhosSDL)
+    add_definitions(-DNO_TAGGED_PTRS)
+endif()
+
 if(APPLE)
 	# Avoid searching for headers in Frameworks, and libraries in LIBDIR.
 	set(CMAKE_FIND_FRAMEWORK LAST)
@@ -276,10 +283,20 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
 
 include(MSVCFilters)
 
-if(ANDROID)
-    set(BINARY_NAME application)
+if(ANDROID OR OHOS)
+    if(OHOS)
+        # On HarmonyOS the game is dlopen()-ed by SDL3's NAPI launcher and its
+        # main() is called from there, so it is built as a shared library too.
+        set(BINARY_NAME openttd)
+    else()
+        set(BINARY_NAME application)
+    endif()
     add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
-    target_link_libraries(openttd_lib log z)
+    if(ANDROID)
+        target_link_libraries(openttd_lib log z)
+    else()
+        target_link_libraries(openttd_lib z)
+    endif()
     add_library(openttd SHARED)
     add_executable(openttd_test)
     set_target_properties(openttd_test PROPERTIES EXCLUDE_FROM_ALL TRUE)

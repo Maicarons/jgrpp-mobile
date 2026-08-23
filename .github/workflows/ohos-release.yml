@@ -18,6 +18,11 @@ permissions:
 env:
   OHOS_SDK_VERSION: '6.0-Release'
   OHOS_SDK_URL: 'https://repo.huaweicloud.com/openharmony/os/6.0-Release/ohos-sdk-windows_linux-public.tar.gz'
+  # @ohos/hvigor is NOT published to npmjs; the canonical headless source for
+  # hvigorw/ohpm is Huawei's command-line-tools bundle (it also carries the
+  # full SDK, but we take only bin/ and keep the separately downloaded SDK).
+  CLT_URL: 'https://image.cdn.dog/commandline-tools-linux-x64-6.1.1.280.zip'
+  CLT_SHA256: 'b9caf7b73c541b90e6c8f3c7c3de7f2bea9b35e41e80cd3525f2f759ebf16cf4'
   OPENGFX_URL: 'https://cdn.openttd.org/opengfx-releases/7.1/opengfx-7.1-all.zip'
 
 jobs:
@@ -35,6 +40,11 @@ jobs:
         with:
           fetch-depth: 1
           ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up Node (needed by hvigor)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Install cross-compilation tools
         run: |
@@ -83,15 +93,27 @@ jobs:
             -exec cp {} "$RAW/data/" \;
           ls -la "$RAW/data" | head
 
-      - name: Install hvigor
+      - name: Download command-line-tools (hvigor + ohpm)
         run: |
-          npm install -g @ohos/hvigor @ohos/hvigor-ohos-plugin
-          hvigor --version
+          curl -fL --retry 3 -o "$RUNNER_TEMP/clt.zip" "$CLT_URL"
+          echo "$CLT_SHA256  $RUNNER_TEMP/clt.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/clt-root"
+          unzip -q "$RUNNER_TEMP/clt.zip" -d "$RUNNER_TEMP/clt-root"
+          CLT="$RUNNER_TEMP/clt-root/command-line-tools"
+          test -f "$CLT/bin/hvigorw"
+          # zips created on Windows lose the unix exec bits
+          chmod +x "$CLT/bin/"*
+          echo "$CLT/bin" >> $GITHUB_PATH
+          hvigorw --version
+
+      - name: Install project dependencies (ohpm)
+        working-directory: harmony/app
+        run: ohpm install --all
 
       - name: Build unsigned HAP
         working-directory: harmony/app
         run: |
-          hvigor --no-daemon assembleHap --mode module -p product=default -p buildMode=release
+          hvigorw --no-daemon assembleHap --mode module -p product=default -p buildMode=release
 
       - name: Stage HAP
         run: |

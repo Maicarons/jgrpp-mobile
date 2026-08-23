@@ -89,7 +89,7 @@ jobs:
       - name: Get ICU revision for cache
         id: icu-rev
         working-directory: ${{ runner.temp }}/sdl-android
-        run: echo "ICU_REV=`git -C project/jni/iconv/src rev-parse HEAD`::`echo ${ARCH_LIST} | sed 's/ /:/g'`" >> $GITHUB_ENV
+        run: echo "ICU_REV=`git -C project/jni/iconv/src rev-parse HEAD`::`echo ${ARCH_LIST} | sed 's/ /:/g'`-hb2" >> $GITHUB_ENV
 
       - name: Cache ICU libraries
         uses: actions/cache@v4
@@ -125,6 +125,19 @@ jobs:
           # android-21 and failed with "undeclared identifier 'getifaddrs'".
           # Inject -DANDROID_PLATFORM=android-24 into its CMake command.
           awk '1; /^[[:space:]]*cmake[[:space:]]/{print "\t-DANDROID_PLATFORM=android-24 \\"}' project/jni/application/openttd-jgrpp/AndroidBuild.sh > /tmp/ab.tmp && mv /tmp/ab.tmp project/jni/application/openttd-jgrpp/AndroidBuild.sh && chmod +x project/jni/application/openttd-jgrpp/AndroidBuild.sh
+          # pelya builds harfbuzz into iconv/src/<arch>/lib/, which is NOT a
+          # cached path — on a warm cache make skips its build entirely and
+          # the archive vanishes, breaking freetype's hb_* link symbols.
+          # Preserve it inside the already-cached icuuc/lib tree.
+          for A in ${ARCH_LIST}; do
+            SRC="project/jni/iconv/src/$A/lib/libharfbuzz.a"
+            DST="project/jni/icuuc/lib/$A/libharfbuzz.a"
+            if [ -f "$SRC" ]; then
+              mkdir -p "project/jni/icuuc/lib/$A"
+              cp -f "$SRC" "$DST"
+            fi
+          done
+          ls project/jni/icuuc/lib/*/libharfbuzz.a
 
       - name: Set up Gradle and Android SDK licenses
         working-directory: ${{ runner.temp }}/sdl-android/project

@@ -154,11 +154,17 @@ if(NOT OPTION_DEDICATED)
                 # and nothing else on the Android link line pulls in harfbuzz
                 # since upstream dropped ICU; attach it to freetype or the
                 # afshaper.c hb_* symbols stay undefined at link time.
-                set(JGRPP_ANDROID_HARFBUZZ "${CMAKE_CURRENT_SOURCE_DIR}/../../../iconv/src/${ANDROID_ABI}/lib/libharfbuzz.a")
-                if(EXISTS "${JGRPP_ANDROID_HARFBUZZ}")
-                    set_property(TARGET Freetype::Freetype APPEND PROPERTY
-                        INTERFACE_LINK_LIBRARIES "${JGRPP_ANDROID_HARFBUZZ}")
-                endif()
+                # First path = preserved into the CI cache by the workflow;
+                # second = fresh pelya build output on a cold cache.
+                foreach(_hb_path
+                        "${CMAKE_CURRENT_SOURCE_DIR}/../../../icuuc/lib/${ANDROID_ABI}/libharfbuzz.a"
+                        "${CMAKE_CURRENT_SOURCE_DIR}/../../../iconv/src/${ANDROID_ABI}/lib/libharfbuzz.a")
+                    if(EXISTS "${_hb_path}")
+                        set_property(TARGET Freetype::Freetype APPEND PROPERTY
+                            INTERFACE_LINK_LIBRARIES "${_hb_path}")
+                        break()
+                    endif()
+                endforeach()
             endif()
             find_package(SDL2)
             if(NOT SDL2_FOUND)

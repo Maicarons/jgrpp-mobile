@@ -417,7 +417,7 @@ Dimension VideoDriver_SDL::GetScreenSize() const
 	if (info != nullptr && info->current_w > 0 && info->current_h > 0) {
 		return { static_cast<uint>(info->current_w), static_cast<uint>(info->current_h) };
 	}
-	return { DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT };
+	return VideoDriver::GetScreenSize();
 }
 #endif
 

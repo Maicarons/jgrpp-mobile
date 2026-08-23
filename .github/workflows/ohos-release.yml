@@ -104,7 +104,9 @@ jobs:
           # zips created on Windows lose the unix exec bits
           chmod +x "$CLT/bin/"*
           echo "$CLT/bin" >> $GITHUB_PATH
-          hvigorw --version
+          # NB: PATH updates above only affect later steps, so use the full
+          # path here.
+          "$CLT/bin/hvigorw" --version
 
       - name: Install project dependencies (ohpm)
         working-directory: harmony/app

@@ -17,6 +17,7 @@ permissions:
   issues: write
 
 env:
+  GH_REPO: ${{ github.repository }}
   # @ohos/hvigor is NOT published to npmjs; the canonical headless source for
   # hvigorw/ohpm is Huawei's command-line-tools bundle. It also carries the
   # complete SDK (ets/js/native/previewer/toolchains) that hvigor validates

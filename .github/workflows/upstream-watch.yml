@@ -30,6 +30,9 @@ permissions:
 
 env:
   UPSTREAM_REPO: JGRennison/OpenTTD-patches
+  # The merge step adds a git remote named "upstream"; without this, bare gh
+  # commands resolve to that remote's repo instead of ours (404s / denied).
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   watch:

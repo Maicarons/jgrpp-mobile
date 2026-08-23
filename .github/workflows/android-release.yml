@@ -19,6 +19,9 @@ permissions:
   contents: write
   issues: write
 
+env:
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   build:
     env:

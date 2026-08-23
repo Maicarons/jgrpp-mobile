@@ -53,6 +53,20 @@ jobs:
             project/jni/sdl2 project/jni/sdl2_image \
             project/jni/sdl2_mixer project/jni/sdl2_ttf
 
+      - name: Materialize libpng config header
+        run: |
+          # png.h lives in sdl2_image's nested libpng submodule (jni/png/include
+          # symlinks there), but pnglibconf.h is a generated file the git repo
+          # does not carry; libpng ships a prebuilt template for exactly this.
+          PNG_DIR="$RUNNER_TEMP/sdl-android/project/jni/sdl2_image/external/libpng"
+          test -f "$PNG_DIR/png.h"
+          if [ ! -f "$PNG_DIR/pnglibconf.h" ]; then
+            cp "$PNG_DIR/scripts/pnglibconf.h.prebuilt" "$PNG_DIR/pnglibconf.h" 2>/dev/null || \
+              curl -fsSL https://raw.githubusercontent.com/pnggroup/libpng/v1.6.44/scripts/pnglibconf.h.prebuilt \
+                -o "$PNG_DIR/pnglibconf.h"
+          fi
+          test -f "$PNG_DIR/pnglibconf.h"
+
       - name: Install jgrpp source into packaging tree
         run: |
           rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src

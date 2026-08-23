@@ -150,7 +150,7 @@ void VideoDriver_SDL::CheckPaletteAnim()
 
 void VideoDriver_SDL::Paint()
 {
-	PerformanceMeasurer framerate(PFE_VIDEO);
+	PerformanceMeasurer framerate(PerformanceElement::Video);
 
 	int n = _num_dirty_rects;
 #if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
@@ -411,8 +411,13 @@ void VideoDriver_SDL::ClaimMousePointer()
 #if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 Dimension VideoDriver_SDL::GetScreenSize() const
 {
-	const auto metrics = SDL_ANDROID_GetDisplayMetrics();
-	return { static_cast<uint>(metrics.width), static_cast<uint>(metrics.height) };
+	/* The Android SDL backend fills SDL_VideoInfo with the real screen size
+	 * during video init, before any window is created. */
+	const SDL_VideoInfo *info = SDL_GetVideoInfo();
+	if (info != nullptr && info->current_w > 0 && info->current_h > 0) {
+		return { static_cast<uint>(info->current_w), static_cast<uint>(info->current_h) };
+	}
+	return { DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT };
 }
 #endif
 

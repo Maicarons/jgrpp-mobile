@@ -29,7 +29,6 @@ jobs:
     env:
       VERSION_NAME: ${{ github.event.inputs.version || '0.73.1' }}
       SOURCE_REF: ${{ github.event.inputs.ref || 'jgrpp' }}
-      DEVECO_SDK_HOME: ${{ runner.temp }}/clt-root/command-line-tools/sdk
 
     runs-on: ubuntu-latest
 
@@ -59,11 +58,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/clt-root"
           unzip -q "$RUNNER_TEMP/clt.zip" -d "$RUNNER_TEMP/clt-root"
           CLT="$RUNNER_TEMP/clt-root/command-line-tools"
+          SDK="$CLT/sdk"
           test -f "$CLT/bin/hvigorw"
-          test -f "$DEVECO_SDK_HOME/default/openharmony/native/build/cmake/ohos.toolchain.cmake"
+          test -f "$SDK/default/openharmony/native/build/cmake/ohos.toolchain.cmake"
           # zips created on Windows lose the unix exec bits
           chmod +x "$CLT/bin/"*
-          chmod +x "$DEVECO_SDK_HOME"/default/openharmony/native/llvm/bin/*
+          chmod +x "$SDK"/default/openharmony/native/llvm/bin/*
+          echo "DEVECO_SDK_HOME=$SDK" >> $GITHUB_ENV
           echo "$CLT/bin" >> $GITHUB_PATH
           # NB: PATH updates above only affect later steps, so use the full
           # path here.

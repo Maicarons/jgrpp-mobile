@@ -93,7 +93,9 @@ jobs:
       - name: Patch Java files and build Boost, ICU, and OpenSSL
         working-directory: ${{ runner.temp }}/sdl-android
         run: |
-          # getifaddrs() requires Android API 24
+          # getifaddrs() requires Android API 24; pelya's template leaves
+          # APP_PLATFORM empty, which pelya's build.sh defaults to android-21.
+          sed -i 's/^APP_PLATFORM=.*/APP_PLATFORM=android-24/' project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
           sed -i 's/minSdk 21/minSdk 24/' project/app/build-template.gradle
           export PATH=$ANDROID_NDK_LATEST_HOME:$PATH
           ./changeAppSettings.sh

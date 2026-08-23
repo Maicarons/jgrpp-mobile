@@ -101,6 +101,11 @@ jobs:
         run: |
           mkdir -p upload
           find harmony/app -path '*build*' -name '*.hap' -exec cp {} upload/ \;
+          # hvigor always emits entry-default-unsigned.hap; give the published
+          # artifact a name consistent with the APK and the release tag.
+          for f in upload/*.hap; do
+            mv "$f" "upload/jgrpp-mobile-${VERSION_NAME}-harmonyos-unsigned.hap"
+          done
           ls -la upload/
 
       - name: Upload HAP artifact
@@ -116,4 +121,3 @@ jobs:
           tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
           name: jgrpp-mobile-${{ env.VERSION_NAME }}
           files: upload/*.hap
-          generate_release_notes: true

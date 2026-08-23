@@ -160,4 +160,3 @@ jobs:
           tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
           name: jgrpp-mobile-${{ env.VERSION_NAME }}
           files: upload/*.apk
-          generate_release_notes: true

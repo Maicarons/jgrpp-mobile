@@ -49,8 +49,8 @@ namespace SlSerialise {
 #if OTTD_ALIGNMENT == 0
 		return FROM_BE64(*((const unaligned_uint64 *)b));
 #else
-		uint32_t x = this->RawReadUint32At(b);
-		uint32_t y = this->RawReadUint32At(b + 4);
+		uint32_t x = RawReadUint32At(b);
+		uint32_t y = RawReadUint32At(b + 4);
 		return (uint64_t)x << 32 | y;
 #endif
 	}

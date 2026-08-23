@@ -162,6 +162,11 @@ struct CmdPair {
 	const CmdStruct *cmd;
 	std::string param;
 
+	/* Constructor instead of aggregate: parenthesised aggregate initialisation
+	 * is not supported by all in-use compilers (clang < 16). */
+	CmdPair(const CmdStruct *cmd, std::string &&param) : cmd(cmd), param(std::move(param)) {}
+	CmdPair(const CmdStruct *cmd, const std::string &param) : cmd(cmd), param(param) {}
+
 	auto operator<=>(const CmdPair &other) const = default;
 };
 

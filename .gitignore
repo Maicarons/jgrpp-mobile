@@ -9,3 +9,7 @@ docs/source/*
 /vcpkg_installed
 *.tmp
 /cmake/OhosSDL.cmake
+harmony/build/
+harmony/build-ohos-run*.log
+harmony/app/entry/libs/
+harmony/app/entry/src/main/resources/rawfile/

@@ -1,9 +1,9 @@
 {
   "app": {
-    "bundleName": "org.libsdl.SdlShell",
-    "vendor": "libsdl-org",
-    "versionCode": 1000000,
-    "versionName": "1.0.0",
+    "bundleName": "org.openttd.jgrpp_mobile",
+    "vendor": "openttd",
+    "versionCode": 1000073,
+    "versionName": "0.73.1",
     "icon": "$media:layered_image",
     "label": "$string:app_name"
   }

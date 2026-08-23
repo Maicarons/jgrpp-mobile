@@ -1,0 +1,103 @@
+name: Upstream Release Watcher
+
+# Detects new releases of the upstream JGR patch pack and, when one appears,
+# merges it into the rolling `jgrpp` branch (keeping our mobile adaptations on
+# conflict) and dispatches the Android + HarmonyOS release workflows so a new
+# jgrpp-mobile-<version> is published automatically.
+#
+# NOTE: This workflow never pushes to the upstream repository. It only pushes
+# the merge + the version marker back to this repository (origin).
+
+on:
+  schedule:
+    # Every 6 hours, offset to avoid the top of the hour.
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_version:
+        description: 'Force-merge and release this upstream version (e.g. 0.73.2). Leave empty for normal watch mode.'
+        required: false
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  UPSTREAM_REPO: JGRennison/OpenTTD-patches
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out mobile repo
+        uses: actions/checkout@v4
+        with:
+          ref: jgrpp
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Resolve upstream latest release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ github.event.inputs.force_version }}" ]; then
+            TAG="jgrpp-${{ github.event.inputs.force_version }}"
+          else
+            TAG=$(gh api repos/$UPSTREAM_REPO/releases/latest --jq '.tag_name')
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#jgrpp-}" >> "$GITHUB_OUTPUT"
+          echo "Upstream tag: $TAG"
+
+      - name: Read last synced version
+        id: last
+        run: |
+          LAST=$(cat .github/upstream-release 2>/dev/null || echo "")
+          echo "last=$LAST" >> "$GITHUB_OUTPUT"
+          echo "Last synced: '${LAST}'"
+
+      - name: Decide whether to act
+        id: decide
+        run: |
+          if [ "${{ steps.upstream.outputs.version }}" = "${{ steps.last.outputs.last }}" ]; then
+            echo "Already synced to ${{ steps.upstream.outputs.version }}; nothing to do."
+            echo "do=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "New upstream ${{ steps.upstream.outputs.version }} (was ${{ steps.last.outputs.last }})"
+            echo "do=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge upstream into jgrpp
+        if: steps.decide.outputs.do == 'yes'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "bot@jgrpp-mobile.local"
+          git config user.name "jgrpp-mobile bot"
+          git remote add upstream "https://github.com/$UPSTREAM_REPO.git" \
+            || git remote set-url upstream "https://github.com/$UPSTREAM_REPO.git"
+          git fetch --tags upstream "${{ steps.upstream.outputs.tag }}"
+          # Keep our mobile adaptations on conflict; they live in isolated
+          # files (harmony/, .github/, Android app shell) plus a handful of
+          # targeted source edits that upstream is unlikely to touch.
+          git merge -X ours --no-edit "${{ steps.upstream.outputs.tag }}"
+          printf '%s\n' "${{ steps.upstream.outputs.version }}" > .github/upstream-release
+          git add .github/upstream-release
+          git commit -m "Merge upstream ${{ steps.upstream.outputs.tag }} [bot]" || true
+          git push origin jgrpp
+
+      - name: Tag release branch marker
+        if: steps.decide.outputs.do == 'yes'
+        run: |
+          git branch -f "jgrpp-${{ steps.upstream.outputs.version }}-mobile" jgrpp
+          git push origin "jgrpp-${{ steps.upstream.outputs.version }}-mobile"
+
+      - name: Dispatch Android + HarmonyOS release builds
+        if: steps.decide.outputs.do == 'yes'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER="${{ steps.upstream.outputs.version }}"
+          gh workflow run android-release.yml -f version="$VER" -f ref=jgrpp
+          gh workflow run ohos-release.yml -f version="$VER" -f ref=jgrpp

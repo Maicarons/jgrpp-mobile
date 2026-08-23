@@ -10,7 +10,7 @@ on:
       ref:
         description: 'Branch or tag of jgrpp source to build'
         required: false
-        default: 'jgrpp-0.73.1-mobile'
+        default: 'jgrpp'
   push:
     tags:
       - 'jgrpp-*-android'

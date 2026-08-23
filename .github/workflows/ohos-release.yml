@@ -1,0 +1,115 @@
+name: HarmonyOS HAP Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for the HAP (e.g. 0.73.1)'
+        required: false
+        default: '0.73.1'
+      ref:
+        description: 'Branch of jgrpp-mobile source to build'
+        required: false
+        default: 'jgrpp'
+
+permissions:
+  contents: write
+
+env:
+  OHOS_SDK_VERSION: '6.0-Release'
+  OHOS_SDK_URL: 'https://repo.huaweicloud.com/openharmony/os/6.0-Release/ohos-sdk-windows_linux-public.tar.gz'
+  OPENGFX_URL: 'https://cdn.openttd.org/opengfx-releases/7.1/opengfx-7.1-all.zip'
+
+jobs:
+  build-hap:
+    env:
+      VERSION_NAME: ${{ github.event.inputs.version || '0.73.1' }}
+      SOURCE_REF: ${{ github.event.inputs.ref || 'jgrpp' }}
+      DEVECO_SDK_HOME: ${{ github.workspace }}/ohos-sdk
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out jgrpp-mobile source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build llvm-18 lld-18
+          echo "OHOS_CLANG_PREFIX=/usr/lib/llvm-18/bin" >> $GITHUB_ENV
+          echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
+
+      - name: Download and lay out OpenHarmony SDK
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/ohos-sdk.tar.gz" "$OHOS_SDK_URL"
+          mkdir -p "$RUNNER_TEMP/sdk-bundle"
+          tar -xzf "$RUNNER_TEMP/ohos-sdk.tar.gz" -C "$RUNNER_TEMP/sdk-bundle"
+          LINUX_DIR=$(find "$RUNNER_TEMP/sdk-bundle" -maxdepth 2 -type d -name linux | head -1)
+          test -n "$LINUX_DIR"
+          mkdir -p "$RUNNER_TEMP/sdk-components"
+          for Z in "$LINUX_DIR"/*-linux-x64-*.zip; do
+            unzip -q "$Z" -d "$RUNNER_TEMP/sdk-components"
+          done
+          # hvigor expects $DEVECO_SDK_HOME/<flavour>/openharmony/{ets,js,native,previewer,toolchains}
+          mkdir -p "$DEVECO_SDK_HOME/default/openharmony"
+          for D in "$RUNNER_TEMP/sdk-components"/*/; do
+            NAME=$(basename "$D")
+            case "$NAME" in
+              ets|js|native|previewer|toolchains)
+                mv "$D" "$DEVECO_SDK_HOME/default/openharmony/$NAME" ;;
+            esac
+          done
+          test -f "$DEVECO_SDK_HOME/default/openharmony/native/build/cmake/ohos.toolchain.cmake"
+
+      - name: Cross-compile jgrpp libraries (libopenttd.so, SDL3, sdl2-compat)
+        run: |
+          export OHOS_NATIVE_SDK="$DEVECO_SDK_HOME/default/openharmony/native"
+          bash harmony/build-ohos.sh
+
+      # build-ohos.sh already mirrors baseset/lang/ai/game/media/scripts into
+      # rawfile/openttd. Here we only fetch the external base graphics (OpenGFX)
+      # so the game has something to render.
+      - name: Fetch base graphics (OpenGFX) into rawfile
+        run: |
+          RAW=harmony/app/entry/src/main/resources/rawfile/openttd
+          mkdir -p "$RAW/data"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/opengfx.zip" "$OPENGFX_URL"
+          unzip -q "$RUNNER_TEMP/opengfx.zip" -d "$RUNNER_TEMP/opengfx"
+          find "$RUNNER_TEMP/opengfx" \( -name '*.grf' -o -name '*.obg' -o -name '*.obs' \) \
+            -exec cp {} "$RAW/data/" \;
+          ls -la "$RAW/data" | head
+
+      - name: Install hvigor
+        run: |
+          npm install -g @ohos/hvigor @ohos/hvigor-ohos-plugin
+          hvigor --version
+
+      - name: Build unsigned HAP
+        working-directory: harmony/app
+        run: |
+          hvigor --no-daemon assembleHap --mode module -p product=default -p buildMode=release
+
+      - name: Stage HAP
+        run: |
+          mkdir -p upload
+          find harmony/app -path '*build*' -name '*.hap' -exec cp {} upload/ \;
+          ls -la upload/
+
+      - name: Upload HAP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}-harmonyos
+          path: upload
+          if-no-files-found: error
+
+      - name: Attach HAP to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          files: upload/*.hap
+          generate_release_notes: true

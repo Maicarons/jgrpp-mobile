@@ -106,7 +106,7 @@ jobs:
           # toolchain but never sets ANDROID_PLATFORM, so CMake defaulted to
           # android-21 and failed with "undeclared identifier 'getifaddrs'".
           # Inject -DANDROID_PLATFORM=android-24 into its CMake command.
-          awk '1; /^[[:space:]]*cmake[[:space:]]/{print "\t-DANDROID_PLATFORM=android-24 \\"}' project/jni/application/openttd-jgrpp/AndroidBuild.sh > /tmp/ab.tmp && mv /tmp/ab.tmp project/jni/application/openttd-jgrpp/AndroidBuild.sh
+          awk '1; /^[[:space:]]*cmake[[:space:]]/{print "\t-DANDROID_PLATFORM=android-24 \\"}' project/jni/application/openttd-jgrpp/AndroidBuild.sh > /tmp/ab.tmp && mv /tmp/ab.tmp project/jni/application/openttd-jgrpp/AndroidBuild.sh && chmod +x project/jni/application/openttd-jgrpp/AndroidBuild.sh
 
       - name: Set up Gradle and Android SDK licenses
         working-directory: ${{ runner.temp }}/sdl-android/project

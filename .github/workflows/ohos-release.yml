@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 env:
   # @ohos/hvigor is NOT published to npmjs; the canonical headless source for
@@ -121,3 +122,26 @@ jobs:
           tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
           name: jgrpp-mobile-${{ env.VERSION_NAME }}
           files: upload/*.hap
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="[ohos-release] HAP build failed on jgrpp"
+          BODY="The HarmonyOS HAP release build failed, so no new HAP was
+          published. Likely causes: upstream merge broke the OHOS port, or
+          an ArkTS/SDK incompatibility in harmony/app.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Fix on \`jgrpp\`, then dispatch **HarmonyOS HAP Release** (and
+          **Upstream Release Watcher** with \`force_version\` if the version
+          marker already moved)."
+
+          NUM=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

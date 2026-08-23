@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -160,3 +161,26 @@ jobs:
           tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
           name: jgrpp-mobile-${{ env.VERSION_NAME }}
           files: upload/*.apk
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="[android-release] APK build failed on jgrpp"
+          BODY="The Android APK release build failed, so no new APK was
+          published. Likely cause: an upstream merge broke our Android
+          adaptation (API renames in patched files are the usual suspect).
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Fix on \`jgrpp\`, then dispatch **Android APK Release** (and
+          **Upstream Release Watcher** with \`force_version\` if the version
+          marker already moved)."
+
+          NUM=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

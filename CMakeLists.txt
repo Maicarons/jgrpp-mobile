@@ -149,6 +149,17 @@ if(NOT OPTION_DEDICATED)
         find_package(Allegro)
         if(NOT APPLE)
             find_package(Freetype)
+            if(Freetype_FOUND AND ANDROID_ABI)
+                # pelya's freetype is built with FT_CONFIG_OPTION_USE_HARFBUZZ,
+                # and nothing else on the Android link line pulls in harfbuzz
+                # since upstream dropped ICU; attach it to freetype or the
+                # afshaper.c hb_* symbols stay undefined at link time.
+                set(JGRPP_ANDROID_HARFBUZZ "${CMAKE_CURRENT_SOURCE_DIR}/../../../iconv/src/${ANDROID_ABI}/lib/libharfbuzz.a")
+                if(EXISTS "${JGRPP_ANDROID_HARFBUZZ}")
+                    set_property(TARGET Freetype::Freetype APPEND PROPERTY
+                        INTERFACE_LINK_LIBRARIES "${JGRPP_ANDROID_HARFBUZZ}")
+                endif()
+            endif()
             find_package(SDL2)
             if(NOT SDL2_FOUND)
                 find_package(SDL)

@@ -9,7 +9,7 @@ import { batteryInfo } from '@kit.BasicServicesKit';
 
 import  { picker } from '@kit.CoreFileKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { fs } from '@kit.CoreFileKit';
+import fs from '@ohos.file.fs';
 
 const DOMAIN = 0x0000;
 
@@ -165,7 +165,7 @@ export class ArkNapiCallback {
   }
 }
 
-function copyGameFilesFromRawfile(): void {
+async function copyGameFilesFromRawfile(): Promise<void> {
   /* Optionally ship OpenTTD base data (baseset etc.) inside
    * entry/src/main/resources/rawfile/openttd/; on first run it is copied
    * into the app sandbox so the game can find it. Safe no-op when empty. */
@@ -174,7 +174,7 @@ function copyGameFilesFromRawfile(): void {
     if (!ctx.resourceManager.getRawFileList) {
       return
     }
-    let entries: Array<string> = ctx.resourceManager.getRawFileList("openttd/")
+    let entries: Array<string> = await ctx.resourceManager.getRawFileList("openttd/")
     if (entries.length === 0) {
       return
     }
@@ -191,7 +191,7 @@ function copyGameFilesFromRawfile(): void {
       if (dirEnd > 0) {
         fs.mkdirSync(dst.substring(0, dirEnd), true)
       }
-      let content = ctx.resourceManager.getRawFileContent(name)
+      let content: Uint8Array = await ctx.resourceManager.getRawFileContent(name)
       let file = fs.openSync(dst, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
       fs.writeSync(file.fd, content.buffer)
       fs.closeSync(file)
@@ -211,7 +211,7 @@ struct Index {
     context = this.getUIContext()
 
     sdl.sdlCallbackInit(callbackRef)
-    copyGameFilesFromRawfile()
+    await copyGameFilesFromRawfile()
     focusControl.requestFocus('mainView')
     await controller.attach(true, {
       inputAttribute: {

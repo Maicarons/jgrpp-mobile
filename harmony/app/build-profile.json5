@@ -8,7 +8,6 @@
         "compatibleSdkVersion": "5.0.0(12)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
-          "nativeCompiler": "clang",
           "strictMode": {
             "caseSensitiveCheck": true,
             "useNormalizedOHMUrl": true

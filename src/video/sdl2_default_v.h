@@ -16,6 +16,7 @@
 class VideoDriver_SDL_Default : public VideoDriver_SDL_Base {
 public:
 	const char *GetName() const override { return "sdl"; }
+	bool CreateMainWindow(uint w, uint h, uint flags = 0) override;
 
 protected:
 	bool AllocateBackingStore(int w, int h, bool force = false) override;

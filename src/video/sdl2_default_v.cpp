@@ -36,6 +36,12 @@
 
 static FVideoDriver_SDL_Default iFVideoDriver_SDL_Default; ///< The default, non-GL, SDL video driver.
 
+bool VideoDriver_SDL_Default::CreateMainWindow(uint w, uint h, uint flags)
+{
+	flags |= SDL_WINDOW_OPENGL;
+	return this->VideoDriver_SDL_Base::CreateMainWindow(w, h, flags);
+}
+
 static SDL_Surface *_sdl_surface; ///< The surface to draw on/to.
 static SDL_Surface *_sdl_rgb_surface; ///< Optional surface to use for blitting all changes at once.
 static SDL_Surface *_sdl_real_surface; ///< The actual surface of the screen.
@@ -101,8 +107,9 @@ void VideoDriver_SDL_Default::MakePalette()
 }
 
 void VideoDriver_SDL_Default::Paint()
-{
-	PerformanceMeasurer framerate(PerformanceElement::Video);
+	{
+		ohos_probe("__PAINT__");
+		PerformanceMeasurer framerate(PerformanceElement::Video);
 
 	if (IsEmptyRect(this->dirty_rect) && this->local_palette.count_dirty == 0) return;
 

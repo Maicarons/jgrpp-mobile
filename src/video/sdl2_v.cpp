@@ -964,10 +964,12 @@ const char *VideoDriver_SDL_Base::Start(const StringList &param)
 	this->driver_info += dname;
 	this->driver_info += ")";
 
-	MarkWholeScreenDirty();
+MarkWholeScreenDirty();
 
-	SDL_StopTextInput();
-	this->edit_box_focused = false;
+#if !defined(__OHOS__)
+		SDL_StopTextInput();
+#endif
+		this->edit_box_focused = false;
 
 #if defined(WITH_FCITX)
 	if (_fcitx_mode) SDL_EventState(SDL_SYSWMEVENT, 1);

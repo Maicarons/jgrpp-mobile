@@ -241,15 +241,25 @@ chmod +x local-bin/apksigner
 ## 五、游戏数据打包（AndroidData → APK assets）
 
 APK 首次启动时按 `AndroidAppSettings.cfg` 的 `AppDataDownloadUrl` 从 assets
-读取三个数据文件（都在 `/AndroidData/*.xz`，仓库不携带，CI 每次现做）：
+读取三个数据文件（都在 `/AndroidData/*.xz`，仓库不携带，每次现做）：
 
-- `openttd-data-0.40.4-0.zip.xz`：13.4 官方包 baseset + OpenGFX 7.1 + OpenSFX 1.0.3
+- `openttd-data-0.40.4-0.zip.xz`：**本版构建产物**的 `lang/` + `baseset/` +
+  `ai/` + `game/`，再叠加 OpenGFX 8.0（基础图形）+ OpenSFX 1.0.3（音效）
 - `timidity.zip.xz`：MIDI 音色（打包树自带 `project/jni/timidity/samples/timidity.zip`）
 - `icudt62l.zip.xz`：ICU 数据（由 ICU 预编译产出 `icudt*.dat`）
 
+> **数据必须取自本版构建产物，不能用官方包。** 官方 OpenTTD 包的
+> `lang/*.lng` 带的是**别的** `LANGUAGE_PACK_VERSION` 哈希，游戏启动时会被
+> 全部拒绝（语言列表为空 → 静默退出）；官方包的 `baseset/` 也缺 OpenTTD
+> 字体（`OpenTTD-*.ttf`）和 JGRPP 自带的基础 GRF（`extra_signals.grf`、
+> `progsignals.grf`、`route_step.grf`、`tracerestrict.grf` 等）。这些都只有
+> `openttd-build-<abi>/` 里有。
+
 仓库根目录提供 `stage-data.sh`（幂等：已存在则跳过），下载缓存放
-`.stage-cache/`。它必须在 ndk-build 完成（产出 icudt）之后、copyAssets 之前运行，
-所以已把调用插进 `build.sh` 的 `./copyAssets.sh` 之前：
+`.stage-cache/`；脚本自己定位 `project/jni/application/*/openttd-build-*/`
+（要求其中已有 `lang/` 与 `baseset/`，否则直接报错退出）。它必须在**原生构建
+完成之后、copyAssets 之前**运行，所以 `build.sh` 已在 `./copyAssets.sh` 之前
+调用它：
 
 ```bash
 grep -n "copyAssets.sh" build.sh   # 期望：
@@ -257,6 +267,20 @@ grep -n "copyAssets.sh" build.sh   # 期望：
 # [ -x ./stage-data.sh ] && ./stage-data.sh
 # ./copyAssets.sh
 ```
+
+本地构建前先把仓库里的脚本同步到打包树根目录（CI 由
+**Install data staging script** 步骤自动完成）：
+
+```bash
+cp <repo>/stage-data.sh <sdl-android>/stage-data.sh
+chmod +x <sdl-android>/stage-data.sh
+```
+
+本地与 CI 的一个差别：CI 里 `project/jni/application/src` 是指向
+`openttd-jgrpp` 的符号链接，而本地 `run-arm64.sh` step1 会把
+`openttd-jgrpp` **整体复制**成 `src`。`copyAssets.sh` 读的是
+`src/AndroidData`，所以脚本在本地会把数据包写进 `src/AndroidData`，同时镜像一份
+回 `openttd-jgrpp/AndroidData`（否则下次 step1 的复制会用旧包覆盖新包）。
 
 > **Windows 必读：`app/src/main/assets` 必须是真实目录或目录 junction。**
 >
@@ -280,6 +304,17 @@ grep -n "copyAssets.sh" build.sh   # 期望：
 > 拷进去（需重复执行，否则数据会过期）。
 > 校验：`unzip -l app-release-unsigned.apk | findstr assets/openttd-data` 必须有输出。
 
+> **另一个 Windows 坑：换了数据包后 Gradle 不会重新合并 assets。**
+> `app/src/main/assets` 是 junction 时，AGP 的 `mergeReleaseAssets` 跑过一次就
+> 一直报 `UP-TO-DATE`——即使 `project/assets/` 里同名文件的内容和体积都变了
+> （实测 mtime 更新也不会触发），APK 里永远是旧数据包。改完 `AndroidData/*.xz`
+> 后必须删掉该中间产物再构建：
+>
+> ```bash
+> rm -rf project/app/build/intermediates/assets
+> ```
+> （`run-arm64.sh` step7 已内置这一步。）
+
 ## 六、执行构建
 
 ```bash
@@ -299,7 +334,10 @@ export PATH="<sdl-android>/local-bin:$ANDROID_NDK_HOME:<BUILD_TOOLS>:<ANDROID_SD
 # 6.2 若上一步的 ICU 预编译失败过，可单独重跑（约 1 小时/ABI）：
 # make -C project/jni -f Makefile.prebuilt icu ARCH_LIST="$(grep -Po "MultiABI='\K[^']+" AndroidAppSettings.cfg)"
 
-# 6.3 完整构建：ndk-build 依赖库 → stage-data → copyAssets → gradle → zipalign+签名
+# 6.3 完整构建：ndk-build 依赖库 → stage-data → copyAssets → gradle。
+#     注意 build.sh 到此为止：它不会注入原生库、也不会 strip。本地用
+#     run-arm64.sh（step8/step9 会 strip + 注入 + zipalign + 签名），或按第七节
+#     「APK 里没有 lib」一行手动补。
 ./build.sh openttd-jgrpp
 ```
 
@@ -332,6 +370,9 @@ export PATH="<sdl-android>/local-bin:$ANDROID_NDK_HOME:<BUILD_TOOLS>:<ANDROID_SD
 | 安装报 `INSTALL_FAILED_INVALID_APK: Failed to extract native libraries` | targetSdk 36 下原生库必须**未压缩**存储 | 注入时用 `zip -0`（STORE）而非默认 deflate |
 | 启动即崩（SDL_main 后 ~30ms 静默退出），探针停在 config 之后 | 语言包列表为空：数据包缺 `lang/`，或 lang 来自官方包（LANGUAGE_PACK_VERSION 哈希与本版不匹配，全被拒） | 数据包的 `lang/*.lng` 必须取自**本版 strgen 构建产物**（`openttd-build-<abi>/lang/`），baseset 同样取构建产物（含 OpenTTD 字体） |
 | 语言加载后仍崩（探针停在 fonts 前） | baseset 缺 OpenTTD 字体（`OpenTTD-*.ttf`） | baseset 用构建产物而非官方包 |
+| APK 里**没有** `lib/**/*.so`，装上打不开（CI 旧产物仅 ~36 MB） | pelya 模板没把 `project/lib` 接成 jniLibs，`copyAssets.sh pack-binaries` 又只打 `AndroidData/lib`（没人往那里写） | 原生构建完成后手动注入 `project/lib/<abi>/*.so`（CI：workflow 的「Inject and strip the native libraries」；本地：run-arm64.sh step8） |
+| APK 265 MB（单 ABI） | 原生库带 `-g`（`-DCMAKE_BUILD_TYPE=RelWithDebInfo`），且为手动注入，AGP 不会自动 strip | 注入前对 `lib/*/*.so` 跑 `llvm-strip --strip-unneeded`；单 ABI 由 221 MB 降到 18 MB，APK 由 265 MB 降到约 61 MB |
+| 换了数据包但 APK 里还是旧数据 | junction 下 AGP 的 `mergeReleaseAssets` 永远 `UP-TO-DATE`（见第五节） | `rm -rf project/app/build/intermediates/assets` 后再构建 |
 
 ## 八、时间参考（本机实测）
 
@@ -342,4 +383,5 @@ export PATH="<sdl-android>/local-bin:$ANDROID_NDK_HOME:<BUILD_TOOLS>:<ANDROID_SD
 - openttd CMake 交叉编译：约 15 分钟
 - stage-data + copyAssets：约 2 分钟
 - gradle assembleRelease（含依赖下载）：约 1~4 分钟
-- 产物：`project/app/build/outputs/apk/release/app-release.apk`（约 105 MB，debug key 签名）
+- 产物：`project/app/build/outputs/apk/release/app-release.apk`
+  （剥离符号后单 ABI 约 61 MB；不剥离约 265 MB。debug key 签名）

@@ -15,11 +15,15 @@ Windows 下必须的适配补丁。CI 在 Linux 上运行；本地（Git Bash）
 
 - `jgrpp-mobile/CMakeLists.txt` 在 `ANDROID` 分支下 `include(AndroidSDL)`，
   而 `AndroidSDL.cmake` 由打包树中的构建脚本生成（见源码里该处的注释）；
-- CI 的工作方式：克隆 commandergenius → 把 jgrpp-mobile 源码拷进
+- 打包树本身（原 pelya/commandergenius `sdl_android` 分支，含 SDL/ICU/
+  freetype/harfbuzz 等全部子模块）已经**内置在本仓库**
+  `packaging/tree/*.tar.xz`：上游已冻结，本仓库即权威副本，
+  CI 不再克隆任何东西（详见 `packaging/README.md`）；
+- CI 的工作方式：解压这些归档 → 把 jgrpp-mobile 源码拷进
   `project/jni/application/openttd-jgrpp/src` → 在打包树内用
   ndk-build + CMake + Gradle 产出 APK。
 
-本地构建必须复刻同一套结构。
+本地构建必须复刻同一套结构（见第一节）。
 
 ## 占位符约定
 
@@ -46,20 +50,41 @@ Windows 下必须的适配补丁。CI 在 Linux 上运行；本地（Git Bash）
 
 ## 一、准备打包树
 
+打包树不再从上游克隆，而是解压本仓库自带的归档（每个组件一个归档，
+成员路径都相对打包树根目录，所以解压就是一个循环）：
+
 ```bash
-# 1. 克隆 commandergenius（sdl_android 分支），与 CI 相同
-git clone --depth 1 -b sdl_android https://github.com/pelya/commandergenius.git <sdl-android>
-cd <sdl-android>
-
-# 2. 初始化 SDL2 相关子模块（png/jpeg 头文件在 sdl2_image 的嵌套子模块里，
-#    不 init 会导致 jni/png/include 指向空目录）
-git submodule update --init --recursive --depth=1 project/jni/sdl2_image \
-  project/jni/sdl2_mixer project/jni/sdl2_ttf project/jni/sdl2
-
-# 3. 生成 libpng 的 pnglibconf.h（仓库不携带，用自带模板）
-PNG=project/jni/SDL2_image/external/libpng
-[ -f "$PNG/pnglibconf.h" ] || cp "$PNG/scripts/pnglibconf.h.prebuilt" "$PNG/pnglibconf.h"
+mkdir -p <sdl-android> && cd <sdl-android>
+for a in <repo>/packaging/tree/*.tar.xz; do tar -xJf "$a"; done
 ```
+
+归档里含约 94 个符号链接（`project/jni/png/include`、
+`project/app/src/main/assets`、`project/jni/icu-le-hb`、根目录 `src` 等）
+和可执行位，普通 Windows 检出无法表达，所以用 `git archive` + `tar`/`xz`
+原样保存：
+
+- **Linux**（即 CI）：`tar` 会直接建好符号链接，包括此刻还悬空、构建期才有
+  目标的那些（`project/assets`、`project/libs`、`project/src`、
+  `project/jni/application/src`）——这是正常的，不必手工补；
+- **Windows（Git Bash / MSYS）**：默认的符号链接模拟会退回硬链接并报
+  `Cannot create symlink ...`，必须开原生符号链接（同时要求系统已启用
+  开发者模式）：
+
+```bash
+MSYS=winsymlinks:nativestrict tar -xJf <repo>/packaging/tree/01-commandergenius.tar.xz
+# …其余 5 个归档同理；00 之外的顺序无所谓
+```
+
+解压完可自检（Linux 上应当输出 `symlink`）：
+
+```bash
+ls -l build.sh project/jni/png/include project/jni/SettingsTemplate.mk
+```
+
+> 已有一份「克隆 pelya + 初始化子模块」的 `<sdl-android>` 检出可以继续用，
+> 内容与归档一致；但那个检出**没有**归档里预先写好的补丁和
+> `./stage-data.sh` 钩子，所以第三节的改动仍要自己打（本地构建本来就需要
+> 第四节的 Windows 修正，两边不要混用）。
 
 ## 二、放入 jgrpp-mobile 源码
 
@@ -72,6 +97,9 @@ find $APP/src -name "*.sh" -exec sed -i 's/\r$//' {} +
 ```
 
 ## 三、与 CI 对齐的配置补丁
+
+> 用第一节的**归档**时，3.1–3.4 全部已经写进归档（连同原委注释），跳过本节；
+> 只有继续使用「自己克隆的 pelya 检出」时才需要手工执行。
 
 ```bash
 # 3.1 根目录与 app 目录两份 AndroidAppSettings.cfg 保持同步修改
@@ -88,6 +116,18 @@ sed -i 's/minSdk 21/minSdk 24/' project/app/build-template.gradle
 #       getifaddrs undeclared）
 awk '1; /^[[:space:]]*cmake[[:space:]]/{print "\t-DANDROID_PLATFORM=android-24 \\"}' \
   $APP/AndroidBuild.sh > /tmp/ab.tmp && mv /tmp/ab.tmp $APP/AndroidBuild.sh && chmod +x $APP/AndroidBuild.sh
+
+# 3.4 生成 libpng 的 pnglibconf.h（仓库不携带，用自带模板）
+PNG=project/jni/sdl2_image/external/libpng
+[ -f "$PNG/pnglibconf.h" ] || cp "$PNG/scripts/pnglibconf.h.prebuilt" "$PNG/pnglibconf.h"
+```
+
+另外 `build.sh` 要在原生构建之后、`copyAssets.sh` 之前跑数据打包
+（第五节的 `stage-data.sh`），归档里已写好这行钩子，自建检出需自己加：
+
+```bash
+# 在 build.sh 里 ${ANDROID_NDK_HOME}/ndk-build ... 与 ./copyAssets.sh 之间
+[ -x ./stage-data.sh ] && ./stage-data.sh
 ```
 
 ## 四、Windows 专属修正（CI 不需要，本地必须）
@@ -258,8 +298,8 @@ APK 首次启动时按 `AndroidAppSettings.cfg` 的 `AppDataDownloadUrl` 从 ass
 仓库根目录提供 `stage-data.sh`（幂等：已存在则跳过），下载缓存放
 `.stage-cache/`；脚本自己定位 `project/jni/application/*/openttd-build-*/`
 （要求其中已有 `lang/` 与 `baseset/`，否则直接报错退出）。它必须在**原生构建
-完成之后、copyAssets 之前**运行，所以 `build.sh` 已在 `./copyAssets.sh` 之前
-调用它：
+完成之后、copyAssets 之前**运行，所以 `build.sh` 必须在这两处之间调用它
+（`packaging/tree` 的归档里已经写好这行钩子，自建检出见 3.4）：
 
 ```bash
 grep -n "copyAssets.sh" build.sh   # 期望：

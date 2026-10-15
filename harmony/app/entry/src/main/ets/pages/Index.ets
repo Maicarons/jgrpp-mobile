@@ -17,9 +17,14 @@ let controller = inputMethod.getController()
 let input = false
 let targetText = ""
 let context: UIContext
+let dataReady: Promise<void> = Promise.resolve()
 
 export class ArkNapiCallback {
-  onMainLaunch() {
+  async onMainLaunch() {
+    // The SDL surface fires onMainLaunch as soon as it exists, which can be
+    // before the rawfile copy finished. On a first run with the data still
+    // copying, OpenTTD finds no graphics set and exits immediately.
+    await dataReady
     sdl.sdlLaunchMain("libopenttd.so", "ottd_ohos_main")
   }
 
@@ -152,7 +157,9 @@ export class ArkNapiCallback {
 
   getInternalPath(): string {
     let contextt = context.getHostContext() as common.UIAbilityContext
-    return contextt.filesDir
+    let p = contextt.filesDir
+    hilog.info(0x0000, 'openttd', 'getInternalPath -> %{public}s', p)
+    return p
   }
 
   themeIsDark(): number {
@@ -165,6 +172,24 @@ export class ArkNapiCallback {
   }
 }
 
+async function collectRawFiles(ctx: common.UIAbilityContext, prefix: string): Promise<Array<string>> {
+  let names: Array<string> = await ctx.resourceManager.getRawFileList(prefix)
+  let files: Array<string> = []
+  for (let i = 0; i < names.length; i++) {
+    let full = prefix + "/" + names[i]
+    try {
+      let kids: Array<string> = await ctx.resourceManager.getRawFileList(full)
+      if (kids.length > 0) {
+        let sub = await collectRawFiles(ctx, full)
+        files.push(...sub)
+      }
+    } catch (e) {
+      files.push(full)
+    }
+  }
+  return files
+}
+
 async function copyGameFilesFromRawfile(): Promise<void> {
   /* Optionally ship OpenTTD base data (baseset etc.) inside
    * entry/src/main/resources/rawfile/openttd/; on first run it is copied
@@ -174,27 +199,51 @@ async function copyGameFilesFromRawfile(): Promise<void> {
     if (!ctx.resourceManager.getRawFileList) {
       return
     }
-    let entries: Array<string> = await ctx.resourceManager.getRawFileList("openttd/")
+    let entries: Array<string> = await collectRawFiles(ctx, "openttd")
     if (entries.length === 0) {
       return
     }
-    let root = ctx.filesDir + "/openttd"
-    fs.mkdirSync(root, true)
+    // The game's HOME comes from getInternalPath() (the native side calls it
+    // via SDL_GetPrefPath); copy into the SAME directory so the game actually
+    // finds the data in its search paths ($HOME/openttd).
+    // The game looks for its data under $HOME/openttd and
+    // $HOME/.local/share/openttd (HOME is the app sandbox virtual path
+    // /storage/Users/currentUser on this emulator). Write there so the
+    // language packs are actually on the game's search path.
+    let root = "/storage/Users/currentUser/openttd"
+    hilog.info(0x0000, 'openttd', 'copy root: %{public}s, entries: %d', root, entries.length)
+    try {
+      fs.mkdirSync(root, true)
+    } catch (e) {
+      // 13900015 = EEXIST; the rawfile dir may already exist from a
+      // previous launch (e.g. one that crashed mid-copy). The per-file
+      // loop still overwrites every entry below, so carry on.
+    }
     for (let i = 0; i < entries.length; i++) {
       let name = entries[i]
-      let rel = name.startsWith("openttd/") ? name.substring("openttd/".length) : name
-      if (rel.length === 0) {
-        continue
+      try {
+        let rel = name.startsWith("openttd/") ? name.substring("openttd/".length) : name
+        if (rel.length === 0) {
+          continue
+        }
+        let dst = root + "/" + rel
+        let dirEnd = dst.lastIndexOf('/')
+        if (dirEnd > 0) {
+          try {
+            fs.mkdirSync(dst.substring(0, dirEnd), true)
+          } catch (e) {
+            // Some SDK versions raise EEXIST (13900015) for an existing
+            // directory even with recursion=true; directories being present
+            // is exactly what we want, so just carry on.
+          }
+        }
+        let content: Uint8Array = await ctx.resourceManager.getRawFileContent(name)
+        let file = fs.openSync(dst, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
+        fs.writeSync(file.fd, content.buffer)
+        fs.closeSync(file)
+      } catch (e) {
+        hilog.warn(0x0000, 'openttd', 'rawfile entry skipped: %{public}s -> %{public}s', JSON.stringify(e), name)
       }
-      let dst = root + "/" + rel
-      let dirEnd = dst.lastIndexOf('/')
-      if (dirEnd > 0) {
-        fs.mkdirSync(dst.substring(0, dirEnd), true)
-      }
-      let content: Uint8Array = await ctx.resourceManager.getRawFileContent(name)
-      let file = fs.openSync(dst, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
-      fs.writeSync(file.fd, content.buffer)
-      fs.closeSync(file)
     }
     hilog.info(0x0000, 'openttd', 'copied %d rawfile game files', entries.length)
   } catch (e) {
@@ -210,8 +259,12 @@ struct Index {
   async aboutToAppear(): Promise<void> {
     context = this.getUIContext()
 
+    // Kick off the bundled-data copy and register the native callbacks
+    // immediately: sdlCallbackInit must be installed before the XComponent
+    // surface exists, otherwise the native onMainLaunch call is dropped.
+    // The game launch itself waits for dataReady (see onMainLaunch).
+    dataReady = copyGameFilesFromRawfile()
     sdl.sdlCallbackInit(callbackRef)
-    await copyGameFilesFromRawfile()
     focusControl.requestFocus('mainView')
     await controller.attach(true, {
       inputAttribute: {

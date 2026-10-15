@@ -79,16 +79,17 @@ jobs:
 
       # build-ohos.sh already mirrors baseset/lang/ai/game/media/scripts into
       # rawfile/openttd. Here we only fetch the external base graphics (OpenGFX)
-      # so the game has something to render.
+      # so the game has something to render. opengfx-7.1-all.zip contains a
+      # single opengfx-7.1.tar, which OpenTTD discovers as a base set only from
+      # baseset/ (a .grf dropped into data/ would show up as a NewGRF, leaving
+      # the base-set slot empty and the game unusable on first launch).
       - name: Fetch base graphics (OpenGFX) into rawfile
         run: |
           RAW=harmony/app/entry/src/main/resources/rawfile/openttd
-          mkdir -p "$RAW/data"
+          mkdir -p "$RAW/baseset"
           curl -fL --retry 3 -o "$RUNNER_TEMP/opengfx.zip" "$OPENGFX_URL"
-          unzip -q "$RUNNER_TEMP/opengfx.zip" -d "$RUNNER_TEMP/opengfx"
-          find "$RUNNER_TEMP/opengfx" \( -name '*.grf' -o -name '*.obg' -o -name '*.obs' \) \
-            -exec cp {} "$RAW/data/" \;
-          ls -la "$RAW/data" | head
+          unzip -p "$RUNNER_TEMP/opengfx.zip" opengfx-7.1.tar > "$RAW/baseset/opengfx-7.1.tar"
+          ls -la "$RAW/baseset"
 
       - name: Install project dependencies (ohpm)
         working-directory: harmony/app

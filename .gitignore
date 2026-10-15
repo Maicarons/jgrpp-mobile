@@ -8,3 +8,57 @@ docs/source/*
 /out
 /vcpkg_installed
 *.tmp
+
+# --- Local editor / OS cruft -------------------------------------------------
+.DS_Store
+Thumbs.db
+*~
+*.bak
+*.orig
+*.rej
+*.swp
+
+# --- Logs (never commit: build/device logs can embed machine paths & IDs) ----
+*.log
+hs_err_pid*.log
+
+# --- Local OHOS / HarmonyOS port ---------------------------------------------
+# These files hold machine-specific absolute paths, device logs or screenshots
+# and must stay local. The build tree also vendors third-party sources.
+/cmake/OhosSDL.cmake
+/jgrpp-latest*.apk
+*.apk
+/harmony/build/
+harmony/**/build/
+harmony/**/oh_modules/
+harmony/**/node_modules/
+harmony/**/.hvigor/
+harmony/**/.cxx/
+harmony/**/.test/
+harmony/**/.idea/
+harmony/**/local.properties
+harmony/app/entry/libs/
+harmony/app/entry/src/main/resources/rawfile/
+harmony/*.txt
+harmony/*.png
+harmony/*.jpg
+harmony/*.jpeg
+harmony/*.b64
+harmony/screen.*
+
+# --- Local AI / agent tool state (session data + absolute paths) -------------
+**/.mimosa/
+
+# --- CMake / Ninja / compiler artifacts (embed absolute local paths) ---------
+**/.ninja_log
+**/.ninja_deps
+**/compile_commands.json
+**/CMakeCache.txt
+**/CMakeFiles/
+**/.cmake/
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll

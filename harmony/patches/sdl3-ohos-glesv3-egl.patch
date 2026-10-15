@@ -1,0 +1,18 @@
+diff --git a/src/video/SDL_egl.c b/src/video/SDL_egl.c
+index 73db8f6..a36fcc7 100644
+--- a/src/video/SDL_egl.c
++++ b/src/video/SDL_egl.c
+@@ -75,6 +75,13 @@
+ #define DEFAULT_OGL_ES     (vc4 ? "libGLESv1_CM.so.1" : "libbrcmGLESv2.so")
+ #define ALT_OGL_ES         "libGLESv2.so"
+ 
++#elif defined(SDL_VIDEO_DRIVER_OHOS)
++// OpenHarmony ships only libGLESv3.so (no libGLESv2.so)
++#define DEFAULT_EGL        "libEGL.so"
++#define DEFAULT_OGL_ES2    "libGLESv3.so"
++#define DEFAULT_OGL_ES_PVR "libGLESv3.so"
++#define DEFAULT_OGL_ES     "libGLESv3.so"
++
+ #elif defined(SDL_VIDEO_DRIVER_ANDROID) || defined(SDL_VIDEO_DRIVER_VIVANTE)
+ // Android
+ #define DEFAULT_EGL        "libEGL.so"

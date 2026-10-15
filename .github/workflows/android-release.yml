@@ -1,0 +1,257 @@
+name: Android APK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for the APK (e.g. 0.73.1)'
+        required: false
+        default: '0.73.1'
+      ref:
+        description: 'Branch or tag of jgrpp source to build'
+        required: false
+        default: 'jgrpp'
+  push:
+    tags:
+      - 'jgrpp-*-android'
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  build:
+    env:
+      APP_NAME: openttd-jgrpp
+      # Each extra ABI costs ~1h of ICU compilation; two ABIs cover nearly all devices
+      ARCH_LIST: armeabi-v7a arm64-v8a
+      ANDROID_BUILD_TOOLS: 35.0.0
+      VERSION_NAME: ${{ github.event.inputs.version || '0.73.1' }}
+      SOURCE_REF: ${{ github.event.inputs.ref || 'jgrpp-0.73.1-mobile' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Check out jgrpp-mobile source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Check out pelya/commandergenius (Android packaging)
+        run: |
+          git clone --depth 1 -b sdl_android https://github.com/pelya/commandergenius.git $RUNNER_TEMP/sdl-android
+          cd $RUNNER_TEMP/sdl-android
+          # jpeg/png modules are built from the sdl2_image submodule (recursively:
+          # their sources live in SDL_image's nested submodules)
+          git submodule update --init --recursive --depth=1 project/jni/iconv/src \
+            project/jni/sdl2 project/jni/sdl2_image \
+            project/jni/sdl2_mixer project/jni/sdl2_ttf
+
+      - name: Materialize libpng config header
+        run: |
+          # png.h lives in sdl2_image's nested libpng submodule (jni/png/include
+          # symlinks there), but pnglibconf.h is a generated file the git repo
+          # does not carry; libpng ships a prebuilt template for exactly this.
+          PNG_DIR="$RUNNER_TEMP/sdl-android/project/jni/sdl2_image/external/libpng"
+          test -f "$PNG_DIR/png.h"
+          if [ ! -f "$PNG_DIR/pnglibconf.h" ]; then
+            cp "$PNG_DIR/scripts/pnglibconf.h.prebuilt" "$PNG_DIR/pnglibconf.h" 2>/dev/null || \
+              curl -fsSL https://raw.githubusercontent.com/pnggroup/libpng/v1.6.44/scripts/pnglibconf.h.prebuilt \
+                -o "$PNG_DIR/pnglibconf.h"
+          fi
+          test -f "$PNG_DIR/pnglibconf.h"
+
+      - name: Install jgrpp source into packaging tree
+        run: |
+          rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src
+          cp -r $GITHUB_WORKSPACE $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src
+          rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src/.git
+
+      - name: Configure app settings
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          CFG=project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
+          sed -i "s/^MultiABI=.*/MultiABI='${ARCH_LIST}'/" $CFG
+          sed -i "s/^AppVersionName=.*/AppVersionName=\"${VERSION_NAME}\"/" $CFG
+          sed -i "s/^AppVersionCode=.*/AppVersionCode=7310/" $CFG
+          ln -sf openttd-jgrpp project/jni/application/src
+
+      - name: Get ICU revision for cache
+        id: icu-rev
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: echo "ICU_REV=`git -C project/jni/iconv/src rev-parse HEAD`::`echo ${ARCH_LIST} | sed 's/ /:/g'`-hb2" >> $GITHUB_ENV
+
+      - name: Cache ICU libraries
+        uses: actions/cache@v4
+        id: cache-icu
+        with:
+          key: ${{env.ICU_REV}}
+          path: |
+            ${{ runner.temp }}/sdl-android/project/jni/iconv/include
+            ${{ runner.temp }}/sdl-android/project/jni/iconv/lib
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/include
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/lib
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/share/icu
+
+      - name: Touch cached ICU timestamps
+        if: steps.cache-icu.outputs.cache-hit == 'true'
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: touch project/jni/iconv/lib/*/* project/jni/icuuc/lib/*/* project/jni/icuuc/share/icu/*/* || true
+
+      - name: Patch Java files and build Boost, ICU, and OpenSSL
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          # getifaddrs()/freeifaddrs() require Android API 24; pelya's template
+          # leaves APP_PLATFORM empty (NDK default android-21). Bump both the
+          # pelya ndk-build platform and the gradle minSdk to 24.
+          sed -i 's/^APP_PLATFORM=.*/APP_PLATFORM=android-24/' project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
+          sed -i 's/minSdk 21/minSdk 24/' project/app/build-template.gradle
+          export PATH=$ANDROID_NDK_LATEST_HOME:$PATH
+          ./changeAppSettings.sh
+          # The actual openttd native lib (which compiles network/core/host.cpp,
+          # the file that calls getifaddrs) is built by CMake, not pelya's
+          # ndk-build. pelya's AndroidBuild.sh invokes CMake with the NDK
+          # toolchain but never sets ANDROID_PLATFORM, so CMake defaulted to
+          # android-21 and failed with "undeclared identifier 'getifaddrs'".
+          # Inject -DANDROID_PLATFORM=android-24 into its CMake command.
+          awk '1; /^[[:space:]]*cmake[[:space:]]/{print "\t-DANDROID_PLATFORM=android-24 \\"}' project/jni/application/openttd-jgrpp/AndroidBuild.sh > /tmp/ab.tmp && mv /tmp/ab.tmp project/jni/application/openttd-jgrpp/AndroidBuild.sh && chmod +x project/jni/application/openttd-jgrpp/AndroidBuild.sh
+          # pelya builds harfbuzz into iconv/src/<arch>/lib/, which is NOT a
+          # cached path — on a warm cache make skips its build entirely and
+          # the archive vanishes, breaking freetype's hb_* link symbols.
+          # Preserve it inside the already-cached icuuc/lib tree.
+          for A in ${ARCH_LIST}; do
+            SRC="project/jni/iconv/src/$A/lib/libharfbuzz.a"
+            DST="project/jni/icuuc/lib/$A/libharfbuzz.a"
+            if [ -f "$SRC" ]; then
+              mkdir -p "project/jni/icuuc/lib/$A"
+              cp -f "$SRC" "$DST"
+            fi
+          done
+          ls project/jni/icuuc/lib/*/libharfbuzz.a
+
+      - name: Set up Gradle and Android SDK licenses
+        working-directory: ${{ runner.temp }}/sdl-android/project
+        run: |
+          for Y in `seq 20`; do echo y; done | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          ./gradlew assembleRelease || true
+          for Y in `seq 20`; do echo y; done | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=`pwd`
+          mkdir -p $HOME/.android
+          keytool -genkey -v -keystore $HOME/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=Debug"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "proguard.config=proguard.cfg;proguard-local.cfg" >> local.properties
+
+      - name: Stage app data assets (AndroidData -> APK assets)
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          set -euxo pipefail
+          # openttd-jgrpp/AndroidAppSettings.cfg forces these downloads at first
+          # launch (all '!!'), resolved from APK assets (AndroidData/ is copied
+          # to assets/ by copyAssets.sh):
+          #   openttd-data-0.40.4-0.zip.xz  game data (base sets + no_* sets)
+          #   timidity.zip.xz              MIDI instrument patch set
+          #   icudt62l.zip.xz              ICU data archive
+          # /AndroidData/*.xz is git-ignored and the upstream maintainer stages
+          # them by hand, so a fresh clone ships an APK whose launcher shows
+          # "Failed connecting to openttd-data-0.40.4-0.zip.xz". Build all
+          # three here so the release APK works on first run.
+          AD=project/jni/application/openttd-jgrpp/AndroidData
+          mkdir -p "$AD"
+          # 1) baseset for the APK: the generated baseset/ directory straight
+          #    out of the official binary package (no_music/no_sound sets,
+          #    opntitle.dat, orig_* descriptors) plus the real base sets
+          #    (OpenGFX graphics, OpenSFX sounds) extracted from their
+          #    official tars so the game has content on first launch.
+          DATA_DIR="$RUNNER_TEMP/openttd-data"
+          rm -rf "$DATA_DIR" && mkdir -p "$DATA_DIR/baseset"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/ottd.zip" \
+            https://cdn.openttd.org/openttd-releases/13.4/openttd-13.4-windows-win64.zip
+          unzip -q "$RUNNER_TEMP/ottd.zip" -d "$RUNNER_TEMP/ottd"
+          cp -f "$RUNNER_TEMP"/ottd/openttd-13.4-windows-win64/baseset/* "$DATA_DIR/baseset/"
+          # The game also needs the language packs and AI/Game scripts from the
+          # official package; without lang/ the language initialiser exits at startup.
+          for d in lang ai game; do
+            [ -d "$RUNNER_TEMP/ottd/openttd-13.4-windows-win64/$d" ] && cp -r "$RUNNER_TEMP/ottd/openttd-13.4-windows-win64/$d" "$DATA_DIR/"
+          done
+          for SET in ogfx osfx; do
+            case "$SET" in
+              ogfx) U=https://cdn.openttd.org/opengfx-releases/7.1/opengfx-7.1-all.zip ;;
+              osfx) U=https://cdn.openttd.org/opensfx-releases/1.0.3/opensfx-1.0.3-all.zip ;;
+            esac
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/$SET.zip" "$U"
+            SET_DIR=$(unzip -Z1 "$RUNNER_TEMP/$SET.zip" | head -1)
+            SET_DIR=${SET_DIR%%/*}
+            SET_DIR=${SET_DIR%.tar}   # opengfx-7.1.tar: entry already carries the extension
+            unzip -q "$RUNNER_TEMP/$SET.zip" -d "$RUNNER_TEMP/$SET"
+            tar -xf "$RUNNER_TEMP/$SET/$SET_DIR.tar" -C "$DATA_DIR/baseset"
+          done
+          ( cd "$DATA_DIR" && zip -0 -r "$AD/openttd-data-0.40.4-0.zip" baseset lang ai game && xz -8 "$AD/openttd-data-0.40.4-0.zip" )
+          # 2) MIDI instruments shipped inside the pelya template itself.
+          cp project/jni/timidity/samples/timidity.zip "$AD/timidity.zip"
+          xz -8 -f "$AD/timidity.zip"
+          # 3) ICU data built by the ICU step above (installed into
+          #    project/jni/icuuc/share/icu by the iconv-libicu-android build).
+          ICU_DAT=$(find project/jni/icuuc/share/icu -name 'icudt*.dat' | head -1)
+          test -n "$ICU_DAT"
+          ( cd "$(dirname "$ICU_DAT")" && zip -0 "$AD/icudt62l.zip" "$(basename "$ICU_DAT")" && xz -8 "$AD/icudt62l.zip" )
+          ls -la "$AD"
+
+      - name: Build APK
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_NDK_LATEST_HOME:$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
+          ./build.sh
+
+      - name: Sign APK with debug key
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
+          mkdir -p $GITHUB_WORKSPACE/upload
+          ./sign.sh
+          mv *.apk $GITHUB_WORKSPACE/upload/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}-android
+          path: upload
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          files: upload/*.apk
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="[android-release] APK build failed on jgrpp"
+          BODY="The Android APK release build failed, so no new APK was
+          published. Likely cause: an upstream merge broke our Android
+          adaptation (API renames in patched files are the usual suspect).
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Fix on \`jgrpp\`, then dispatch **Android APK Release** (and
+          **Upstream Release Watcher** with \`force_version\` if the version
+          marker already moved)."
+
+          NUM=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

@@ -1,19 +1,25 @@
 name: Android APK Release
 
+# Release model (see docs/android-build.md and docs/release.md):
+#   1. human: update the version branch `jgrpp-<ver>-mobile` (source + scaffold)
+#      and build the APK locally to prove it compiles and runs;
+#   2. human: `git tag jgrpp-mobile-<ver> && git push origin <branch> --tags`;
+#   3. this workflow rebuilds the APK in the cloud and attaches it to the
+#      `jgrpp-mobile-<ver>` GitHub Release.
+# `workflow_dispatch` stays available for a manual re-run of any ref.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version name for the APK (e.g. 0.73.1)'
+        description: 'Version name for the APK (e.g. 0.73.4)'
         required: false
-        default: '0.73.1'
+        default: '0.73.4'
       ref:
-        description: 'Branch or tag of jgrpp source to build'
+        description: 'Branch or tag to build (default: the ref that triggered the run)'
         required: false
-        default: 'jgrpp'
   push:
     tags:
-      - 'jgrpp-*-android'
+      - 'jgrpp-mobile-*'
 
 permissions:
   contents: write
@@ -29,8 +35,6 @@ jobs:
       # Each extra ABI costs ~1h of ICU compilation; two ABIs cover nearly all devices
       ARCH_LIST: armeabi-v7a arm64-v8a
       ANDROID_BUILD_TOOLS: 35.0.0
-      VERSION_NAME: ${{ github.event.inputs.version || '0.73.1' }}
-      SOURCE_REF: ${{ github.event.inputs.ref || 'jgrpp-0.73.1-mobile' }}
 
     runs-on: ubuntu-latest
 
@@ -41,11 +45,26 @@ jobs:
           java-version: 17
           distribution: temurin
 
+      - name: Resolve version
+        id: ver
+        run: |
+          # Normal trigger is a `jgrpp-mobile-<ver>` tag push; take the version
+          # from the tag. Manual dispatch may override it explicitly.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VER="${GITHUB_REF_NAME#jgrpp-mobile-}"
+          else
+            VER="${{ github.event.inputs.version }}"
+          fi
+          test -n "$VER"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$VER" >> "$GITHUB_ENV"
+          echo "Building jgrpp-mobile-$VER"
+
       - name: Check out jgrpp-mobile source
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          ref: ${{ env.SOURCE_REF }}
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Check out pelya/commandergenius (Android packaging)
         run: |
@@ -222,15 +241,15 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jgrpp-mobile-${{ env.VERSION_NAME }}-android
+          name: jgrpp-mobile-${{ steps.ver.outputs.version }}-android
           path: upload
           if-no-files-found: error
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
-          name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          tag_name: jgrpp-mobile-${{ steps.ver.outputs.version }}
+          name: jgrpp-mobile-${{ steps.ver.outputs.version }}
           files: upload/*.apk
 
       - name: Alert on failure
@@ -238,16 +257,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TITLE="[android-release] APK build failed on jgrpp"
+          TITLE="[android-release] APK build failed"
           BODY="The Android APK release build failed, so no new APK was
-          published. Likely cause: an upstream merge broke our Android
-          adaptation (API renames in patched files are the usual suspect).
+          published. Likely cause: a source change broke the Android
+          adaptation (API renames in the patched files are the usual suspect),
+          or an upstream data URL moved.
 
           Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-          Fix on \`jgrpp\`, then dispatch **Android APK Release** (and
-          **Upstream Release Watcher** with \`force_version\` if the version
-          marker already moved)."
+          Fix on the version branch \`jgrpp-<ver>-mobile\`, verify the build
+          locally, then re-push the tag."
 
           NUM=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // ""')
           if [ -n "$NUM" ]; then

@@ -67,9 +67,16 @@ SEEDS = (
 # APP_MODULES does not list python.
 DROP_PREFIXES = ("project/jni/python/",)
 
-# Optional codec sources of SDL_image/SDL_mixer.  No module of this app builds
-# them: png and jpeg are the only image modules and MIDI comes from timidity.
-# They are the bulk of the optional media code and about 170 MB of the tree.
+# Optional codec sources of SDL_image/SDL_mixer.  png and jpeg are the only
+# image modules this app builds and MIDI comes from timidity, so none of these
+# is built; together they are about 160 MB of the tree.
+#
+# wavpack (4 MB) and libgme (1 MB) stay in even though nothing builds them
+# either: SDL2_mixer's own Android.mk defaults SUPPORT_WAVPACK and SUPPORT_GME
+# to true and adds the `wavpack` and `gme` modules to LOCAL_STATIC_LIBRARIES, so
+# ndk-build aborts with "Module SDL2_mixer depends on undefined modules" unless
+# their Android.mk files are present.  Keeping 5 MB is cheaper than editing
+# upstream's build to disable two codecs this app never asks for.
 DROP_SUBMODULES = (
     "project/jni/sdl2_image/external/libjxl",
     "project/jni/sdl2_image/external/libavif",
@@ -80,8 +87,6 @@ DROP_SUBMODULES = (
     "project/jni/sdl2_mixer/external/mpg123",
     "project/jni/sdl2_mixer/external/opus",
     "project/jni/sdl2_mixer/external/opusfile",
-    "project/jni/sdl2_mixer/external/wavpack",
-    "project/jni/sdl2_mixer/external/libgme",
 )
 
 # Under project/jni/application/ only openttd-jgrpp's own glue is kept.  The
@@ -257,8 +262,8 @@ PATCHES = {
 
 
 def keep(name, isdir):
-    """Filter for the packaging tree members."""
-    if name == ".gitmodules":
+    """Filter for the packaging tree members, on tree-relative names."""
+    if name.rsplit("/", 1)[-1] == ".gitmodules":
         return False
     for prefix in DROP_PREFIXES:
         if name.startswith(prefix):
@@ -300,10 +305,13 @@ def write_archive(out_path, parts, patched, png):
             with tarfile.open(part.tar) as tf:
                 for member in tf:
                     name = member.name.rstrip("/")
-                    if not keep(name, member.isdir()):
+                    full = (part.rel + "/" + name).lstrip("/") if part.rel else name
+                    # Filter on the tree-relative name: a submodule's own member
+                    # names are relative to it, so `keep()` would never see the
+                    # `project/jni/...` prefixes it drops.
+                    if not keep(full, member.isdir()):
                         counts["skipped"] += 1
                         continue
-                    full = (part.rel + "/" + name).lstrip("/") if part.rel else name
                     member = member.replace(name=full)
                     if not part.rel and name in patched:
                         data = patched[name]

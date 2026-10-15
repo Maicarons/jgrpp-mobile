@@ -258,6 +258,28 @@ grep -n "copyAssets.sh" build.sh   # 期望：
 # ./copyAssets.sh
 ```
 
+> **Windows 必读：`app/src/main/assets` 必须是真实目录或目录 junction。**
+>
+> CI（Linux）中 `project/app/src/main/assets` 是指向 `project/assets` 的符号链接，
+> Gradle/AGP 会正常跟随。但在 Windows 上它被检出为**文件型 reparse point**
+> （`dir` 显示为 `<SYMLINK>` 且计入“文件”），AGP **不把它当目录遍历**：
+> `generateReleaseAssets` 报 `UP-TO-DATE`、`build/intermediates/assets` 为空，
+> 最终 APK 里**没有任何 `assets/openttd-data-*`**（体积少约 26 MB），
+> 首次启动转去联网下载，离线打包即失效。
+> `copyAssets.sh` 本身正常写入了 `project/assets`，只是 Gradle 看不到。
+>
+> 处理：用**目录 junction**替换该符号链接（junction 是目录型 reparse point，
+> AGP 能遍历；`copyAssets.sh` 仍会同步写入 `project/assets`，无需每次重建链接）：
+>
+> ```bat
+> rmdir "project\app\src\main\assets"
+> mklink /J "project\app\src\main\assets" "project\assets"
+> ```
+>
+> 或者改用真实目录，并在每次 `assembleRelease` 之前把 `project/assets/*`
+> 拷进去（需重复执行，否则数据会过期）。
+> 校验：`unzip -l app-release-unsigned.apk | findstr assets/openttd-data` 必须有输出。
+
 ## 六、执行构建
 
 ```bash
@@ -296,6 +318,7 @@ export PATH="<sdl-android>/local-bin:$ANDROID_NDK_HOME:<BUILD_TOOLS>:<ANDROID_SD
 | `which: no ndk-build in (...)`, configure 报 `C compiler cannot create executables` | 4.1 / 4.2 | 补执行位 + MYARCH 兜底，然后 `rm -rf project/jni/iconv/src/arm64-v8a` 重跑 |
 | `error: use of undeclared identifier 'G'`（-DLIBDIR 宏被拆） | 4.4 | 导出 `MSYS2_ARG_CONV_EXCL='-D*'` 后重跑 |
 | 菜单：`Failed connecting to openttd-data-0.40.4-0.zip.xz` | AndroidData 没打进去 | 确认 `stage-data.sh` 在 build.sh 的 copyAssets 之前执行 |
+| 本地 APK 缺 `assets/openttd-data-*`（体积少约 26 MB），但 CI 产物正常 | Windows 下 `app/src/main/assets` 是符号链接，AGP 不按目录遍历（见第五节） | `rmdir` 后 `mklink /J project\app\src\main\assets project\assets` 换成目录 junction |
 | Gradle 下载发行版报 `unable to find valid certification path` | Java 证书链问题（偶发） | 重跑即可；或 curl 手动下载 gradle-8.11.1-bin.zip 放入 `~/.gradle/wrapper/dists/gradle-8.11.1-bin/<hash>/` |
 | `src/` 里的 .sh 一跑就报错 | CRLF 行尾 | `sed -i 's/\r$//' *.sh` |
 | CMake 找不到 AndroidSDL.cmake | 打包树结构不对 | AndroidBuild.sh 在带 `-DCMAKE_MODULE_PATH` 的 cmake 命令行里生成它，别手动删 `src` 下文件 |

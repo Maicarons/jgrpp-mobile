@@ -23,8 +23,8 @@ packaging tree root, so unpacking is a plain loop over the directory:
 | `01-commandergenius.tar.xz` | 43.2 MB | 5718 | `pelya/commandergenius` @ `92979c25` |
 | `02-iconv-src.tar.xz` | 37.5 MB | 17 | `pelya/libiconv-libicu-android` @ `1d9e3e38` |
 | `03-sdl2.tar.xz` | 5.5 MB | 2147 | `libsdl-org/SDL` @ `0efeb82a` |
-| `04-sdl2_image.tar.xz` | 10.6 MB | 1571 | `libsdl-org/SDL_image` @ `c91323df` |
-| `05-sdl2_mixer.tar.xz` | 9.1 MB | 2012 | `libsdl-org/SDL_mixer` @ `7808d9af` |
+| `04-sdl2_image.tar.xz` | 10.6 MB | 1566 | `libsdl-org/SDL_image` @ `c91323df` |
+| `05-sdl2_mixer.tar.xz` | 10.8 MB | 2389 | `libsdl-org/SDL_mixer` @ `7808d9af` |
 | `06-sdl2_ttf.tar.xz` | 25.8 MB | 4810 | `libsdl-org/SDL_ttf` @ `3091df32` |
 
 `MANIFEST.txt` lists the exact commit of every component and of each nested
@@ -85,8 +85,10 @@ python packaging/verify-packaging.py
 Reads the archives without extracting them (so it works on Windows too) and
 checks the invariants above: which paths must be there, which symlinks must
 resolve once the app is selected, which scripts must be executable, which paths
-must be gone, that the patches below are baked in, and that no archive
-approaches the 100 MB limit.  Run it after touching anything in `packaging/`.
+must be gone, that no `Android.mk` still includes a pruned codec directory that
+is enabled by default, that no script arrived with CRLF, that the patches below
+are baked in, and that no archive approaches the 100 MB limit.  Run it after
+touching anything in `packaging/`.
 
 ## Rebuilding
 
@@ -133,10 +135,23 @@ icuuc`) and a scan of the symlinks that reach into the submodules:
 
 * every other `project/jni/application/*` sample app (54 MB),
 * `project/jni/python` (57 MB; only the sample apps use it),
-* `.gitmodules`,
+* every `.gitmodules`,
 * the optional image codecs `sdl2_image/external/{libjxl,libavif,dav1d,libwebp,libtiff}`
-  and audio codecs `sdl2_mixer/external/{libxmp,mpg123,opus,opusfile,wavpack,libgme}`
-  (~170 MB), none of which any built module references.
+  and audio codecs `sdl2_mixer/external/{libxmp,mpg123,opus,opusfile}` (~155 MB),
+  none of which any built module references.
+
+`wavpack` (4 MB) and `libgme` (1 MB) are **kept** for a reason worth recording:
+nothing builds them either, but SDL2_mixer's own `Android.mk` defaults
+`SUPPORT_WAVPACK` and `SUPPORT_GME` to `true` and adds the `wavpack` and `gme`
+modules to `LOCAL_STATIC_LIBRARIES`.  Dropping the sources made ndk-build abort
+with
+
+    Android NDK: Module SDL2_mixer depends on undefined modules: wavpack gme
+
+and keeping 5 MB is cheaper than editing upstream's build to turn two unused
+codecs off.  `verify-packaging.py` now fails if any `Android.mk` includes a
+pruned codec directory that is still enabled by default, so the same mistake
+cannot reach CI again.
 
 The archives still contain a handful of dangling symlinks of upstream's own
 (Xcode frameworks' `Versions/Current`, `app-release.apk`, the `vncserver`

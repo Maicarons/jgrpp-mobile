@@ -1,3 +1,6 @@
+#if defined(__OHOS__) || defined(__ANDROID__)
+extern "C" void ohos_probe(const char *msg);
+#endif
 /*
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
@@ -55,6 +58,7 @@ bool VideoDriver_SDL_OpenGL::CreateMainWindow(uint w, uint h, uint flags)
 
 const char *VideoDriver_SDL_OpenGL::Start(const StringList &param)
 {
+	ohos_probe("__GL_START__");
 	const char *error = VideoDriver_SDL_Base::Start(param);
 	if (error != nullptr) return error;
 
@@ -114,14 +118,21 @@ const char *VideoDriver_SDL_OpenGL::AllocateContext()
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
-	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	/* The OpenTTD GL backend falls back to its GLSL 110 shaders on GLES, so an
+	 * ES context is fine. Marking the visual accelerated forces the EGL config
+	 * chooser to require hardware acceleration, which software emulators do not
+	 * provide - the chooser then spins forever finding nothing. */
+	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 
 	if (GetDebugLevel(DebugLevelID::driver) >= 8) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 	}
 
 	this->gl_context = SDL_GL_CreateContext(this->sdl_window);
+	ohos_probe("__GL_CTX_CREATED__");
 	if (this->gl_context == nullptr) return "SDL2: Can't activate GL context";
 
 	ToggleVsync(_video_vsync);
@@ -141,7 +152,7 @@ void VideoDriver_SDL_OpenGL::ClearSystemSprites()
 
 bool VideoDriver_SDL_OpenGL::AllocateBackingStore(int w, int h, bool force)
 {
-	if (this->gl_context == nullptr) return false;
+	if (this->gl_context == nullptr) return true;   // defer: buffer allocated after GL context in Start()
 
 	if (_screen.dst_ptr != nullptr) this->ReleaseVideoPointer();
 

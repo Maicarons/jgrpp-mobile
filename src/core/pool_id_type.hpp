@@ -57,7 +57,7 @@ struct EMPTY_BASES PoolID : TTag, PoolIDBase {
 	static inline constexpr bool integer_type_hint = true;
 	static inline constexpr bool hash_as_base = true;
 
-	using BaseType = TTag::BaseType;
+	using BaseType = typename TTag::BaseType;
 	using TagType = TTag;
 
 	constexpr PoolID() = default;

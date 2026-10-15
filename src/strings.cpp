@@ -20,6 +20,9 @@
 #include "error.h"
 #include "error_func.h"
 #include "strings_func.h"
+#if defined(__OHOS__) || defined(__ANDROID__)
+extern "C" void ohos_probe(const char *msg);
+#endif
 #include "core/string_builder.hpp"
 #include "core/string_consumer.hpp"
 #include "core/utf8.hpp"
@@ -2668,6 +2671,7 @@ bool ReadLanguagePack(const LanguageMetadata *lang)
 	_langpack.strings = std::move(strings);
 	_langpack.langtab_num = tab_num;
 	_langpack.langtab_start = tab_start;
+	ohos_probe("__LANG_PARSE__");
 
 	_current_language = lang;
 	const TextDirection old_text_dir = _current_text_dir;
@@ -2677,6 +2681,7 @@ bool ReadLanguagePack(const LanguageMetadata *lang)
 	_langpack.ellipsis = GetString(STR_TRUNCATION_ELLIPSIS);
 
 	FillDecimalSeparatorChar();
+	ohos_probe("__LANG_START__");
 
 #ifdef _WIN32
 	extern void Win32SetCurrentLocaleName(std::string iso_code);
@@ -2694,6 +2699,7 @@ bool ReadLanguagePack(const LanguageMetadata *lang)
 #endif /* WITH_ICU_I18N */
 
 	Layouter::Initialize();
+	ohos_probe("__LANG_LAYOUT__");
 
 	/* Some lists need to be sorted again after a language change. */
 	ReconsiderGameScriptLanguage();
@@ -2793,7 +2799,9 @@ static bool GetLanguageFileHeader(const char *file, LanguagePackHeader *hdr)
  */
 static void GetLanguageList(const char *path)
 {
+	ohos_probe("__GLL_OPEN__");
 	DIR *dir = opendir(OTTD2FS(path).c_str());
+	ohos_probe(dir != nullptr ? "__GLL_DIR__" : "__GLL_NODIR__");
 	if (dir != nullptr) {
 		struct dirent *dirent;
 		while ((dirent = readdir(dir)) != nullptr) {
@@ -2813,6 +2821,7 @@ static void GetLanguageList(const char *path)
 			} else if (GetLanguage(lmd.newgrflangid) != nullptr) {
 				Debug(misc, 3, "{}'s language ID is already known", lmd.file);
 			} else {
+				ohos_probe("__GLL_VALID__");
 				_languages.push_back(std::move(lmd));
 			}
 		}
@@ -2828,8 +2837,15 @@ void InitializeLanguagePacks()
 {
 	for (Searchpath sp : _valid_searchpaths) {
 		std::string path = FioGetDirectory(sp, Subdirectory::Lang);
+#if defined(__OHOS__) || defined(__ANDROID__)
+		{
+			std::string probe = "__GLL_PATH " + path;
+			ohos_probe(probe.c_str());
+		}
+#endif
 		GetLanguageList(path.c_str());
 	}
+	ohos_probe(_languages.empty() ? "__LANG_EMPTY__" : "__LANG_NONEMPTY__");
 	if (_languages.empty()) UserError("No available language packs (invalid versions?)");
 
 	/* Acquire the locale of the current system */
@@ -2867,6 +2883,7 @@ void InitializeLanguagePacks()
 	}
 
 	if (!ReadLanguagePack(chosen_language)) UserError("Can't read language pack '{}'", chosen_language->file);
+	ohos_probe("__LANG_LOADED__");
 }
 
 /**

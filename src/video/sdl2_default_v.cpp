@@ -33,6 +33,9 @@
 #endif
 
 #include "../safeguards.h"
+#if defined(__OHOS__) || defined(__ANDROID__)
+extern "C" void ohos_probe(const char *msg);
+#endif
 
 static FVideoDriver_SDL_Default iFVideoDriver_SDL_Default; ///< The default, non-GL, SDL video driver.
 
@@ -150,6 +153,10 @@ bool VideoDriver_SDL_Default::AllocateBackingStore(int w, int h, bool force)
 	int bpp = BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
 
 	_sdl_real_surface = SDL_GetWindowSurface(this->sdl_window);
+#if defined(__OHOS__) || defined(__ANDROID__)
+	ohos_probe(_sdl_real_surface == nullptr ? "__GETWINSURF_NULL__" : "__GETWINSURF_OK__");
+	if (_sdl_real_surface == nullptr) ohos_probe(SDL_GetError());
+#endif
 	if (_sdl_real_surface == nullptr) UserError("SDL2: Couldn't get window surface: {}", SDL_GetError());
 
 	if (!force && w == _sdl_real_surface->w && h == _sdl_real_surface->h) return false;

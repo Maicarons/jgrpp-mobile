@@ -15,6 +15,8 @@ public:
 	VideoDriver_SDL_OpenGL() : VideoDriver_SDL_Base(true), gl_context(nullptr) {}
 
 	const char *Start(const StringList &param) override;
+	bool IsOpenGL() const override { return true; }
+
 
 	void Stop() override;
 

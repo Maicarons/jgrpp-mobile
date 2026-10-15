@@ -17,6 +17,7 @@
 
 /** The SDL video driver. */
 class VideoDriver_SDL_Base : public VideoDriver {
+	virtual bool IsOpenGL() const { return false; }
 public:
 	/**
 	 * Create the video driver.

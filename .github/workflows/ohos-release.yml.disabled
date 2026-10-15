@@ -1,0 +1,149 @@
+name: HarmonyOS HAP Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for the HAP (e.g. 0.73.1)'
+        required: false
+        default: '0.73.1'
+      ref:
+        description: 'Branch of jgrpp-mobile source to build'
+        required: false
+        default: 'jgrpp'
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+  # @ohos/hvigor is NOT published to npmjs; the canonical headless source for
+  # hvigorw/ohpm is Huawei's command-line-tools bundle. It also carries the
+  # complete SDK (ets/js/native/previewer/toolchains) that hvigor validates
+  # against, so it serves as both toolchain and SDK.
+  CLT_URL: 'https://image.cdn.dog/commandline-tools-linux-x64-6.1.1.280.zip'
+  CLT_SHA256: 'b9caf7b73c541b90e6c8f3c7c3de7f2bea9b35e41e80cd3525f2f759ebf16cf4'
+  OPENGFX_URL: 'https://cdn.openttd.org/opengfx-releases/7.1/opengfx-7.1-all.zip'
+
+jobs:
+  build-hap:
+    env:
+      VERSION_NAME: ${{ github.event.inputs.version || '0.73.1' }}
+      SOURCE_REF: ${{ github.event.inputs.ref || 'jgrpp' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out jgrpp-mobile source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up Node (needed by hvigor)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build llvm-18 lld-18
+          echo "OHOS_CLANG_PREFIX=/usr/lib/llvm-18/bin" >> $GITHUB_ENV
+          echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
+
+      - name: Download command-line-tools (SDK + hvigor + ohpm)
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/clt.zip" "$CLT_URL"
+          echo "$CLT_SHA256  $RUNNER_TEMP/clt.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/clt-root"
+          unzip -q "$RUNNER_TEMP/clt.zip" -d "$RUNNER_TEMP/clt-root"
+          CLT="$RUNNER_TEMP/clt-root/command-line-tools"
+          SDK="$CLT/sdk"
+          test -f "$CLT/bin/hvigorw"
+          test -f "$SDK/default/openharmony/native/build/cmake/ohos.toolchain.cmake"
+          # zips created on Windows lose the unix exec bits
+          chmod +x "$CLT/bin/"*
+          chmod +x "$SDK"/default/openharmony/native/llvm/bin/*
+          echo "DEVECO_SDK_HOME=$SDK" >> $GITHUB_ENV
+          echo "$CLT/bin" >> $GITHUB_PATH
+          # NB: PATH updates above only affect later steps, so use the full
+          # path here.
+          "$CLT/bin/hvigorw" --version
+
+      - name: Cross-compile jgrpp libraries (libopenttd.so, SDL3, sdl2-compat)
+        run: |
+          export OHOS_NATIVE_SDK="$DEVECO_SDK_HOME/default/openharmony/native"
+          bash harmony/build-ohos.sh
+
+      # build-ohos.sh already mirrors baseset/lang/ai/game/media/scripts into
+      # rawfile/openttd. Here we only fetch the external base graphics (OpenGFX)
+      # so the game has something to render. opengfx-7.1-all.zip contains a
+      # single opengfx-7.1.tar, which OpenTTD discovers as a base set only from
+      # baseset/ (a .grf dropped into data/ would show up as a NewGRF, leaving
+      # the base-set slot empty and the game unusable on first launch).
+      - name: Fetch base graphics (OpenGFX) into rawfile
+        run: |
+          RAW=harmony/app/entry/src/main/resources/rawfile/openttd
+          mkdir -p "$RAW/baseset"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/opengfx.zip" "$OPENGFX_URL"
+          unzip -p "$RUNNER_TEMP/opengfx.zip" opengfx-7.1.tar > "$RAW/baseset/opengfx-7.1.tar"
+          ls -la "$RAW/baseset"
+
+      - name: Install project dependencies (ohpm)
+        working-directory: harmony/app
+        run: ohpm install --all
+
+      - name: Build unsigned HAP
+        working-directory: harmony/app
+        run: |
+          hvigorw --no-daemon assembleHap --mode module -p product=default -p buildMode=release
+
+      - name: Stage HAP
+        run: |
+          mkdir -p upload
+          find harmony/app -path '*build*' -name '*.hap' -exec cp {} upload/ \;
+          # hvigor always emits entry-default-unsigned.hap; give the published
+          # artifact a name consistent with the APK and the release tag.
+          for f in upload/*.hap; do
+            mv "$f" "upload/jgrpp-mobile-${VERSION_NAME}-harmonyos-unsigned.hap"
+          done
+          ls -la upload/
+
+      - name: Upload HAP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}-harmonyos
+          path: upload
+          if-no-files-found: error
+
+      - name: Attach HAP to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          name: jgrpp-mobile-${{ env.VERSION_NAME }}
+          files: upload/*.hap
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="[ohos-release] HAP build failed on jgrpp"
+          BODY="The HarmonyOS HAP release build failed, so no new HAP was
+          published. Likely causes: upstream merge broke the OHOS port, or
+          an ArkTS/SDK incompatibility in harmony/app.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Fix on \`jgrpp\`, then dispatch **HarmonyOS HAP Release** (and
+          **Upstream Release Watcher** with \`force_version\` if the version
+          marker already moved)."
+
+          NUM=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

@@ -458,7 +458,22 @@ public:
 
 	friend auto operator <=>(const ring_buffer &a, const ring_buffer &b)
 	{
+#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 170000
+		/* std::ranges::lexicographical_compare_three_way is not available in older libc++. */
+		auto ia = a.begin();
+		auto ib = b.begin();
+		while (ia != a.end() && ib != b.end()) {
+			std::strong_ordering cmp = *ia <=> *ib;
+			if (cmp != 0) return cmp;
+			++ia;
+			++ib;
+		}
+		if (ia != a.end()) return std::strong_ordering::greater;
+		if (ib != b.end()) return std::strong_ordering::less;
+		return std::strong_ordering::equal;
+#else
 		return std::lexicographical_compare_three_way(a.begin(), a.end(), b.begin(), b.end());
+#endif
 	}
 
 	size_t size() const

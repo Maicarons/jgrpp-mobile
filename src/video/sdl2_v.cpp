@@ -1,3 +1,6 @@
+#if defined(__OHOS__) || defined(__ANDROID__)
+extern "C" void ohos_probe(const char *msg);
+#endif
 /*
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
@@ -379,6 +382,7 @@ bool VideoDriver_SDL_Base::CreateMainWindow(uint w, uint h, uint flags)
 	if (this->sdl_window != nullptr) return true;
 
 	flags |= SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+	if (this->IsOpenGL()) flags |= SDL_WINDOW_OPENGL;
 
 	if (_fullscreen) {
 		flags |= SDL_WINDOW_FULLSCREEN;
@@ -435,9 +439,15 @@ bool VideoDriver_SDL_Base::CreateMainSurface(uint w, uint h, bool resize)
 	GetAvailableVideoMode(&w, &h);
 	Debug(driver, 1, "SDL2: using mode {}x{}", w, h);
 
-	if (!this->CreateMainWindow(w, h)) return false;
+	if (!this->CreateMainWindow(w, h)) {
+		ohos_probe("__WIN_FAIL__"); ohos_probe(SDL_GetError());
+		return false;
+	}
+	ohos_probe("__WIN_OK__");
 	if (resize) SDL_SetWindowSize(this->sdl_window, w, h);
+	ohos_probe("__CLIENT_SIZE_CHANGED__");
 	this->ClientSizeChanged(w, h, true);
+	ohos_probe("__AFTER_ALLOC__");
 
 	/* When in full screen, we will always have the mouse cursor
 	 * within the window, even though SDL does not give us the
@@ -936,10 +946,13 @@ const char *VideoDriver_SDL_Base::Initialize()
 
 const char *VideoDriver_SDL_Base::Start(const StringList &param)
 {
+	ohos_probe("__SDL_START__");
 	if (BlitterFactory::GetCurrentBlitter()->GetScreenDepth() == 0) return "Only real blitters supported";
 
 	const char *error = this->Initialize();
 	if (error != nullptr) return error;
+	ohos_probe(error == nullptr ? "__SDL_INIT_OK__" : "__SDL_INIT_FAIL__");
+	if (error != nullptr) { ohos_probe(SDL_GetError()); return error; }
 
 #ifdef SDL_HINT_MOUSE_AUTO_CAPTURE
 	if (_ini_no_mouse_capture || GetDriverParamBool(param, "no_mouse_capture")) {
@@ -952,6 +965,7 @@ const char *VideoDriver_SDL_Base::Start(const StringList &param)
 
 	this->startup_display = FindStartupDisplay(GetDriverParamInt(param, "display", -1));
 
+	ohos_probe("__SDL_MAKESURFACE__");
 	if (!CreateMainSurface(_cur_resolution.width, _cur_resolution.height, false)) {
 		return SDL_GetError();
 	}

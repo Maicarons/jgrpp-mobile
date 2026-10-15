@@ -58,6 +58,12 @@
 #include "highscore.h"
 #include "station_base.h"
 #include "crashlog.h"
+#if defined(__OHOS__) || defined(__ANDROID__)
+extern "C" void ohos_probe(const char *msg);
+#define PROBE(m) ohos_probe(#m)
+#else
+#define PROBE(m) ((void)0)
+#endif
 #include "engine_func.h"
 #include "engine_override.h"
 #include "core/random_func.hpp"
@@ -673,6 +679,7 @@ static std::vector<OptionData> CreateOptions()
  */
 int openttd_main(std::span<char * const> arguments)
 {
+	PROBE("__MAIN_ENTER__");
 	SetSelfAsMainThread();
 	PerThreadSetup(false);
 	SlXvSetStaticCurrentVersions();
@@ -878,7 +885,9 @@ int openttd_main(std::span<char * const> arguments)
 	}
 
 	DeterminePaths(arguments[0], only_local_path);
+	PROBE("__PATHS__");
 	TarScanner::DoScan(TarScanner::Mode::Baseset);
+	PROBE("__BASESET_SCAN__");
 
 	if (dedicated) Debug(net, 3, "Starting dedicated server, version {}", _openttd_revision);
 	if (_dedicated_forks && !dedicated) _dedicated_forks = false;
@@ -889,6 +898,7 @@ int openttd_main(std::span<char * const> arguments)
 #endif
 
 	LoadFromConfig(true);
+	PROBE(__CONFIG__);
 
 	if (resolution.width != 0) _cur_resolution = resolution;
 
@@ -907,9 +917,11 @@ int openttd_main(std::span<char * const> arguments)
 
 	/* enumerate language files */
 	InitializeLanguagePacks();
+	PROBE(__LANG__);
 
 	/* Initialize the font cache */
 	FontCache::LoadFontCaches(FONTSIZES_REQUIRED);
+	PROBE(__FONTS__);
 
 	/* This must be done early, since functions use the SetWindowDirty* calls */
 	InitWindowSystem();
@@ -943,6 +955,7 @@ int openttd_main(std::span<char * const> arguments)
 
 	/* Initialize game palette */
 	GfxInitPalettes();
+	PROBE(__PALETTES__);
 
 	Debug(misc, 1, "Loading blitter...");
 	if (blitter.empty() && !_ini_blitter.empty()) blitter = _ini_blitter;
@@ -964,7 +977,11 @@ int openttd_main(std::span<char * const> arguments)
 	}
 
 	if (videodriver.empty() && !_ini_videodriver.empty()) videodriver = _ini_videodriver;
+	PROBE(__BEFORE_VIDEO__);
 	DriverFactoryBase::SelectDriver(videodriver, Driver::Type::Video);
+#if defined(__OHOS__) || defined(__ANDROID__)
+	ohos_probe("video driver selected");
+#endif
 
 	InitializeSpriteSorter();
 
@@ -976,11 +993,20 @@ int openttd_main(std::span<char * const> arguments)
 
 	SocialIntegration::Initialize();
 	NetworkStartUp(); // initialize network-core
+#if defined(__OHOS__) || defined(__ANDROID__)
+	ohos_probe("network start up");
+#endif
 
 	if (!HandleBootstrap()) {
+#if defined(__OHOS__) || defined(__ANDROID__)
+		ohos_probe("bootstrap failed");
+#endif
 		ShutdownGame();
 		return 0;
 	}
+#if defined(__OHOS__) || defined(__ANDROID__)
+	ohos_probe("bootstrap done");
+#endif
 
 #ifdef DEDICATED
 	/* Pre-initialise autosave sequence for dedicated servers (for autosave copy on crash) */
@@ -1037,6 +1063,9 @@ int openttd_main(std::span<char * const> arguments)
 	RequestNewGRFScan(scanner.release());
 
 	_general_worker_pool.Start("ottd:worker", 8);
+#if defined(__OHOS__) || defined(__ANDROID__)
+	ohos_probe("entering mainloop");
+#endif
 
 	VideoDriver::GetInstance()->MainLoop();
 

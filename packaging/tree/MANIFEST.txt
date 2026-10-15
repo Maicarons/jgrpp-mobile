@@ -1,0 +1,68 @@
+Packaging tree for the jgrpp Android build (see
+packaging/README.md in the repository root).
+Generated 2026-10-15 17:19 UTC by make-packaging-tarball.py.
+
+Unpack every archive into one empty build directory:
+    for a in packaging/tree/*.tar.xz; do tar -xJf "$a" -C <dir>; done
+
+Total 125.6 MB.
+
+01-commandergenius.tar.xz
+    41.2 MB, sha256 31e52de1ecfea537d0ecfa52e3cda6400c2abef860a8593b92e158fea4a6ffbe
+    5714 members, 79 symlinks, 4 patched, 5617 pruned
+    . = https://wget.la/https://github.com/pelya/commandergenius.git @ 92979c2517b48930e7706948ac84eb8bf86ff5b2
+
+02-iconv-src.tar.xz
+    35.8 MB, sha256 0436d776f7935132a22948002de867a06f41414c4f8f71cd81b0a46f5b9312e3
+    17 members, 0 symlinks, 0 patched, 0 pruned
+    project/jni/iconv/src = https://github.com/pelya/libiconv-libicu-android.git @ 1d9e3e389de92818bafbca061d454ec917af9ec0
+
+03-sdl2.tar.xz
+    5.2 MB, sha256 15cef27373a25b2e43c25cc4e71a2038440e4d0ba71d95dddc310ff43bdd096e
+    2147 members, 2 symlinks, 0 patched, 0 pruned
+    project/jni/sdl2 = https://wget.la/https://github.com/libsdl-org/SDL.git @ 0efeb82a28795e72594642251f1bddcb881aaa7f
+
+04-sdl2_image.tar.xz
+    10.1 MB, sha256 40a073bcdac8eefa1e364a0f4f75a0d643893b6b89a085249fb9fdc1de8c2079
+    1571 members, 4 symlinks, 0 patched, 1 pruned
+    project/jni/sdl2_image = https://wget.la/https://github.com/libsdl-org/SDL_image @ c91323df2f84352751e68111b70ac3f739cea068
+    project/jni/sdl2_image/external/jpeg = https://github.com/libsdl-org/jpeg.git @ a2b96a055f06083bbfe06a75a87f91385bae9606
+    project/jni/sdl2_image/external/libpng = https://github.com/libsdl-org/libpng.git @ 1fcb383151fc6329ad3f82cb64fc99d2b3a0b415
+    project/jni/sdl2_image/external/zlib = https://github.com/libsdl-org/zlib.git @ c4ea85eda90be5d47bb832108a520b4e82fe19c4
+
+05-sdl2_mixer.tar.xz
+    8.7 MB, sha256 7e8972492a0b0855fd977d210376cf492d2c96758d2e0e68d8d513371e6b9d23
+    2012 members, 4 symlinks, 0 patched, 1 pruned
+    project/jni/sdl2_mixer = https://wget.la/https://github.com/libsdl-org/SDL_mixer.git @ 7808d9afd92bb30dfa96c6b6540b04b161803566
+    project/jni/sdl2_mixer/external/flac = https://github.com/libsdl-org/flac.git @ dac59a8eb44f2f9f7006b1246bede041dfb18ea0
+    project/jni/sdl2_mixer/external/ogg = https://github.com/libsdl-org/ogg.git @ 7231a5687231bad3eb778399ac08b690589db8d4
+    project/jni/sdl2_mixer/external/vorbis = https://github.com/libsdl-org/vorbis.git @ 0cec9a37f057a54a1e6b572301aec659d84840c3
+    project/jni/sdl2_mixer/external/tremor = https://github.com/libsdl-org/tremor.git @ 7afc84841ffa2e9610b65950fd233e6c428699c7
+
+06-sdl2_ttf.tar.xz
+    24.6 MB, sha256 bdf5562ab679f8166d334232e0a9794714522baeb5f17987d65392f5c038f728
+    4810 members, 5 symlinks, 0 patched, 2 pruned
+    project/jni/sdl2_ttf = https://wget.la/https://github.com/libsdl-org/SDL_ttf.git @ 3091df328802d15364a30b8fbd5e8f58ce770f9b
+    project/jni/sdl2_ttf/external/freetype = https://github.com/libsdl-org/freetype.git @ 12c5e620858bd503731091e9371d06c0a3e7c967
+    project/jni/sdl2_ttf/external/freetype/subprojects/dlg = https://github.com/nyorain/dlg.git @ 72dfcc858c040c54a6a0b88fcb7e70ee186d3167
+    project/jni/sdl2_ttf/external/harfbuzz = https://github.com/libsdl-org/harfbuzz.git @ dee43a364347810bccdd5ce2e2079be9511c59eb
+
+Pruned submodules (no module of this app builds them):
+    project/jni/sdl2_image/external/dav1d
+    project/jni/sdl2_image/external/libavif
+    project/jni/sdl2_image/external/libjxl
+    project/jni/sdl2_image/external/libtiff
+    project/jni/sdl2_image/external/libwebp
+    project/jni/sdl2_mixer/external/libgme
+    project/jni/sdl2_mixer/external/libxmp
+    project/jni/sdl2_mixer/external/mpg123
+    project/jni/sdl2_mixer/external/opus
+    project/jni/sdl2_mixer/external/opusfile
+    project/jni/sdl2_mixer/external/wavpack
+
+Pruned paths: the other project/jni/application sample apps,
+project/jni/python, .gitmodules.
+Patched: APP_PLATFORM=android-24 in the app config, minSdk 24 in
+build-template.gradle, -DANDROID_PLATFORM=android-24 in
+AndroidBuild.sh, a ./stage-data.sh hook in build.sh, and
+pnglibconf.h materialised from libpng's prebuilt.

@@ -2,6 +2,12 @@
 
 从 JGRPP 上游拉取新版本，应用移动端补丁，编译 arm64-v8a APK 并发布到 GitHub Release。
 
+> **打包树已内置**：`packaging/tree/*.tar.xz` 是打包树（原
+> pelya/commandergenius `sdl_android` 分支 + 全部子模块）的权威副本，
+> CI 直接解压、不再克隆上游。本文档里「克隆 pelya」的步骤只适用于自建检出；
+> 维护中的构建说明见 [`android-build.md`](android-build.md)，发布流程见
+> [`release.md`](release.md)。
+
 ## 1. 环境要求
 
 | 工具 | 路径 / 版本 | 说明 |

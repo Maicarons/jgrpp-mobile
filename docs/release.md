@@ -15,8 +15,13 @@
 
 | 分支 | 内容 | 用途 |
 | --- | --- | --- |
-| `main` | 仅脚手架（`harmony/`、`.github/`、构建文档、工程配置） | 落地页 / 模板；新的版本分支从这里取脚手架 |
-| `jgrpp-<ver>-mobile` | 上游 jgrpp 源码（含手机端改动，直接改源码）+ 同一份脚手架 | 实际构建与发布 |
+| `main` | 仅脚手架（`packaging/`、`harmony/`、`.github/`、构建文档、工程配置） | 落地页 / 模板；新的版本分支从这里取脚手架 |
+| `jgrpp-<ver>-mobile` | 上游 jgrpp 源码（含手机端改动，直接改源码）+ 同一份脚手架（含 `packaging/tree/`） | 实际构建与发布 |
+
+> `packaging/tree/*.tar.xz` 是打包树（原 pelya/commandergenius + 全部子模块）的
+> **权威副本**：上游已冻结，CI 不再克隆任何外部仓库，只解压这些归档。详见
+> `packaging/README.md`；改打包树时同时更新 `main` 与各版本分支（tag 构建
+> 只用被 tag 的那一个 ref，所以版本分支必须自带归档）。
 
 > `main` 采用**孤立历史**（root commit），与版本分支没有共同祖先，
 > 因此二者之间不会因为 merge 而误删对方文件。脚手架如有更新，需要人工
@@ -51,8 +56,9 @@
 
 APK 首次启动按 `AndroidAppSettings.cfg` 的 `AppDataDownloadUrl` 从 APK assets
 的 `/AndroidData/*.xz` 读取数据。仓库根目录的 `stage-data.sh`（CI 由
-**Install data staging script** 步骤放进打包树，`build.sh` 在 `copyAssets.sh`
-之前调用它）现场生成并打进 APK：
+**Install data staging script** 步骤放进打包树；`build.sh` 里那行
+`[ -x ./stage-data.sh ] && ./stage-data.sh` 钩子随 `packaging/tree` 归档一起
+提供，位于 `copyAssets.sh` 之前）现场生成并打进 APK：
 
 - `openttd-data-0.40.4-0.zip.xz`：**本版构建产物**的 `lang/` + `baseset/` +
   `ai/` + `game/`，加上 OpenGFX 8.0 图形与 OpenSFX 1.0.3 音效；

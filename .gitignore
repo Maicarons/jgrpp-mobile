@@ -49,6 +49,10 @@ harmony/screen.*
 # --- Local AI / agent tool state (session data + absolute paths) -------------
 **/.mimosa/
 
+# --- Python bytecode (packaging/ helper scripts) -----------------------------
+__pycache__/
+*.pyc
+
 # --- CMake / Ninja / compiler artifacts (embed absolute local paths) ---------
 **/.ninja_log
 **/.ninja_deps

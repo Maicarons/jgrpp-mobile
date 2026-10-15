@@ -56,9 +56,15 @@ jobs:
             VER="${{ github.event.inputs.version }}"
           fi
           test -n "$VER"
+          # AppVersionCode must increase with every published release or Android
+          # refuses to install it over the previous one (and this used to be the
+          # hardcoded 7310, which never changed). jgrpp-mobile derives it from the
+          # version name, as the local build does: 0.73.4 -> 73041.
+          CODE=$(printf '%d%02d1' "$(echo "$VER" | cut -d. -f2)" "$(echo "$VER" | cut -d. -f3)")
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "VERSION_NAME=$VER" >> "$GITHUB_ENV"
-          echo "Building jgrpp-mobile-$VER"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          echo "Building jgrpp-mobile-$VER (versionCode $CODE)"
 
       - name: Check out jgrpp-mobile source
         uses: actions/checkout@v4
@@ -102,7 +108,7 @@ jobs:
           CFG=project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
           sed -i "s/^MultiABI=.*/MultiABI='${ARCH_LIST}'/" $CFG
           sed -i "s/^AppVersionName=.*/AppVersionName=\"${VERSION_NAME}\"/" $CFG
-          sed -i "s/^AppVersionCode=.*/AppVersionCode=7310/" $CFG
+          sed -i "s/^AppVersionCode=.*/AppVersionCode=${VERSION_CODE}/" $CFG
           ln -sf openttd-jgrpp project/jni/application/src
 
       - name: Get ICU revision for cache
@@ -169,66 +175,65 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           echo "proguard.config=proguard.cfg;proguard-local.cfg" >> local.properties
 
-      - name: Stage app data assets (AndroidData -> APK assets)
+      - name: Install data staging script
         working-directory: ${{ runner.temp }}/sdl-android
         run: |
-          set -euxo pipefail
-          # openttd-jgrpp/AndroidAppSettings.cfg forces these downloads at first
-          # launch (all '!!'), resolved from APK assets (AndroidData/ is copied
-          # to assets/ by copyAssets.sh):
-          #   openttd-data-0.40.4-0.zip.xz  game data (base sets + no_* sets)
-          #   timidity.zip.xz              MIDI instrument patch set
-          #   icudt62l.zip.xz              ICU data archive
-          # /AndroidData/*.xz is git-ignored and the upstream maintainer stages
-          # them by hand, so a fresh clone ships an APK whose launcher shows
-          # "Failed connecting to openttd-data-0.40.4-0.zip.xz". Build all
-          # three here so the release APK works on first run.
-          AD=project/jni/application/openttd-jgrpp/AndroidData
-          mkdir -p "$AD"
-          # 1) baseset for the APK: the generated baseset/ directory straight
-          #    out of the official binary package (no_music/no_sound sets,
-          #    opntitle.dat, orig_* descriptors) plus the real base sets
-          #    (OpenGFX graphics, OpenSFX sounds) extracted from their
-          #    official tars so the game has content on first launch.
-          DATA_DIR="$RUNNER_TEMP/openttd-data"
-          rm -rf "$DATA_DIR" && mkdir -p "$DATA_DIR/baseset"
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/ottd.zip" \
-            https://cdn.openttd.org/openttd-releases/13.4/openttd-13.4-windows-win64.zip
-          unzip -q "$RUNNER_TEMP/ottd.zip" -d "$RUNNER_TEMP/ottd"
-          cp -f "$RUNNER_TEMP"/ottd/openttd-13.4-windows-win64/baseset/* "$DATA_DIR/baseset/"
-          # The game also needs the language packs and AI/Game scripts from the
-          # official package; without lang/ the language initialiser exits at startup.
-          for d in lang ai game; do
-            [ -d "$RUNNER_TEMP/ottd/openttd-13.4-windows-win64/$d" ] && cp -r "$RUNNER_TEMP/ottd/openttd-13.4-windows-win64/$d" "$DATA_DIR/"
-          done
-          for SET in ogfx osfx; do
-            case "$SET" in
-              ogfx) U=https://cdn.openttd.org/opengfx-releases/7.1/opengfx-7.1-all.zip ;;
-              osfx) U=https://cdn.openttd.org/opensfx-releases/1.0.3/opensfx-1.0.3-all.zip ;;
-            esac
-            curl -fsSL --retry 3 -o "$RUNNER_TEMP/$SET.zip" "$U"
-            SET_DIR=$(unzip -Z1 "$RUNNER_TEMP/$SET.zip" | head -1)
-            SET_DIR=${SET_DIR%%/*}
-            SET_DIR=${SET_DIR%.tar}   # opengfx-7.1.tar: entry already carries the extension
-            unzip -q "$RUNNER_TEMP/$SET.zip" -d "$RUNNER_TEMP/$SET"
-            tar -xf "$RUNNER_TEMP/$SET/$SET_DIR.tar" -C "$DATA_DIR/baseset"
-          done
-          ( cd "$DATA_DIR" && zip -0 -r "$AD/openttd-data-0.40.4-0.zip" baseset lang ai game && xz -8 "$AD/openttd-data-0.40.4-0.zip" )
-          # 2) MIDI instruments shipped inside the pelya template itself.
-          cp project/jni/timidity/samples/timidity.zip "$AD/timidity.zip"
-          xz -8 -f "$AD/timidity.zip"
-          # 3) ICU data built by the ICU step above (installed into
-          #    project/jni/icuuc/share/icu by the iconv-libicu-android build).
-          ICU_DAT=$(find project/jni/icuuc/share/icu -name 'icudt*.dat' | head -1)
-          test -n "$ICU_DAT"
-          ( cd "$(dirname "$ICU_DAT")" && zip -0 "$AD/icudt62l.zip" "$(basename "$ICU_DAT")" && xz -8 "$AD/icudt62l.zip" )
-          ls -la "$AD"
+          # build.sh runs ./stage-data.sh (when executable) after the native
+          # build and before copyAssets.sh — the only point at which this
+          # build's own lang/ and baseset/ exist. The data pack must be built
+          # from those: the .lng files of an official package carry a different
+          # LANGUAGE_PACK_VERSION and every language gets rejected at startup,
+          # and baseset/ carries the OpenTTD fonts plus the JGRPP base GRFs
+          # (extra_signals, tracerestrict, ...). The script therefore lives in
+          # the repository root and CI and local builds share it.
+          cp "$GITHUB_WORKSPACE/stage-data.sh" ./stage-data.sh
+          chmod +x ./stage-data.sh
+          head -3 ./stage-data.sh
 
       - name: Build APK
         working-directory: ${{ runner.temp }}/sdl-android
         run: |
           export PATH=$ANDROID_NDK_LATEST_HOME:$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
           ./build.sh
+
+      - name: Inject and strip the native libraries
+        working-directory: ${{ runner.temp }}/sdl-android/project
+        run: |
+          set -euxo pipefail
+          # ndk-build leaves the .so files in project/libs/<abi>/ (project/lib is
+          # a symlink to it), but AGP does not pick them up: pelya's template
+          # never wires this directory as jniLibs, and copyAssets.sh only packs
+          # AndroidData/lib, which nothing populates. Without this step the APK
+          # contains no native code at all and cannot start.
+          #
+          # Inject them stored (uncompressed and page-aligned, as targetSdk >= 30
+          # demands) and stripped: the build is RelWithDebInfo, i.e. built with
+          # -g, so unstripped they are ~265 MiB per ABI. Re-align afterwards so
+          # sign.sh can sign the APK.
+          A="$PWD/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$A"
+          STRIP="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          test -x "$STRIP"
+          # pelya's changeAppSettings.sh creates the `lib` junction with mklink,
+          # which only exists on Windows, so on Linux only libs/ is there. zip
+          # must see the `lib/` prefix, or the APK would get libs/<abi>/ entries
+          # and Android would not find the libraries.
+          if [ ! -d lib ]; then ln -sfn libs lib; fi
+          zip -d "$A" 'lib/*' || true
+          for ABI in ${ARCH_LIST}; do
+            test -d "lib/$ABI"
+            find "lib/$ABI" -name '*.so' -exec "$STRIP" --strip-unneeded {} +
+            zip -0 -rD "$A" "lib/$ABI"
+          done
+          unzip -l "$A" 'lib/*' | tail -3
+          # The launcher reads these straight from the APK assets on first run;
+          # a missing one means copyAssets.sh did not stage the data pack.
+          for F in openttd-data-0.40.4-0.zip.xz timidity.zip.xz icudt62l.zip.xz; do
+            unzip -l "$A" "assets/$F" > /dev/null
+          done
+          export PATH="$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH"
+          zipalign -f -p 4 "$A" app/build/outputs/apk/release/app-release.apk
+          ls -la app/build/outputs/apk/release/
 
       - name: Sign APK with debug key
         working-directory: ${{ runner.temp }}/sdl-android

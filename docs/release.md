@@ -50,16 +50,22 @@
 ## 3. 资源打包（必须）
 
 APK 首次启动按 `AndroidAppSettings.cfg` 的 `AppDataDownloadUrl` 从 APK assets
-的 `/AndroidData/*.xz` 读取数据。`android-release.yml` 的
-**Stage app data assets** 步骤会现场生成并打进 APK：
+的 `/AndroidData/*.xz` 读取数据。仓库根目录的 `stage-data.sh`（CI 由
+**Install data staging script** 步骤放进打包树，`build.sh` 在 `copyAssets.sh`
+之前调用它）现场生成并打进 APK：
 
-- `openttd-data-0.40.4-0.zip.xz`：baseset（含 OpenGFX 图形、OpenSFX 音效、
-  `no_music`/`no_sound` 集合）+ `lang/` + `ai/` + `game/`；
+- `openttd-data-0.40.4-0.zip.xz`：**本版构建产物**的 `lang/` + `baseset/` +
+  `ai/` + `game/`，加上 OpenGFX 8.0 图形与 OpenSFX 1.0.3 音效；
 - `timidity.zip.xz`：MIDI 音色；
 - `icudt62l.zip.xz`：ICU 数据。
 
-这些文件**不入库**（CI 每次现做、带缓存）。改上游数据版本时同步更新
-`android-release.yml` 里对应的 URL 与文件名。
+> `lang/` 与 `baseset/` 必须取自本版构建产物（`openttd-build-<abi>/`）：
+> 官方包的 `.lng` 哈希不同会被全部拒绝，官方包的 baseset 也缺 OpenTTD 字体与
+> JGRPP 基础 GRF。详见 `docs/android-build.md` 第五节。
+
+这些文件**不入库**（每次现做、带缓存）。改数据版本时改 `stage-data.sh` 顶部的
+`OGFX_VER` / `OSFX_VER`（或对应的下载 URL），并删掉 `AndroidData/` 里旧的
+`*.zip.xz` 让它重建。
 
 ## 4. 上游监视
 

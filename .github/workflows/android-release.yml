@@ -72,29 +72,23 @@ jobs:
           fetch-depth: 1
           ref: ${{ github.event.inputs.ref || github.ref }}
 
-      - name: Check out pelya/commandergenius (Android packaging)
+      - name: Unpack the packaging tree
         run: |
-          git clone --depth 1 -b sdl_android https://github.com/pelya/commandergenius.git $RUNNER_TEMP/sdl-android
-          cd $RUNNER_TEMP/sdl-android
-          # jpeg/png modules are built from the sdl2_image submodule (recursively:
-          # their sources live in SDL_image's nested submodules)
-          git submodule update --init --recursive --depth=1 project/jni/iconv/src \
-            project/jni/sdl2 project/jni/sdl2_image \
-            project/jni/sdl2_mixer project/jni/sdl2_ttf
-
-      - name: Materialize libpng config header
-        run: |
-          # png.h lives in sdl2_image's nested libpng submodule (jni/png/include
-          # symlinks there), but pnglibconf.h is a generated file the git repo
-          # does not carry; libpng ships a prebuilt template for exactly this.
-          PNG_DIR="$RUNNER_TEMP/sdl-android/project/jni/sdl2_image/external/libpng"
-          test -f "$PNG_DIR/png.h"
-          if [ ! -f "$PNG_DIR/pnglibconf.h" ]; then
-            cp "$PNG_DIR/scripts/pnglibconf.h.prebuilt" "$PNG_DIR/pnglibconf.h" 2>/dev/null || \
-              curl -fsSL https://raw.githubusercontent.com/pnggroup/libpng/v1.6.44/scripts/pnglibconf.h.prebuilt \
-                -o "$PNG_DIR/pnglibconf.h"
-          fi
-          test -f "$PNG_DIR/pnglibconf.h"
+          # The Android packaging tree (pelya/commandergenius + the native
+          # libraries it builds) is vendored in packaging/tree/, one archive per
+          # component, every path relative to the tree root. See
+          # packaging/README.md; upstream is frozen and this repository is now
+          # the authoritative copy, so nothing is cloned here.
+          mkdir -p "$RUNNER_TEMP/sdl-android"
+          cd "$RUNNER_TEMP/sdl-android"
+          for a in "$GITHUB_WORKSPACE"/packaging/tree/*.tar.xz; do tar -xJf "$a"; done
+          # The tree relies on symlinks and executable bits, which a Windows
+          # checkout cannot represent; make sure the archive round-trip kept them.
+          test -x ./build.sh
+          test -f project/jni/SettingsTemplate.mk
+          test -f project/jni/sdl2_image/external/libpng/pnglibconf.h
+          test -L project/jni/png/include
+          ls -l build.sh project/jni/png/include
 
       - name: Install jgrpp source into packaging tree
         run: |
@@ -109,12 +103,20 @@ jobs:
           sed -i "s/^MultiABI=.*/MultiABI='${ARCH_LIST}'/" $CFG
           sed -i "s/^AppVersionName=.*/AppVersionName=\"${VERSION_NAME}\"/" $CFG
           sed -i "s/^AppVersionCode=.*/AppVersionCode=${VERSION_CODE}/" $CFG
+          # The app is selected by making this git-ignored path a symlink, which
+          # is what every upstream checkout does; the Java sources, the launch
+          # glue and AndroidData all hang off it.
           ln -sf openttd-jgrpp project/jni/application/src
 
       - name: Get ICU revision for cache
         id: icu-rev
-        working-directory: ${{ runner.temp }}/sdl-android
-        run: echo "ICU_REV=`git -C project/jni/iconv/src rev-parse HEAD`::`echo ${ARCH_LIST} | sed 's/ /:/g'`-hb2" >> $GITHUB_ENV
+        working-directory: ${{ github.workspace }}
+        run: |
+          # The tree is unpacked, not cloned, so there is no revision to ask git
+          # for: key the cache on the archives themselves, so a rebuilt
+          # packaging tree starts a fresh ICU build.
+          TREE_HASH=$(cat packaging/tree/*.tar.xz | sha256sum | cut -c1-16)
+          echo "ICU_REV=${TREE_HASH}::`echo ${ARCH_LIST} | sed 's/ /:/g'`-hb2" >> $GITHUB_ENV
 
       - name: Cache ICU libraries
         uses: actions/cache@v4
@@ -133,23 +135,15 @@ jobs:
         working-directory: ${{ runner.temp }}/sdl-android
         run: touch project/jni/iconv/lib/*/* project/jni/icuuc/lib/*/* project/jni/icuuc/share/icu/*/* || true
 
-      - name: Patch Java files and build Boost, ICU, and OpenSSL
+      - name: Build Boost, ICU, and OpenSSL
         working-directory: ${{ runner.temp }}/sdl-android
         run: |
-          # getifaddrs()/freeifaddrs() require Android API 24; pelya's template
-          # leaves APP_PLATFORM empty (NDK default android-21). Bump both the
-          # pelya ndk-build platform and the gradle minSdk to 24.
-          sed -i 's/^APP_PLATFORM=.*/APP_PLATFORM=android-24/' project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
-          sed -i 's/minSdk 21/minSdk 24/' project/app/build-template.gradle
+          # APP_PLATFORM=android-24 (getifaddrs()/freeifaddrs() in
+          # src/network/core/host.cpp need API 24), minSdk 24 and
+          # -DANDROID_PLATFORM=android-24 on the app's CMake call are already
+          # patched into the vendored tree - see packaging/README.md.
           export PATH=$ANDROID_NDK_LATEST_HOME:$PATH
           ./changeAppSettings.sh
-          # The actual openttd native lib (which compiles network/core/host.cpp,
-          # the file that calls getifaddrs) is built by CMake, not pelya's
-          # ndk-build. pelya's AndroidBuild.sh invokes CMake with the NDK
-          # toolchain but never sets ANDROID_PLATFORM, so CMake defaulted to
-          # android-21 and failed with "undeclared identifier 'getifaddrs'".
-          # Inject -DANDROID_PLATFORM=android-24 into its CMake command.
-          awk '1; /^[[:space:]]*cmake[[:space:]]/{print "\t-DANDROID_PLATFORM=android-24 \\"}' project/jni/application/openttd-jgrpp/AndroidBuild.sh > /tmp/ab.tmp && mv /tmp/ab.tmp project/jni/application/openttd-jgrpp/AndroidBuild.sh && chmod +x project/jni/application/openttd-jgrpp/AndroidBuild.sh
           # pelya builds harfbuzz into iconv/src/<arch>/lib/, which is NOT a
           # cached path — on a warm cache make skips its build entirely and
           # the archive vanishes, breaking freetype's hb_* link symbols.
@@ -180,7 +174,9 @@ jobs:
         run: |
           # build.sh runs ./stage-data.sh (when executable) after the native
           # build and before copyAssets.sh — the only point at which this
-          # build's own lang/ and baseset/ exist. The data pack must be built
+          # build's own lang/ and baseset/ exist. The hook is baked into the
+          # vendored build.sh (packaging/README.md); this step only drops the
+          # script in. The data pack must be built
           # from those: the .lng files of an official package carry a different
           # LANGUAGE_PACK_VERSION and every language gets rejected at startup,
           # and baseset/ carries the OpenTTD fonts plus the JGRPP base GRFs
@@ -226,10 +222,15 @@ jobs:
             zip -0 -rD "$A" "lib/$ABI"
           done
           unzip -l "$A" 'lib/*' | tail -3
-          # The launcher reads these straight from the APK assets on first run;
-          # a missing one means copyAssets.sh did not stage the data pack.
+          # The launcher reads these straight from the APK assets on first run.
+          # They are the ones stage-data.sh writes into AndroidData, which
+          # copyAssets.sh copies into assets/, and build.sh calls stage-data.sh
+          # between the native build and that copy. A missing one means the data
+          # was never staged (see the names in stage-data.sh).
+          unzip -l "$A" 'assets/*.xz'
           for F in openttd-data-0.40.4-0.zip.xz timidity.zip.xz icudt62l.zip.xz; do
-            unzip -l "$A" "assets/$F" > /dev/null
+            unzip -l "$A" "assets/$F" > /dev/null || {
+              echo "::error::assets/$F is missing from the APK"; exit 1; }
           done
           export PATH="$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH"
           zipalign -f -p 4 "$A" app/build/outputs/apk/release/app-release.apk

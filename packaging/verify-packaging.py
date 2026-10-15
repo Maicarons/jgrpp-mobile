@@ -23,6 +23,7 @@ Exits non-zero and prints FAILURES when anything regressed.
 import glob
 import os
 import posixpath
+import re
 import sys
 import tarfile
 
@@ -126,19 +127,20 @@ EXECUTABLES = [
     "project/jni/application/setEnvironment-arm64-v8a.sh",
 ]
 
-# Nothing this app builds needs these, and together they were 150 MB.
+# Nothing this app builds needs these, and together they are about 160 MB.
+# wavpack and libgme are absent from this list on purpose: SDL2_mixer's
+# Android.mk defaults SUPPORT_WAVPACK/SUPPORT_GME to true and would then need
+# modules that are no longer defined (see check_pruned_includes below).
 PRUNED_SUBMODULES = [
     "project/jni/sdl2_image/external/dav1d",
     "project/jni/sdl2_image/external/libavif",
     "project/jni/sdl2_image/external/libjxl",
     "project/jni/sdl2_image/external/libtiff",
     "project/jni/sdl2_image/external/libwebp",
-    "project/jni/sdl2_mixer/external/libgme",
     "project/jni/sdl2_mixer/external/libxmp",
     "project/jni/sdl2_mixer/external/mpg123",
     "project/jni/sdl2_mixer/external/opus",
     "project/jni/sdl2_mixer/external/opusfile",
-    "project/jni/sdl2_mixer/external/wavpack",
 ]
 
 MAX_ARCHIVE = 100 * 1024 * 1024
@@ -164,6 +166,71 @@ def resolve(members, name, hops=0):
             posixpath.join(posixpath.dirname(prefix), target, *rest))
         return resolve(members, landed, hops + 1)
     return name if name in members else None
+
+
+SUPPORT_GUARD = re.compile(r"^(ifeq|ifneq)\s*\(\s*\$\((\w+)\)\s*,\s*([^)]+?)\s*\)")
+DEFINITION = re.compile(r"^\s*([A-Za-z_]\w*)\s*[:?]=\s*(.+?)\s*$", re.M)
+
+
+def check_pruned_includes(members, contents, check):
+    """No Android.mk may include a pruned codec directory unless it is off by
+    default.  ndk-build refuses to build otherwise:
+
+        Android NDK: Module SDL2_mixer depends on undefined modules: wavpack gme
+
+    That is exactly what dropping sdl2_mixer/external/wavpack caused, because
+    SDL2_mixer's own Android.mk has `SUPPORT_WAVPACK ?= true` and includes the
+    codec behind it."""
+    resolved = 0
+    for name, data in sorted(contents.items()):
+        if not name.endswith("Android.mk"):
+            continue
+        text = data.decode("utf-8", "replace")
+        variables = dict(DEFINITION.findall(text))
+        guard = []
+        for lineno, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith(("ifeq", "ifneq", "ifdef", "ifndef")):
+                match = SUPPORT_GUARD.match(stripped)
+                guard.append((match.group(2), match.group(3).strip(),
+                              match.group(1) == "ifeq") if match else None)
+                continue
+            if stripped.startswith("endif"):
+                if guard:
+                    guard.pop()
+                continue
+            if not stripped.startswith("include "):
+                continue
+            target = stripped[len("include "):].strip()
+            while True:
+                expanded = re.sub(r"\$\((\w+)\)",
+                                  lambda m: variables.get(m.group(1), m.group(0)),
+                                  target)
+                if expanded == target:
+                    break
+                target = expanded
+            # LOCAL_PATH is `$(call my-dir)` in every one of these files.
+            target = re.sub(r"\$\(call\s+my-dir\)", ".", target)
+            if "$(" in target:
+                continue
+            path = posixpath.normpath(posixpath.join(posixpath.dirname(name), target))
+            resolved += 1
+            pruned = next((p for p in PRUNED_SUBMODULES
+                           if path == p or path.startswith(p + "/")), None)
+            if pruned is None or path in members:
+                continue
+            disabled = False
+            for item in guard:
+                if item and item[0].startswith("SUPPORT_"):
+                    default = variables.get(item[0])
+                    if default is None:
+                        continue
+                    on = (default == item[1]) if item[2] else (default != item[1])
+                    disabled = disabled or not on
+            check(disabled,
+                  "%s:%d includes %s, which is pruned and enabled by default"
+                  % (name, lineno, target))
+    return resolved
 
 
 def main():
@@ -235,13 +302,17 @@ def main():
     # Pruned paths.
     check(not [n for n in members if n.startswith("project/jni/python/")],
           "project/jni/python is still in the tree")
-    check(".gitmodules" not in members, ".gitmodules should be pruned")
+    check(not [n for n in members if n.rsplit("/", 1)[-1] == ".gitmodules"],
+          ".gitmodules should be pruned")
     apps = {n.split("/")[3] for n in members if n.startswith("project/jni/application/")
             and n.count("/") > 3}
     check(apps == {"openttd-jgrpp"},
           "unexpected sample apps: %s" % sorted(apps - {"openttd-jgrpp"}))
     for sub in PRUNED_SUBMODULES:
         check(not [n for n in members if n.startswith(sub + "/")], "%s not pruned" % sub)
+
+    # A pruned codec must not be required by an enabled SUPPORT_* include.
+    resolved_includes = check_pruned_includes(members, contents, check)
 
     # The tree the build reads.
     for name in REQUIRED_FILES:
@@ -264,8 +335,10 @@ def main():
                 if m.issym() and n not in GENERATED_LINKS and resolve(members, n) is None]
 
     links = sum(1 for m in members.values() if m.issym())
-    print("\n%d archives, %.1f MB, %d members, %d symlinks, %d scripts checked for CRLF"
-          % (len(archives), total / 1e6, len(members), links, len(scripts)))
+    print("\n%d archives, %.1f MB, %d members, %d symlinks, %d scripts checked for CRLF,"
+          " %d Android.mk includes resolved"
+          % (len(archives), total / 1e6, len(members), links, len(scripts),
+             resolved_includes))
     if dangling:
         print("%d dangling symlinks (upstream's own, unused by the build):" % len(dangling))
         for name in dangling:

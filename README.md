@@ -58,6 +58,7 @@ SDL/ICU/freetype 等交叉编译依赖）。上游已停止更新，所以整棵
 | --- | --- |
 | `docs/android-build.md` | 本地（Windows）构建流程，与 CI 一致，含 Windows 专属修正 |
 | `docs/release.md` | 发布流程、资源打包、上游监听与失败处理 |
+| `docs/touch.md` | 触控手势表、触屏相关设置、手机端补丁落点 |
 | `packaging/README.md` | 打包树来源、裁剪、烘焙补丁、重建与校验 |
 | `docs/android-apk-build.md` | 早期单 ABI 本地打包记录（历史参考） |
 | `docs/ohos-build.md`、`harmony/` | HarmonyOS 移植（暂停） |

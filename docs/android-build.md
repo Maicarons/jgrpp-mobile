@@ -413,6 +413,7 @@ export PATH="<sdl-android>/local-bin:$ANDROID_NDK_HOME:<BUILD_TOOLS>:<ANDROID_SD
 | APK 里**没有** `lib/**/*.so`，装上打不开（CI 旧产物仅 ~36 MB） | pelya 模板没把 `project/lib` 接成 jniLibs，`copyAssets.sh pack-binaries` 又只打 `AndroidData/lib`（没人往那里写） | 原生构建完成后手动注入 `project/lib/<abi>/*.so`（CI：workflow 的「Inject and strip the native libraries」；本地：run-arm64.sh step8） |
 | APK 265 MB（单 ABI） | 原生库带 `-g`（`-DCMAKE_BUILD_TYPE=RelWithDebInfo`），且为手动注入，AGP 不会自动 strip | 注入前对 `lib/*/*.so` 跑 `llvm-strip --strip-unneeded`；单 ABI 由 221 MB 降到 18 MB，APK 由 265 MB 降到约 61 MB |
 | 换了数据包但 APK 里还是旧数据 | junction 下 AGP 的 `mergeReleaseAssets` 永远 `UP-TO-DATE`（见第五节） | `rm -rf project/app/build/intermediates/assets` 后再构建 |
+| 装出来的 APK 版本号/版本名还是上一次的（`aapt2 dump badging` 可见） | `run-arm64.sh` step1 先把 `openttd-jgrpp` 整个复制成 `src`，step1b 才写版本号，而 `changeAppSettings.sh` 读的是 `src/AndroidAppSettings.cfg`——复制进去的是旧值 | 构建**之前**把版本号写进 app 目录那份 `project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg`，step1 复制时才带得进去；构建后用 `aapt2 dump badging <apk> \| grep package` 核对 |
 
 ## 八、时间参考（本机实测）
 

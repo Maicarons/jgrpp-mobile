@@ -397,11 +397,11 @@ def build(src, outdir):
                          "sha256": digest, "counts": counts,
                          "repos": [(p.rel or ".", p.url, p.commit) for p in parts]})
         print("  %.1f MB, %d members (%d symlinks), %d patched, %d pruned"
-              % (size / 1048576.0, counts["members"], counts["symlinks"],
+              % (size / 1e6, counts["members"], counts["symlinks"],
                  counts["patched"], counts["skipped"]))
 
     write_manifest(os.path.join(outdir, "MANIFEST.txt"), manifest, dropped, total)
-    print("total: %.1f MB in %d archives" % (total / 1048576.0, len(manifest)))
+    print("total: %.1f MB in %d archives" % (total / 1e6, len(manifest)))
 
 
 def write_manifest(path, manifest, dropped, total):
@@ -413,11 +413,11 @@ def write_manifest(path, manifest, dropped, total):
                  .strftime("%Y-%m-%d %H:%M UTC"))
         fh.write("Unpack every archive into one empty build directory:\n")
         fh.write("    for a in packaging/tree/*.tar.xz; do tar -xJf \"$a\" -C <dir>; done\n\n")
-        fh.write("Total %.1f MB.\n\n" % (total / 1048576.0))
+        fh.write("Total %.1f MB.\n\n" % (total / 1e6))
         for entry in manifest:
             fh.write("%s\n" % entry["name"])
             fh.write("    %.1f MB, sha256 %s\n"
-                     % (entry["size"] / 1048576.0, entry["sha256"]))
+                     % (entry["size"] / 1e6, entry["sha256"]))
             fh.write("    %d members, %d symlinks, %d patched, %d pruned\n"
                      % (entry["counts"]["members"], entry["counts"]["symlinks"],
                         entry["counts"]["patched"], entry["counts"]["skipped"]))

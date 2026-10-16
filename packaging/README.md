@@ -27,6 +27,10 @@ packaging tree root, so unpacking is a plain loop over the directory:
 | `05-sdl2_mixer.tar.xz` | 10.8 MB | 2389 | `libsdl-org/SDL_mixer` @ `7808d9af` |
 | `06-sdl2_ttf.tar.xz` | 25.8 MB | 4810 | `libsdl-org/SDL_ttf` @ `3091df32` |
 
+Sizes are decimal MB (133.4 MB in total), the same unit
+`verify-packaging.py` prints; the builder, `MANIFEST.txt` and this table agree
+byte for byte.
+
 `MANIFEST.txt` lists the exact commit of every component and of each nested
 submodule, the sha256 of each archive, and what was pruned and patched.
 

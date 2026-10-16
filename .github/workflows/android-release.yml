@@ -259,6 +259,28 @@ jobs:
         with:
           tag_name: jgrpp-mobile-${{ steps.ver.outputs.version }}
           name: jgrpp-mobile-${{ steps.ver.outputs.version }}
+          # The tag push is the whole human step now, so the notes come from
+          # here; the port patch list is the same for every version.
+          body: |
+            JGRPP ${{ steps.ver.outputs.version }} mobile port (Android: armeabi-v7a + arm64-v8a)
+
+            Based on upstream JGRPP jgrpp-${{ steps.ver.outputs.version }}. Requires Android 7.0 (API 24) or newer.
+
+            Changes:
+            - Default GUI scale set to 200% for mobile screens
+            - Hardware acceleration enabled by default
+            - SDL window created with OpenGL flag for mobile drivers
+            - Skip SDL_StopTextInput on mobile (prevents deadlock)
+            - Probe infrastructure for startup debugging (logcat)
+            - AllocateBackingStore defers allocation until GL context is ready
+
+            Packaging:
+            - Built entirely from the packaging tree vendored in this repository
+              (pelya/commandergenius, SDL2, SDL2_image/mixer/ttf, iconv/ICU): CI clones
+              nothing from outside, so this build is reproducible from the tag alone.
+            - OpenTTD base data (0.40.4), the Timidity MIDI set and ICU data are packed
+              into the APK's assets and unpacked on first run.
+            - Both Android ABIs are included: armeabi-v7a and arm64-v8a.
           files: upload/*.apk
 
       - name: Alert on failure

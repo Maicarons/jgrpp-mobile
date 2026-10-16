@@ -118,7 +118,8 @@ is best-effort for that one and its failure is harmless.
 ### Patches baked in
 
 These used to be `sed`/`awk` steps in the workflow; they live in the archives
-now, each next to a comment saying why:
+now, each next to a comment saying why.  The last row is the one addition that
+is not from the workflow - it is part of this port's Android touch adaptation:
 
 | file | change | why |
 | --- | --- | --- |
@@ -127,6 +128,7 @@ now, each next to a comment saying why:
 | `.../openttd-jgrpp/AndroidBuild.sh` | `-DANDROID_PLATFORM=android-24` on the CMake call | pelya passes no platform to the app's CMake build |
 | `build.sh` | `./stage-data.sh` hook before `./copyAssets.sh` | the APK's game data (`AndroidData/*.zip.xz`) has to be packed from *this* build's own `lang/` and `baseset/`; the script itself lives in this repository, and the hook is a no-op without it |
 | `sdl2_image/external/libpng/pnglibconf.h` | materialised from `scripts/pnglibconf.h.prebuilt` | libpng ships the generated header only in `scripts/` |
+| `project/jni/sdl-1.2/src/video/android/SDL_androidinput.c` | long press with one finger sends a right click | the framework only offers a right click through the second finger with `AppNeedsTwoButtonMouse=y` (which is what makes two-finger drag pan the map); a phone user reaches for a long press first, and pelya's game-side touch patches expect it |
 
 `minifyEnabled`/`shrinkResources` stay `true` as upstream ships them.
 

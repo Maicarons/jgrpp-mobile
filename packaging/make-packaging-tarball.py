@@ -10,6 +10,10 @@ baked in (each with the comment explaining why it is there), build.sh is given
 the ./stage-data.sh hook that ships the APK's game data, and the parts this app
 never builds are dropped.
 
+One patch is not from the workflow but belongs here the same way: the Android
+touch adaptation, which pelya's framework does not provide on its own.  See
+patch_androidinput for the long-press right click.
+
 Everything is built straight out of git (git archive), never from a checkout:
 the tree relies on about 110 symlinks (jni/png/include -> sdl2_image's nested
 libpng, project/app/src/main/assets -> project/assets, ...) plus executable
@@ -101,6 +105,7 @@ APPCFG = "project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg"
 GRADLE_TEMPLATE = "project/app/build-template.gradle"
 ANDROID_BUILD_SH = "project/jni/application/openttd-jgrpp/AndroidBuild.sh"
 BUILD_SH = "build.sh"
+SDL_ANDROID_INPUT = "project/jni/sdl-1.2/src/video/android/SDL_androidinput.c"
 PNG_DIR = "project/jni/sdl2_image/external/libpng"
 PNG_CONF = PNG_DIR + "/pnglibconf.h"
 PNG_PREBUILT = PNG_DIR + "/scripts/pnglibconf.h.prebuilt"
@@ -253,11 +258,138 @@ def patch_buildsh(data, name):
     return "".join(out).encode("utf-8")
 
 
+def patch_androidinput(data, name):
+    """Long-pressing with one finger sends a right click.
+
+    AndroidAppSettings.cfg sets AppNeedsTwoButtonMouse=y, which makes pelya's
+    framework pick RIGHT_CLICK_WITH_MULTITOUCH: the *second* finger presses the
+    right mouse button, so a two-finger drag pans the map and a two-finger tap
+    is a right click.  A long press with one finger - the gesture phone users
+    reach for first - does nothing: the timer in ProcessMouseMove_Timeouts only
+    runs for RIGHT_CLICK_WITH_TIMEOUT, and choosing that method would stop the
+    second finger from pressing the right button, costing us the pan.
+
+    This keeps the multitouch method and adds the long press to it: a single
+    finger that stays inside a 15th of the screen height for rightClickTimeout
+    (1 s at the default RightClickTimeout=4, adjustable in the settings menu)
+    releases the left button and sends a right click, exactly like the second
+    finger does.  Movement, lifting the finger and a second finger going down
+    all cancel it, so drag-building and two-finger panning are unaffected.
+
+    The timeout thread has to be started for this combination too - it is what
+    makes the long press fire while the finger stands still, and it is only
+    created for the click-with-timeout methods upstream.
+    """
+    text = data.decode("utf-8")
+
+    def sub(old, new):
+        if text.count(old) != 1:
+            raise SystemExit("%s: anchor not found exactly once:\n%s" % (name, old))
+        return text.replace(old, new)
+
+    # 1. Arm the timer when a single finger goes down, and wake the timeout
+    #    thread the same way the click-with-timeout methods do.
+    text = sub(
+        "\t\tSDL_ANDROID_MainThreadPushMouseMotion(x, y);\n"
+        "\t\tif( !hardwareMouseDetected || SDL_ANDROID_currentMouseButtons == 0 )\n"
+        "\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_PRESSED, SDL_BUTTON_LEFT );\n"
+        "\t}\n",
+        "\t\tSDL_ANDROID_MainThreadPushMouseMotion(x, y);\n"
+        "\t\tif( !hardwareMouseDetected || SDL_ANDROID_currentMouseButtons == 0 )\n"
+        "\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_PRESSED, SDL_BUTTON_LEFT );\n"
+        "\t\t// jgrpp-mobile: a long press with one finger is a right click too\n"
+        "\t\tif( rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH && rightMouseButtonLongPress )\n"
+        "\t\t{\n"
+        "\t\t\tmouseInitialX = x;\n"
+        "\t\t\tmouseInitialY = y;\n"
+        "\t\t\tmouseInitialTime = SDL_GetTicks();\n"
+        "\t\t\tmouseClickTimeout = rightClickTimeout + 10;\n"
+        "\t\t\tif( mouseClickTimeoutInitialized )\n"
+        "\t\t\t\tsem_post(&mouseClickTimeoutSemaphore);\n"
+        "\t\t}\n"
+        "\t}\n",
+    )
+
+    # 2. Run the timeout check for the multitouch method as well.
+    text = sub(
+        "\t\tleftClickMethod == LEFT_CLICK_WITH_TAP_OR_TIMEOUT || rightClickMethod == RIGHT_CLICK_WITH_TIMEOUT ) )\n",
+        "\t\tleftClickMethod == LEFT_CLICK_WITH_TAP_OR_TIMEOUT || rightClickMethod == RIGHT_CLICK_WITH_TIMEOUT ||\n"
+        "\t\t( rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH && rightMouseButtonLongPress ) ) )\n",
+    )
+
+    # 3. Fire it: let the left button go first, so a build drag that the down
+    #    event started is not dragged on, then click the right button.
+    text = sub(
+        "\t\t\tif( rightClickMethod == RIGHT_CLICK_WITH_TIMEOUT )\n"
+        "\t\t\t{\n"
+        "\t\t\t\tif( SDL_GetTicks() - mouseInitialTime > rightClickTimeout )\n"
+        "\t\t\t\t{\n"
+        "\t\t\t\t\t//SDL_ANDROID_MainThreadPushMouseMotion(mouseInitialX, mouseInitialY);\n"
+        "\t\t\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_PRESSED, SDL_BUTTON_RIGHT );\n"
+        "\t\t\t\t\tmouseInitialX = -1;\n"
+        "\t\t\t\t\tmouseInitialY = -1;\n"
+        "\t\t\t\t}\n"
+        "\t\t\t}\n",
+        "\t\t\tif( rightClickMethod == RIGHT_CLICK_WITH_TIMEOUT ||\n"
+        "\t\t\t\t( rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH && rightMouseButtonLongPress ) )\n"
+        "\t\t\t{\n"
+        "\t\t\t\tif( SDL_GetTicks() - mouseInitialTime > rightClickTimeout )\n"
+        "\t\t\t\t{\n"
+        "\t\t\t\t\t//SDL_ANDROID_MainThreadPushMouseMotion(mouseInitialX, mouseInitialY);\n"
+        "\t\t\t\t\tif( rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH )\n"
+        "\t\t\t\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_RELEASED, SDL_BUTTON_LEFT );\n"
+        "\t\t\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_PRESSED, SDL_BUTTON_RIGHT );\n"
+        "\t\t\t\t\tmouseInitialX = -1;\n"
+        "\t\t\t\t\tmouseInitialY = -1;\n"
+        "\t\t\t\t}\n"
+        "\t\t\t}\n",
+    )
+
+    # 4. Lifting the finger ends a pending long press.
+    text = sub(
+        "\t\tif( leftClickMethod != LEFT_CLICK_WITH_KEY )\n"
+        "\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_RELEASED, SDL_BUTTON_LEFT );\n"
+        "\t}\n"
+        "\n"
+        "\tSDL_ANDROID_ShowScreenUnderFingerRect.w = SDL_ANDROID_ShowScreenUnderFingerRect.h = 0;\n",
+        "\t\tif( leftClickMethod != LEFT_CLICK_WITH_KEY )\n"
+        "\t\t\tSDL_ANDROID_MainThreadPushMouseButton( SDL_RELEASED, SDL_BUTTON_LEFT );\n"
+        "\t}\n"
+        "\tmouseInitialX = -1;\n"
+        "\tmouseInitialY = -1;\n"
+        "\n"
+        "\tSDL_ANDROID_ShowScreenUnderFingerRect.w = SDL_ANDROID_ShowScreenUnderFingerRect.h = 0;\n",
+    )
+
+    # 5. A second finger is a gesture, so it cancels the long press.
+    text = sub(
+        "\tif( pointerId == secondMousePointerId && (action == MOUSE_DOWN || action == MOUSE_UP) )\n"
+        "\t{\n",
+        "\tif( pointerId == secondMousePointerId && (action == MOUSE_DOWN || action == MOUSE_UP) )\n"
+        "\t{\n"
+        "\t\t// jgrpp-mobile: a second finger is a gesture, not a long press\n"
+        "\t\tmouseInitialX = -1;\n"
+        "\t\tmouseInitialY = -1;\n",
+    )
+
+    # 6. Start the timeout thread for this combination too.
+    text = sub(
+        "\t\tleftClickMethod == LEFT_CLICK_WITH_TAP_OR_TIMEOUT ||\n"
+        "\t\trightClickMethod == RIGHT_CLICK_WITH_TIMEOUT ) )\n",
+        "\t\tleftClickMethod == LEFT_CLICK_WITH_TAP_OR_TIMEOUT ||\n"
+        "\t\trightClickMethod == RIGHT_CLICK_WITH_TIMEOUT ||\n"
+        "\t\t( rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH && rightMouseButtonLongPress ) ) )\n",
+    )
+
+    return text.encode("utf-8")
+
+
 PATCHES = {
     APPCFG: patch_appcfg,
     GRADLE_TEMPLATE: patch_gradle,
     ANDROID_BUILD_SH: patch_androidbuild,
     BUILD_SH: patch_buildsh,
+    SDL_ANDROID_INPUT: patch_androidinput,
 }
 
 
@@ -433,8 +565,9 @@ def write_manifest(path, manifest, dropped, total):
                  "project/jni/python, .gitmodules.\n")
         fh.write("Patched: APP_PLATFORM=android-24 in the app config, minSdk 24 in\n"
                  "build-template.gradle, -DANDROID_PLATFORM=android-24 in\n"
-                 "AndroidBuild.sh, a ./stage-data.sh hook in build.sh, and\n"
-                 "pnglibconf.h materialised from libpng's prebuilt.\n")
+                 "AndroidBuild.sh, a ./stage-data.sh hook in build.sh,\n"
+                 "pnglibconf.h materialised from libpng's prebuilt, and long-press\n"
+                 "right click in SDL_androidinput.c.\n")
 
 
 def main():

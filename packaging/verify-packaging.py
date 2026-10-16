@@ -30,16 +30,19 @@ import tarfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TREE = os.path.join(HERE, "tree")
 
-# The app config, the gradle template and AndroidBuild.sh are patched by
-# make-packaging-tarball.py, so the CI does not have to rewrite them.
+# The app config, the gradle template, AndroidBuild.sh and pelya's SDL 1.2
+# input layer are patched by make-packaging-tarball.py, so the CI does not have
+# to rewrite them.
 APP_CFG = "project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg"
 GRADLE = "project/app/build-template.gradle"
 BUILD_SH = "project/jni/application/openttd-jgrpp/AndroidBuild.sh"
 ROOT_BUILD_SH = "build.sh"
 PNG_CONF = "project/jni/sdl2_image/external/libpng/pnglibconf.h"
 PNG_CONF_PREBUILT = "project/jni/sdl2_image/external/libpng/scripts/pnglibconf.h.prebuilt"
+SDL_INPUT = "project/jni/sdl-1.2/src/video/android/SDL_androidinput.c"
 
-INSPECT = {APP_CFG, GRADLE, BUILD_SH, ROOT_BUILD_SH, PNG_CONF, PNG_CONF_PREBUILT}
+INSPECT = {APP_CFG, GRADLE, BUILD_SH, ROOT_BUILD_SH, PNG_CONF, PNG_CONF_PREBUILT,
+           SDL_INPUT}
 
 # Scripts and build files the Linux build feeds straight to sh/make/gradle.  A
 # CRLF in any of them is fatal ("bad interpreter", broken `\` continuations), so
@@ -281,6 +284,18 @@ def main():
     check("cygpath -m" not in build_sh, "AndroidBuild.sh: Windows-only hack leaked in")
     check(contents[PNG_CONF] == contents[PNG_CONF_PREBUILT],
           "pnglibconf.h is not libpng's prebuilt template")
+
+    # The Android touch adaptation: a one-finger long press has to send a right
+    # click, next to the two-finger right button the framework already gives us.
+    # Both halves matter - arming the timer without starting the timeout thread
+    # (which upstream only creates for the click-with-timeout methods) would
+    # silently do nothing on the device.
+    sdl_input = contents[SDL_INPUT].decode()
+    check(sdl_input.count("jgrpp-mobile:") == 2,
+          "SDL_androidinput.c: long-press right click patch missing")
+    check("rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH && rightMouseButtonLongPress ) ) )"
+          in sdl_input,
+          "SDL_androidinput.c: long-press timeout thread is not started")
 
     # build.sh has to run stage-data.sh, which packs this build's own lang/ and
     # baseset/ into AndroidData just before copyAssets.sh copies it into the APK.

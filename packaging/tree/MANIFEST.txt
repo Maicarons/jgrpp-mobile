@@ -5,25 +5,25 @@ Generated 2026-10-15 17:54 UTC by make-packaging-tarball.py.
 Unpack every archive into one empty build directory:
     for a in packaging/tree/*.tar.xz; do tar -xJf "$a" -C <dir>; done
 
-Total 127.2 MB.
+Total 133.4 MB.
 
 01-commandergenius.tar.xz
-    41.2 MB, sha256 31e52de1ecfea537d0ecfa52e3cda6400c2abef860a8593b92e158fea4a6ffbe
+    43.2 MB, sha256 31e52de1ecfea537d0ecfa52e3cda6400c2abef860a8593b92e158fea4a6ffbe
     5714 members, 79 symlinks, 4 patched, 5617 pruned
     . = https://wget.la/https://github.com/pelya/commandergenius.git @ 92979c2517b48930e7706948ac84eb8bf86ff5b2
 
 02-iconv-src.tar.xz
-    35.8 MB, sha256 0436d776f7935132a22948002de867a06f41414c4f8f71cd81b0a46f5b9312e3
+    37.5 MB, sha256 0436d776f7935132a22948002de867a06f41414c4f8f71cd81b0a46f5b9312e3
     17 members, 0 symlinks, 0 patched, 0 pruned
     project/jni/iconv/src = https://github.com/pelya/libiconv-libicu-android.git @ 1d9e3e389de92818bafbca061d454ec917af9ec0
 
 03-sdl2.tar.xz
-    5.2 MB, sha256 15cef27373a25b2e43c25cc4e71a2038440e4d0ba71d95dddc310ff43bdd096e
+    5.5 MB, sha256 15cef27373a25b2e43c25cc4e71a2038440e4d0ba71d95dddc310ff43bdd096e
     2147 members, 2 symlinks, 0 patched, 0 pruned
     project/jni/sdl2 = https://wget.la/https://github.com/libsdl-org/SDL.git @ 0efeb82a28795e72594642251f1bddcb881aaa7f
 
 04-sdl2_image.tar.xz
-    10.1 MB, sha256 2cd52ae8300f9923658df07b1a63ecaf70b1a7785e1c174da974886c2e9c3847
+    10.6 MB, sha256 2cd52ae8300f9923658df07b1a63ecaf70b1a7785e1c174da974886c2e9c3847
     1566 members, 4 symlinks, 0 patched, 6 pruned
     project/jni/sdl2_image = https://wget.la/https://github.com/libsdl-org/SDL_image @ c91323df2f84352751e68111b70ac3f739cea068
     project/jni/sdl2_image/external/jpeg = https://github.com/libsdl-org/jpeg.git @ a2b96a055f06083bbfe06a75a87f91385bae9606
@@ -31,7 +31,7 @@ Total 127.2 MB.
     project/jni/sdl2_image/external/zlib = https://github.com/libsdl-org/zlib.git @ c4ea85eda90be5d47bb832108a520b4e82fe19c4
 
 05-sdl2_mixer.tar.xz
-    10.3 MB, sha256 11efdfada6a48d42244008dbd216ba950084409f81dc3e869306e2df964d414e
+    10.8 MB, sha256 11efdfada6a48d42244008dbd216ba950084409f81dc3e869306e2df964d414e
     2389 members, 4 symlinks, 0 patched, 5 pruned
     project/jni/sdl2_mixer = https://wget.la/https://github.com/libsdl-org/SDL_mixer.git @ 7808d9afd92bb30dfa96c6b6540b04b161803566
     project/jni/sdl2_mixer/external/flac = https://github.com/libsdl-org/flac.git @ dac59a8eb44f2f9f7006b1246bede041dfb18ea0
@@ -42,7 +42,7 @@ Total 127.2 MB.
     project/jni/sdl2_mixer/external/libgme = https://github.com/libsdl-org/game-music-emu.git @ 09e6f030479a5c8d5272d5963bad3f46bad87b5c
 
 06-sdl2_ttf.tar.xz
-    24.6 MB, sha256 bdf5562ab679f8166d334232e0a9794714522baeb5f17987d65392f5c038f728
+    25.8 MB, sha256 bdf5562ab679f8166d334232e0a9794714522baeb5f17987d65392f5c038f728
     4810 members, 5 symlinks, 0 patched, 2 pruned
     project/jni/sdl2_ttf = https://wget.la/https://github.com/libsdl-org/SDL_ttf.git @ 3091df328802d15364a30b8fbd5e8f58ce770f9b
     project/jni/sdl2_ttf/external/freetype = https://github.com/libsdl-org/freetype.git @ 12c5e620858bd503731091e9371d06c0a3e7c967

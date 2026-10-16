@@ -46,7 +46,10 @@
    ```
    - tag 名必须匹配 `jgrpp-mobile-*`；
    - 触发 `.github/workflows/android-release.yml`，云端重新构建 APK；
-   - 构建成功后自动创建 / 更新 `jgrpp-mobile-<ver>` Release 并上传 APK。
+   - 构建成功后自动创建 / 更新 `jgrpp-mobile-<ver>` Release 并上传 APK；
+   - Release 说明由 workflow 里的 `body:` 模板生成（版本号自动代入），要补充
+     说明就用 `gh release edit jgrpp-mobile-<ver> --notes-file <file>` 覆盖，
+     不影响已上传的产物。
 
 4. **失败处理**
    - `android-release.yml` 失败会自动开 / 追加 issue；

@@ -106,6 +106,7 @@ GRADLE_TEMPLATE = "project/app/build-template.gradle"
 ANDROID_BUILD_SH = "project/jni/application/openttd-jgrpp/AndroidBuild.sh"
 BUILD_SH = "build.sh"
 SDL_ANDROID_INPUT = "project/jni/sdl-1.2/src/video/android/SDL_androidinput.c"
+GAME_CFG = "project/jni/application/openttd-jgrpp/AndroidData/openttd-jgr-0.32.4.cfg"
 PNG_DIR = "project/jni/sdl2_image/external/libpng"
 PNG_CONF = PNG_DIR + "/pnglibconf.h"
 PNG_PREBUILT = PNG_DIR + "/scripts/pnglibconf.h.prebuilt"
@@ -384,12 +385,43 @@ def patch_androidinput(data, name):
     return text.encode("utf-8")
 
 
+def patch_gamecfg(data, name):
+    """Turn the touch-facing defaults on in the config the APK installs.
+
+    pelya's launcher downloads this file as one of its DataDownloadUrl entries,
+    and DeleteFilesOnUpgrade makes it re-download the file on an app upgrade, so
+    it is what a phone player starts with - and what the desktop build leaves
+    alone.  Only settings the touch adaptation needs belong here; the defaults
+    stay false in the settings table so a desktop build behaves as before.
+
+    build_confirmation shows the little OK dialog after a tap that would build
+    something, which is how a phone player gets a chance to see what is about to
+    be built (upstream's behaviour is to build on the tap itself).
+    """
+    text = data.decode("utf-8")
+    if not text.endswith("\n"):
+        text += "\n"
+    entries = ["build_confirmation = true"]
+    for entry in entries:
+        key = entry.split("=", 1)[0].strip()
+        if re.search(r"(?m)^%s\s*=" % re.escape(key), text):
+            text = re.sub(r"(?m)^%s\s*=.*$" % re.escape(key), entry, text)
+        elif re.search(r"(?m)^\[gui\]\s*$", text):
+            text = re.sub(r"(?m)^(\[gui\]\s*)$", r"\1\n" + entry, text)
+        else:
+            text = text.rstrip("\n") + "\n\n[gui]\n" + entry + "\n"
+    if not text.endswith("\n"):
+        text += "\n"
+    return text.encode("utf-8")
+
+
 PATCHES = {
     APPCFG: patch_appcfg,
     GRADLE_TEMPLATE: patch_gradle,
     ANDROID_BUILD_SH: patch_androidbuild,
     BUILD_SH: patch_buildsh,
     SDL_ANDROID_INPUT: patch_androidinput,
+    GAME_CFG: patch_gamecfg,
 }
 
 
@@ -566,8 +598,9 @@ def write_manifest(path, manifest, dropped, total):
         fh.write("Patched: APP_PLATFORM=android-24 in the app config, minSdk 24 in\n"
                  "build-template.gradle, -DANDROID_PLATFORM=android-24 in\n"
                  "AndroidBuild.sh, a ./stage-data.sh hook in build.sh,\n"
-                 "pnglibconf.h materialised from libpng's prebuilt, and long-press\n"
-                 "right click in SDL_androidinput.c.\n")
+                 "pnglibconf.h materialised from libpng's prebuilt, long-press\n"
+                 "right click in SDL_androidinput.c, and touch defaults in the\n"
+                 "shipped game config.\n")
 
 
 def main():

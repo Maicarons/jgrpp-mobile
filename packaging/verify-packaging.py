@@ -40,9 +40,10 @@ ROOT_BUILD_SH = "build.sh"
 PNG_CONF = "project/jni/sdl2_image/external/libpng/pnglibconf.h"
 PNG_CONF_PREBUILT = "project/jni/sdl2_image/external/libpng/scripts/pnglibconf.h.prebuilt"
 SDL_INPUT = "project/jni/sdl-1.2/src/video/android/SDL_androidinput.c"
+GAME_CFG = "project/jni/application/openttd-jgrpp/AndroidData/openttd-jgr-0.32.4.cfg"
 
 INSPECT = {APP_CFG, GRADLE, BUILD_SH, ROOT_BUILD_SH, PNG_CONF, PNG_CONF_PREBUILT,
-           SDL_INPUT}
+           SDL_INPUT, GAME_CFG}
 
 # Scripts and build files the Linux build feeds straight to sh/make/gradle.  A
 # CRLF in any of them is fatal ("bad interpreter", broken `\` continuations), so
@@ -296,6 +297,11 @@ def main():
     check("rightClickMethod == RIGHT_CLICK_WITH_MULTITOUCH && rightMouseButtonLongPress ) ) )"
           in sdl_input,
           "SDL_androidinput.c: long-press timeout thread is not started")
+
+    # The config the APK installs: the touch defaults have to be in there, or a
+    # phone player gets upstream's desktop behaviour.
+    check("build_confirmation = true" in contents[GAME_CFG].decode(),
+          "shipped game config: build_confirmation is not on")
 
     # build.sh has to run stage-data.sh, which packs this build's own lang/ and
     # baseset/ into AndroidData just before copyAssets.sh copies it into the APK.

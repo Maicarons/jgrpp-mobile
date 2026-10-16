@@ -129,6 +129,7 @@ is not from the workflow - it is part of this port's Android touch adaptation:
 | `build.sh` | `./stage-data.sh` hook before `./copyAssets.sh` | the APK's game data (`AndroidData/*.zip.xz`) has to be packed from *this* build's own `lang/` and `baseset/`; the script itself lives in this repository, and the hook is a no-op without it |
 | `sdl2_image/external/libpng/pnglibconf.h` | materialised from `scripts/pnglibconf.h.prebuilt` | libpng ships the generated header only in `scripts/` |
 | `project/jni/sdl-1.2/src/video/android/SDL_androidinput.c` | long press with one finger sends a right click | the framework only offers a right click through the second finger with `AppNeedsTwoButtonMouse=y` (which is what makes two-finger drag pan the map); a phone user reaches for a long press first, and pelya's game-side touch patches expect it |
+| `.../openttd-jgrpp/AndroidData/openttd-jgr-0.32.4.cfg` | `build_confirmation = true` | the config the APK installs: pelya's launcher re-downloads it on every upgrade, so this is what a phone player starts with, and it is how the build-confirmation dialog is on by default without changing the desktop default |
 
 `minifyEnabled`/`shrinkResources` stay `true` as upstream ships them.
 

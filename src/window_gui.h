@@ -1172,6 +1172,8 @@ void RelocateAllWindows(int neww, int newh);
 void MoveAllWindowsOffScreen();
 void MoveAllHiddenWindowsBackToScreen();
 
+bool GetWindowDraggedOffScreen(const Window *w);
+
 void GuiShowTooltips(Window *parent, EncodedString &&text, TooltipCloseCondition close_tooltip);
 
 /* widget.cpp */
@@ -1182,6 +1184,7 @@ extern Point _cursorpos_drag_start;
 extern int _scrollbar_start_pos;
 extern int _scrollbar_size;
 extern uint8_t _scroller_click_timeout;
+extern bool _scrollbar_finger_drag;
 
 extern Window *_scrolling_viewport;
 extern Rect _scrolling_viewport_bound;

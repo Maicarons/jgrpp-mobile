@@ -46,6 +46,7 @@
 #include "script/api/script_event_types.hpp"
 
 #include "widgets/osk_widget.h"
+#include "widgets/smallmap_widget.h"
 
 #include "table/strings.h"
 
@@ -56,6 +57,11 @@
 static Point _drag_delta; ///< delta between mouse cursor and upper left corner of dragged window
 static Window *_mouseover_last_w = nullptr; ///< Window of the last OnMouseOver event.
 static Window *_last_scroll_window = nullptr; ///< Window of the last scroll event.
+static Point _left_button_down_pos; ///< Position of the cursor when the left mouse button was pressed.
+static bool _dragging_widget = false; ///< A widget (scrollbar or small map) is being dragged, so the window is not moved.
+static bool _mouse_down_on_viewport = false; ///< The finger pressed down in a viewport, so it does not drag a window.
+static int _left_button_click_count = 1; ///< Clicks of the last left mouse button press, used when the click is dispatched on release.
+bool _scrollbar_finger_drag = false; ///< A scrollbar is dragged by a finger, so the list follows the finger instead of the scrollbar.
 
 /** List of windows opened at the screen sorted from the front. */
 Window *_z_front_window = nullptr;
@@ -662,8 +668,9 @@ static void StartWindowSizing(Window *w, bool to_left);
  * @param x X coordinate of the click
  * @param y Y coordinate of the click
  * @param click_count Number of fast consecutive clicks at same position
+ * @param mouse_down Whether the left mouse button is being pressed, or released
  */
-static void DispatchLeftClickEvent(Window *w, int x, int y, int click_count)
+static void DispatchLeftClickEvent(Window *w, int x, int y, int click_count, bool mouse_down)
 {
 	NWidgetCore *nw = w->nested_root->GetWidgetFromPos(x, y);
 	WidgetType widget_type = (nw != nullptr) ? nw->type : WWT_EMPTY;
@@ -706,13 +713,32 @@ static void DispatchLeftClickEvent(Window *w, int x, int y, int click_count)
 		focused_widget_changed |= w->SetFocusedWidget(widget_index);
 	}
 
+	Point pt = { x, y };
+
+	if (!_settings_client.gui.windows_titlebars && mouse_down) {
+		/* Without a title bar, the finger can drag a list or the window itself, so a click
+		 * is only dispatched when the finger is lifted again (see HandleLeftButtonUpNoTitlebars()).
+		 * Only the widgets that have to react to the press right away are handled here. */
+		if (widget_type == NWID_VSCROLLBAR || widget_type == NWID_HSCROLLBAR) {
+			ScrollbarClickHandler(w, nw, x, y);
+			_dragging_widget = true;
+		}
+		if (widget_type == WWT_RESIZEBOX) {
+			StartWindowSizing(w, nw->pos_x < (w->width / 2));
+			nw->SetDirty(w);
+		}
+		if (w->window_class == WindowClass::SmallMap && widget_index == WID_SM_MAP) {
+			w->OnClick(pt, widget_index, click_count);
+			_dragging_widget = true;
+		}
+		return;
+	}
+
 	/* Close any child drop down menus. If the button pressed was the drop down
 	 * list's own button, then we should not process the click any further. */
 	if (HideDropDownMenu(w) == widget_index && widget_index >= 0) return;
 
 	if ((widget_type & ~WWB_PUSHBUTTON) < WWT_LAST && (widget_type & WWB_PUSHBUTTON)) w->HandleButtonClick(widget_index);
-
-	Point pt = { x, y };
 
 	switch (widget_type) {
 		case NWID_VSCROLLBAR:
@@ -2364,6 +2390,55 @@ int GetMainViewBottom()
 static bool _dragging_window; ///< A window is being dragged or resized.
 
 /**
+ * Minimal size of a touch target, used as the threshold of the finger drag gestures.
+ * \c gui.min_button is zero by default, as on the desktop, so a minimum that makes
+ * sense on a touch screen is used instead of a one pixel drag threshold.
+ * @return The size of a finger sized widget.
+ */
+static uint GetTouchDragSize()
+{
+	return std::max<uint>(GetMinButtonSize(), ScaleGUITrad(20));
+}
+
+/**
+ * Has the window been dragged off the screen, so that it should be closed when the
+ * finger is lifted? Without a title bar there is no close button, so a window that is
+ * dragged to the edge of the screen is closed instead. Such a window is dimmed while
+ * it is being dragged, see Window::DrawWidgets().
+ * @param w Window to check.
+ * @return True iff the window is far enough off the screen to be closed.
+ */
+bool GetWindowDraggedOffScreen(const Window *w)
+{
+	if (_settings_client.gui.windows_titlebars) return false;
+
+	const int min_button = GetTouchDragSize();
+	Rect edge = { 0, GetMainViewTop(), (int)_screen.width, (int)_screen.height };
+	Rect visible = { edge.left + min_button * 4, edge.top + min_button * 2,
+			edge.right - min_button * 4, edge.bottom - min_button * 2 };
+
+	/* A quarter of the window has to be dragged off the screen to close it by flicking
+	 * it to the left or to the right. */
+	if (w->width >= min_button * 4) {
+		edge.left -= min_button * 2;
+		edge.right += min_button * 2;
+	}
+	if (w->height >= min_button * 4) {
+		edge.top -= min_button;
+		edge.bottom += min_button;
+	}
+
+	if (w->left < edge.left && w->left + w->width < visible.right) return true;
+	if (w->left + w->width > edge.right && w->left > visible.left) return true;
+	if (w->top < edge.top && w->top + w->height < visible.bottom) return true;
+	if (w->top + w->height > edge.bottom && w->top > visible.top) return true;
+	/* A news window closes with a light flick to the side. */
+	if (w->window_class == WindowClass::News && abs(w->left + w->width / 2 - (int)_screen.width / 2) > 3) return true;
+
+	return false;
+}
+
+/**
  * Handle dragging/resizing of a window.
  * @return State of handling the event.
  */
@@ -2381,6 +2456,9 @@ static EventState HandleWindowDragging()
 			/* Stop the dragging if the left mouse button was released */
 			if (!_left_button_down) {
 				w->flags.Reset(WindowFlag::Dragging);
+				/* Without a title bar there is no close button, so a window dragged off
+				 * the screen is closed when the finger is lifted. */
+				if (GetWindowDraggedOffScreen(w)) w->Close();
 				break;
 			}
 
@@ -2588,6 +2666,10 @@ static void HandleScrollbarScrolling(Window *w)
 		i = _cursor.pos.y - _cursorpos_drag_start.y;
 	}
 
+	/* When the contents of a list are dragged by a finger, the list follows the finger
+	 * instead of the finger dragging the scrollbar. */
+	if (_scrollbar_finger_drag) i = -i;
+
 	if (sb->disp_flags.Any({NWidgetDisplayFlag::ScrollbarUp, NWidgetDisplayFlag::ScrollbarDown})) {
 		if (_scroller_click_timeout == 1) {
 			_scroller_click_timeout = 3;
@@ -2623,6 +2705,7 @@ static EventState HandleActiveWidget()
 			if (!_left_button_down) {
 				w->SetWidgetDirty(w->mouse_capture_widget);
 				w->mouse_capture_widget = INVALID_WIDGET;
+				_scrollbar_finger_drag = false;
 				return EventState::Handled;
 			}
 
@@ -3119,7 +3202,92 @@ static void HandleKeyScrolling()
 	}
 }
 
-static void MouseLoop(MouseClick click, int mousewheel)
+/**
+ * Find the scrollbar of a list, if the given widget belongs to one.
+ * @param w      Window the widget belongs to.
+ * @param widget Widget the finger pressed on.
+ * @return The scrollbar that scrolls the list, or \c nullptr if there is none.
+ */
+static NWidgetScrollbar *GetListScrollbar(Window *w, const NWidgetCore *widget)
+{
+	/* Most scrollable widgets tell which scrollbar scrolls them. */
+	WidgetID scrollbar_index = widget->GetScrollbarIndex();
+	if (scrollbar_index < 0) return nullptr;
+
+	return dynamic_cast<NWidgetScrollbar *>(w->GetWidget<NWidgetBase>(scrollbar_index));
+}
+
+/**
+ * Dispatch the click that was held back while the finger was down: without a title bar
+ * a click is only dispatched when the finger is lifted again, and only if the finger
+ * did not drag a list or the window instead (see HandleMouseDragNoTitlebars()).
+ */
+static void HandleLeftButtonUpNoTitlebars()
+{
+	_dragging_widget = false;
+	const bool pressed_in_viewport = _mouse_down_on_viewport;
+	_mouse_down_on_viewport = false;
+	if (_settings_client.gui.windows_titlebars || _dragging_window || pressed_in_viewport) return;
+
+	Window *w = FindWindowFromPt(_cursor.pos.x, _cursor.pos.y);
+	if (w == nullptr) return;
+
+	/* Clicks in a viewport are handled by the viewport code, not as widget clicks. */
+	if (IsPtInWindowViewport(w, _cursor.pos.x, _cursor.pos.y) != nullptr) return;
+
+	DispatchLeftClickEvent(w, _cursor.pos.x - w->left, _cursor.pos.y - w->top, _left_button_click_count, false);
+}
+
+/**
+ * Handle dragging the finger over a window when there are no title bars.
+ *
+ * Without a title bar there is nothing to take hold of to move a window and there is
+ * no close button, so a vertical drag over a list scrolls that list, a drag anywhere
+ * else in a window moves the window, and a window dragged off the screen is closed
+ * when the finger is lifted (see GetWindowDraggedOffScreen()).
+ */
+static void HandleMouseDragNoTitlebars()
+{
+	if (_settings_client.gui.windows_titlebars || _dragging_window ||
+			!_left_button_down || _mouse_down_on_viewport || _focused_window == nullptr ||
+			_dragging_widget || _focused_window->mouse_capture_widget != INVALID_WIDGET) return;
+
+	const uint distance = abs(_cursor.pos.x - _left_button_down_pos.x) + abs(_cursor.pos.y - _left_button_down_pos.y);
+	if (distance * 2 <= GetTouchDragSize()) return;
+
+	/* Only drag the window that the press gave the focus to; a press on a window that
+	 * cannot be focused, like the toolbar, does not drag another window along. */
+	Window *w = FindWindowFromPt(_left_button_down_pos.x, _left_button_down_pos.y);
+	if (w == nullptr || w != _focused_window) return;
+
+	/* The main window and the toolbars take up the whole screen and cannot be closed, so
+	 * they are never dragged out of the way. */
+	if (w->window_class == WindowClass::MainWindow || IsVitalWindow(w) ||
+			w->window_class == WindowClass::SelectGame || w->window_class == WindowClass::BuildConfirmation ||
+			FindWindowByClass(WindowClass::DropdownMenu) != nullptr) return;
+
+	/* A vertical drag over a scrollable list scrolls the list, a drag anywhere else in
+	 * the window moves the window. */
+	if (abs(_cursor.pos.x - _left_button_down_pos.x) < abs(_cursor.pos.y - _left_button_down_pos.y)) {
+		NWidgetCore *pressed_widget = w->nested_root->GetWidgetFromPos(_left_button_down_pos.x - w->left, _left_button_down_pos.y - w->top);
+		if (pressed_widget != nullptr) {
+			NWidgetScrollbar *scroll = GetListScrollbar(w, pressed_widget);
+			if (scroll != nullptr && scroll->IsVertical() && scroll->GetCapacity() > 0 && scroll->GetCount() > scroll->GetCapacity()) {
+				_scrollbar_finger_drag = true;
+				ScrollbarClickHandler(w, scroll, _left_button_down_pos.x, _left_button_down_pos.y);
+			}
+		}
+	}
+
+	if (w->mouse_capture_widget == INVALID_WIDGET) {
+		StartWindowDrag(w);
+		/* Keep the window in place under the finger: the drag started later than the press. */
+		_drag_delta.x += _cursor.pos.x - _left_button_down_pos.x;
+		_drag_delta.y += _cursor.pos.y - _left_button_down_pos.y;
+	}
+}
+
+static void MouseLoop(MouseClick click, int mousewheel, bool left_button_up)
 {
 	/* World generation is multithreaded and messes with companies.
 	 * But there is no company related window open anyway, so _current_company is not used. */
@@ -3133,6 +3301,11 @@ static void MouseLoop(MouseClick click, int mousewheel)
 	if (HandleWindowDragging()     == EventState::Handled) return;
 	if (HandleActiveWidget()       == EventState::Handled) return;
 	if (HandleViewportScroll()     == EventState::Handled) return;
+
+	/* Without a title bar a click is dispatched when the finger is lifted again, while a
+	 * finger that moved drags a list or the window instead. */
+	if (left_button_up) HandleLeftButtonUpNoTitlebars();
+	HandleMouseDragNoTitlebars();
 
 	HandleMouseOver();
 
@@ -3168,6 +3341,10 @@ static void MouseLoop(MouseClick click, int mousewheel)
 			_cursor.fix_at = true;
 			return;
 		}
+
+		/* A press in a viewport is handled by the viewport code, so it must not drag the
+		 * window and must not dispatch a widget click when the finger is lifted. */
+		if (click == MouseClick::Left || click == MouseClick::DoubleLeft) _mouse_down_on_viewport = true;
 
 		switch (click) {
 			case MouseClick::DoubleLeft:
@@ -3205,7 +3382,7 @@ static void MouseLoop(MouseClick click, int mousewheel)
 	switch (click) {
 		case MouseClick::Left:
 		case MouseClick::DoubleLeft:
-			DispatchLeftClickEvent(w, x - w->left, y - w->top, click == MouseClick::DoubleLeft ? 2 : 1);
+			DispatchLeftClickEvent(w, x - w->left, y - w->top, _left_button_click_count, true);
 			return;
 
 		default:
@@ -3240,9 +3417,12 @@ void HandleMouseEvents()
 
 	static std::chrono::steady_clock::time_point double_click_time = {};
 	static Point double_click_pos = {0, 0};
+	static bool left_button_down_prev = false;
 
 	/* Mouse event? */
 	MouseClick click = MouseClick::None;
+	bool left_button_up = left_button_down_prev && !_left_button_down;
+	left_button_down_prev = _left_button_down;
 	if (_left_button_down && !_left_button_clicked) {
 		click = MouseClick::Left;
 		if (std::chrono::steady_clock::now() <= double_click_time + TIME_BETWEEN_DOUBLE_CLICK &&
@@ -3252,6 +3432,11 @@ void HandleMouseEvents()
 		}
 		double_click_time = std::chrono::steady_clock::now();
 		double_click_pos = _cursor.pos;
+		_left_button_down_pos = _cursor.pos;
+		_left_button_click_count = (click == MouseClick::DoubleLeft) ? 2 : 1;
+		_dragging_widget = false;
+		_scrollbar_finger_drag = false;
+		_mouse_down_on_viewport = false;
 		_left_button_clicked = true;
 	} else if (_right_button_clicked) {
 		_right_button_clicked = false;
@@ -3299,7 +3484,7 @@ void HandleMouseEvents()
 		_newgrf_debug_sprite_picker.mode = SPM_REDRAW;
 		MarkWholeScreenDirty();
 	} else {
-		MouseLoop(click, mousewheel);
+		MouseLoop(click, mousewheel, left_button_up);
 	}
 
 	/* We have moved the mouse the required distance,

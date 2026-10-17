@@ -230,6 +230,20 @@ static void ScrollbarClickPositioning(Window *w, NWidgetScrollbar *sb, int x, in
 		pos = y;
 		button_size = NWidgetScrollbar::GetVerticalDimension().height;
 	}
+
+	if (_scrollbar_finger_drag) {
+		/* The list contents are being dragged by a finger: take the mouse capture like a
+		 * normal scrollbar drag, but remember the position of the finger, so that the list
+		 * follows the finger instead of the scrollbar being moved by it (HandleScrollbarScrolling). */
+		w->mouse_capture_widget = sb->GetIndex();
+		_cursorpos_drag_start.x = x;
+		_cursorpos_drag_start.y = y;
+		_scrollbar_size = std::max(1, (int)(sb->current_y * sb->GetCount() / sb->GetCapacity()));
+		_scrollbar_start_pos = (int)(sb->GetPosition() * _scrollbar_size / sb->GetCount());
+		w->SetDirty();
+		return;
+	}
+
 	if (pos < mi + button_size) {
 		/* Pressing the upper button? */
 		sb->disp_flags.Set(NWidgetDisplayFlag::ScrollbarUp);
@@ -994,6 +1008,12 @@ void Window::DrawWidgets() const
 			GfxFillRect(inner.right,    outer.top,    outer.right,     inner.bottom, colour);
 			GfxFillRect(outer.left + 1, inner.bottom, outer.right - 1, outer.bottom, colour);
 		}
+	}
+
+	/* Without a title bar a window is closed by dragging it off the screen; dim it, so
+	 * that the player can see that letting it go here will close it. */
+	if (this->flags.Test(WindowFlag::Dragging) && GetWindowDraggedOffScreen(this)) {
+		GfxFillRect(2, 2, this->width - 3, this->height - 3, PALETTE_TO_TRANSPARENT, FillRectMode::Recolour);
 	}
 }
 

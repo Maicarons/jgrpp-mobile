@@ -89,6 +89,8 @@ add_files(
     bridge_map.cpp
     bridge_map.h
     bridge_signal_map.h
+    build_confirmation_func.h
+    build_confirmation_gui.cpp
     build_vehicle_gui.cpp
     cachecheck.cpp
     cargo_type.h

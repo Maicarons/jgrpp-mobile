@@ -105,6 +105,7 @@ HandleViewportClickedResult HandleViewportClicked(const Viewport *vp, int x, int
 void SetRedErrorSquare(TileIndex tile);
 void SetTileSelectSize(int w, int h);
 void SetTileSelectBigSize(int ox, int oy, int sx, int sy);
+void ToolbarSelectLastTool();
 
 void ViewportDoDrawProcessAllPending();
 

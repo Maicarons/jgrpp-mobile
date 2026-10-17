@@ -40,6 +40,7 @@
 #include "rev.h"
 #include "core/backup_type.hpp"
 #include "pathfinder/water_regions.h"
+#include "build_confirmation_func.h"
 
 #include "widgets/misc_widget.h"
 
@@ -541,6 +542,11 @@ void ShowAboutWindow()
  */
 void ShowEstimatedCostOrIncome(Money cost, int x, int y)
 {
+	if (ConfirmationWindowEstimatingCost()) {
+		ConfirmationWindowSetEstimatedCost(cost);
+		return;
+	}
+
 	StringID msg = STR_MESSAGE_ESTIMATED_COST;
 
 	if (cost < 0) {

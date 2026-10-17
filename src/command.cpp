@@ -38,6 +38,7 @@
 #include "order_backup.h"
 #include "core/checksum_func.hpp"
 #include "3rdparty/cpp-ring-buffer/ring_buffer.hpp"
+#include "build_confirmation_func.h"
 #include <array>
 
 #include "table/strings.h"
@@ -414,7 +415,7 @@ bool DoCommandPImplementation(Commands cmd, TileIndex tile, const CommandPayload
 	 * However, in case of incoming network commands,
 	 * map generation or the pause button we do want
 	 * to execute. */
-	bool estimate_only = _shift_pressed && IsLocalCompany() &&
+	bool estimate_only = (_shift_pressed || ConfirmationWindowEstimatingCost()) && IsLocalCompany() &&
 			!_generating_world &&
 			!(intl_flags & DCIF_NETWORK_COMMAND) &&
 			!(intl_flags & DCIF_NO_ESTIMATE) &&

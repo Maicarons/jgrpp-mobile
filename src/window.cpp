@@ -3883,6 +3883,63 @@ void ChangeVehicleViewports(VehicleID from_index, VehicleID to_index)
 
 
 /**
+ * Move all windows off the left/right screen edge, or bring them back.
+ * The windows which must remain visible (the main window, the toolbars, the build
+ * confirmation dialog, ...) are left alone.
+ * @param move_off_screen Whether to move the windows off the screen, or back onto it.
+ */
+static void MoveAllWindowsOffScreen(bool move_off_screen)
+{
+	for (Window *w : Window::Iterate()) {
+		switch (w->window_class) {
+			case WindowClass::MainWindow:
+			case WindowClass::BuildConfirmation:
+			case WindowClass::Bootstrap:
+			case WindowClass::MainToolbar:
+			case WindowClass::News:
+			case WindowClass::Statusbar:
+			case WindowClass::NetworkChat:
+			case WindowClass::Console:
+				/* These windows are always visible, do not move them. */
+				continue;
+
+			default:
+				if (move_off_screen) {
+					if (w->left < _screen.width) {
+						w->left += _screen.width;
+						if (w->viewport != nullptr) w->viewport->left += _screen.width;
+					}
+				} else {
+					if (w->left >= _screen.width) {
+						w->left -= _screen.width;
+						if (w->viewport != nullptr) w->viewport->left -= _screen.width;
+					}
+				}
+				break;
+		}
+	}
+
+	MarkWholeScreenDirty();
+}
+
+/**
+ * Move all windows off the screen, so that the map is fully visible while building on it.
+ * @see MoveAllHiddenWindowsBackToScreen
+ */
+void MoveAllWindowsOffScreen()
+{
+	MoveAllWindowsOffScreen(true);
+}
+
+/**
+ * Bring back the windows that were moved off the screen by MoveAllWindowsOffScreen().
+ */
+void MoveAllHiddenWindowsBackToScreen()
+{
+	MoveAllWindowsOffScreen(false);
+}
+
+/**
  * Relocate all windows to fit the new size of the game application screen
  * @param neww New width of the game application screen
  * @param newh New height of the game application screen.

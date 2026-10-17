@@ -933,6 +933,12 @@ public:
 	 */
 	virtual void OnPlaceObjectAbort() {}
 
+	/**
+	 * Re-select the placement tool that was last used by this window, if any.
+	 * Used by the build confirmation dialog to keep the tool active for repeated building.
+	 */
+	virtual void SelectLastTool() {}
+
 
 	/**
 	 * The user is dragging over the map when the tile highlight mode
@@ -1162,6 +1168,9 @@ Twindow *AllocateWindowDescFront(WindowDesc &desc, WindowNumber window_number, T
 }
 
 void RelocateAllWindows(int neww, int newh);
+
+void MoveAllWindowsOffScreen();
+void MoveAllHiddenWindowsBackToScreen();
 
 void GuiShowTooltips(Window *parent, EncodedString &&text, TooltipCloseCondition close_tooltip);
 

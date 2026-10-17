@@ -1825,6 +1825,9 @@ STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION_HELPTEXT              :Give reserved t
 STR_CONFIG_SETTING_PERSISTENT_BUILDINGTOOLS                     :Keep building tools active after usage: {STRING2}
 STR_CONFIG_SETTING_PERSISTENT_BUILDINGTOOLS_HELPTEXT            :Keep the building tools for bridges, tunnels, etc. open after use
 
+STR_CONFIG_SETTING_BUILD_CONFIRMATION                           :Show confirmation dialog with estimated cost before building: {STRING2}
+STR_CONFIG_SETTING_BUILD_CONFIRMATION_HELPTEXT                  :When enabled, a transparent dialog with the estimated cost appears under the cursor when a build action is about to be executed, and the action is only performed after it is confirmed
+
 STR_CONFIG_SETTING_AUTO_REMOVE_SIGNALS                          :Automatically remove signals during rail construction: {STRING2}
 STR_CONFIG_SETTING_AUTO_REMOVE_SIGNALS_HELPTEXT                 :Automatically remove signals during rail construction if the signals are in the way. Note that this can potentially lead to train crashes
 

@@ -91,6 +91,7 @@
 #include "waypoint_func.h"
 #include "window_func.h"
 #include "tilehighlight_func.h"
+#include "build_confirmation_func.h"
 #include "zoning.h"
 #include "window_gui.h"
 #include "linkgraph/linkgraph_gui.h"
@@ -5425,6 +5426,8 @@ static void PlaceObject()
 	Point pt;
 	Window *w;
 
+	if (BuildConfirmationWindowProcessViewportClick()) return;
+
 	pt = GetTileBelowCursor();
 	if (pt.x == -1) return;
 
@@ -5438,6 +5441,38 @@ static void PlaceObject()
 
 	w = _thd.GetCallbackWnd();
 	if (w != nullptr) w->OnPlaceObject(pt, TileVirtXY(pt.x, pt.y));
+}
+
+static WindowClass _last_selected_window_class = WindowClass::Invalid;
+static WindowNumber _last_selected_window_number = 0;
+
+/**
+ * Finish the placement of the object that is currently being placed.
+ * Used by the build confirmation dialog to estimate the cost of and then execute the pending action.
+ */
+void ConfirmPlacingObject()
+{
+	Window *w = _thd.GetCallbackWnd();
+	if (w == nullptr) {
+		ResetObjectToPlace();
+		return;
+	}
+
+	_last_selected_window_class = _thd.window_class;
+	_last_selected_window_number = _thd.window_number;
+	HideMeasurementTooltips();
+	w->OnPlaceMouseUp(_thd.select_method, _thd.select_proc, _thd.selend, TileVirtXY(_thd.selstart.x, _thd.selstart.y), TileVirtXY(_thd.selend.x, _thd.selend.y));
+}
+
+/**
+ * Re-select the placement tool that was last used by its window.
+ * Used after the build confirmation dialog so the player can keep building the same thing.
+ */
+void ToolbarSelectLastTool()
+{
+	Window *w = FindWindowById(_last_selected_window_class, _last_selected_window_number);
+	if (w != nullptr) w->SelectLastTool();
+	_last_selected_window_class = WindowClass::Invalid;
 }
 
 bool HandleViewportDoubleClicked(Window *w, int x, int y)
@@ -5802,8 +5837,10 @@ void UpdateTileSelection()
 
 						default: NOT_REACHED();
 					}
-					_thd.selstart.x = x1 & ~TILE_UNIT_MASK;
-					_thd.selstart.y = y1 & ~TILE_UNIT_MASK;
+					if (!ConfirmationWindowShown()) {
+						_thd.selstart.x = x1 & ~TILE_UNIT_MASK;
+						_thd.selstart.y = y1 & ~TILE_UNIT_MASK;
+					}
 					_thd.selend.x = x1;
 					_thd.selend.y = y1;
 					break;
@@ -5816,6 +5853,8 @@ void UpdateTileSelection()
 	}
 
 	if (new_drawstyle & HT_LINE) CalcNewPolylineOutersize();
+
+	if (ConfirmationWindowShown()) return;
 
 	/* redraw selection */
 	if (_thd.drawstyle != new_drawstyle ||
@@ -6815,6 +6854,7 @@ EventState VpHandlePlaceSizingDrag()
 	}
 
 	if (_left_button_down && _special_mouse_mode == SpecialMouseMode::Dragging) {
+		HideBuildConfirmationWindow();
 		/* Only register a drag event when the mouse moved. */
 		if (_thd.new_pos.x == _thd.selstart.x && _thd.new_pos.y == _thd.selstart.y) return EventState::Handled;
 		_thd.selstart.x = _thd.new_pos.x;
@@ -6850,6 +6890,13 @@ EventState VpHandlePlaceSizingDrag()
 		if (_thd.drawstyle == HT_NONE) return EventState::Handled;
 	}
 	HideMeasurementTooltips();
+
+	if (!ConfirmationWindowShown() && _settings_client.gui.build_confirmation && !_shift_pressed) {
+		/* Show the build confirmation dialog instead of executing the action now; the action is
+		 * only performed after the player confirms it, and discarded when they cancel. */
+		ShowBuildConfirmationWindow();
+		return EventState::Handled;
+	}
 
 	w->OnPlaceMouseUp(_thd.select_method, _thd.select_proc, _thd.selend, TileVirtXY(_thd.selstart.x, _thd.selstart.y), TileVirtXY(_thd.selend.x, _thd.selend.y));
 	return EventState::Handled;
@@ -6927,7 +6974,15 @@ void SetObjectToPlace(CursorID icon, PaletteID pal, HighLightStyle mode, WindowC
 /** Reset the cursor and mouse mode handling back to default (normal cursor, only clicking in windows). */
 void ResetObjectToPlace()
 {
+	/* Remember which window owns the tool that is being reset, so that it can be
+	 * re-selected later (the build confirmation dialog keeps building the same thing). */
+	if (_thd.window_class != WindowClass::Invalid) {
+		_last_selected_window_class = _thd.window_class;
+		_last_selected_window_number = _thd.window_number;
+	}
 	SetObjectToPlace(SPR_CURSOR_MOUSE, PAL_NONE, HT_NONE, WindowClass::MainWindow, 0);
+	HideBuildConfirmationWindow();
+	MoveAllHiddenWindowsBackToScreen();
 }
 
 void ChangeRenderMode(Viewport *vp, bool down) {

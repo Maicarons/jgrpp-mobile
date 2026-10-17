@@ -495,6 +495,9 @@ struct GUISettings : public TimeSettings {
 	bool        traditional_intro_menu;                          ///< traditional intro menu.
 
 	/* Touch / small-screen ergonomics (ported from the Android fork). */
+	bool        windows_titlebars;                               ///< show or hide title bars for all windows to increase screen space
+	bool        draw_mouse_cursor;                               ///< draw mouse cursor, touchscreen does not generally need a mouse cursor, but mouse cursor shows currently selected build tool
+	bool        windows_decorations;                             ///< draw ornament on all window edges
 	uint8_t     min_button;                                      ///< minimum size in pixels of most button widgets
 
 	/**

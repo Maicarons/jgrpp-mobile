@@ -461,6 +461,12 @@ public:
 
 	bool IsActiveInLayout() const;
 
+	/**
+	 * Draw the decorative ornament on the window edges belonging to this widget.
+	 * @param w Window being drawn.
+	 */
+	void DrawEdgeOrnament(const Window *w) const;
+
 	NWidgetCore *GetWidgetFromPos(int x, int y) override;
 	bool IsHighlighted() const override;
 	TextColour GetHighlightColour() const override;

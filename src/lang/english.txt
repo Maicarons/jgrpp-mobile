@@ -2089,6 +2089,12 @@ STR_CONFIG_SETTING_SOFT_LIMIT_VALUE                             :{COMMA}
 ###setting-zero-is-special
 STR_CONFIG_SETTING_SOFT_LIMIT_DISABLED                          :Disabled
 
+STR_CONFIG_SETTING_WINDOWS_TITLEBARS                            :Title bars: {STRING2}
+STR_CONFIG_SETTING_WINDOWS_TITLEBARS_HELPTEXT                   :Show title bars for all windows, or hide them to save screen space
+STR_CONFIG_SETTING_MOUSE_CURSOR                                 :Mouse cursor: {STRING2}
+STR_CONFIG_SETTING_MOUSE_CURSOR_HELPTEXT                        :Show the game mouse cursor. Touchscreens do not generally need a mouse cursor
+STR_CONFIG_SETTING_WINDOWS_DECORATIONS                          :Window decorations: {STRING2}
+STR_CONFIG_SETTING_WINDOWS_DECORATIONS_HELPTEXT                 :Draw ornaments on the edges of all windows
 STR_CONFIG_SETTING_MIN_BUTTON                                   :Minimum button size: {STRING2}
 STR_CONFIG_SETTING_MIN_BUTTON_HELPTEXT                          :Minimum size in pixels for most buttons. Raise this to make buttons easier to tap on a touchscreen
 STR_CONFIG_SETTING_MIN_BUTTON_VALUE                             :{COMMA} pixel{P 0 "" s}

@@ -1085,6 +1085,16 @@ void Window::SetShaded(bool make_shaded)
 }
 
 /**
+ * Unshade all windows, so that they show their contents again.
+ * @note Used when the title bars are turned off (gui.windows_titlebars): a shaded
+ *       window rolls up into its title bar, which then no longer exists.
+ */
+void UnshadeAllWindows()
+{
+	for (Window *w : Window::Iterate()) w->SetShaded(false);
+}
+
+/**
  * Find the Window whose parent pointer points to this window
  * @param wc Window class of the window to find; ::WindowClass::Invalid if class does not matter
  * @return a Window pointer that is the child of this window, or \c nullptr otherwise
@@ -1920,7 +1930,8 @@ static Point LocalGetWindowPlacement(const WindowDesc &desc, int16_t sm_width, i
 			 */
 			const Dimension &closebox_dimension = NWidgetLeaf::GetCloseBoxDimension();
 			int indent_y = std::max<int>(closebox_dimension.height, GetCharacterHeight(FontSize::Normal) + WidgetDimensions::scaled.captiontext.Vertical());
-			if (w->top + 3 * indent_y < _screen.height) {
+			/* Without title bars there is no closebox to offset the child window by. */
+			if (w->top + 3 * indent_y < _screen.height && _settings_client.gui.windows_titlebars) {
 				pt.y = w->top + indent_y;
 				int indent_close = closebox_dimension.width;
 				int indent_resize = NWidgetLeaf::GetResizeBoxDimension().width;
@@ -2253,7 +2264,7 @@ static void EnsureVisibleCaption(Window *w, int nx, int ny)
 {
 	/* Search for the title bar rectangle. */
 	const NWidgetBase *caption = w->nested_root->GetWidgetOfType(WWT_CAPTION);
-	if (caption != nullptr) {
+	if (caption != nullptr && _settings_client.gui.windows_titlebars) {
 		const Rect caption_rect = caption->GetCurrentRect();
 
 		const int min_visible = caption_rect.Height();

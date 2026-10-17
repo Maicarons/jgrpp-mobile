@@ -18,6 +18,7 @@
 #include "strings_func.h"
 #include "transparency.h"
 #include "core/geometry_func.hpp"
+#include "blitter/factory.hpp"
 #include "settings_type.h"
 #include "querystring_gui.h"
 
@@ -771,6 +772,173 @@ void DrawCaption(const Rect &r, Colours colour, Owner owner, TextColour text_col
 	Dimension d = GetStringBoundingBox(str);
 	Point p = GetAlignedPosition(r, d, align);
 	DrawString(r.left + WidgetDimensions::scaled.captiontext.left, r.right - WidgetDimensions::scaled.captiontext.left, p.y, str, text_colour, align, false, fs);
+}
+
+/*
+ * Window edge ornaments. A window whose edges carry a few small notches still
+ * looks like a window when its title bar is hidden (gui.windows_titlebars), and
+ * the player can tell apart the windows that overlap on a small screen.
+ *
+ * The ornament is a 16x7 pixel image of the edge, repeated along it.
+ *  - - - + - - - + - - + - + - - +  1
+ *  - - - - - - - - + + - - - + + -  2
+ *  + + - - - + + - - - - - - - - -  3
+ *  - - - - - - - - - - - - - - - -  4
+ *  + + - - - + + - - - - - - - - -  5
+ *  - - - - - - - - + + - - - + + -  6
+ *  - - - + - - - + - - + - + - - +  7
+ */
+static const uint8_t ornamentImg[][2] = {
+	{  0, 2 }, {  1, 3 }, {  2, 4 }, {  3, 5 }, {  4, 4 }, {  5, 3 }, {  6, 2 }, {  7, 1 },
+	{  7, 5 }, {  8, 1 }, {  8, 6 }, {  9, 1 }, {  9, 6 }, { 10, 2 }, { 10, 5 }, { 11, 3 },
+	{ 11, 4 }, { 12, 2 }, { 12, 5 }, { 13, 1 }, { 13, 6 }, { 14, 1 }, { 14, 6 }, { 15, 1 },
+	{ 15, 5 },
+};
+
+enum {
+	ORNAMENT_STEP = 16,
+	ORNAMENT_HEIGHT = 4,
+	ORNAMENT_IMG_LEN = lengthof(ornamentImg),
+};
+
+/** Draw the ornament along the left edge of a widget. */
+static void DrawEdgeOrnamentL(const NWidgetCore *nw)
+{
+	if (_cur_dpi == nullptr || _cur_dpi->zoom != ZoomLevel::Normal) return;
+
+	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+
+	void *dst = _cur_dpi->dst_ptr;
+	int left = _cur_dpi->left;
+	int width = _cur_dpi->width;
+	int top = _cur_dpi->top;
+	int height = _cur_dpi->height;
+
+	int edge = nw->pos_y + nw->current_y - top - 1 - ORNAMENT_HEIGHT;
+
+	int x = nw->pos_x - left;
+
+	for (int y = nw->pos_y - top + 1 + ORNAMENT_HEIGHT; y < edge + ORNAMENT_STEP; y += ORNAMENT_STEP) {
+		for (int i = 0; i < ORNAMENT_IMG_LEN; i++) {
+			int xx = x + ornamentImg[i][1];
+			int yy = y + ornamentImg[i][0];
+			if (yy >= height || yy >= edge) break;
+			if (xx >= 0 && xx < width && yy >= 0) {
+				blitter->SetPixel(dst, xx, yy, PC_DARK_GREY);
+			}
+		}
+	}
+}
+
+/** Draw the ornament along the right edge of a widget. */
+static void DrawEdgeOrnamentR(const NWidgetCore *nw)
+{
+	if (_cur_dpi == nullptr || _cur_dpi->zoom != ZoomLevel::Normal) return;
+
+	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+
+	void *dst = _cur_dpi->dst_ptr;
+	int left = _cur_dpi->left;
+	int width = _cur_dpi->width;
+	int top = _cur_dpi->top;
+	int height = _cur_dpi->height;
+
+	int edge = nw->pos_y + nw->current_y - top - 1 - ORNAMENT_HEIGHT;
+
+	int x = nw->pos_x + nw->current_x - left - 1;
+
+	for (int y = nw->pos_y - top + 1 + ORNAMENT_HEIGHT; y < edge + ORNAMENT_STEP; y += ORNAMENT_STEP) {
+		for (int i = 0; i < ORNAMENT_IMG_LEN; i++) {
+			int xx = x - ornamentImg[i][1];
+			int yy = y + ornamentImg[i][0];
+			if (yy >= height || yy >= edge) break;
+			if (xx >= 0 && xx < width && yy >= 0) {
+				blitter->SetPixel(dst, xx, yy, PC_DARK_GREY);
+			}
+		}
+	}
+}
+
+/** Draw the ornament along the top edge of a widget. */
+static void DrawEdgeOrnamentT(const NWidgetCore *nw)
+{
+	if (_cur_dpi == nullptr || _cur_dpi->zoom != ZoomLevel::Normal) return;
+
+	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+
+	void *dst = _cur_dpi->dst_ptr;
+	int left = _cur_dpi->left;
+	int width = _cur_dpi->width;
+	int top = _cur_dpi->top;
+	int height = _cur_dpi->height;
+
+	int edge = nw->pos_x + nw->current_x - left - 1 - ORNAMENT_HEIGHT;
+
+	int y = nw->pos_y - top;
+
+	for (int x = nw->pos_x - left + 1 + ORNAMENT_HEIGHT; x < edge + ORNAMENT_STEP; x += ORNAMENT_STEP) {
+		for (int i = 0; i < ORNAMENT_IMG_LEN; i++) {
+			int xx = x + ornamentImg[i][0];
+			int yy = y + ornamentImg[i][1];
+			if (xx >= width || xx >= edge) break;
+			if (yy >= 0 && yy < height && xx >= 0) {
+				blitter->SetPixel(dst, xx, yy, PC_DARK_GREY);
+			}
+		}
+	}
+}
+
+/** Draw the ornament along the bottom edge of a widget. */
+static void DrawEdgeOrnamentB(const NWidgetCore *nw)
+{
+	if (_cur_dpi == nullptr || _cur_dpi->zoom != ZoomLevel::Normal) return;
+
+	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+
+	void *dst = _cur_dpi->dst_ptr;
+	int left = _cur_dpi->left;
+	int width = _cur_dpi->width;
+	int top = _cur_dpi->top;
+	int height = _cur_dpi->height;
+
+	int edge = nw->pos_x + nw->current_x - left - 1 - ORNAMENT_HEIGHT;
+
+	int y = nw->pos_y + nw->current_y - top - 1;
+
+	for (int x = nw->pos_x - left + 1 + ORNAMENT_HEIGHT; x < edge + ORNAMENT_STEP; x += ORNAMENT_STEP) {
+		for (int i = 0; i < ORNAMENT_IMG_LEN; i++) {
+			int xx = x + ornamentImg[i][0];
+			int yy = y - ornamentImg[i][1];
+			if (xx >= width || xx >= edge) break;
+			if (yy >= 0 && yy < height && xx >= 0) {
+				blitter->SetPixel(dst, xx, yy, PC_DARK_GREY);
+			}
+		}
+	}
+}
+
+void NWidgetCore::DrawEdgeOrnament(const Window *w) const
+{
+	if (!_settings_client.gui.windows_decorations) return;
+	if (w->window_class == WindowClass::MainToolbar ||
+			w->window_class == WindowClass::BuildConfirmation ||
+			w->window_class == WindowClass::Statusbar ||
+			w->window_class == WindowClass::ToolTips ||
+			w->window_class == WindowClass::DropdownMenu) {
+		return;
+	}
+	if (this->pos_x == 0) {
+		DrawEdgeOrnamentL(this);
+	}
+	if (int(this->pos_x + this->current_x) == w->width) {
+		DrawEdgeOrnamentR(this);
+	}
+	if (this->pos_y == 0) {
+		DrawEdgeOrnamentT(this);
+	}
+	if (int(this->pos_y + this->current_y) == w->height) {
+		DrawEdgeOrnamentB(this);
+	}
 }
 
 /**
@@ -2352,6 +2520,8 @@ void NWidgetBackground::Draw(const Window *w)
 			NOT_REACHED();
 	}
 
+	DrawEdgeOrnament(w);
+
 	if (this->index >= 0) w->DrawWidget(r, this->index);
 	if (this->child != nullptr) this->child->Draw(w);
 
@@ -2836,6 +3006,16 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, WidgetID index, const Wi
 }
 
 /**
+ * Is this one of the widgets that make up the title bar of a window?
+ * @param type Type of the widget.
+ */
+static bool IsTitlebarWidget(WidgetType type)
+{
+	return type == WWT_CAPTION || type == WWT_STICKYBOX || type == WWT_SHADEBOX ||
+			type == WWT_DEFSIZEBOX || type == WWT_CLOSEBOX || type == WWT_DEBUGBOX;
+}
+
+/**
  * Is this a widget that a finger has to be able to hit, and which is therefore at
  * least #_settings_client.gui.min_button pixels in both directions?
  * @param type Type of the widget.
@@ -2877,6 +3057,13 @@ void NWidgetLeaf::SetupSmallestSize(Window *w)
 	Dimension size = {this->min_x, this->min_y};
 	Dimension fill = {this->fill_x, this->fill_y};
 	Dimension resize = {this->resize_x, this->resize_y};
+
+	/* When the player turned the title bars off (gui.windows_titlebars), the title
+	 * bar widgets take no space at all, so the window contents move up to the top
+	 * edge of the window. The caption keeps filling the width of the window. */
+	const bool hide_titlebar = !_settings_client.gui.windows_titlebars &&
+			w->window_class != WindowClass::News && IsTitlebarWidget(this->type);
+
 	switch (this->type) {
 		case WWT_EMPTY: {
 			break;
@@ -3033,11 +3220,22 @@ void NWidgetLeaf::SetupSmallestSize(Window *w)
 			NOT_REACHED();
 	}
 
-	if (this->index >= 0) w->UpdateWidgetSize(this->index, size, padding, fill, resize);
+	if (hide_titlebar) {
+		size = {0, 0};
+		fill = {0, 0};
+		resize = {0, 0};
+		if (this->type == WWT_CAPTION) {
+			fill.width = 1;
+			resize.width = 1;
+		}
+		padding = {0, 0};
+	} else {
+		if (this->index >= 0) w->UpdateWidgetSize(this->index, size, padding, fill, resize);
 
-	/* Buttons must be big enough to be hit with a finger (gui.min_button). */
-	if (IsButtonLikeWidget(this->type)) {
-		size = maxdim(size, Dimension{GetMinButtonSize(), GetMinButtonSize()});
+		/* Buttons must be big enough to be hit with a finger (gui.min_button). */
+		if (IsButtonLikeWidget(this->type)) {
+			size = maxdim(size, Dimension{GetMinButtonSize(), GetMinButtonSize()});
+		}
 	}
 
 	this->smallest_x = size.width;

@@ -1,6 +1,6 @@
 Packaging tree for the jgrpp Android build (see
 packaging/README.md in the repository root).
-Generated 2026-10-15 17:54 UTC by make-packaging-tarball.py.
+Generated 2026-10-16 01:37 UTC by make-packaging-tarball.py.
 
 Unpack every archive into one empty build directory:
     for a in packaging/tree/*.tar.xz; do tar -xJf "$a" -C <dir>; done
@@ -8,8 +8,8 @@ Unpack every archive into one empty build directory:
 Total 133.4 MB.
 
 01-commandergenius.tar.xz
-    43.2 MB, sha256 31e52de1ecfea537d0ecfa52e3cda6400c2abef860a8593b92e158fea4a6ffbe
-    5714 members, 79 symlinks, 4 patched, 5617 pruned
+    43.2 MB, sha256 b434084f0eb2d9598a69b4ad95842cee1788608705a5581c7c4e48e2943f1fd8
+    5712 members, 79 symlinks, 6 patched, 5617 pruned
     . = https://wget.la/https://github.com/pelya/commandergenius.git @ 92979c2517b48930e7706948ac84eb8bf86ff5b2
 
 02-iconv-src.tar.xz
@@ -64,5 +64,7 @@ Pruned paths: the other project/jni/application sample apps,
 project/jni/python, .gitmodules.
 Patched: APP_PLATFORM=android-24 in the app config, minSdk 24 in
 build-template.gradle, -DANDROID_PLATFORM=android-24 in
-AndroidBuild.sh, a ./stage-data.sh hook in build.sh, and
-pnglibconf.h materialised from libpng's prebuilt.
+AndroidBuild.sh, a ./stage-data.sh hook in build.sh,
+pnglibconf.h materialised from libpng's prebuilt, long-press
+right click in SDL_androidinput.c, and touch defaults in the
+shipped game config.

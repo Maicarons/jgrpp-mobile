@@ -494,6 +494,9 @@ struct GUISettings : public TimeSettings {
 	bool        bigger_main_toolbar;                             ///< bigger main toolbar.
 	bool        traditional_intro_menu;                          ///< traditional intro menu.
 
+	/* Touch / small-screen ergonomics (ported from the Android fork). */
+	uint8_t     min_button;                                      ///< minimum size in pixels of most button widgets
+
 	/**
 	 * Returns true when the user has sufficient privileges to edit newgrfs on a running game
 	 * @return whether the user has sufficient privileges to edit newgrfs in an existing game

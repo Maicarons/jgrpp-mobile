@@ -144,6 +144,13 @@ class Scrollbar;
 using WidgetLookup = btree::btree_map<WidgetID, class NWidgetBase *>;
 
 /**
+ * Return the minimal automatic size for a widget.
+ * @param min_1 Minimal passed value.
+ * @return At least the passed value, and at least the configured minimum button size.
+ */
+uint GetMinButtonSize(uint min_1 = 0);
+
+/**
  * Baseclass for nested widgets.
  * @invariant After initialization: current_x = smallest_x + n * resize_x, for n >= 0.
  * @invariant After initialization: current_y = smallest_y + m * resize_y, for m >= 0.

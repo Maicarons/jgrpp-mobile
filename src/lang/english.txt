@@ -2089,6 +2089,10 @@ STR_CONFIG_SETTING_SOFT_LIMIT_VALUE                             :{COMMA}
 ###setting-zero-is-special
 STR_CONFIG_SETTING_SOFT_LIMIT_DISABLED                          :Disabled
 
+STR_CONFIG_SETTING_MIN_BUTTON                                   :Minimum button size: {STRING2}
+STR_CONFIG_SETTING_MIN_BUTTON_HELPTEXT                          :Minimum size in pixels for most buttons. Raise this to make buttons easier to tap on a touchscreen
+STR_CONFIG_SETTING_MIN_BUTTON_VALUE                             :{COMMA} pixel{P 0 "" s}
+
 STR_CONFIG_SETTING_ZOOM_MIN                                     :Maximum zoom in level: {STRING2}
 STR_CONFIG_SETTING_ZOOM_MIN_HELPTEXT                            :The maximum zoom-in level for viewports. Note that enabling higher zoom-in levels increases memory requirements
 STR_CONFIG_SETTING_ZOOM_MAX                                     :Maximum zoom out level: {STRING2}

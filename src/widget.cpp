@@ -92,6 +92,16 @@ Dimension GetSquareScaledSpriteSize(SpriteID sprid)
 	return {x, x};
 }
 
+/**
+ * Get the minimal automatic size for a widget.
+ * @param min_1 Minimal passed value.
+ * @return At least \a min_1, and at least the configured minimum button size.
+ */
+uint GetMinButtonSize(uint min_1)
+{
+	return std::max<uint>(_settings_client.gui.min_button, min_1);
+}
+
 static Dimension _toolbar_image_size{}; ///< Cached dimension of maximal toolbar sprite size.
 extern Dimension GetToolbarMaximalImageSize();
 
@@ -2645,7 +2655,8 @@ void NWidgetScrollbar::Draw(const Window *w)
 /* static */ Dimension NWidgetScrollbar::GetVerticalDimension()
 {
 	if (vertical_dimension.width == 0) {
-		vertical_dimension = maxdim(GetScaledSpriteSize(SPR_ARROW_UP), GetScaledSpriteSize(SPR_ARROW_DOWN));
+		vertical_dimension = maxdim(maxdim(GetScaledSpriteSize(SPR_ARROW_UP), GetScaledSpriteSize(SPR_ARROW_DOWN)),
+				Dimension{GetMinButtonSize(), GetMinButtonSize()});
 		vertical_dimension.width += WidgetDimensions::scaled.vscrollbar.Horizontal();
 		vertical_dimension.height += WidgetDimensions::scaled.vscrollbar.Vertical();
 	}
@@ -2655,7 +2666,8 @@ void NWidgetScrollbar::Draw(const Window *w)
 /* static */ Dimension NWidgetScrollbar::GetHorizontalDimension()
 {
 	if (horizontal_dimension.width == 0) {
-		horizontal_dimension = maxdim(GetScaledSpriteSize(SPR_ARROW_LEFT), GetScaledSpriteSize(SPR_ARROW_RIGHT));
+		horizontal_dimension = maxdim(maxdim(GetScaledSpriteSize(SPR_ARROW_LEFT), GetScaledSpriteSize(SPR_ARROW_RIGHT)),
+				Dimension{GetMinButtonSize(), GetMinButtonSize()});
 		horizontal_dimension.width += WidgetDimensions::scaled.hscrollbar.Horizontal();
 		horizontal_dimension.height += WidgetDimensions::scaled.hscrollbar.Vertical();
 	}
@@ -2823,6 +2835,42 @@ NWidgetLeaf::NWidgetLeaf(WidgetType tp, Colours colour, WidgetID index, const Wi
 	NWidgetLeaf::closebox_dimension.height += WidgetDimensions::scaled.closebox.Vertical();
 }
 
+/**
+ * Is this a widget that a finger has to be able to hit, and which is therefore at
+ * least #_settings_client.gui.min_button pixels in both directions?
+ * @param type Type of the widget.
+ * @note This is the "button" list of the Android fork (#NWST_BUTTON).
+ */
+static bool IsButtonLikeWidget(WidgetType type)
+{
+	switch (type) {
+		case WWT_PUSHBTN:
+		case WWT_IMGBTN:
+		case WWT_PUSHIMGBTN:
+		case WWT_IMGBTN_2:
+		case WWT_TEXTBTN:
+		case WWT_PUSHTXTBTN:
+		case WWT_TEXTBTN_2:
+		case WWT_PUSHARROWBTN:
+		case WWT_ARROWBTN:
+		case WWT_DROPDOWN:
+		case NWID_BUTTON_DROPDOWN:
+		case NWID_PUSHBUTTON_DROPDOWN:
+		case WWT_EDITBOX:
+		case WWT_CAPTION:
+		case WWT_STICKYBOX:
+		case WWT_SHADEBOX:
+		case WWT_DEBUGBOX:
+		case WWT_DEFSIZEBOX:
+		case WWT_RESIZEBOX:
+		case WWT_CLOSEBOX:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
 void NWidgetLeaf::SetupSmallestSize(Window *w)
 {
 	Dimension padding = {0, 0};
@@ -2986,6 +3034,11 @@ void NWidgetLeaf::SetupSmallestSize(Window *w)
 	}
 
 	if (this->index >= 0) w->UpdateWidgetSize(this->index, size, padding, fill, resize);
+
+	/* Buttons must be big enough to be hit with a finger (gui.min_button). */
+	if (IsButtonLikeWidget(this->type)) {
+		size = maxdim(size, Dimension{GetMinButtonSize(), GetMinButtonSize()});
+	}
 
 	this->smallest_x = size.width;
 	this->smallest_y = size.height;

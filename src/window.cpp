@@ -3245,6 +3245,12 @@ void HandleMouseEvents()
 	} else if (_right_button_clicked) {
 		_right_button_clicked = false;
 		click = MouseClick::Right;
+#if defined(__ANDROID__)
+		/* A two-finger touch arrives as a right click: cancel whatever build
+		 * action is in progress, but keep the tool armed so it can be used again. */
+		ResetObjectToPlace();
+		ToolbarSelectLastTool();
+#endif
 	}
 
 	int mousewheel = 0;

@@ -102,10 +102,16 @@ enum HandleViewportClickedResult {
 
 bool HandleViewportDoubleClicked(Window *w, int x, int y);
 HandleViewportClickedResult HandleViewportClicked(const Viewport *vp, int x, int y, bool double_click);
+
+/**
+ * Re-arm the last build tool used, used to cancel an in-progress build drag
+ * when a second finger touches the screen on Android.
+ */
+void ToolbarSelectLastTool();
+
 void SetRedErrorSquare(TileIndex tile);
 void SetTileSelectSize(int w, int h);
 void SetTileSelectBigSize(int ox, int oy, int sx, int sy);
-void ToolbarSelectLastTool();
 
 void ViewportDoDrawProcessAllPending();
 

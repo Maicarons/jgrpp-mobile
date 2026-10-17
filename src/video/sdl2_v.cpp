@@ -1,5 +1,8 @@
 #if defined(__OHOS__) || defined(__ANDROID__)
 extern "C" void ohos_probe(const char *msg);
+#else
+/** The OHOS/Android startup probe has no implementation on other platforms. */
+#define ohos_probe(msg) ((void)0)
 #endif
 /*
  * This file is part of OpenTTD.

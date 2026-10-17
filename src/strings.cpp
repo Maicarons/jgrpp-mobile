@@ -22,6 +22,9 @@
 #include "strings_func.h"
 #if defined(__OHOS__) || defined(__ANDROID__)
 extern "C" void ohos_probe(const char *msg);
+#else
+/** The OHOS/Android startup probe has no implementation on other platforms. */
+#define ohos_probe(msg) ((void)0)
 #endif
 #include "core/string_builder.hpp"
 #include "core/string_consumer.hpp"

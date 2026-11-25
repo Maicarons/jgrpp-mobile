@@ -1493,6 +1493,10 @@ void DrawMouseCursor()
 	/* Don't draw mouse cursor if it is handled by the video driver. */
 	if (VideoDriverBase::GetInstance()->UseSystemCursor()) return;
 
+	/* Don't draw the mouse cursor if the player turned it off (gui.draw_mouse_cursor):
+	 * on a touch screen the finger already shows where the player is pointing. */
+	if (!_settings_client.gui.draw_mouse_cursor) return;
+
 	/* Don't draw the mouse cursor if the screen is not ready */
 	if (_screen.dst_ptr == nullptr) return;
 

@@ -1046,6 +1046,19 @@ struct BuildRailToolbarWindow : Window {
 		CloseWindowByClass(WindowClass::BuildBridge);
 	}
 
+	void SelectLastTool() override
+	{
+		/* The player misplaced something, activate the last selected tool again. */
+		if (this->last_user_action == INVALID_WIDGET) return;
+
+		const bool remove = _remove_button_clicked;
+		Point dummy = {0, 0};
+		this->RaiseWidget(this->last_user_action);
+		this->OnClick(dummy, this->last_user_action, 0);
+		/* Re-enable the bulldozer, which clicking a tool button always turns off. */
+		if (remove) BuildRailClick_Remove(this);
+	}
+
 	void OnPlacePresize([[maybe_unused]] Point pt, TileIndex tile) override
 	{
 		Command<Commands::BuildTunnel>::Do(DoCommandFlag::Auto, tile, TransportType::Rail, _cur_railtype);

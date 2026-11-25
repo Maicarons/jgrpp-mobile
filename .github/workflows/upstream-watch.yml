@@ -1,0 +1,98 @@
+name: Upstream Release Watcher
+
+# Detects new releases of the upstream JGR patch pack (JGRennison/OpenTTD-patches)
+# and, when one appears that we have not published yet, opens an issue asking a
+# human to cut the mobile release. It deliberately does NOT merge, push, tag or
+# dispatch any build: releases are cut by hand (see docs/release.md):
+#
+#   1. update the version branch `jgrpp-<ver>-mobile` (source + scaffold);
+#   2. build the APK locally and verify it runs;
+#   3. `git tag jgrpp-mobile-<ver> && git push origin <branch> --tags` — the
+#      tag triggers `.github/workflows/android-release.yml`, which rebuilds the
+#      APK in the cloud and attaches it to the GitHub Release.
+#
+# "Already published" is decided by whether the GitHub Release
+# `jgrpp-mobile-<version>` exists, so no state file can drift out of sync.
+
+on:
+  schedule:
+    # Every 6 hours, offset to avoid the top of the hour.
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_version:
+        description: 'Report this upstream version even if a release already exists (e.g. 0.73.2). Leave empty for normal watch mode.'
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  UPSTREAM_REPO: JGRennison/OpenTTD-patches
+  # Bare `gh` commands must resolve to our repo, not the upstream remote.
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve upstream latest release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ github.event.inputs.force_version }}" ]; then
+            TAG="jgrpp-${{ github.event.inputs.force_version }}"
+          else
+            TAG=$(gh api "repos/$UPSTREAM_REPO/releases/latest" --jq '.tag_name')
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#jgrpp-}" >> "$GITHUB_OUTPUT"
+          echo "Upstream tag: $TAG"
+
+      - name: Decide whether to notify
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER="${{ steps.upstream.outputs.version }}"
+          FORCE="${{ github.event.inputs.force_version }}"
+          if [ -z "$FORCE" ] && gh release view "jgrpp-mobile-$VER" >/dev/null 2>&1; then
+            echo "Release jgrpp-mobile-$VER already exists; nothing to do."
+            echo "do=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "Upstream $VER has no jgrpp-mobile-$VER release yet; opening issue."
+            echo "do=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open release-reminder issue
+        if: steps.decide.outputs.do == 'yes'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          VER="${{ steps.upstream.outputs.version }}"
+          TITLE="Upstream $TAG is available — cut the mobile release"
+          BODY="Upstream **[$TAG](https://github.com/$UPSTREAM_REPO/releases/tag/$TAG)** is out and there is no \`jgrpp-mobile-$VER\` release yet.
+
+          This is a manual step by design. Follow [\`docs/release.md\`](../blob/main/docs/release.md):
+
+          1. Update the version branch \`jgrpp-$VER-mobile\`: take the upstream source, re-apply the mobile adaptations (direct source edits), and keep the scaffold (this repo's \`harmony/\`, \`.github/\`, build docs) in the same branch.
+          2. Build the APK locally and verify it installs and runs (\`docs/android-build.md\`).
+          3. Publish:
+             \`\`\`sh
+             git tag jgrpp-mobile-$VER
+             git push origin jgrpp-$VER-mobile --tags
+             \`\`\`
+             The tag triggers **Android APK Release**, which rebuilds in the cloud and attaches the APK to the \`jgrpp-mobile-$VER\` GitHub Release.
+
+          Once the release exists this watcher stops reminding; to re-open the reminder on demand, run **Upstream Release Watcher** with \`force_version\` = \`$VER\`."
+
+          NUM=$(gh issue list --search "$TITLE in:title" --state all --json number,state \
+                  --jq '[.[] | select(.state=="OPEN")][0].number // ""')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

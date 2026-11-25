@@ -849,6 +849,12 @@ enum class WindowClass : uint16_t {
 	 */
 	ModifierKeyToggle,
 
+	/**
+	 * Build confirmation dialog; %Window numbers:
+	 *   - 0 = #BuildConfirmationWidgets
+	 */
+	BuildConfirmation,
+
 	End,              ///< End sentinel.
 	Invalid = 0xFFFF, ///< Invalid window.
 };

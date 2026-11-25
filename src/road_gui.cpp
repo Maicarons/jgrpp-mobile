@@ -762,6 +762,27 @@ struct BuildRoadToolbarWindow : Window {
 		CloseWindowByClass(WindowClass::BuildBridge);
 	}
 
+	void SelectLastTool() override
+	{
+		/* The player misplaced something, activate the last selected tool again. */
+		if (this->last_started_action == INVALID_WIDGET) return;
+
+		const bool remove = _remove_button_clicked;
+		const bool one_way = this->IsWidgetLowered(WID_ROT_ONE_WAY);
+		Point dummy = {0, 0};
+		this->RaiseWidget(this->last_started_action);
+		this->OnClick(dummy, this->last_started_action, 0);
+		if (one_way && !this->IsWidgetDisabled(WID_ROT_ONE_WAY)) {
+			this->LowerWidget(WID_ROT_ONE_WAY);
+			this->SetWidgetDirty(WID_ROT_ONE_WAY);
+		}
+		/* Re-enable the bulldozer, which clicking a tool button always turns off. */
+		if (remove && !this->IsWidgetDisabled(WID_ROT_REMOVE)) {
+			this->RaiseWidget(WID_ROT_REMOVE);
+			ToggleRoadButton_Remove(this);
+		}
+	}
+
 	void OnPlaceDrag(ViewportPlaceMethod select_method, [[maybe_unused]] ViewportDragDropSelectionProcess select_proc, [[maybe_unused]] Point pt) override
 	{
 		/* Here we update the end tile flags

@@ -30,7 +30,7 @@ class FlatSet {
 	}
 
 public:
-	using const_iterator = std::vector<Tkey>::const_iterator;
+	using const_iterator = typename std::vector<Tkey>::const_iterator;
 
 	FlatSet() = default;
 	FlatSet(const FlatSet &) = default;

@@ -1,0 +1,5 @@
+# Shell scripts are executed on both sides: by bash on Linux (CI) and in
+# Git Bash on Windows (local build). A CRLF shebang breaks them on Windows
+# ("bad interpreter"), and the default core.autocrlf=true would rewrite them
+# on every checkout, so pin LF for them.
+*.sh text eol=lf

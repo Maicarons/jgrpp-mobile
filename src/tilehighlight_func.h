@@ -21,6 +21,7 @@ bool HandlePlacePushButton(Window *w, WidgetID widget, CursorID cursor, HighLigh
 void SetObjectToPlaceWnd(CursorID icon, PaletteID pal, HighLightStyle mode, Window *w);
 void SetObjectToPlace(CursorID icon, PaletteID pal, HighLightStyle mode, WindowClass window_class, WindowNumber window_num, WindowToken window_token = WindowToken(0));
 void ResetObjectToPlace();
+void ConfirmPlacingObject();
 
 void VpSelectTilesWithMethod(int x, int y, ViewportPlaceMethod method);
 void VpStartDragging(ViewportDragDropSelectionProcess process);

@@ -412,6 +412,7 @@ struct GUISettings : public TimeSettings {
 	bool        station_dragdrop;                                ///< whether drag and drop is enabled for stations
 	bool        station_show_coverage;                           ///< whether to highlight coverage area
 	bool        persistent_buildingtools;                        ///< keep the building tools active after usage
+	bool        build_confirmation;                              ///< show a confirmation dialog with the estimated cost before executing a build action
 	uint32_t    last_newgrf_count;                               ///< the numbers of NewGRFs we found during the last scan
 	uint8_t     missing_strings_threshold;                       ///< the number of missing strings before showing the warning
 	uint8_t     graph_line_thickness;                            ///< the thickness of the lines in the various graph guis
@@ -492,6 +493,12 @@ struct GUISettings : public TimeSettings {
 	bool        scale_bevels;                                    ///< bevels are scaled with GUI scale.
 	bool        bigger_main_toolbar;                             ///< bigger main toolbar.
 	bool        traditional_intro_menu;                          ///< traditional intro menu.
+
+	/* Touch / small-screen ergonomics (ported from the Android fork). */
+	bool        windows_titlebars;                               ///< show or hide title bars for all windows to increase screen space
+	bool        draw_mouse_cursor;                               ///< draw mouse cursor, touchscreen does not generally need a mouse cursor, but mouse cursor shows currently selected build tool
+	bool        windows_decorations;                             ///< draw ornament on all window edges
+	uint8_t     min_button;                                      ///< minimum size in pixels of most button widgets
 
 	/**
 	 * Returns true when the user has sufficient privileges to edit newgrfs on a running game

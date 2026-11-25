@@ -27,17 +27,17 @@ class TypedIndexContainer : public Container {
 	static constexpr bool INTEGER_ALLOWED = ((Policies == TypedIndexContainerPolicy::AllowInteger) || ...);
 
 public:
-	constexpr Container::reference at(size_t pos) { static_assert(INTEGER_ALLOWED); return this->Container::at(pos); }
-	constexpr Container::reference at(const Index &pos) { return this->Container::at(pos.base()); }
+	constexpr typename Container::reference at(size_t pos) { static_assert(INTEGER_ALLOWED); return this->Container::at(pos); }
+	constexpr typename Container::reference at(const Index &pos) { return this->Container::at(pos.base()); }
 
-	constexpr Container::const_reference at(size_t pos) const { static_assert(INTEGER_ALLOWED); return this->Container::at(pos); }
-	constexpr Container::const_reference at(const Index &pos) const { return this->Container::at(pos.base()); }
+	constexpr typename Container::const_reference at(size_t pos) const { static_assert(INTEGER_ALLOWED); return this->Container::at(pos); }
+	constexpr typename Container::const_reference at(const Index &pos) const { return this->Container::at(pos.base()); }
 
-	constexpr Container::reference operator[](size_t pos) { static_assert(INTEGER_ALLOWED); return this->Container::operator[](pos); }
-	constexpr Container::reference operator[](const Index &pos) { return this->Container::operator[](pos.base()); }
+	constexpr typename Container::reference operator[](size_t pos) { static_assert(INTEGER_ALLOWED); return this->Container::operator[](pos); }
+	constexpr typename Container::reference operator[](const Index &pos) { return this->Container::operator[](pos.base()); }
 
-	constexpr Container::const_reference operator[](size_t pos) const { static_assert(INTEGER_ALLOWED); return this->Container::operator[](pos); }
-	constexpr Container::const_reference operator[](const Index &pos) const { return this->Container::operator[](pos.base()); }
+	constexpr typename Container::const_reference operator[](size_t pos) const { static_assert(INTEGER_ALLOWED); return this->Container::operator[](pos); }
+	constexpr typename Container::const_reference operator[](const Index &pos) const { return this->Container::operator[](pos.base()); }
 };
 
 #endif /* TYPED_CONTAINER_HPP */

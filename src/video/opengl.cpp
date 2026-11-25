@@ -31,6 +31,7 @@
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
 #include "../gfx_func.h"
+#include "../settings_type.h"
 #include "../debug.h"
 #include "../blitter/factory.hpp"
 #include "../zoom_func.h"
@@ -1099,6 +1100,10 @@ void OpenGLBackend::Paint()
  */
 void OpenGLBackend::DrawMouseCursor()
 {
+	/* Don't draw the mouse cursor if the player turned it off (gui.draw_mouse_cursor):
+	 * on a touch screen the finger already shows where the player is pointing. */
+	if (!_settings_client.gui.draw_mouse_cursor) return;
+
 	if (!this->cursor_in_window) return;
 
 	/* Draw cursor on screen */

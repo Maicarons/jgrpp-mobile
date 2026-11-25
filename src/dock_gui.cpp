@@ -297,6 +297,15 @@ struct BuildDocksToolbarWindow : Window {
 		CloseWindowByClass(WindowClass::BuildBridge);
 	}
 
+	void SelectLastTool() override
+	{
+		/* The player misplaced something, activate the last selected tool again. */
+		if (this->last_clicked_widget == INVALID_WIDGET) return;
+		Point dummy = {0, 0};
+		this->RaiseWidget(this->last_clicked_widget);
+		this->OnClick(dummy, this->last_clicked_widget, 0);
+	}
+
 	void OnPlacePresize([[maybe_unused]] Point pt, TileIndex tile_from) override
 	{
 		TileIndex tile_to = tile_from;

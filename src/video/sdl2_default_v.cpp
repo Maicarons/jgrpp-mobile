@@ -33,8 +33,20 @@
 #endif
 
 #include "../safeguards.h"
+#if defined(__OHOS__) || defined(__ANDROID__)
+extern "C" void ohos_probe(const char *msg);
+#else
+/** The OHOS/Android startup probe has no implementation on other platforms. */
+#define ohos_probe(msg) ((void)0)
+#endif
 
 static FVideoDriver_SDL_Default iFVideoDriver_SDL_Default; ///< The default, non-GL, SDL video driver.
+
+bool VideoDriver_SDL_Default::CreateMainWindow(uint w, uint h, uint flags)
+{
+	flags |= SDL_WINDOW_OPENGL;
+	return this->VideoDriver_SDL_Base::CreateMainWindow(w, h, flags);
+}
 
 static SDL_Surface *_sdl_surface; ///< The surface to draw on/to.
 static SDL_Surface *_sdl_rgb_surface; ///< Optional surface to use for blitting all changes at once.
@@ -101,8 +113,9 @@ void VideoDriver_SDL_Default::MakePalette()
 }
 
 void VideoDriver_SDL_Default::Paint()
-{
-	PerformanceMeasurer framerate(PerformanceElement::Video);
+	{
+		ohos_probe("__PAINT__");
+		PerformanceMeasurer framerate(PerformanceElement::Video);
 
 	if (IsEmptyRect(this->dirty_rect) && this->local_palette.count_dirty == 0) return;
 
@@ -143,6 +156,10 @@ bool VideoDriver_SDL_Default::AllocateBackingStore(int w, int h, bool force)
 	int bpp = BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
 
 	_sdl_real_surface = SDL_GetWindowSurface(this->sdl_window);
+#if defined(__OHOS__) || defined(__ANDROID__)
+	ohos_probe(_sdl_real_surface == nullptr ? "__GETWINSURF_NULL__" : "__GETWINSURF_OK__");
+	if (_sdl_real_surface == nullptr) ohos_probe(SDL_GetError());
+#endif
 	if (_sdl_real_surface == nullptr) UserError("SDL2: Couldn't get window surface: {}", SDL_GetError());
 
 	if (!force && w == _sdl_real_surface->w && h == _sdl_real_surface->h) return false;

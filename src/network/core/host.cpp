@@ -12,6 +12,11 @@
 #include "../../core/alloc_func.hpp"
 #include "address.h"
 
+#ifndef _WIN32
+/* bionic (Android) and OHOS musl do not pull ifaddrs.h in via other headers */
+#include <ifaddrs.h>
+#endif
+
 #include "../../safeguards.h"
 
 /**

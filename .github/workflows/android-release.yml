@@ -1,0 +1,307 @@
+name: Android APK Release
+
+# Release model (see docs/android-build.md and docs/release.md):
+#   1. human: update the version branch `jgrpp-<ver>-mobile` (source + scaffold)
+#      and build the APK locally to prove it compiles and runs;
+#   2. human: `git tag jgrpp-mobile-<ver> && git push origin <branch> --tags`;
+#   3. this workflow rebuilds the APK in the cloud and attaches it to the
+#      `jgrpp-mobile-<ver>` GitHub Release.
+# `workflow_dispatch` stays available for a manual re-run of any ref.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for the APK (e.g. 0.73.4)'
+        required: false
+        default: '0.73.4'
+      ref:
+        description: 'Branch or tag to build (default: the ref that triggered the run)'
+        required: false
+  push:
+    tags:
+      - 'jgrpp-mobile-*'
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  build:
+    env:
+      APP_NAME: openttd-jgrpp
+      # Both ABIs are kept: armeabi-v7a is what 32-bit devices and some
+      # emulators need, arm64-v8a covers everything current. A cold
+      # Boost+ICU+OpenSSL pass for both took ~9 min on ubuntu-latest, and the
+      # built libraries are cached between runs.
+      ARCH_LIST: armeabi-v7a arm64-v8a
+      ANDROID_BUILD_TOOLS: 35.0.0
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Resolve version
+        id: ver
+        run: |
+          # Normal trigger is a `jgrpp-mobile-<ver>` tag push; take the version
+          # from the tag. Manual dispatch may override it explicitly.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VER="${GITHUB_REF_NAME#jgrpp-mobile-}"
+          else
+            VER="${{ github.event.inputs.version }}"
+          fi
+          test -n "$VER"
+          # AppVersionCode must increase with every published release or Android
+          # refuses to install it over the previous one (and this used to be the
+          # hardcoded 7310, which never changed). jgrpp-mobile derives it from the
+          # version name, as the local build does: 0.73.4 -> 73041.
+          CODE=$(printf '%d%02d1' "$(echo "$VER" | cut -d. -f2)" "$(echo "$VER" | cut -d. -f3)")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$VER" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          echo "Building jgrpp-mobile-$VER (versionCode $CODE)"
+
+      - name: Check out jgrpp-mobile source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Unpack the packaging tree
+        run: |
+          # The Android packaging tree (pelya/commandergenius + the native
+          # libraries it builds) is vendored in packaging/tree/, one archive per
+          # component, every path relative to the tree root. See
+          # packaging/README.md; upstream is frozen and this repository is now
+          # the authoritative copy, so nothing is cloned here.
+          mkdir -p "$RUNNER_TEMP/sdl-android"
+          cd "$RUNNER_TEMP/sdl-android"
+          for a in "$GITHUB_WORKSPACE"/packaging/tree/*.tar.xz; do tar -xJf "$a"; done
+          # The tree relies on symlinks and executable bits, which a Windows
+          # checkout cannot represent; make sure the archive round-trip kept them.
+          test -x ./build.sh
+          test -f project/jni/SettingsTemplate.mk
+          test -f project/jni/sdl2_image/external/libpng/pnglibconf.h
+          test -L project/jni/png/include
+          ls -l build.sh project/jni/png/include
+
+      - name: Install jgrpp source into packaging tree
+        run: |
+          rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src
+          cp -r $GITHUB_WORKSPACE $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src
+          rm -rf $RUNNER_TEMP/sdl-android/project/jni/application/openttd-jgrpp/src/.git
+
+      - name: Configure app settings
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          CFG=project/jni/application/openttd-jgrpp/AndroidAppSettings.cfg
+          sed -i "s/^MultiABI=.*/MultiABI='${ARCH_LIST}'/" $CFG
+          sed -i "s/^AppVersionName=.*/AppVersionName=\"${VERSION_NAME}\"/" $CFG
+          sed -i "s/^AppVersionCode=.*/AppVersionCode=${VERSION_CODE}/" $CFG
+          # The app is selected by making this git-ignored path a symlink, which
+          # is what every upstream checkout does; the Java sources, the launch
+          # glue and AndroidData all hang off it.
+          ln -sf openttd-jgrpp project/jni/application/src
+
+      - name: Get ICU revision for cache
+        id: icu-rev
+        working-directory: ${{ github.workspace }}
+        run: |
+          # The tree is unpacked, not cloned, so there is no revision to ask git
+          # for: key the cache on the archives themselves, so a rebuilt
+          # packaging tree starts a fresh ICU build.
+          TREE_HASH=$(cat packaging/tree/*.tar.xz | sha256sum | cut -c1-16)
+          echo "ICU_REV=${TREE_HASH}::`echo ${ARCH_LIST} | sed 's/ /:/g'`-hb2" >> $GITHUB_ENV
+
+      - name: Cache ICU libraries
+        uses: actions/cache@v4
+        id: cache-icu
+        with:
+          key: ${{env.ICU_REV}}
+          path: |
+            ${{ runner.temp }}/sdl-android/project/jni/iconv/include
+            ${{ runner.temp }}/sdl-android/project/jni/iconv/lib
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/include
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/lib
+            ${{ runner.temp }}/sdl-android/project/jni/icuuc/share/icu
+
+      - name: Touch cached ICU timestamps
+        if: steps.cache-icu.outputs.cache-hit == 'true'
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: touch project/jni/iconv/lib/*/* project/jni/icuuc/lib/*/* project/jni/icuuc/share/icu/*/* || true
+
+      - name: Build Boost, ICU, and OpenSSL
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          # APP_PLATFORM=android-24 (getifaddrs()/freeifaddrs() in
+          # src/network/core/host.cpp need API 24), minSdk 24 and
+          # -DANDROID_PLATFORM=android-24 on the app's CMake call are already
+          # patched into the vendored tree - see packaging/README.md.
+          export PATH=$ANDROID_NDK_LATEST_HOME:$PATH
+          ./changeAppSettings.sh
+          # pelya builds harfbuzz into iconv/src/<arch>/lib/, which is NOT a
+          # cached path — on a warm cache make skips its build entirely and
+          # the archive vanishes, breaking freetype's hb_* link symbols.
+          # Preserve it inside the already-cached icuuc/lib tree.
+          for A in ${ARCH_LIST}; do
+            SRC="project/jni/iconv/src/$A/lib/libharfbuzz.a"
+            DST="project/jni/icuuc/lib/$A/libharfbuzz.a"
+            if [ -f "$SRC" ]; then
+              mkdir -p "project/jni/icuuc/lib/$A"
+              cp -f "$SRC" "$DST"
+            fi
+          done
+          ls project/jni/icuuc/lib/*/libharfbuzz.a
+
+      - name: Set up Gradle and Android SDK licenses
+        working-directory: ${{ runner.temp }}/sdl-android/project
+        run: |
+          for Y in `seq 20`; do echo y; done | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          ./gradlew assembleRelease || true
+          for Y in `seq 20`; do echo y; done | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=`pwd`
+          mkdir -p $HOME/.android
+          keytool -genkey -v -keystore $HOME/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=Debug"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "proguard.config=proguard.cfg;proguard-local.cfg" >> local.properties
+
+      - name: Install data staging script
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          # build.sh runs ./stage-data.sh (when executable) after the native
+          # build and before copyAssets.sh — the only point at which this
+          # build's own lang/ and baseset/ exist. The hook is baked into the
+          # vendored build.sh (packaging/README.md); this step only drops the
+          # script in. The data pack must be built
+          # from those: the .lng files of an official package carry a different
+          # LANGUAGE_PACK_VERSION and every language gets rejected at startup,
+          # and baseset/ carries the OpenTTD fonts plus the JGRPP base GRFs
+          # (extra_signals, tracerestrict, ...). The script therefore lives in
+          # the repository root and CI and local builds share it.
+          cp "$GITHUB_WORKSPACE/stage-data.sh" ./stage-data.sh
+          chmod +x ./stage-data.sh
+          head -3 ./stage-data.sh
+
+      - name: Build APK
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_NDK_LATEST_HOME:$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
+          ./build.sh
+
+      - name: Inject and strip the native libraries
+        working-directory: ${{ runner.temp }}/sdl-android/project
+        run: |
+          set -euxo pipefail
+          # ndk-build leaves the .so files in project/libs/<abi>/ (project/lib is
+          # a symlink to it), but AGP does not pick them up: pelya's template
+          # never wires this directory as jniLibs, and copyAssets.sh only packs
+          # AndroidData/lib, which nothing populates. Without this step the APK
+          # contains no native code at all and cannot start.
+          #
+          # Inject them stored (uncompressed and page-aligned, as targetSdk >= 30
+          # demands) and stripped: the build is RelWithDebInfo, i.e. built with
+          # -g, so unstripped they are ~265 MiB per ABI. Re-align afterwards so
+          # sign.sh can sign the APK.
+          A="$PWD/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$A"
+          STRIP="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          test -x "$STRIP"
+          # pelya's changeAppSettings.sh creates the `lib` junction with mklink,
+          # which only exists on Windows, so on Linux only libs/ is there. zip
+          # must see the `lib/` prefix, or the APK would get libs/<abi>/ entries
+          # and Android would not find the libraries.
+          if [ ! -d lib ]; then ln -sfn libs lib; fi
+          zip -d "$A" 'lib/*' || true
+          for ABI in ${ARCH_LIST}; do
+            test -d "lib/$ABI"
+            find "lib/$ABI" -name '*.so' -exec "$STRIP" --strip-unneeded {} +
+            zip -0 -rD "$A" "lib/$ABI"
+          done
+          unzip -l "$A" 'lib/*' | tail -3
+          # The launcher reads these straight from the APK assets on first run.
+          # They are the ones stage-data.sh writes into AndroidData, which
+          # copyAssets.sh copies into assets/, and build.sh calls stage-data.sh
+          # between the native build and that copy. A missing one means the data
+          # was never staged (see the names in stage-data.sh).
+          unzip -l "$A" 'assets/*.xz' || true
+          for F in openttd-data-0.40.4-0.zip.xz timidity.zip.xz icudt62l.zip.xz; do
+            unzip -l "$A" "assets/$F" > /dev/null || {
+              echo "::error::assets/$F is missing from the APK"; exit 1; }
+          done
+          export PATH="$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH"
+          zipalign -f -p 4 "$A" app/build/outputs/apk/release/app-release.apk
+          ls -la app/build/outputs/apk/release/
+
+      - name: Sign APK with debug key
+        working-directory: ${{ runner.temp }}/sdl-android
+        run: |
+          export PATH=$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH
+          mkdir -p $GITHUB_WORKSPACE/upload
+          ./sign.sh
+          mv *.apk $GITHUB_WORKSPACE/upload/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jgrpp-mobile-${{ steps.ver.outputs.version }}-android
+          path: upload
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: jgrpp-mobile-${{ steps.ver.outputs.version }}
+          name: jgrpp-mobile-${{ steps.ver.outputs.version }}
+          # The tag push is the whole human step now, so the notes come from
+          # here; the port patch list is the same for every version.
+          body: |
+            JGRPP ${{ steps.ver.outputs.version }} mobile port (Android: armeabi-v7a + arm64-v8a)
+
+            Based on upstream JGRPP jgrpp-${{ steps.ver.outputs.version }}. Requires Android 7.0 (API 24) or newer.
+
+            Changes:
+            - Default GUI scale set to 200% for mobile screens
+            - Hardware acceleration enabled by default
+            - SDL window created with OpenGL flag for mobile drivers
+            - Skip SDL_StopTextInput on mobile (prevents deadlock)
+            - Probe infrastructure for startup debugging (logcat)
+            - AllocateBackingStore defers allocation until GL context is ready
+
+            Packaging:
+            - Built entirely from the packaging tree vendored in this repository
+              (pelya/commandergenius, SDL2, SDL2_image/mixer/ttf, iconv/ICU): CI clones
+              nothing from outside, so this build is reproducible from the tag alone.
+            - OpenTTD base data (0.40.4), the Timidity MIDI set and ICU data are packed
+              into the APK's assets and unpacked on first run.
+            - Both Android ABIs are included: armeabi-v7a and arm64-v8a.
+          files: upload/*.apk
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="[android-release] APK build failed"
+          BODY="The Android APK release build failed, so no new APK was
+          published. Likely cause: a source change broke the Android
+          adaptation (API renames in the patched files are the usual suspect),
+          or an upstream data URL moved.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Fix on the version branch \`jgrpp-<ver>-mobile\`, verify the build
+          locally, then re-push the tag."
+
+          NUM=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

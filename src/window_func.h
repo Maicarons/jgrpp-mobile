@@ -70,6 +70,8 @@ void ShowVitalWindows();
  */
 void ReInitAllWindows(bool zoom_changed);
 
+void UnshadeAllWindows();
+
 void SetWindowWidgetDirty(WindowClass cls, WindowNumber number, WidgetID widget_index);
 void SetWindowDirty(WindowClass cls, WindowNumber number);
 void SetWindowClassesDirty(WindowClass cls);

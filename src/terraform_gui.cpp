@@ -467,6 +467,15 @@ struct TerraformToolbarWindow : Window {
 		this->RaiseButtons();
 	}
 
+	void SelectLastTool() override
+	{
+		/* The player misplaced something, activate the last selected tool again. */
+		if (this->last_user_action == INVALID_WIDGET) return;
+		Point dummy = {0, 0};
+		this->RaiseWidget(this->last_user_action);
+		this->OnClick(dummy, this->last_user_action, 0);
+	}
+
 
 	/**
 	 * Handler for global hotkeys of the TerraformToolbarWindow.

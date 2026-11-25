@@ -40,9 +40,12 @@ mkdir -p "$AD" "$CACHE"
 if [ -n "$AD_MIRROR" ]; then mkdir -p "$AD_MIRROR"; fi
 echo "stage-data: staging into $AD"
 
-# Free base graphics and sound sets (override to try another release).
+# Free base graphics, sound and music sets (override to try another release).
+# These are the newest releases on cdn.openttd.org; the game cannot ship them
+# itself, GPL or not, because it does not own the original Transport Tycoon art.
 OGFX_VER="${OGFX_VER:-8.0}"
 OSFX_VER="${OSFX_VER:-1.0.3}"
+OMSX_VER="${OMSX_VER:-0.4.2}"
 
 # 1) openttd-data-<name>.zip.xz — the game data pack.
 #    The name is pinned by AppDataDownloadUrl in AndroidAppSettings.cfg; it is
@@ -72,10 +75,11 @@ if [ ! -f "$OUT1" ]; then
   ls "$DATA_DIR/baseset"/OpenTTD-*.ttf > /dev/null || {
     echo "stage-data: $BUILD/baseset has no OpenTTD fonts" >&2; exit 1; }
 
-  for SET in ogfx osfx; do
+  for SET in ogfx osfx omsx; do
     case "$SET" in
       ogfx) VER="$OGFX_VER"; U="https://cdn.openttd.org/opengfx-releases/$VER/opengfx-$VER-all.zip" ;;
       osfx) VER="$OSFX_VER"; U="https://cdn.openttd.org/opensfx-releases/$VER/opensfx-$VER-all.zip" ;;
+      omsx) VER="$OMSX_VER"; U="https://cdn.openttd.org/openmsx-releases/$VER/openmsx-$VER-all.zip" ;;
     esac
     Z="$CACHE/$SET-$VER.zip"
     [ -f "$Z" ] || curl -fsSL --retry 3 -o "$Z" "$U"
@@ -90,16 +94,25 @@ if [ ! -f "$OUT1" ]; then
   ( cd "$DATA_DIR" && zip -0 -r "$AD/$DATA_PACK.zip" baseset lang ai game )
   # Refuse to publish an incomplete pack (check before xz removes the .zip).
   unzip -l "$AD/$DATA_PACK.zip" 'lang/english.lng' 'baseset/OpenTTD-Sans.ttf' > /dev/null
+  # A music set has to be in there or the game falls back to no_music.obm and
+  # plays nothing, which is what the timidity samples below are for.
+  unzip -l "$AD/$DATA_PACK.zip" 'baseset/openmsx*' > /dev/null
   xz -8 -f "$AD/$DATA_PACK.zip"
 else
   echo "stage-data: $OUT1 already present, skipping"
 fi
 
-# 2) MIDI instruments (timidity.zip lives inside the packaging template)
+# 2) MIDI instruments (timidity.zip lives inside the packaging template).
+#    The shipped zip deflates its WAV samples, which hurts the xz pass that
+#    follows: store them instead, the two passes then compress the same data
+#    once and the archive is ~2 MB smaller.
 OUT2="$AD/timidity.zip.xz"
 if [ ! -f "$OUT2" ]; then
-  cp "$THIS_DIR/project/jni/timidity/samples/timidity.zip" "$AD/timidity.zip"
-  xz -8 -f "$AD/timidity.zip"
+  TMP="$CACHE/timidity"
+  rm -rf "$TMP" && mkdir -p "$TMP"
+  unzip -q "$THIS_DIR/project/jni/timidity/samples/timidity.zip" -d "$TMP"
+  ( cd "$TMP" && zip -0 -q -r "$AD/timidity.zip" timidity )
+  xz -9 -f "$AD/timidity.zip"
 else
   echo "stage-data: $OUT2 already present, skipping"
 fi

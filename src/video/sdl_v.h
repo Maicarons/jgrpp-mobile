@@ -33,6 +33,9 @@ public:
 
 	const char *GetName() const override { return "sdl"; }
 
+	void EditBoxGainedFocus() override;
+	void EditBoxLostFocus() override;
+
 #if defined(__ANDROID__) || defined(__OHOS__) || defined(__OHOS__)
 	Dimension GetScreenSize() const override;
 #endif

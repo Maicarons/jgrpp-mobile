@@ -50,6 +50,67 @@ static int _requested_hwpalette; /* Did we request a HWPALETTE for the current v
 static SDL_Joystick * _multitouch_device = NULL;
 static Point _multitouch_second_point;
 
+#if defined(__ANDROID__)
+/**
+ * The Android backend shows the system keyboard on request and hands the text
+ * the player typed back through a buffer owned by the caller; see
+ * SDL_screenkeyboard.h. The keyboard is asynchronous, so the buffer is polled
+ * from InputLoop() and the text is written back into the focused edit box.
+ */
+static const int OSK_TEXT_BUF_SIZE = 256;
+static char _osk_text[OSK_TEXT_BUF_SIZE];
+static bool _osk_active = false;
+
+/**
+ * Show the system keyboard, pre-filled with the text of the focused edit box.
+ */
+static void ShowSystemKeyboard()
+{
+	if (_osk_active) return;
+
+	/* The in-game on-screen keyboard draws its own keys; putting the system
+	 * keyboard on top of it would leave the player with two keyboards. */
+	if (FindWindowByClass(WindowClass::OnScreenKeyboard) != nullptr) return;
+
+	std::string text = GetFocusedEditBoxText();
+	/* The buffer has a fixed size; do not cut a UTF-8 sequence in half. */
+	if (text.size() >= OSK_TEXT_BUF_SIZE) {
+		size_t len = OSK_TEXT_BUF_SIZE - 1;
+		while (len > 0 && (text[len] & 0xC0) == 0x80) len--;
+		text.resize(len);
+	}
+	memcpy(_osk_text, text.c_str(), text.size() + 1);
+
+	/* A keyboard we hid ourselves reports its result a frame or two later.
+	 * Swallow that, so this call opens a fresh keyboard. */
+	if (SDL_ANDROID_GetScreenKeyboardTextInputAsync(_osk_text, OSK_TEXT_BUF_SIZE) == SDL_ANDROID_TEXTINPUT_ASYNC_FINISHED) {
+		memcpy(_osk_text, text.c_str(), text.size() + 1);
+		SDL_ANDROID_GetScreenKeyboardTextInputAsync(_osk_text, OSK_TEXT_BUF_SIZE);
+	}
+	_osk_active = true;
+}
+
+/** Poll the system keyboard and store the text it produced in the edit box. */
+static void PollSystemKeyboard()
+{
+	if (!_osk_active) return;
+	if (SDL_ANDROID_GetScreenKeyboardTextInputAsync(_osk_text, OSK_TEXT_BUF_SIZE) != SDL_ANDROID_TEXTINPUT_ASYNC_FINISHED) return;
+
+	_osk_active = false;
+	ApplyFocusedEditBoxText(_osk_text);
+}
+
+/** Hide the system keyboard, e.g. because the edit box lost focus. */
+static void HideSystemKeyboard()
+{
+	if (!_osk_active) return;
+	_osk_active = false;
+	/* The text still goes to _osk_text, not to the game: the backend keeps the
+	 * buffer registered until it reports the keyboard as finished. */
+	SDL_HideScreenKeyboard(nullptr);
+}
+#endif /* __ANDROID__ */
+
 void VideoDriver_SDL::MakeDirty(int left, int top, int width, int height)
 {
 	if (_num_dirty_rects < MAX_DIRTY_RECTS) {
@@ -692,8 +753,31 @@ void VideoDriver_SDL::SetupKeyboard()
 	SDL_EnableUNICODE(1);
 }
 
+/**
+ * An edit box got the focus: ask the platform for its text input, so a player on
+ * a device without a hardware keyboard can type into it.
+ */
+void VideoDriver_SDL::EditBoxGainedFocus()
+{
+#if defined(__ANDROID__)
+	ShowSystemKeyboard();
+#endif
+}
+
+/** The edit box lost the focus: take the platform's text input away again. */
+void VideoDriver_SDL::EditBoxLostFocus()
+{
+#if defined(__ANDROID__)
+	HideSystemKeyboard();
+#endif
+}
+
 void VideoDriver_SDL::Stop()
 {
+#if defined(__ANDROID__)
+	HideSystemKeyboard();
+#endif
+
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 	if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0) {
 		SDL_Quit(); // If there's nothing left, quit SDL
@@ -702,6 +786,11 @@ void VideoDriver_SDL::Stop()
 
 void VideoDriver_SDL::InputLoop()
 {
+#if defined(__ANDROID__)
+	/* Collect the text of the system keyboard, if one is open. */
+	PollSystemKeyboard();
+#endif
+
 	uint32_t mod = SDL_GetModState();
 	int numkeys;
 	Uint8 *keys = SDL_GetKeyState(&numkeys);

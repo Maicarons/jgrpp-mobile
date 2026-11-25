@@ -18,6 +18,8 @@
 #include "strings_id_type.h"
 
 #include <bitset>
+#include <string>
+#include <string_view>
 
 Window *FindWindowById(WindowClass cls, WindowNumber number);
 Window *FindWindowByClass(WindowClass cls);
@@ -102,6 +104,8 @@ inline bool HaveWindowByClass(WindowClass wc)
 }
 
 bool EditBoxInGlobalFocus();
+std::string GetFocusedEditBoxText();
+void ApplyFocusedEditBoxText(std::string_view text);
 bool FocusedWindowIsConsole();
 bool FocusedWindowSuppressesTabToFastForward();
 Point GetCaretPosition();

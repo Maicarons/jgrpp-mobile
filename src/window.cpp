@@ -497,6 +497,52 @@ bool EditBoxInGlobalFocus()
 }
 
 /**
+ * Get the text of the edit box that has global focus, so that a platform's own
+ * text input (e.g. the Android soft keyboard) can be seeded with it.
+ * @return The current text, or an empty string when no text input has focus.
+ */
+std::string GetFocusedEditBoxText()
+{
+	if (_focused_window == nullptr) return {};
+
+	const Textbuf *text_buf = _focused_window->GetFocusedTextbuf();
+	return text_buf != nullptr ? text_buf->GetText() : std::string{};
+}
+
+/**
+ * Replace the text of the edit box that has global focus with the result of a
+ * platform's own text input.
+ * @param text The new text.
+ */
+void ApplyFocusedEditBoxText(std::string_view text)
+{
+	if (!EditBoxInGlobalFocus()) return;
+
+	const Textbuf *text_buf = _focused_window->GetFocusedTextbuf();
+	if (text_buf == nullptr) return;
+
+	/* Replace the whole buffer: Textbuf::InsertString overwrites the range
+	 * [insert_location, replacement_end), and an empty buffer has no range to
+	 * overwrite, so it gets the text inserted instead. */
+	const size_t old_bytes = text_buf->GetText().size();
+	if (old_bytes == 0) {
+		HandleTextInput(text, false, text.size());
+		return;
+	}
+
+	HandleTextInput(text, false, text.size(), size_t{0}, old_bytes);
+
+	/* InsertString deletes the old text before it notices that the insertion
+	 * string is empty, and then reports "no change", so clearing the box does
+	 * not update the window on its own. */
+	if (text.empty()) {
+		WidgetID widget = _focused_window->window_class == WindowClass::Console ? WidgetID{} : _focused_window->nested_focus->GetIndex();
+		_focused_window->SetWidgetDirty(widget);
+		_focused_window->OnEditboxChanged(widget);
+	}
+}
+
+/**
  * Check if a console is focused.
  * @return returns true if the focused window is a console, else false
  */
